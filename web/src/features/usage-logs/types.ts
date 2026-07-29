@@ -260,6 +260,14 @@ export interface LogOtherData {
   provider_credit_cash_cost_cny?: string
   effective_provider_cash_cost_cny?: string
   judge_cash_cost_cny?: string
+  judge_input_tokens?: number
+  judge_output_tokens?: number
+  judge_official_payg_equivalent_cost?: string
+  judge_cost_currency?: string
+  judge_cost_status?: 'estimated_blended' | 'estimated_upper_bound' | 'verified' | 'mixed' | 'not_applicable'
+  judge_cost_source?: string
+  judge_provider?: string
+  judge_model?: string
   failed_attempt_cash_cost_cny?: string
   actual_total_cash_cost_cny?: string
   user_charge_cny?: string
@@ -302,6 +310,14 @@ export interface LogOtherData {
     user_charge?: string
     actual_total_cash_cost_cny?: number
     judge_cash_cost_cny?: number
+    judge_input_tokens?: number
+    judge_output_tokens?: number
+    judge_official_payg_equivalent_cost?: number
+    judge_cost_currency?: string
+    judge_cost_status?: 'estimated_blended' | 'estimated_upper_bound' | 'verified' | 'mixed' | 'not_applicable'
+    judge_cost_source?: string
+    judge_provider?: string
+    judge_model?: string
     failed_attempt_cash_cost_cny?: number
     counterfactual_quality_ceiling_cost_cny?: number
     reference_provider?: string

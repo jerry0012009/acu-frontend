@@ -56,7 +56,8 @@ func FinalizeACUUsage(request dto.ACUUsageFinalizeRequest, payloadHash string) (
 	if err != nil || tokenID <= 0 {
 		return dto.ACUUsageFinalizeResponse{}, errors.New("newapi_token_id is invalid")
 	}
-	usageValues := []int64{request.Usage.InputTokens, request.Usage.CachedInputTokens, request.Usage.OutputTokens, request.Usage.ReasoningTokens}
+	usageValues := []int64{request.Usage.InputTokens, request.Usage.CachedInputTokens, request.Usage.OutputTokens,
+		request.Usage.ReasoningTokens, request.JudgeInputTokens, request.JudgeOutputTokens}
 	for _, value := range usageValues {
 		if value < 0 || value > int64(common.MaxQuota) {
 			return dto.ACUUsageFinalizeResponse{}, errors.New("ACU usage token count is out of range")
@@ -89,6 +90,10 @@ func FinalizeACUUsage(request dto.ACUUsageFinalizeRequest, payloadHash string) (
 	actualTotalCash := decimal.Zero
 	userChargeCny := decimal.Zero
 	counterfactualCost := decimal.Zero
+	judgeOfficialPaygEquivalent := decimal.Zero
+	judgeCostCurrency := strings.TrimSpace(request.JudgeCostCurrency)
+	judgeCostStatus := strings.TrimSpace(request.JudgeCostStatus)
+	judgeCostSource := strings.TrimSpace(request.JudgeCostSource)
 	if actualCashV2 {
 		providerBalanceChargeRaw := request.ProviderBalanceCharge
 		legacyProviderBalance := strings.TrimSpace(providerBalanceChargeRaw) == ""
@@ -134,6 +139,38 @@ func FinalizeACUUsage(request dto.ACUUsageFinalizeRequest, payloadHash string) (
 				return dto.ACUUsageFinalizeResponse{}, err
 			}
 		}
+		judgeOfficialPaygEquivalent, err = parseACUCost(
+			"judge_official_payg_equivalent_cost", request.JudgeOfficialPaygEquivalentCost,
+		)
+		if err != nil {
+			return dto.ACUUsageFinalizeResponse{}, err
+		}
+		if judgeCostCurrency == "" {
+			judgeCostCurrency = "CNY"
+		}
+		if judgeCostStatus == "" {
+			if judgeCash.IsZero() {
+				judgeCostStatus = "not_applicable"
+			} else {
+				judgeCostStatus = "verified"
+			}
+		}
+		if judgeCostSource == "" {
+			judgeCostSource = "legacy_closeai_cash_semantics"
+		}
+		if judgeCostCurrency != "CNY" {
+			return dto.ACUUsageFinalizeResponse{}, errors.New("judge_cost_currency must be CNY")
+		}
+		validJudgeCostStatus := map[string]bool{
+			"estimated_blended": true, "estimated_upper_bound": true,
+			"verified": true, "mixed": true, "not_applicable": true,
+		}
+		if !validJudgeCostStatus[judgeCostStatus] {
+			return dto.ACUUsageFinalizeResponse{}, errors.New("judge_cost_status is invalid")
+		}
+		if judgeCostSource == "" || len(judgeCostSource) > 256 {
+			return dto.ACUUsageFinalizeResponse{}, errors.New("judge_cost_source is invalid")
+		}
 		if !nominalProviderCost.Equal(providerCost) {
 			return dto.ACUUsageFinalizeResponse{}, errors.New("nominal_provider_cost_usd does not match provider_cost_usd")
 		}
@@ -163,6 +200,15 @@ func FinalizeACUUsage(request dto.ACUUsageFinalizeRequest, payloadHash string) (
 		finalCost = userChargeCny.Div(decimal.NewFromFloat(operation_setting.USDExchangeRate))
 	} else if !judgeCost.Add(providerCost).Add(failedCost).Equal(finalCost) {
 		return dto.ACUUsageFinalizeResponse{}, errors.New("final_user_cost_usd does not match the cost components")
+	}
+	if judgeCostCurrency == "" {
+		judgeCostCurrency = "CNY"
+	}
+	if judgeCostStatus == "" {
+		judgeCostStatus = "not_applicable"
+	}
+	if judgeCostSource == "" {
+		judgeCostSource = "legacy_nominal_usd_semantics"
 	}
 	quotaDecimal := finalCost.Mul(decimal.NewFromFloat(common.QuotaPerUnit))
 	finalQuota, clamp := common.QuotaFromDecimalChecked(quotaDecimal)
@@ -198,6 +244,14 @@ func FinalizeACUUsage(request dto.ACUUsageFinalizeRequest, payloadHash string) (
 		ProviderCreditCashCostCny:           providerCreditCashCost.StringFixed(10),
 		EffectiveProviderCashCostCny:        effectiveProviderCash.StringFixed(10),
 		JudgeCashCostCny:                    judgeCash.StringFixed(10),
+		JudgeInputTokens:                    request.JudgeInputTokens,
+		JudgeOutputTokens:                   request.JudgeOutputTokens,
+		JudgeOfficialPaygEquivalentCost:     judgeOfficialPaygEquivalent.StringFixed(10),
+		JudgeCostCurrency:                   judgeCostCurrency,
+		JudgeCostStatus:                     judgeCostStatus,
+		JudgeCostSource:                     judgeCostSource,
+		JudgeProvider:                       strings.TrimSpace(request.JudgeProvider),
+		JudgeModel:                          strings.TrimSpace(request.JudgeModel),
 		FailedAttemptCashCostCny:            failedAttemptCash.StringFixed(10),
 		ActualTotalCashCostCny:              actualTotalCash.StringFixed(10),
 		UserChargeCny:                       userChargeCny.StringFixed(10),

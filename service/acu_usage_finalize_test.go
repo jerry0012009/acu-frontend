@@ -55,6 +55,11 @@ func TestFinalizeACUUsageChargesFounderAlphaActualCashAtOneTimes(t *testing.T) {
 		NominalProviderCostUSD: "0.1393640000", ProviderBalanceCharge: "0.0083618400",
 		ProviderBalanceCurrency: "USD-denominated credits", ProviderCreditCashCostCNY: "1.0000000000",
 		EffectiveProviderCashCostCNY: "0.0083618400", JudgeCashCostCNY: "0.0001200000",
+		JudgeInputTokens: 1000, JudgeOutputTokens: 100,
+		JudgeOfficialPaygEquivalentCost: "0.0006500000", JudgeCostCurrency: "CNY",
+		JudgeCostStatus: "estimated_blended",
+		JudgeCostSource: "midpoint_openrouter_payg_and_mimo99_plan_v1",
+		JudgeProvider:   "xiaomi_mimo", JudgeModel: "mimo-v2.5-pro",
 		FailedAttemptCashCostCNY: "0.0000000000", ActualTotalCashCostCNY: "0.0084818400", UserChargeCNY: "0.0084818400",
 	}
 
@@ -79,6 +84,11 @@ func TestFinalizeACUUsageChargesFounderAlphaActualCashAtOneTimes(t *testing.T) {
 	require.True(t, decimal.RequireFromString("1.0000000000").Equal(
 		decimal.RequireFromString(finalized.ProviderCreditCashCostCny),
 	))
+	require.EqualValues(t, 1000, finalized.JudgeInputTokens)
+	require.EqualValues(t, 100, finalized.JudgeOutputTokens)
+	require.Equal(t, "estimated_blended", finalized.JudgeCostStatus)
+	require.Equal(t, "midpoint_openrouter_payg_and_mimo99_plan_v1", finalized.JudgeCostSource)
+	require.Equal(t, "mimo-v2.5-pro", finalized.JudgeModel)
 }
 
 func TestFinalizeACUUsageChargesAndUpdatesLogExactlyOnce(t *testing.T) {

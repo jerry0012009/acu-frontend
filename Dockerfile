@@ -12,6 +12,10 @@ ENV GO111MODULE=on CGO_ENABLED=0
 
 ARG TARGETOS
 ARG TARGETARCH
+ARG BUILD_COMMIT_SHA=unknown
+ARG BUILD_TIME=unknown
+ARG BUILD_BRANCH=unknown
+ARG SCHEMA_VERSION=acu_usage_finalize_rc22
 ENV GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64}
 ENV GOEXPERIMENT=greenteagc
 
@@ -22,9 +26,14 @@ RUN go mod download
 
 COPY . .
 COPY --from=builder /build/web/dist ./web/dist
-RUN go build -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$(cat VERSION)'" -o new-api
+RUN go build -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$(cat VERSION)' -X 'github.com/QuantumNous/new-api/common.BuildCommit=${BUILD_COMMIT_SHA}' -X 'github.com/QuantumNous/new-api/common.BuildTime=${BUILD_TIME}' -X 'github.com/QuantumNous/new-api/common.BuildBranch=${BUILD_BRANCH}' -X 'github.com/QuantumNous/new-api/common.SchemaVersion=${SCHEMA_VERSION}'" -o new-api
 
 FROM debian:bookworm-slim@sha256:f06537653ac770703bc45b4b113475bd402f451e85223f0f2837acbf89ab020a
+
+ARG BUILD_COMMIT_SHA=unknown
+ARG BUILD_TIME=unknown
+LABEL org.opencontainers.image.revision=$BUILD_COMMIT_SHA \
+      org.opencontainers.image.created=$BUILD_TIME
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates tzdata libasan8 wget \

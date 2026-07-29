@@ -41,6 +41,14 @@ type ACUUsageFinalize struct {
 	ProviderCreditCashCostCny           string `json:"provider_credit_cash_cost_cny" gorm:"type:decimal(20,10);not null;default:0"`
 	EffectiveProviderCashCostCny        string `json:"effective_provider_cash_cost_cny" gorm:"type:decimal(20,10);not null;default:0"`
 	JudgeCashCostCny                    string `json:"judge_cash_cost_cny" gorm:"type:decimal(20,10);not null;default:0"`
+	JudgeInputTokens                    int64  `json:"judge_input_tokens" gorm:"not null;default:0"`
+	JudgeOutputTokens                   int64  `json:"judge_output_tokens" gorm:"not null;default:0"`
+	JudgeOfficialPaygEquivalentCost     string `json:"judge_official_payg_equivalent_cost" gorm:"type:decimal(20,10);not null;default:0"`
+	JudgeCostCurrency                   string `json:"judge_cost_currency" gorm:"type:varchar(16);not null;default:'CNY'"`
+	JudgeCostStatus                     string `json:"judge_cost_status" gorm:"type:varchar(32);not null;default:'not_applicable'"`
+	JudgeCostSource                     string `json:"judge_cost_source" gorm:"type:varchar(128);not null;default:'not_applicable'"`
+	JudgeProvider                       string `json:"judge_provider" gorm:"type:varchar(128)"`
+	JudgeModel                          string `json:"judge_model" gorm:"type:varchar(128)"`
 	FailedAttemptCashCostCny            string `json:"failed_attempt_cash_cost_cny" gorm:"type:decimal(20,10);not null;default:0"`
 	ActualTotalCashCostCny              string `json:"actual_total_cash_cost_cny" gorm:"type:decimal(20,10);not null;default:0"`
 	UserChargeCny                       string `json:"user_charge_cny" gorm:"type:decimal(20,10);not null;default:0"`
@@ -77,6 +85,14 @@ type ACUUsageChargeInput struct {
 	ProviderCreditCashCostCny           string
 	EffectiveProviderCashCostCny        string
 	JudgeCashCostCny                    string
+	JudgeInputTokens                    int64
+	JudgeOutputTokens                   int64
+	JudgeOfficialPaygEquivalentCost     string
+	JudgeCostCurrency                   string
+	JudgeCostStatus                     string
+	JudgeCostSource                     string
+	JudgeProvider                       string
+	JudgeModel                          string
 	FailedAttemptCashCostCny            string
 	ActualTotalCashCostCny              string
 	UserChargeCny                       string
@@ -139,6 +155,14 @@ func ApplyACUUsageCharge(input ACUUsageChargeInput) (*ACUUsageFinalize, bool, er
 			ProviderCreditCashCostCny:           input.ProviderCreditCashCostCny,
 			EffectiveProviderCashCostCny:        input.EffectiveProviderCashCostCny,
 			JudgeCashCostCny:                    input.JudgeCashCostCny,
+			JudgeInputTokens:                    input.JudgeInputTokens,
+			JudgeOutputTokens:                   input.JudgeOutputTokens,
+			JudgeOfficialPaygEquivalentCost:     input.JudgeOfficialPaygEquivalentCost,
+			JudgeCostCurrency:                   input.JudgeCostCurrency,
+			JudgeCostStatus:                     input.JudgeCostStatus,
+			JudgeCostSource:                     input.JudgeCostSource,
+			JudgeProvider:                       input.JudgeProvider,
+			JudgeModel:                          input.JudgeModel,
 			FailedAttemptCashCostCny:            input.FailedAttemptCashCostCny,
 			ActualTotalCashCostCny:              input.ActualTotalCashCostCny,
 			UserChargeCny:                       input.UserChargeCny,
@@ -261,6 +285,14 @@ func FinalizeACUConsumeLog(record *ACUUsageFinalize) error {
 		"provider_credit_cash_cost_cny":           record.ProviderCreditCashCostCny,
 		"effective_provider_cash_cost_cny":        record.EffectiveProviderCashCostCny,
 		"judge_cash_cost_cny":                     record.JudgeCashCostCny,
+		"judge_input_tokens":                      record.JudgeInputTokens,
+		"judge_output_tokens":                     record.JudgeOutputTokens,
+		"judge_official_payg_equivalent_cost":     record.JudgeOfficialPaygEquivalentCost,
+		"judge_cost_currency":                     record.JudgeCostCurrency,
+		"judge_cost_status":                       record.JudgeCostStatus,
+		"judge_cost_source":                       record.JudgeCostSource,
+		"judge_provider":                          record.JudgeProvider,
+		"judge_model":                             record.JudgeModel,
 		"failed_attempt_cash_cost_cny":            record.FailedAttemptCashCostCny,
 		"actual_total_cash_cost_cny":              record.ActualTotalCashCostCny,
 		"user_charge_cny":                         record.UserChargeCny,

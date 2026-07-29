@@ -942,7 +942,29 @@ export function DetailsDialog(props: DetailsDialogProps) {
               />
             )}
             {acuRoute?.judge_cash_cost_cny != null && (
-              <DetailRow label={t('Judge Cost (CNY)')} value={`¥${acuRoute.judge_cash_cost_cny.toFixed(8)}`} mono />
+              <DetailRow
+                label={acuRoute.judge_cost_status === 'estimated_blended'
+                  ? t('MiMo Judge Cost (Blended Estimate)')
+                  : acuRoute.judge_cost_status === 'mixed'
+                    ? t('Judge Cost (Mixed Estimate)')
+                  : t('Judge Cost (CNY)')}
+                value={`¥${acuRoute.judge_cash_cost_cny.toFixed(8)}`}
+                mono
+              />
+            )}
+            {(acuRoute?.judge_cost_status === 'estimated_blended' || acuRoute?.judge_cost_status === 'mixed')
+              && acuRoute.judge_official_payg_equivalent_cost != null && (
+              <DetailRow
+                label={t('MiMo Official PAYG Equivalent')}
+                value={`¥${acuRoute.judge_official_payg_equivalent_cost.toFixed(8)}`}
+                mono
+              />
+            )}
+            {acuRoute?.judge_model && (
+              <DetailRow label={t('Judge Model')} value={acuRoute.judge_model} mono />
+            )}
+            {acuRoute?.judge_cost_status && (
+              <DetailRow label={t('Judge Cost Status')} value={acuRoute.judge_cost_status} mono />
             )}
             {acuRoute?.failed_attempt_cash_cost_cny != null && (
               <DetailRow label={t('Failed Attempt Cost (CNY)')} value={`¥${acuRoute.failed_attempt_cash_cost_cny.toFixed(8)}`} mono />

@@ -28,6 +28,14 @@ type ACUUsageFinalizeRequest struct {
 	ProviderBalanceChargeUSD            string                 `json:"provider_balance_charge_usd,omitempty"`
 	EffectiveProviderCashCostCNY        string                 `json:"effective_provider_cash_cost_cny"`
 	JudgeCashCostCNY                    string                 `json:"judge_cash_cost_cny"`
+	JudgeInputTokens                    int64                  `json:"judge_input_tokens"`
+	JudgeOutputTokens                   int64                  `json:"judge_output_tokens"`
+	JudgeOfficialPaygEquivalentCost     string                 `json:"judge_official_payg_equivalent_cost"`
+	JudgeCostCurrency                   string                 `json:"judge_cost_currency"`
+	JudgeCostStatus                     string                 `json:"judge_cost_status"`
+	JudgeCostSource                     string                 `json:"judge_cost_source"`
+	JudgeProvider                       string                 `json:"judge_provider"`
+	JudgeModel                          string                 `json:"judge_model"`
 	FailedAttemptCashCostCNY            string                 `json:"failed_attempt_cash_cost_cny"`
 	ActualTotalCashCostCNY              string                 `json:"actual_total_cash_cost_cny"`
 	UserChargeCNY                       string                 `json:"user_charge_cny"`
