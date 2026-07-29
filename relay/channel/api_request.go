@@ -179,17 +179,32 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	userID := strconv.Itoa(info.UserId)
 	tokenID := strconv.Itoa(info.TokenId)
 	logID := requestID
-	payload := strings.Join([]string{userID, tokenID, logID, requestID, timestamp, bodySHA}, "\n")
+	clientVersion := acuClientVersion(c)
+	payload := strings.Join([]string{userID, tokenID, logID, requestID, clientVersion, timestamp, bodySHA}, "\n")
 	mac := hmac.New(sha256.New, []byte(secret))
 	_, _ = mac.Write([]byte(payload))
 	req.Header.Set("X-ACU-NewAPI-User-ID", userID)
 	req.Header.Set("X-ACU-NewAPI-Token-ID", tokenID)
 	req.Header.Set("X-ACU-NewAPI-Log-ID", logID)
 	req.Header.Set("X-ACU-Request-ID", requestID)
+	req.Header.Set("X-ACU-Client-Version", clientVersion)
 	req.Header.Set("X-ACU-Timestamp", timestamp)
 	req.Header.Set("X-ACU-Body-SHA256", bodySHA)
 	req.Header.Set("X-ACU-Signature", hex.EncodeToString(mac.Sum(nil)))
 	return nil
+}
+
+var acuClientVersionPattern = regexp.MustCompile(`(?i)(?:codex_exec|claude-cli)/([^\s()]+)`)
+
+func acuClientVersion(c *gin.Context) string {
+	if c == nil || c.Request == nil {
+		return "unknown"
+	}
+	match := acuClientVersionPattern.FindStringSubmatch(c.Request.UserAgent())
+	if len(match) != 2 || strings.TrimSpace(match[1]) == "" {
+		return "unknown"
+	}
+	return match[1]
 }
 
 func applyHeaderOverridePlaceholders(template string, c *gin.Context, apiKey string) (string, bool, error) {
