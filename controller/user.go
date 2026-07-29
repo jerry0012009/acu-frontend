@@ -1408,6 +1408,7 @@ type UpdateUserSettingRequest struct {
 	RecordIpLog                      bool      `json:"record_ip_log"`
 	ACURoutingPolicy                 *string   `json:"acu_routing_policy,omitempty"`
 	ACUAllowedModelIds               *[]string `json:"acu_allowed_model_ids,omitempty"`
+	ACURoutingPreference             *string   `json:"acu_routing_preference,omitempty"`
 }
 
 func UpdateUserSetting(c *gin.Context) {
@@ -1545,6 +1546,17 @@ func UpdateUserSetting(c *gin.Context) {
 	}
 	if settings.ACURoutingPolicy != "custom_allowlist" {
 		settings.ACUAllowedModelIds = nil
+	}
+	if req.ACURoutingPreference != nil {
+		preference := strings.TrimSpace(*req.ACURoutingPreference)
+		if preference != "economy" && preference != "balanced" && preference != "quality" {
+			common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+			return
+		}
+		settings.ACURoutingPreference = preference
+	}
+	if settings.ACURoutingPreference == "" {
+		settings.ACURoutingPreference = "balanced"
 	}
 
 	// 如果是webhook类型,添加webhook相关设置

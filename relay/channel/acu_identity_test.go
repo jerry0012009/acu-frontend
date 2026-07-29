@@ -35,6 +35,7 @@ func TestApplyACUTrustedIdentityReplacesForgedHeadersAndBindsBody(t *testing.T) 
 	require.Equal(t, "req_alpha_1", req.Header.Get("X-ACU-Request-ID"))
 	require.Equal(t, "0.145.0", req.Header.Get("X-ACU-Client-Version"))
 	require.Equal(t, "all_routing_eligible", req.Header.Get("X-ACU-Routing-Policy"))
+	require.Equal(t, "balanced", req.Header.Get("X-ACU-Routing-Preference"))
 	require.Equal(t, "[]", req.Header.Get("X-ACU-Allowed-Model-Ids"))
 	require.NotEmpty(t, req.Header.Get("X-ACU-Routing-Policy-Version"))
 	require.Empty(t, req.Header.Get("X-ACU-Unrecognized-Internal"))
@@ -45,7 +46,7 @@ func TestApplyACUTrustedIdentityReplacesForgedHeadersAndBindsBody(t *testing.T) 
 	payload := strings.Join([]string{
 		"17", "29", "req_alpha_1", "req_alpha_1", "0.145.0",
 		"all_routing_eligible", "[]", req.Header.Get("X-ACU-Routing-Policy-Version"),
-		req.Header.Get("X-ACU-Timestamp"), bodyHash,
+		"balanced", req.Header.Get("X-ACU-Timestamp"), bodyHash,
 	}, "\n")
 	mac := hmac.New(sha256.New, []byte("test-only-shared-secret"))
 	_, _ = mac.Write([]byte(payload))
@@ -61,10 +62,13 @@ func TestApplyACUTrustedIdentitySignsCustomUserAllowlist(t *testing.T) {
 	info := &relaycommon.RelayInfo{IsACUChannel: true, UserId: 17, TokenId: 29, RequestId: "req_policy"}
 	info.UserSetting.ACURoutingPolicy = "custom_allowlist"
 	info.UserSetting.ACUAllowedModelIds = []string{"gpt-5.6-sol", "gpt-5.6-luna"}
+	info.UserSetting.ACURoutingPreference = "quality"
 
 	require.NoError(t, applyACUTrustedIdentity(req, ctx, info, []byte(`{"model":"acu-auto"}`)))
 	require.Equal(t, "custom_allowlist", req.Header.Get("X-ACU-Routing-Policy"))
 	require.Equal(t, `["gpt-5.6-luna","gpt-5.6-sol"]`, req.Header.Get("X-ACU-Allowed-Model-Ids"))
+	require.Equal(t, "quality", req.Header.Get("X-ACU-Routing-Preference"))
+	require.Contains(t, req.Header.Get("X-ACU-Routing-Policy-Version"), "acu-user-policy-v2-")
 }
 
 func TestACUClientVersionUsesOnlyRecognizedNativeUserAgents(t *testing.T) {

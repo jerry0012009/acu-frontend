@@ -18,6 +18,7 @@ type UserSetting struct {
 	Language                         string   `json:"language,omitempty"`                             // Language 用户语言偏好 (zh, en)
 	ACURoutingPolicy                 string   `json:"acu_routing_policy,omitempty"`                   // ACU auto-routing policy
 	ACUAllowedModelIds               []string `json:"acu_allowed_model_ids,omitempty"`                // Models allowed to participate in acu-auto
+	ACURoutingPreference             string   `json:"acu_routing_preference,omitempty"`               // economy, balanced, or quality
 }
 
 var (

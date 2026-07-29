@@ -36,6 +36,7 @@ import {
 } from '../../constants'
 import { parseUserSettings } from '../../lib'
 import type {
+  ACURoutingPreference,
   ACURoutingPolicy,
   UserProfile,
   UserSettings,
@@ -88,6 +89,7 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
     upstream_model_update_notify_enabled: false,
     acu_routing_policy: 'all_routing_eligible',
     acu_allowed_model_ids: [],
+    acu_routing_preference: 'balanced',
   })
 
   // Update form field helper
@@ -117,9 +119,9 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
         record_ip_log: parsed.record_ip_log || false,
         upstream_model_update_notify_enabled:
           parsed.upstream_model_update_notify_enabled || false,
-        acu_routing_policy:
-          parsed.acu_routing_policy || 'all_routing_eligible',
+        acu_routing_policy: parsed.acu_routing_policy || 'all_routing_eligible',
         acu_allowed_model_ids: parsed.acu_allowed_model_ids || [],
+        acu_routing_preference: parsed.acu_routing_preference || 'balanced',
       })
     }
   }, [profile])
@@ -338,7 +340,38 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
         <div>
           <h4 className='text-sm font-medium'>{t('ACU model policy')}</h4>
           <p className='text-muted-foreground mt-1 text-xs'>
-            {t('Choose which verified models may participate in acu-auto routing.')}
+            {t(
+              'Choose which verified models may participate in acu-auto routing.'
+            )}
+          </p>
+        </div>
+        <div className='space-y-1.5'>
+          <Label htmlFor='acuRoutingPreference'>
+            {t('Routing preference')}
+          </Label>
+          <select
+            id='acuRoutingPreference'
+            className='border-input bg-background h-9 w-full rounded-md border px-3 text-sm'
+            value={settings.acu_routing_preference}
+            onChange={(event) =>
+              updateField(
+                'acu_routing_preference',
+                event.target.value as ACURoutingPreference
+              )
+            }
+          >
+            <option value='economy'>{t('Economy — prioritize savings')}</option>
+            <option value='balanced'>
+              {t('Balanced — balance quality and cost')}
+            </option>
+            <option value='quality'>
+              {t('Quality — prioritize reliability')}
+            </option>
+          </select>
+          <p className='text-muted-foreground text-xs'>
+            {t(
+              'The preference guides acu-auto without locking requests to a fixed model.'
+            )}
           </p>
         </div>
         <div className='space-y-1.5'>
@@ -363,9 +396,7 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
         </div>
         {settings.acu_routing_policy === 'custom_allowlist' && (
           <div className='space-y-1.5'>
-            <Label htmlFor='acuAllowedModels'>
-              {t('Allowed model IDs')}
-            </Label>
+            <Label htmlFor='acuAllowedModels'>{t('Allowed model IDs')}</Label>
             <Input
               id='acuAllowedModels'
               value={(settings.acu_allowed_model_ids || []).join(', ')}
@@ -381,7 +412,9 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
               placeholder='gpt-5.6-luna, gpt-5.6-sol'
             />
             <p className='text-muted-foreground text-xs'>
-              {t('Unknown, unavailable, incompatible, or unpriced models are still excluded by ACU.')}
+              {t(
+                'Unknown, unavailable, incompatible, or unpriced models are still excluded by ACU.'
+              )}
             </p>
           </div>
         )}

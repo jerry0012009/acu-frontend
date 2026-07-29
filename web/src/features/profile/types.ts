@@ -91,6 +91,7 @@ export type ACURoutingPolicy =
   | 'all_routing_eligible'
   | 'custom_allowlist'
   | 'explicit_only'
+export type ACURoutingPreference = 'economy' | 'balanced' | 'quality'
 
 /**
  * Parsed user settings
@@ -125,6 +126,7 @@ export interface UserSettings {
   /** Models eligible for ACU automatic routing */
   acu_routing_policy?: ACURoutingPolicy
   acu_allowed_model_ids?: string[]
+  acu_routing_preference?: ACURoutingPreference
 }
 
 /**
@@ -154,6 +156,7 @@ export interface UpdateUserSettingsRequest {
   upstream_model_update_notify_enabled?: boolean
   acu_routing_policy?: ACURoutingPolicy
   acu_allowed_model_ids?: string[]
+  acu_routing_preference?: ACURoutingPreference
 }
 
 /**

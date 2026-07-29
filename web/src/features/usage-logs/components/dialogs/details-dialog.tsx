@@ -754,6 +754,13 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 mono
               />
             )}
+            {acuRoute?.routing_preference && (
+              <DetailRow
+                label={t('Routing Preference')}
+                value={acuRoute.routing_preference}
+                mono
+              />
+            )}
             {acuRoute?.candidate_count != null && (
               <DetailRow
                 label={t('Candidates')}

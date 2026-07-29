@@ -197,15 +197,22 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	if routingPolicy == "custom_allowlist" && len(allowedModelIDs) == 0 {
 		return errors.New("ACU custom routing allowlist is empty")
 	}
+	routingPreference := strings.TrimSpace(info.UserSetting.ACURoutingPreference)
+	if routingPreference == "" {
+		routingPreference = "balanced"
+	}
+	if routingPreference != "economy" && routingPreference != "balanced" && routingPreference != "quality" {
+		return errors.New("ACU routing preference is invalid")
+	}
 	allowedModelIDsJSON, err := json.Marshal(allowedModelIDs)
 	if err != nil {
 		return fmt.Errorf("marshal ACU routing allowlist: %w", err)
 	}
-	policyDigest := sha256.Sum256([]byte(routingPolicy + "\n" + string(allowedModelIDsJSON)))
-	routingPolicyVersion := "acu-user-policy-v1-" + hex.EncodeToString(policyDigest[:8])
+	policyDigest := sha256.Sum256([]byte(routingPolicy + "\n" + string(allowedModelIDsJSON) + "\n" + routingPreference))
+	routingPolicyVersion := "acu-user-policy-v2-" + hex.EncodeToString(policyDigest[:8])
 	payload := strings.Join([]string{
 		userID, tokenID, logID, requestID, clientVersion, routingPolicy,
-		string(allowedModelIDsJSON), routingPolicyVersion, timestamp, bodySHA,
+		string(allowedModelIDsJSON), routingPolicyVersion, routingPreference, timestamp, bodySHA,
 	}, "\n")
 	mac := hmac.New(sha256.New, []byte(secret))
 	_, _ = mac.Write([]byte(payload))
@@ -217,6 +224,7 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	req.Header.Set("X-ACU-Routing-Policy", routingPolicy)
 	req.Header.Set("X-ACU-Allowed-Model-Ids", string(allowedModelIDsJSON))
 	req.Header.Set("X-ACU-Routing-Policy-Version", routingPolicyVersion)
+	req.Header.Set("X-ACU-Routing-Preference", routingPreference)
 	req.Header.Set("X-ACU-Timestamp", timestamp)
 	req.Header.Set("X-ACU-Body-SHA256", bodySHA)
 	req.Header.Set("X-ACU-Signature", hex.EncodeToString(mac.Sum(nil)))
