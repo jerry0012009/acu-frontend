@@ -775,6 +775,27 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 mono
               />
             )}
+            {acuRoute?.canonical_model && (
+              <DetailRow
+                label={t('Canonical Model')}
+                value={acuRoute.canonical_model}
+                mono
+              />
+            )}
+            {acuRoute?.provider_model && (
+              <DetailRow
+                label={t('Provider Model')}
+                value={acuRoute.provider_model}
+                mono
+              />
+            )}
+            {acuRoute?.selected_provider && (
+              <DetailRow
+                label={t('Selected Provider')}
+                value={acuRoute.selected_provider}
+                mono
+              />
+            )}
             <DetailRow
               label={t('Actual Model')}
               value={props.log.model_name}
@@ -785,6 +806,12 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 label={t('Actual Provider')}
                 value={other.actual_provider}
                 mono
+              />
+            )}
+            {acuRoute?.provider_selection_reason && (
+              <DetailRow
+                label={t('Provider Selection Reason')}
+                value={acuRoute.provider_selection_reason}
               />
             )}
             {other.actual_channel && (
@@ -803,6 +830,48 @@ export function DetailsDialog(props: DetailsDialogProps) {
               <DetailRow
                 label={t('Final Cost (USD)')}
                 value={other.final_user_cost_usd}
+                mono
+              />
+            )}
+            {acuRoute?.nominal_provider_cost_usd != null && (
+              <DetailRow
+                label={t('Nominal Provider Cost (USD)')}
+                value={`$${acuRoute.nominal_provider_cost_usd.toFixed(10)}`}
+                mono
+              />
+            )}
+            {acuRoute?.provider_balance_charge_usd != null && (
+              <DetailRow
+                label={t('Provider Balance Charge (USD)')}
+                value={`$${acuRoute.provider_balance_charge_usd.toFixed(10)}`}
+                mono
+              />
+            )}
+            {acuRoute?.effective_cash_cost_cny != null && (
+              <DetailRow
+                label={t('Effective Cash Cost (CNY)')}
+                value={`¥${acuRoute.effective_cash_cost_cny.toFixed(8)}`}
+                mono
+              />
+            )}
+            {acuRoute?.user_charge && (
+              <DetailRow
+                label={t('User Charge (USD)')}
+                value={`$${acuRoute.user_charge}`}
+                mono
+              />
+            )}
+            {acuRoute?.reference_provider && (
+              <DetailRow
+                label={t('Reference Provider')}
+                value={acuRoute.reference_provider}
+                mono
+              />
+            )}
+            {acuRoute?.effective_savings_vs_reference_cny != null && (
+              <DetailRow
+                label={t('Effective Savings vs Reference (CNY)')}
+                value={`¥${acuRoute.effective_savings_vs_reference_cny.toFixed(8)}`}
                 mono
               />
             )}
@@ -832,6 +901,16 @@ export function DetailsDialog(props: DetailsDialogProps) {
               <DetailRow
                 label={t('Estimated Cost Reduction vs Quality Upper Bound')}
                 value={`$${acuRoute.estimated_cost_reduction_vs_quality_upper_bound_usd.toFixed(6)}`}
+                mono
+              />
+            )}
+            {acuRoute?.estimated_cost_reduction_vs_quality_upper_bound_cny !=
+              null && (
+              <DetailRow
+                label={t(
+                  'Estimated Cost Reduction vs Quality Upper Bound (CNY)'
+                )}
+                value={`¥${acuRoute.estimated_cost_reduction_vs_quality_upper_bound_cny.toFixed(8)}`}
                 mono
               />
             )}

@@ -265,8 +265,23 @@ export interface LogOtherData {
     route_reason?: string
     quality_upper_bound_model?: string
     estimated_cost_reduction_vs_quality_upper_bound_usd?: number
+    estimated_cost_reduction_vs_quality_upper_bound_cny?: number
     reasoning_effort?: string
     routing_preference?: string
+    canonical_model?: string
+    provider_model?: string
+    selected_provider?: string
+    actual_provider?: string
+    provider_selection_reason?: string
+    nominal_provider_cost_usd?: number
+    provider_balance_charge_usd?: number
+    effective_cash_cost_cny?: number
+    user_charge?: string
+    reference_provider?: string
+    reference_effective_cash_cost_cny?: number
+    effective_savings_vs_reference_cny?: number
+    effective_cost_source?: string
+    effective_cost_version?: string
   }
 }
 
