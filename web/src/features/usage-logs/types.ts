@@ -254,7 +254,18 @@ export interface LogOtherData {
   provider_cost_usd?: string
   failed_billed_cost_usd?: string
   final_user_cost_usd?: string
-  acu_cost_breakdown?: Record<string, unknown>
+  acu_cost_breakdown?: {
+    judge?: string
+    provider?: string
+    usageSource?: string
+    mode?: string
+    difficulty?: number
+    candidate_count?: number
+    selected_model?: string
+    route_reason?: string
+    quality_upper_bound_model?: string
+    estimated_cost_reduction_vs_quality_upper_bound_usd?: number
+  }
 }
 
 /**

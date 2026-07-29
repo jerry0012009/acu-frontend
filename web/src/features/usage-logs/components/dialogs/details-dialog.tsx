@@ -481,6 +481,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const { copiedText, copyToClipboard } = useCopyToClipboard({ notify: false })
   const details = props.log.content ?? ''
   const other = parseLogOther(props.log.other)
+  const acuRoute = other?.acu_cost_breakdown
   const typeConfig = getLogTypeConfig(props.log.type)
 
   const isViolation = isViolationFeeLog(other)
@@ -742,6 +743,30 @@ export function DetailsDialog(props: DetailsDialogProps) {
 
         {other?.acu_logical_request_id && (
           <DetailSection label={t('ACU Route')}>
+            {acuRoute?.mode && (
+              <DetailRow label={t('Mode')} value={acuRoute.mode} mono />
+            )}
+            {acuRoute?.difficulty != null && (
+              <DetailRow
+                label={t('Difficulty')}
+                value={acuRoute.difficulty.toFixed(1)}
+                mono
+              />
+            )}
+            {acuRoute?.candidate_count != null && (
+              <DetailRow
+                label={t('Candidates')}
+                value={String(acuRoute.candidate_count)}
+                mono
+              />
+            )}
+            {acuRoute?.selected_model && (
+              <DetailRow
+                label={t('Selected Model')}
+                value={acuRoute.selected_model}
+                mono
+              />
+            )}
             <DetailRow
               label={t('Actual Model')}
               value={props.log.model_name}
@@ -785,6 +810,27 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 label={t('Reasoning Tokens')}
                 value={String(other.reasoning_tokens)}
                 mono
+              />
+            )}
+            {acuRoute?.quality_upper_bound_model && (
+              <DetailRow
+                label={t('Quality Upper Bound Model')}
+                value={acuRoute.quality_upper_bound_model}
+                mono
+              />
+            )}
+            {acuRoute?.estimated_cost_reduction_vs_quality_upper_bound_usd !=
+              null && (
+              <DetailRow
+                label={t('Estimated Cost Reduction vs Quality Upper Bound')}
+                value={`$${acuRoute.estimated_cost_reduction_vs_quality_upper_bound_usd.toFixed(6)}`}
+                mono
+              />
+            )}
+            {acuRoute?.route_reason && (
+              <DetailRow
+                label={t('Route Reason')}
+                value={acuRoute.route_reason}
               />
             )}
           </DetailSection>
