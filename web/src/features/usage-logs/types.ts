@@ -273,6 +273,17 @@ export interface LogOtherData {
     selected_provider?: string
     actual_provider?: string
     provider_selection_reason?: string
+    model_selection_reason?: string
+    routing_group?: string
+    channel_id?: string
+    network_endpoint?: string
+    fallback_chain?: string
+    circuit_state?: string
+    cooldown_until?: string
+    error_class?: string
+    recent_success_rate?: number
+    effective_cost_status?: string
+    billing_multiplier?: number
     nominal_provider_cost_usd?: number
     provider_balance_charge_usd?: number
     effective_cash_cost_cny?: number

@@ -30,6 +30,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { ROLE } from '@/lib/roles'
 
 import { updateUserSettings } from '../../api'
+import { getPricing } from '../../../pricing/api'
 import {
   DEFAULT_QUOTA_WARNING_THRESHOLD,
   NOTIFICATION_METHODS,
@@ -74,6 +75,9 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
   const { t } = useTranslation()
   const isAdmin = (profile?.role ?? 0) >= ROLE.ADMIN
   const [loading, setLoading] = useState(false)
+  const [acuModels, setAcuModels] = useState<
+    Array<{ modelId: string; healthyChannelCount: number; temporarilyUnavailableReason?: string | null }>
+  >([])
   const [settings, setSettings] = useState<UserSettings>({
     notify_type: 'email',
     quota_warning_threshold: DEFAULT_QUOTA_WARNING_THRESHOLD,
@@ -125,6 +129,12 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
       })
     }
   }, [profile])
+
+  useEffect(() => {
+    void getPricing()
+      .then((pricing) => setAcuModels(pricing.acu_curve_model_statuses || []))
+      .catch(() => setAcuModels([]))
+  }, [])
 
   const handleSave = async () => {
     try {
@@ -397,20 +407,38 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
         {settings.acu_routing_policy === 'custom_allowlist' && (
           <div className='space-y-1.5'>
             <Label htmlFor='acuAllowedModels'>{t('Allowed model IDs')}</Label>
-            <Input
-              id='acuAllowedModels'
-              value={(settings.acu_allowed_model_ids || []).join(', ')}
-              onChange={(event) =>
-                updateField(
-                  'acu_allowed_model_ids',
-                  event.target.value
-                    .split(',')
-                    .map((value) => value.trim())
-                    .filter(Boolean)
+            <div id='acuAllowedModels' className='max-h-64 space-y-2 overflow-y-auto rounded-md border p-3'>
+              {acuModels.map((model) => {
+                const checked = (settings.acu_allowed_model_ids || []).includes(model.modelId)
+                const available = model.healthyChannelCount > 0
+                return (
+                  <label key={model.modelId} className='flex items-start gap-2 text-sm'>
+                    <input
+                      type='checkbox'
+                      className='mt-1'
+                      checked={checked}
+                      disabled={!available}
+                      onChange={(event) => {
+                        const selected = new Set(settings.acu_allowed_model_ids || [])
+                        if (event.target.checked) selected.add(model.modelId)
+                        else selected.delete(model.modelId)
+                        updateField('acu_allowed_model_ids', [...selected].sort())
+                      }}
+                    />
+                    <span>
+                      <span className='font-mono'>{model.modelId}</span>
+                      <span className='text-muted-foreground ml-2 text-xs'>
+                        {available
+                          ? t('{{count}} healthy Channel(s)', { count: model.healthyChannelCount })
+                          : t('Temporarily unavailable: {{reason}}', {
+                              reason: model.temporarilyUnavailableReason || 'no healthy Channel',
+                            })}
+                      </span>
+                    </span>
+                  </label>
                 )
-              }
-              placeholder='gpt-5.6-luna, gpt-5.6-sol'
-            />
+              })}
+            </div>
             <p className='text-muted-foreground text-xs'>
               {t(
                 'Unknown, unavailable, incompatible, or unpriced models are still excluded by ACU.'

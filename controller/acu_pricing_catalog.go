@@ -30,11 +30,14 @@ type acuPricingResponse struct {
 	ActiveInAcuAuto            bool    `json:"activeInAcuAuto"`
 	Provider                   string  `json:"provider"`
 	Status                     string  `json:"status"`
+	HealthyChannelCount        int     `json:"healthyChannelCount"`
 }
 
 type acuCurveModelStatus struct {
-	ModelID  string   `json:"modelId"`
-	Statuses []string `json:"statuses"`
+	ModelID                      string   `json:"modelId"`
+	Statuses                     []string `json:"statuses"`
+	HealthyChannelCount          int      `json:"healthyChannelCount"`
+	TemporarilyUnavailableReason *string  `json:"temporarilyUnavailableReason"`
 }
 
 type acuPricingCatalog struct {
@@ -143,4 +146,17 @@ func sortedCurveStatuses(catalog *acuPricingCatalog) []acuCurveModelStatus {
 	statuses := append([]acuCurveModelStatus(nil), catalog.CurveModelStatuses...)
 	sort.Slice(statuses, func(i, j int) bool { return statuses[i].ModelID < statuses[j].ModelID })
 	return statuses
+}
+
+func acuCurveModelIDSet(catalog *acuPricingCatalog) map[string]struct{} {
+	result := make(map[string]struct{})
+	if catalog == nil {
+		return result
+	}
+	for _, item := range catalog.CurveModelStatuses {
+		if modelID := strings.TrimSpace(item.ModelID); modelID != "" {
+			result[modelID] = struct{}{}
+		}
+	}
+	return result
 }

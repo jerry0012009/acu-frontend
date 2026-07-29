@@ -59,3 +59,11 @@ func TestACUCurveStatusCountsIncludesEmptyCategories(t *testing.T) {
 	require.Equal(t, 0, counts["messages_incompatible"])
 	require.Equal(t, 0, counts["preflight_failed"])
 }
+
+func TestACUCurveModelIDSetContainsOnlyCatalogCurves(t *testing.T) {
+	set := acuCurveModelIDSet(&acuPricingCatalog{CurveModelStatuses: []acuCurveModelStatus{
+		{ModelID: "gpt-5.6-luna", Statuses: []string{"active_responses"}},
+		{ModelID: " qwen3.7-max ", Statuses: []string{"preflight_failed"}},
+	}})
+	require.Equal(t, map[string]struct{}{"gpt-5.6-luna": {}, "qwen3.7-max": {}}, set)
+}

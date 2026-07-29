@@ -1523,11 +1523,21 @@ func UpdateUserSetting(c *gin.Context) {
 		settings.ACURoutingPolicy = "all_routing_eligible"
 	}
 	if req.ACUAllowedModelIds != nil {
+		acuCatalog, err := loadACUPricingCatalog()
+		if err != nil || acuCatalog == nil {
+			common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+			return
+		}
+		curveModelIDs := acuCurveModelIDSet(acuCatalog)
 		seen := make(map[string]struct{}, len(*req.ACUAllowedModelIds))
 		allowed := make([]string, 0, len(*req.ACUAllowedModelIds))
 		for _, rawModelID := range *req.ACUAllowedModelIds {
 			modelID := strings.TrimSpace(rawModelID)
 			if modelID == "" || len(modelID) > 128 || len(allowed) >= 64 {
+				common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+				return
+			}
+			if _, hasCurve := curveModelIDs[modelID]; !hasCurve {
 				common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 				return
 			}

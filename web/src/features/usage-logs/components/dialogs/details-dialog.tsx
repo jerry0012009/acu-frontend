@@ -814,6 +814,39 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 value={acuRoute.provider_selection_reason}
               />
             )}
+            {acuRoute?.model_selection_reason && (
+              <DetailRow label={t('Model Selection Reason')} value={acuRoute.model_selection_reason} />
+            )}
+            {acuRoute?.routing_group && (
+              <DetailRow label={t('Routing Group')} value={acuRoute.routing_group} mono />
+            )}
+            {acuRoute?.channel_id && (
+              <DetailRow label={t('Channel ID')} value={acuRoute.channel_id} mono />
+            )}
+            {acuRoute?.network_endpoint && (
+              <DetailRow label={t('Network Endpoint')} value={acuRoute.network_endpoint} mono />
+            )}
+            {acuRoute?.fallback_chain && (
+              <DetailRow label={t('Fallback Chain')} value={acuRoute.fallback_chain} mono />
+            )}
+            {acuRoute?.circuit_state && (
+              <DetailRow label={t('Circuit State')} value={acuRoute.circuit_state} mono />
+            )}
+            {acuRoute?.cooldown_until && (
+              <DetailRow label={t('Cooldown Until')} value={acuRoute.cooldown_until} mono />
+            )}
+            {acuRoute?.error_class && (
+              <DetailRow label={t('Error Class')} value={acuRoute.error_class} mono />
+            )}
+            {acuRoute?.recent_success_rate != null && (
+              <DetailRow label={t('Recent Success Rate')} value={`${(acuRoute.recent_success_rate * 100).toFixed(1)}%`} mono />
+            )}
+            {acuRoute?.effective_cost_status && (
+              <DetailRow label={t('Effective Cost Status')} value={acuRoute.effective_cost_status} mono />
+            )}
+            {acuRoute?.billing_multiplier != null && (
+              <DetailRow label={t('Billing Multiplier')} value={String(acuRoute.billing_multiplier)} mono />
+            )}
             {other.actual_channel && (
               <DetailRow
                 label={t('Actual Channel')}
