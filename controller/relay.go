@@ -152,7 +152,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 	relayInfo.SetEstimatePromptTokens(tokens)
 
-	priceData, err := helper.ModelPriceHelper(c, relayInfo, tokens, meta)
+	priceData, err := resolveTextPriceData(c, relayInfo, tokens, meta)
 	if err != nil {
 		newAPIError = types.NewError(err, types.ErrorCodeModelPriceError, types.ErrOptionWithStatusCode(http.StatusBadRequest))
 		return
@@ -255,6 +255,21 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			perfmetrics.RecordRelaySample(relayInfo, false, 0)
 		})
 	}
+}
+
+// resolveTextPriceData keeps ACU channels out of New API's static model-price
+// pipeline. ACU performs the authoritative route, usage calculation, and cost
+// calculation after admission; the signed Usage Finalize report is the sole
+// settlement source. A free placeholder is intentionally used only to keep
+// downstream relay bookkeeping well-formed before PostTextConsumeQuota skips
+// legacy settlement for ACU channels.
+func resolveTextPriceData(c *gin.Context, info *relaycommon.RelayInfo, promptTokens int, meta *types.TokenCountMeta) (types.PriceData, error) {
+	if info != nil && info.IsACUChannel {
+		priceData := types.PriceData{FreeModel: true}
+		info.PriceData = priceData
+		return priceData, nil
+	}
+	return helper.ModelPriceHelper(c, info, promptTokens, meta)
 }
 
 func relayMaxRetries(info *relaycommon.RelayInfo) int {
