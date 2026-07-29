@@ -5219,6 +5219,7 @@
     "Zoom": "Zoom",
     "Client Declared Web Tool": "Công cụ Web do máy khách khai báo",
     "Web Intent": "Ý định dùng Web",
+    "Web Intent Source": "Nguồn ý định dùng Web",
     "Web Actually Invoked": "Web thực sự được gọi",
     "Web Search Event Status": "Trạng thái sự kiện tìm kiếm Web",
     "Web Profile Verified": "Hồ sơ Web đã xác minh",

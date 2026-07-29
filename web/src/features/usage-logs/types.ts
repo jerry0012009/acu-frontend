@@ -295,6 +295,7 @@ export interface LogOtherData {
     effective_cost_version?: string
     client_declared_web_tool?: boolean
     web_intent?: 'required' | 'likely' | 'not_required'
+    web_intent_source?: 'judge' | 'heuristic_fallback' | 'legacy_heuristic'
     web_actually_invoked?: boolean
     web_search_event_status?: string[]
     web_profile_verified?: boolean

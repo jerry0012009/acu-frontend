@@ -5219,6 +5219,7 @@
     "Zoom": "ズーム",
     "Client Declared Web Tool": "クライアントが宣言した Web ツール",
     "Web Intent": "Web 利用意図",
+    "Web Intent Source": "Web 利用意図のソース",
     "Web Actually Invoked": "Web の実際の呼び出し",
     "Web Search Event Status": "Web 検索イベントの状態",
     "Web Profile Verified": "Web プロファイル検証済み",

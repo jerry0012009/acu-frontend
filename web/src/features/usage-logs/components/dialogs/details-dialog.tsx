@@ -778,6 +778,13 @@ export function DetailsDialog(props: DetailsDialogProps) {
             {acuRoute?.web_intent && (
               <DetailRow label={t('Web Intent')} value={acuRoute.web_intent} mono />
             )}
+            {acuRoute?.web_intent_source && (
+              <DetailRow
+                label={t('Web Intent Source')}
+                value={acuRoute.web_intent_source}
+                mono
+              />
+            )}
             {acuRoute?.web_actually_invoked != null && (
               <DetailRow
                 label={t('Web Actually Invoked')}

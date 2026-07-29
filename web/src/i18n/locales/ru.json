@@ -5219,6 +5219,7 @@
     "Zoom": "Zoom",
     "Client Declared Web Tool": "Web-инструмент заявлен клиентом",
     "Web Intent": "Намерение использовать Web",
+    "Web Intent Source": "Источник намерения использовать Web",
     "Web Actually Invoked": "Фактический вызов Web",
     "Web Search Event Status": "Статус событий Web-поиска",
     "Web Profile Verified": "Web-профиль проверен",
