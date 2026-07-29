@@ -403,6 +403,52 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 	}
 }
 
+// RecordACUPendingConsumeLog creates the zero-cost request placeholder used by
+// the asynchronous ACU Usage Finalize flow. If Finalize won the race and
+// already wrote the log, this function deliberately leaves it untouched.
+func RecordACUPendingConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams) {
+	if !common.LogConsumeEnabled {
+		return
+	}
+	requestId := c.GetString(common.RequestIdKey)
+	if requestId == "" {
+		logger.LogError(c, "failed to record ACU pending log: request id is empty")
+		return
+	}
+	log := &Log{
+		UserId:            userId,
+		Username:          c.GetString("username"),
+		CreatedAt:         common.GetTimestamp(),
+		Type:              LogTypeConsume,
+		Content:           "ACU usage pending finalize",
+		TokenName:         params.TokenName,
+		ModelName:         params.ModelName,
+		Quota:             0,
+		PromptTokens:      0,
+		CompletionTokens:  0,
+		UseTime:           params.UseTimeSeconds,
+		IsStream:          params.IsStream,
+		ChannelId:         params.ChannelId,
+		TokenId:           params.TokenId,
+		Group:             params.Group,
+		RequestId:         requestId,
+		UpstreamRequestId: c.GetString(common.UpstreamRequestIdKey),
+		Other:             common.MapToJsonStr(params.Other),
+	}
+	var existing Log
+	err := LOG_DB.Where("user_id = ? AND token_id = ? AND request_id = ? AND type = ?", userId, params.TokenId, requestId, LogTypeConsume).First(&existing).Error
+	if err == nil {
+		return
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		logger.LogError(c, "failed to query ACU pending log: "+err.Error())
+		return
+	}
+	if err := createLog(log); err != nil {
+		logger.LogError(c, "failed to record ACU pending log: "+err.Error())
+	}
+}
+
 type RecordTaskBillingLogParams struct {
 	UserId    int
 	LogType   int

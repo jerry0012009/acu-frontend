@@ -1,12 +1,18 @@
 package channel
 
 import (
+	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -138,10 +144,52 @@ func shouldSkipPassthroughHeader(name string) bool {
 		return true
 	}
 	lower := strings.ToLower(name)
+	if strings.HasPrefix(lower, "x-acu-") {
+		return true
+	}
 	if _, ok := passthroughSkipHeaderNamesLower[lower]; ok {
 		return true
 	}
 	return false
+}
+
+func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.RelayInfo, body []byte) error {
+	if info == nil || !info.IsACUChannel {
+		return nil
+	}
+	secret := os.Getenv("ACU_TRUSTED_IDENTITY_SECRET")
+	if secret == "" {
+		return errors.New("ACU trusted identity secret is not configured")
+	}
+	for name := range req.Header {
+		if strings.HasPrefix(strings.ToLower(name), "x-acu-") {
+			req.Header.Del(name)
+		}
+	}
+	requestID := info.RequestId
+	if requestID == "" {
+		requestID = c.GetString(common2.RequestIdKey)
+	}
+	if requestID == "" {
+		return errors.New("ACU request id is missing")
+	}
+	timestamp := time.Now().UTC().Format(time.RFC3339)
+	bodyDigest := sha256.Sum256(body)
+	bodySHA := hex.EncodeToString(bodyDigest[:])
+	userID := strconv.Itoa(info.UserId)
+	tokenID := strconv.Itoa(info.TokenId)
+	logID := requestID
+	payload := strings.Join([]string{userID, tokenID, logID, requestID, timestamp, bodySHA}, "\n")
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write([]byte(payload))
+	req.Header.Set("X-ACU-NewAPI-User-ID", userID)
+	req.Header.Set("X-ACU-NewAPI-Token-ID", tokenID)
+	req.Header.Set("X-ACU-NewAPI-Log-ID", logID)
+	req.Header.Set("X-ACU-Request-ID", requestID)
+	req.Header.Set("X-ACU-Timestamp", timestamp)
+	req.Header.Set("X-ACU-Body-SHA256", bodySHA)
+	req.Header.Set("X-ACU-Signature", hex.EncodeToString(mac.Sum(nil)))
+	return nil
 }
 
 func applyHeaderOverridePlaceholders(template string, c *gin.Context, apiKey string) (string, bool, error) {
@@ -310,6 +358,16 @@ func DoApiRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 		return nil, fmt.Errorf("get request url failed: %w", err)
 	}
 	logger.LogDebug(c, "fullRequestURL: %s", common.SanitizeURLForLog(fullRequestURL))
+	var acuBody []byte
+	if info != nil && info.IsACUChannel {
+		if requestBody != nil {
+			acuBody, err = io.ReadAll(requestBody)
+			if err != nil {
+				return nil, fmt.Errorf("read ACU upstream request body failed: %w", err)
+			}
+		}
+		requestBody = bytes.NewReader(acuBody)
+	}
 	req, err := http.NewRequest(c.Request.Method, fullRequestURL, requestBody)
 	if err != nil {
 		return nil, fmt.Errorf("new request failed: %w", err)
@@ -327,6 +385,9 @@ func DoApiRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 		return nil, err
 	}
 	applyHeaderOverrideToRequest(req, headerOverride)
+	if err := applyACUTrustedIdentity(req, c, info, acuBody); err != nil {
+		return nil, err
+	}
 	resp, err := doRequest(c, req, info)
 	if err != nil {
 		return nil, fmt.Errorf("do request failed: %w", err)
