@@ -293,6 +293,14 @@ export interface LogOtherData {
     effective_savings_vs_reference_cny?: number
     effective_cost_source?: string
     effective_cost_version?: string
+    client_declared_web_tool?: boolean
+    web_intent?: 'required' | 'likely' | 'not_required'
+    web_actually_invoked?: boolean
+    web_search_event_status?: string[]
+    web_profile_verified?: boolean
+    web_fallback_chain?: string[]
+    web_tool_pruned?: boolean
+    web_tool_prune_reason?: string
   }
 }
 

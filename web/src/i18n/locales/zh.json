@@ -5216,6 +5216,14 @@
     "Zero retention": "零数据保留",
     "Zhipu": "智谱",
     "Zhipu V4": "智谱 V4",
-    "Zoom": "缩放"
+    "Zoom": "缩放",
+    "Client Declared Web Tool": "客户端声明 Web 工具",
+    "Web Intent": "Web 意图",
+    "Web Actually Invoked": "实际调用 Web",
+    "Web Search Event Status": "Web 搜索事件状态",
+    "Web Profile Verified": "Web Profile 已验证",
+    "Web Fallback Chain": "Web 回退链",
+    "Web Tool Pruned": "已裁剪 Web 工具",
+    "Prune Reason": "裁剪原因"
   }
 }

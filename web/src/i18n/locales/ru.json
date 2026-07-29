@@ -5216,6 +5216,14 @@
     "Zero retention": "Без хранения данных",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Client Declared Web Tool": "Web-инструмент заявлен клиентом",
+    "Web Intent": "Намерение использовать Web",
+    "Web Actually Invoked": "Фактический вызов Web",
+    "Web Search Event Status": "Статус событий Web-поиска",
+    "Web Profile Verified": "Web-профиль проверен",
+    "Web Fallback Chain": "Цепочка резервирования Web",
+    "Web Tool Pruned": "Web-инструмент удален",
+    "Prune Reason": "Причина удаления"
   }
 }

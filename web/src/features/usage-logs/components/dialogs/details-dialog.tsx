@@ -768,6 +768,57 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 mono
               />
             )}
+            {acuRoute?.client_declared_web_tool != null && (
+              <DetailRow
+                label={t('Client Declared Web Tool')}
+                value={String(acuRoute.client_declared_web_tool)}
+                mono
+              />
+            )}
+            {acuRoute?.web_intent && (
+              <DetailRow label={t('Web Intent')} value={acuRoute.web_intent} mono />
+            )}
+            {acuRoute?.web_actually_invoked != null && (
+              <DetailRow
+                label={t('Web Actually Invoked')}
+                value={String(acuRoute.web_actually_invoked)}
+                mono
+              />
+            )}
+            {acuRoute?.web_search_event_status && (
+              <DetailRow
+                label={t('Web Search Event Status')}
+                value={acuRoute.web_search_event_status.join(' -> ')}
+                mono
+              />
+            )}
+            {acuRoute?.web_profile_verified != null && (
+              <DetailRow
+                label={t('Web Profile Verified')}
+                value={String(acuRoute.web_profile_verified)}
+                mono
+              />
+            )}
+            {acuRoute?.web_fallback_chain && acuRoute.web_fallback_chain.length > 0 && (
+              <DetailRow
+                label={t('Web Fallback Chain')}
+                value={acuRoute.web_fallback_chain.join(' -> ')}
+                mono
+              />
+            )}
+            {acuRoute?.web_tool_pruned != null && (
+              <DetailRow
+                label={t('Web Tool Pruned')}
+                value={String(acuRoute.web_tool_pruned)}
+                mono
+              />
+            )}
+            {acuRoute?.web_tool_prune_reason && (
+              <DetailRow
+                label={t('Prune Reason')}
+                value={acuRoute.web_tool_prune_reason}
+              />
+            )}
             {acuRoute?.selected_model && (
               <DetailRow
                 label={t('Selected Model')}

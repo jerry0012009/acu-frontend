@@ -5216,6 +5216,14 @@
     "Zero retention": "データ保持なし",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V 4",
-    "Zoom": "ズーム"
+    "Zoom": "ズーム",
+    "Client Declared Web Tool": "クライアントが宣言した Web ツール",
+    "Web Intent": "Web 利用意図",
+    "Web Actually Invoked": "Web の実際の呼び出し",
+    "Web Search Event Status": "Web 検索イベントの状態",
+    "Web Profile Verified": "Web プロファイル検証済み",
+    "Web Fallback Chain": "Web フォールバックチェーン",
+    "Web Tool Pruned": "Web ツールを除外",
+    "Prune Reason": "除外理由"
   }
 }
