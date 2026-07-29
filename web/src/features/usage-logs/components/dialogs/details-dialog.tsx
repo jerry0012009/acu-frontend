@@ -740,6 +740,56 @@ export function DetailsDialog(props: DetailsDialogProps) {
           )}
         </div>
 
+        {other?.acu_logical_request_id && (
+          <DetailSection label={t('ACU Route')}>
+            <DetailRow
+              label={t('Actual Model')}
+              value={props.log.model_name}
+              mono
+            />
+            {other.actual_provider && (
+              <DetailRow
+                label={t('Actual Provider')}
+                value={other.actual_provider}
+                mono
+              />
+            )}
+            {other.actual_channel && (
+              <DetailRow
+                label={t('Actual Channel')}
+                value={other.actual_channel}
+                mono
+              />
+            )}
+            <DetailRow
+              label={t('Logical Request ID')}
+              value={other.acu_logical_request_id}
+              mono
+            />
+            {other.final_user_cost_usd && (
+              <DetailRow
+                label={t('Final Cost (USD)')}
+                value={other.final_user_cost_usd}
+                mono
+              />
+            )}
+            {other.cached_input_tokens != null && (
+              <DetailRow
+                label={t('Cached Input Tokens')}
+                value={String(other.cached_input_tokens)}
+                mono
+              />
+            )}
+            {other.reasoning_tokens != null && (
+              <DetailRow
+                label={t('Reasoning Tokens')}
+                value={String(other.reasoning_tokens)}
+                mono
+              />
+            )}
+          </DetailSection>
+        )}
+
         {/* Request conversion (admin only, not for refund) */}
         {showConversion && (
           <DetailSection label={t('Request Conversion')}>

@@ -241,6 +241,20 @@ export interface LogOtherData {
   subscription_consumed?: number
   subscription_remain?: number
   subscription_total?: number
+  // ACU Router finalization fields. These describe the actual upstream route,
+  // which can differ from the New API admission channel and requested model.
+  acu_pending_finalize?: boolean
+  acu_logical_request_id?: string
+  acu_report_idempotency_key?: string
+  actual_provider?: string
+  actual_channel?: string
+  cached_input_tokens?: number
+  reasoning_tokens?: number
+  judge_cost_usd?: string
+  provider_cost_usd?: string
+  failed_billed_cost_usd?: string
+  final_user_cost_usd?: string
+  acu_cost_breakdown?: Record<string, unknown>
 }
 
 /**
