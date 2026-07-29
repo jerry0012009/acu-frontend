@@ -35,7 +35,12 @@ import {
   NOTIFICATION_METHODS,
 } from '../../constants'
 import { parseUserSettings } from '../../lib'
-import type { UserProfile, UserSettings, NotifyType } from '../../types'
+import type {
+  ACURoutingPolicy,
+  UserProfile,
+  UserSettings,
+  NotifyType,
+} from '../../types'
 
 const NOTIFICATION_ICONS: Record<NotifyType, typeof Mail> = {
   email: Mail,
@@ -81,6 +86,8 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
     accept_unset_model_ratio_model: false,
     record_ip_log: false,
     upstream_model_update_notify_enabled: false,
+    acu_routing_policy: 'all_routing_eligible',
+    acu_allowed_model_ids: [],
   })
 
   // Update form field helper
@@ -110,6 +117,9 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
         record_ip_log: parsed.record_ip_log || false,
         upstream_model_update_notify_enabled:
           parsed.upstream_model_update_notify_enabled || false,
+        acu_routing_policy:
+          parsed.acu_routing_policy || 'all_routing_eligible',
+        acu_allowed_model_ids: parsed.acu_allowed_model_ids || [],
       })
     }
   }, [profile])
@@ -125,7 +135,7 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
       } else {
         toast.error(response.message || t('Failed to update settings'))
       }
-    } catch (_error) {
+    } catch {
       toast.error(t('Failed to update settings'))
     } finally {
       setLoading(false)
@@ -143,8 +153,9 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
           value={[notifyType]}
           onValueChange={(value) => {
             const nextValue = value.find((item) => item !== notifyType)
-            if (nextValue)
+            if (nextValue) {
               updateField('notify_type', normalizeNotifyType(nextValue))
+            }
           }}
           aria-label={t('Notification Method')}
           variant='outline'
@@ -321,6 +332,61 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
       )}
 
       {/* Divider */}
+      <div className='border-t' />
+
+      <div className='space-y-3'>
+        <div>
+          <h4 className='text-sm font-medium'>{t('ACU model policy')}</h4>
+          <p className='text-muted-foreground mt-1 text-xs'>
+            {t('Choose which verified models may participate in acu-auto routing.')}
+          </p>
+        </div>
+        <div className='space-y-1.5'>
+          <Label htmlFor='acuRoutingPolicy'>{t('Routing policy')}</Label>
+          <select
+            id='acuRoutingPolicy'
+            className='border-input bg-background h-9 w-full rounded-md border px-3 text-sm'
+            value={settings.acu_routing_policy}
+            onChange={(event) =>
+              updateField(
+                'acu_routing_policy',
+                event.target.value as ACURoutingPolicy
+              )
+            }
+          >
+            <option value='all_routing_eligible'>
+              {t('All verified routing-eligible models')}
+            </option>
+            <option value='custom_allowlist'>{t('Custom allowlist')}</option>
+            <option value='explicit_only'>{t('Explicit models only')}</option>
+          </select>
+        </div>
+        {settings.acu_routing_policy === 'custom_allowlist' && (
+          <div className='space-y-1.5'>
+            <Label htmlFor='acuAllowedModels'>
+              {t('Allowed model IDs')}
+            </Label>
+            <Input
+              id='acuAllowedModels'
+              value={(settings.acu_allowed_model_ids || []).join(', ')}
+              onChange={(event) =>
+                updateField(
+                  'acu_allowed_model_ids',
+                  event.target.value
+                    .split(',')
+                    .map((value) => value.trim())
+                    .filter(Boolean)
+                )
+              }
+              placeholder='gpt-5.6-luna, gpt-5.6-sol'
+            />
+            <p className='text-muted-foreground text-xs'>
+              {t('Unknown, unavailable, incompatible, or unpriced models are still excluded by ACU.')}
+            </p>
+          </div>
+        )}
+      </div>
+
       <div className='border-t' />
 
       {/* Preferences Section */}

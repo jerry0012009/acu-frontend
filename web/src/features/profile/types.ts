@@ -87,6 +87,10 @@ export interface UserProfile {
  * Notification type
  */
 export type NotifyType = 'email' | 'webhook' | 'bark' | 'gotify'
+export type ACURoutingPolicy =
+  | 'all_routing_eligible'
+  | 'custom_allowlist'
+  | 'explicit_only'
 
 /**
  * Parsed user settings
@@ -118,6 +122,9 @@ export interface UserSettings {
   upstream_model_update_notify_enabled?: boolean
   /** Preferred interface/API response language */
   language?: string
+  /** Models eligible for ACU automatic routing */
+  acu_routing_policy?: ACURoutingPolicy
+  acu_allowed_model_ids?: string[]
 }
 
 /**
@@ -145,6 +152,8 @@ export interface UpdateUserSettingsRequest {
   accept_unset_model_ratio_model?: boolean
   record_ip_log?: boolean
   upstream_model_update_notify_enabled?: boolean
+  acu_routing_policy?: ACURoutingPolicy
+  acu_allowed_model_ids?: string[]
 }
 
 /**

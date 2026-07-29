@@ -6,12 +6,14 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -180,7 +182,31 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	tokenID := strconv.Itoa(info.TokenId)
 	logID := requestID
 	clientVersion := acuClientVersion(c)
-	payload := strings.Join([]string{userID, tokenID, logID, requestID, clientVersion, timestamp, bodySHA}, "\n")
+	routingPolicy := strings.TrimSpace(info.UserSetting.ACURoutingPolicy)
+	if routingPolicy == "" {
+		routingPolicy = "all_routing_eligible"
+	}
+	if routingPolicy != "all_routing_eligible" && routingPolicy != "custom_allowlist" && routingPolicy != "explicit_only" {
+		return errors.New("ACU routing policy is invalid")
+	}
+	allowedModelIDs := append([]string(nil), info.UserSetting.ACUAllowedModelIds...)
+	sort.Strings(allowedModelIDs)
+	if routingPolicy != "custom_allowlist" {
+		allowedModelIDs = []string{}
+	}
+	if routingPolicy == "custom_allowlist" && len(allowedModelIDs) == 0 {
+		return errors.New("ACU custom routing allowlist is empty")
+	}
+	allowedModelIDsJSON, err := json.Marshal(allowedModelIDs)
+	if err != nil {
+		return fmt.Errorf("marshal ACU routing allowlist: %w", err)
+	}
+	policyDigest := sha256.Sum256([]byte(routingPolicy + "\n" + string(allowedModelIDsJSON)))
+	routingPolicyVersion := "acu-user-policy-v1-" + hex.EncodeToString(policyDigest[:8])
+	payload := strings.Join([]string{
+		userID, tokenID, logID, requestID, clientVersion, routingPolicy,
+		string(allowedModelIDsJSON), routingPolicyVersion, timestamp, bodySHA,
+	}, "\n")
 	mac := hmac.New(sha256.New, []byte(secret))
 	_, _ = mac.Write([]byte(payload))
 	req.Header.Set("X-ACU-NewAPI-User-ID", userID)
@@ -188,6 +214,9 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	req.Header.Set("X-ACU-NewAPI-Log-ID", logID)
 	req.Header.Set("X-ACU-Request-ID", requestID)
 	req.Header.Set("X-ACU-Client-Version", clientVersion)
+	req.Header.Set("X-ACU-Routing-Policy", routingPolicy)
+	req.Header.Set("X-ACU-Allowed-Model-Ids", string(allowedModelIDsJSON))
+	req.Header.Set("X-ACU-Routing-Policy-Version", routingPolicyVersion)
 	req.Header.Set("X-ACU-Timestamp", timestamp)
 	req.Header.Set("X-ACU-Body-SHA256", bodySHA)
 	req.Header.Set("X-ACU-Signature", hex.EncodeToString(mac.Sum(nil)))

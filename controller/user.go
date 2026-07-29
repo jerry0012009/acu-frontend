@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -1393,18 +1394,20 @@ func TopUp(c *gin.Context) {
 }
 
 type UpdateUserSettingRequest struct {
-	QuotaWarningType                 string  `json:"notify_type"`
-	QuotaWarningThreshold            float64 `json:"quota_warning_threshold"`
-	WebhookUrl                       string  `json:"webhook_url,omitempty"`
-	WebhookSecret                    string  `json:"webhook_secret,omitempty"`
-	NotificationEmail                string  `json:"notification_email,omitempty"`
-	BarkUrl                          string  `json:"bark_url,omitempty"`
-	GotifyUrl                        string  `json:"gotify_url,omitempty"`
-	GotifyToken                      string  `json:"gotify_token,omitempty"`
-	GotifyPriority                   int     `json:"gotify_priority,omitempty"`
-	UpstreamModelUpdateNotifyEnabled *bool   `json:"upstream_model_update_notify_enabled,omitempty"`
-	AcceptUnsetModelRatioModel       bool    `json:"accept_unset_model_ratio_model"`
-	RecordIpLog                      bool    `json:"record_ip_log"`
+	QuotaWarningType                 string    `json:"notify_type"`
+	QuotaWarningThreshold            float64   `json:"quota_warning_threshold"`
+	WebhookUrl                       string    `json:"webhook_url,omitempty"`
+	WebhookSecret                    string    `json:"webhook_secret,omitempty"`
+	NotificationEmail                string    `json:"notification_email,omitempty"`
+	BarkUrl                          string    `json:"bark_url,omitempty"`
+	GotifyUrl                        string    `json:"gotify_url,omitempty"`
+	GotifyToken                      string    `json:"gotify_token,omitempty"`
+	GotifyPriority                   int       `json:"gotify_priority,omitempty"`
+	UpstreamModelUpdateNotifyEnabled *bool     `json:"upstream_model_update_notify_enabled,omitempty"`
+	AcceptUnsetModelRatioModel       bool      `json:"accept_unset_model_ratio_model"`
+	RecordIpLog                      bool      `json:"record_ip_log"`
+	ACURoutingPolicy                 *string   `json:"acu_routing_policy,omitempty"`
+	ACUAllowedModelIds               *[]string `json:"acu_allowed_model_ids,omitempty"`
 }
 
 func UpdateUserSetting(c *gin.Context) {
@@ -1500,13 +1503,48 @@ func UpdateUserSetting(c *gin.Context) {
 		upstreamModelUpdateNotifyEnabled = *req.UpstreamModelUpdateNotifyEnabled
 	}
 
-	// 构建设置
-	settings := dto.UserSetting{
-		NotifyType:                       req.QuotaWarningType,
-		QuotaWarningThreshold:            req.QuotaWarningThreshold,
-		UpstreamModelUpdateNotifyEnabled: upstreamModelUpdateNotifyEnabled,
-		AcceptUnsetRatioModel:            req.AcceptUnsetModelRatioModel,
-		RecordIpLog:                      req.RecordIpLog,
+	// Preserve unrelated preferences when this settings form updates notification fields.
+	settings := existingSettings
+	settings.NotifyType = req.QuotaWarningType
+	settings.QuotaWarningThreshold = req.QuotaWarningThreshold
+	settings.UpstreamModelUpdateNotifyEnabled = upstreamModelUpdateNotifyEnabled
+	settings.AcceptUnsetRatioModel = req.AcceptUnsetModelRatioModel
+	settings.RecordIpLog = req.RecordIpLog
+	if req.ACURoutingPolicy != nil {
+		policy := strings.TrimSpace(*req.ACURoutingPolicy)
+		if policy != "all_routing_eligible" && policy != "custom_allowlist" && policy != "explicit_only" {
+			common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+			return
+		}
+		settings.ACURoutingPolicy = policy
+	}
+	if settings.ACURoutingPolicy == "" {
+		settings.ACURoutingPolicy = "all_routing_eligible"
+	}
+	if req.ACUAllowedModelIds != nil {
+		seen := make(map[string]struct{}, len(*req.ACUAllowedModelIds))
+		allowed := make([]string, 0, len(*req.ACUAllowedModelIds))
+		for _, rawModelID := range *req.ACUAllowedModelIds {
+			modelID := strings.TrimSpace(rawModelID)
+			if modelID == "" || len(modelID) > 128 || len(allowed) >= 64 {
+				common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+				return
+			}
+			if _, duplicate := seen[modelID]; duplicate {
+				continue
+			}
+			seen[modelID] = struct{}{}
+			allowed = append(allowed, modelID)
+		}
+		sort.Strings(allowed)
+		settings.ACUAllowedModelIds = allowed
+	}
+	if settings.ACURoutingPolicy == "custom_allowlist" && len(settings.ACUAllowedModelIds) == 0 {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+	if settings.ACURoutingPolicy != "custom_allowlist" {
+		settings.ACUAllowedModelIds = nil
 	}
 
 	// 如果是webhook类型,添加webhook相关设置

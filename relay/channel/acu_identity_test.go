@@ -34,15 +34,37 @@ func TestApplyACUTrustedIdentityReplacesForgedHeadersAndBindsBody(t *testing.T) 
 	require.Equal(t, "req_alpha_1", req.Header.Get("X-ACU-NewAPI-Log-ID"))
 	require.Equal(t, "req_alpha_1", req.Header.Get("X-ACU-Request-ID"))
 	require.Equal(t, "0.145.0", req.Header.Get("X-ACU-Client-Version"))
+	require.Equal(t, "all_routing_eligible", req.Header.Get("X-ACU-Routing-Policy"))
+	require.Equal(t, "[]", req.Header.Get("X-ACU-Allowed-Model-Ids"))
+	require.NotEmpty(t, req.Header.Get("X-ACU-Routing-Policy-Version"))
 	require.Empty(t, req.Header.Get("X-ACU-Unrecognized-Internal"))
 
 	digest := sha256.Sum256(body)
 	bodyHash := hex.EncodeToString(digest[:])
 	require.Equal(t, bodyHash, req.Header.Get("X-ACU-Body-SHA256"))
-	payload := strings.Join([]string{"17", "29", "req_alpha_1", "req_alpha_1", "0.145.0", req.Header.Get("X-ACU-Timestamp"), bodyHash}, "\n")
+	payload := strings.Join([]string{
+		"17", "29", "req_alpha_1", "req_alpha_1", "0.145.0",
+		"all_routing_eligible", "[]", req.Header.Get("X-ACU-Routing-Policy-Version"),
+		req.Header.Get("X-ACU-Timestamp"), bodyHash,
+	}, "\n")
 	mac := hmac.New(sha256.New, []byte("test-only-shared-secret"))
 	_, _ = mac.Write([]byte(payload))
 	require.Equal(t, hex.EncodeToString(mac.Sum(nil)), req.Header.Get("X-ACU-Signature"))
+}
+
+func TestApplyACUTrustedIdentitySignsCustomUserAllowlist(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Setenv("ACU_TRUSTED_IDENTITY_SECRET", "test-only-shared-secret")
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	req := httptest.NewRequest(http.MethodPost, "http://acu-router/v1/responses", nil)
+	info := &relaycommon.RelayInfo{IsACUChannel: true, UserId: 17, TokenId: 29, RequestId: "req_policy"}
+	info.UserSetting.ACURoutingPolicy = "custom_allowlist"
+	info.UserSetting.ACUAllowedModelIds = []string{"gpt-5.6-sol", "gpt-5.6-luna"}
+
+	require.NoError(t, applyACUTrustedIdentity(req, ctx, info, []byte(`{"model":"acu-auto"}`)))
+	require.Equal(t, "custom_allowlist", req.Header.Get("X-ACU-Routing-Policy"))
+	require.Equal(t, `["gpt-5.6-luna","gpt-5.6-sol"]`, req.Header.Get("X-ACU-Allowed-Model-Ids"))
 }
 
 func TestACUClientVersionUsesOnlyRecognizedNativeUserAgents(t *testing.T) {
