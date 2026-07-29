@@ -331,6 +331,29 @@ func (channel *Channel) GetTag() string {
 	return *channel.Tag
 }
 
+// SupportsRequestPath keeps the ACU virtual model on its native wire
+// protocol before the request reaches any format-converting adaptor.
+func (channel *Channel) SupportsRequestPath(requestPath string, modelName string) bool {
+	if channel == nil {
+		return false
+	}
+	if strings.EqualFold(strings.TrimSpace(channel.GetTag()), constant.ChannelTagACURouter) {
+		switch {
+		case strings.HasPrefix(requestPath, "/v1/responses"):
+			return channel.Type == constant.ChannelTypeOpenAI
+		case strings.HasPrefix(requestPath, "/v1/messages"):
+			return channel.Type == constant.ChannelTypeAnthropic
+		default:
+			return false
+		}
+	}
+	if channel.Type != constant.ChannelTypeAdvancedCustom {
+		return true
+	}
+	config := channel.GetOtherSettings().AdvancedCustom
+	return config != nil && config.SupportsPathForModel(requestPath, modelName)
+}
+
 func (channel *Channel) SetTag(tag string) {
 	channel.Tag = &tag
 }

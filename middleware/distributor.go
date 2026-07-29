@@ -170,17 +170,9 @@ func Distribute() func(c *gin.Context) {
 }
 
 // channelSupportsRequestPath reports whether a channel can serve the request path.
-// Only Advanced Custom (type 58) channels are path-checked; all other channel types
-// always pass. A type-58 channel is usable only when one of its routes matches.
+// ACU native protocol and Advanced Custom channels are path-checked before reuse.
 func channelSupportsRequestPath(channel *model.Channel, requestPath string, requestModel string) bool {
-	if channel == nil {
-		return false
-	}
-	if channel.Type != constant.ChannelTypeAdvancedCustom {
-		return true
-	}
-	config := channel.GetOtherSettings().AdvancedCustom
-	return config != nil && config.SupportsPathForModel(requestPath, requestModel)
+	return channel != nil && channel.SupportsRequestPath(requestPath, requestModel)
 }
 
 // getModelFromRequest 从请求中读取模型信息

@@ -1,5 +1,7 @@
 package constant
 
+const ChannelTagACURouter = "acu-router"
+
 const (
 	ChannelTypeUnknown        = 0
 	ChannelTypeOpenAI         = 1

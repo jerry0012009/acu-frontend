@@ -249,10 +249,8 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 	}
 }
 
-const ACUChannelTag = "acu-router"
-
 func IsACUChannelContext(c *gin.Context) bool {
-	return strings.EqualFold(strings.TrimSpace(common.GetContextKeyString(c, constant.ContextKeyChannelTag)), ACUChannelTag)
+	return strings.EqualFold(strings.TrimSpace(common.GetContextKeyString(c, constant.ContextKeyChannelTag)), constant.ChannelTagACURouter)
 }
 
 func (info *RelayInfo) ToString() string {
