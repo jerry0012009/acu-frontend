@@ -19,24 +19,26 @@ type acuPricingAuto struct {
 }
 
 type acuPricingResponse struct {
-	ModelID                    string  `json:"modelId"`
-	Role                       string  `json:"role"`
-	InputPricePerMillion       float64 `json:"inputPricePerMillion"`
-	OutputPricePerMillion      float64 `json:"outputPricePerMillion"`
-	CachedInputPricePerMillion float64 `json:"cachedInputPricePerMillion"`
-	Protocol                   string  `json:"protocol"`
-	ToolCall                   bool    `json:"toolCall"`
-	Reasoning                  bool    `json:"reasoning"`
-	ActiveInAcuAuto            bool    `json:"activeInAcuAuto"`
-	Provider                   string  `json:"provider"`
-	Status                     string  `json:"status"`
-	HealthyChannelCount        int     `json:"healthyChannelCount"`
+	ModelID                    string   `json:"modelId"`
+	Role                       string   `json:"role"`
+	InputPricePerMillion       float64  `json:"inputPricePerMillion"`
+	OutputPricePerMillion      float64  `json:"outputPricePerMillion"`
+	CachedInputPricePerMillion float64  `json:"cachedInputPricePerMillion"`
+	Protocol                   string   `json:"protocol"`
+	ToolCall                   bool     `json:"toolCall"`
+	Reasoning                  bool     `json:"reasoning"`
+	ActiveInAcuAuto            bool     `json:"activeInAcuAuto"`
+	Provider                   string   `json:"provider"`
+	Status                     string   `json:"status"`
+	HealthyChannelCount        int      `json:"healthyChannelCount"`
+	EffectiveCostStatuses      []string `json:"effectiveCostStatuses"`
 }
 
 type acuCurveModelStatus struct {
 	ModelID                      string   `json:"modelId"`
 	Statuses                     []string `json:"statuses"`
 	HealthyChannelCount          int      `json:"healthyChannelCount"`
+	EffectiveCostStatuses        []string `json:"effectiveCostStatuses"`
 	TemporarilyUnavailableReason *string  `json:"temporarilyUnavailableReason"`
 }
 

@@ -76,7 +76,12 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
   const isAdmin = (profile?.role ?? 0) >= ROLE.ADMIN
   const [loading, setLoading] = useState(false)
   const [acuModels, setAcuModels] = useState<
-    Array<{ modelId: string; healthyChannelCount: number; temporarilyUnavailableReason?: string | null }>
+    Array<{
+      modelId: string
+      healthyChannelCount: number
+      effectiveCostStatuses: Array<'estimated' | 'verified'>
+      temporarilyUnavailableReason?: string | null
+    }>
   >([])
   const [settings, setSettings] = useState<UserSettings>({
     notify_type: 'email',
@@ -429,7 +434,12 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
                       <span className='font-mono'>{model.modelId}</span>
                       <span className='text-muted-foreground ml-2 text-xs'>
                         {available
-                          ? t('{{count}} healthy Channel(s)', { count: model.healthyChannelCount })
+                          ? [
+                              t('{{count}} healthy Channel(s)', { count: model.healthyChannelCount }),
+                              ...(model.effectiveCostStatuses || []).map((status) =>
+                                status === 'verified' ? t('Verified cost') : t('Estimated cost')
+                              ),
+                            ].join(' · ')
                           : t('Temporarily unavailable: {{reason}}', {
                               reason: model.temporarilyUnavailableReason || 'no healthy Channel',
                             })}

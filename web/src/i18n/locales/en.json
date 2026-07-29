@@ -1718,6 +1718,7 @@
     "Error parsing response data": "Error parsing response data",
     "Error Type (optional)": "Error Type (optional)",
     "Estimated cost": "Estimated cost",
+    "Verified cost": "Verified cost",
     "Estimated quota cost": "Estimated quota cost",
     "Every group name in the pricing table can be used in two places: on a user (the user group, assigned by admins) and on a token (the token group, chosen when creating the token). Same name pool, two different jobs.": "Every group name in the pricing table can be used in two places: on a user (the user group, assigned by admins) and on a token (the token group, chosen when creating the token). Same name pool, two different jobs.",
     "Every other device will lose access immediately. This device will remain signed in.": "Every other device will lose access immediately. This device will remain signed in.",

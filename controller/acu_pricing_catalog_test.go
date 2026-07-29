@@ -60,6 +60,14 @@ func TestACUCurveStatusCountsIncludesEmptyCategories(t *testing.T) {
 	require.Equal(t, 0, counts["preflight_failed"])
 }
 
+func TestACUCurveCostStatusesRemainVisible(t *testing.T) {
+	statuses := sortedCurveStatuses(&acuPricingCatalog{CurveModelStatuses: []acuCurveModelStatus{{
+		ModelID: "gpt-test", EffectiveCostStatuses: []string{"estimated", "verified"},
+	}}})
+
+	require.Equal(t, []string{"estimated", "verified"}, statuses[0].EffectiveCostStatuses)
+}
+
 func TestACUCurveModelIDSetContainsOnlyCatalogCurves(t *testing.T) {
 	set := acuCurveModelIDSet(&acuPricingCatalog{CurveModelStatuses: []acuCurveModelStatus{
 		{ModelID: "gpt-5.6-luna", Statuses: []string{"active_responses"}},

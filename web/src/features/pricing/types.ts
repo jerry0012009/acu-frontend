@@ -116,6 +116,7 @@ export type PricingData = {
     modelId: string
     statuses: string[]
     healthyChannelCount: number
+    effectiveCostStatuses: Array<'estimated' | 'verified'>
     temporarilyUnavailableReason?: string | null
   }>
   acu_curve_status_counts?: Record<string, number>

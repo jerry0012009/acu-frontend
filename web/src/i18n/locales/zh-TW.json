@@ -1718,6 +1718,7 @@
     "Error parsing response data": "解析回應數據失敗",
     "Error Type (optional)": "錯誤類型（可選）",
     "Estimated cost": "預計成本",
+    "Verified cost": "已驗證成本",
     "Estimated quota cost": "估算配額費用",
     "Every group name in the pricing table can be used in two places: on a user (the user group, assigned by admins) and on a token (the token group, chosen when creating the token). Same name pool, two different jobs.": "定價表中的每個分組名可用在兩個地方：用戶身上（用戶分組，由管理員分配）和令牌身上（令牌分組，建立令牌時選擇）。同一批名字，兩種不同職責。",
     "Every other device will lose access immediately. This device will remain signed in.": "其他所有裝置將立即失去存取權限，目前裝置將保持登入。",
