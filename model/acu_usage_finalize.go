@@ -16,51 +16,67 @@ const (
 )
 
 type ACUUsageFinalize struct {
-	Id                   int    `json:"id"`
-	ReportIdempotencyKey string `json:"report_idempotency_key" gorm:"type:varchar(128);uniqueIndex;not null"`
-	LogicalRequestId     string `json:"logical_request_id" gorm:"type:varchar(128);uniqueIndex;not null"`
-	PayloadHash          string `json:"payload_hash" gorm:"type:char(64);not null"`
-	UserId               int    `json:"user_id" gorm:"index;not null"`
-	TokenId              int    `json:"token_id" gorm:"index;not null"`
-	LogId                string `json:"log_id" gorm:"type:varchar(128);index;not null"`
-	ActualModel          string `json:"actual_model" gorm:"type:varchar(128);not null"`
-	Provider             string `json:"provider" gorm:"type:varchar(128);not null"`
-	Channel              string `json:"channel" gorm:"type:varchar(128);not null"`
-	InputTokens          int64  `json:"input_tokens" gorm:"not null"`
-	CachedInputTokens    int64  `json:"cached_input_tokens" gorm:"not null"`
-	OutputTokens         int64  `json:"output_tokens" gorm:"not null"`
-	ReasoningTokens      int64  `json:"reasoning_tokens" gorm:"not null"`
-	JudgeCostUsd         string `json:"judge_cost_usd" gorm:"type:decimal(20,10);not null"`
-	ProviderCostUsd      string `json:"provider_cost_usd" gorm:"type:decimal(20,10);not null"`
-	FailedBilledCostUsd  string `json:"failed_billed_cost_usd" gorm:"type:decimal(20,10);not null"`
-	FinalUserCostUsd     string `json:"final_user_cost_usd" gorm:"type:decimal(20,10);not null"`
-	FinalQuota           int    `json:"final_quota" gorm:"not null"`
-	CostBreakdownJson    string `json:"cost_breakdown_json" gorm:"type:text;not null"`
-	Status               string `json:"status" gorm:"type:varchar(16);index;not null"`
-	CreatedAt            int64  `json:"created_at" gorm:"bigint;not null"`
-	UpdatedAt            int64  `json:"updated_at" gorm:"bigint;not null"`
+	Id                                  int    `json:"id"`
+	ReportIdempotencyKey                string `json:"report_idempotency_key" gorm:"type:varchar(128);uniqueIndex;not null"`
+	LogicalRequestId                    string `json:"logical_request_id" gorm:"type:varchar(128);uniqueIndex;not null"`
+	PayloadHash                         string `json:"payload_hash" gorm:"type:char(64);not null"`
+	UserId                              int    `json:"user_id" gorm:"index;not null"`
+	TokenId                             int    `json:"token_id" gorm:"index;not null"`
+	LogId                               string `json:"log_id" gorm:"type:varchar(128);index;not null"`
+	ActualModel                         string `json:"actual_model" gorm:"type:varchar(128);not null"`
+	Provider                            string `json:"provider" gorm:"type:varchar(128);not null"`
+	Channel                             string `json:"channel" gorm:"type:varchar(128);not null"`
+	InputTokens                         int64  `json:"input_tokens" gorm:"not null"`
+	CachedInputTokens                   int64  `json:"cached_input_tokens" gorm:"not null"`
+	OutputTokens                        int64  `json:"output_tokens" gorm:"not null"`
+	ReasoningTokens                     int64  `json:"reasoning_tokens" gorm:"not null"`
+	JudgeCostUsd                        string `json:"judge_cost_usd" gorm:"type:decimal(20,10);not null"`
+	ProviderCostUsd                     string `json:"provider_cost_usd" gorm:"type:decimal(20,10);not null"`
+	FailedBilledCostUsd                 string `json:"failed_billed_cost_usd" gorm:"type:decimal(20,10);not null"`
+	FinalUserCostUsd                    string `json:"final_user_cost_usd" gorm:"type:decimal(20,10);not null"`
+	NominalProviderCostUsd              string `json:"nominal_provider_cost_usd" gorm:"type:decimal(20,10);not null;default:0"`
+	ProviderBalanceChargeUsd            string `json:"provider_balance_charge_usd" gorm:"type:decimal(20,10);not null;default:0"`
+	EffectiveProviderCashCostCny        string `json:"effective_provider_cash_cost_cny" gorm:"type:decimal(20,10);not null;default:0"`
+	JudgeCashCostCny                    string `json:"judge_cash_cost_cny" gorm:"type:decimal(20,10);not null;default:0"`
+	FailedAttemptCashCostCny            string `json:"failed_attempt_cash_cost_cny" gorm:"type:decimal(20,10);not null;default:0"`
+	ActualTotalCashCostCny              string `json:"actual_total_cash_cost_cny" gorm:"type:decimal(20,10);not null;default:0"`
+	UserChargeCny                       string `json:"user_charge_cny" gorm:"type:decimal(20,10);not null;default:0"`
+	CounterfactualQualityCeilingCostCny string `json:"counterfactual_quality_ceiling_cost_cny" gorm:"type:decimal(20,10)"`
+	FinalQuota                          int    `json:"final_quota" gorm:"not null"`
+	CostBreakdownJson                   string `json:"cost_breakdown_json" gorm:"type:text;not null"`
+	Status                              string `json:"status" gorm:"type:varchar(16);index;not null"`
+	CreatedAt                           int64  `json:"created_at" gorm:"bigint;not null"`
+	UpdatedAt                           int64  `json:"updated_at" gorm:"bigint;not null"`
 }
 
 type ACUUsageChargeInput struct {
-	ReportIdempotencyKey string
-	LogicalRequestId     string
-	PayloadHash          string
-	UserId               int
-	TokenId              int
-	LogId                string
-	ActualModel          string
-	Provider             string
-	Channel              string
-	InputTokens          int64
-	CachedInputTokens    int64
-	OutputTokens         int64
-	ReasoningTokens      int64
-	JudgeCostUsd         string
-	ProviderCostUsd      string
-	FailedBilledCostUsd  string
-	FinalUserCostUsd     string
-	FinalQuota           int
-	CostBreakdownJson    string
+	ReportIdempotencyKey                string
+	LogicalRequestId                    string
+	PayloadHash                         string
+	UserId                              int
+	TokenId                             int
+	LogId                               string
+	ActualModel                         string
+	Provider                            string
+	Channel                             string
+	InputTokens                         int64
+	CachedInputTokens                   int64
+	OutputTokens                        int64
+	ReasoningTokens                     int64
+	JudgeCostUsd                        string
+	ProviderCostUsd                     string
+	FailedBilledCostUsd                 string
+	FinalUserCostUsd                    string
+	NominalProviderCostUsd              string
+	ProviderBalanceChargeUsd            string
+	EffectiveProviderCashCostCny        string
+	JudgeCashCostCny                    string
+	FailedAttemptCashCostCny            string
+	ActualTotalCashCostCny              string
+	UserChargeCny                       string
+	CounterfactualQualityCeilingCostCny string
+	FinalQuota                          int
+	CostBreakdownJson                   string
 }
 
 func sameACUFinalizePayload(record *ACUUsageFinalize, input ACUUsageChargeInput) bool {
@@ -93,28 +109,36 @@ func ApplyACUUsageCharge(input ACUUsageChargeInput) (*ACUUsageFinalize, bool, er
 
 		now := time.Now().Unix()
 		record := ACUUsageFinalize{
-			ReportIdempotencyKey: input.ReportIdempotencyKey,
-			LogicalRequestId:     input.LogicalRequestId,
-			PayloadHash:          input.PayloadHash,
-			UserId:               input.UserId,
-			TokenId:              input.TokenId,
-			LogId:                input.LogId,
-			ActualModel:          input.ActualModel,
-			Provider:             input.Provider,
-			Channel:              input.Channel,
-			InputTokens:          input.InputTokens,
-			CachedInputTokens:    input.CachedInputTokens,
-			OutputTokens:         input.OutputTokens,
-			ReasoningTokens:      input.ReasoningTokens,
-			JudgeCostUsd:         input.JudgeCostUsd,
-			ProviderCostUsd:      input.ProviderCostUsd,
-			FailedBilledCostUsd:  input.FailedBilledCostUsd,
-			FinalUserCostUsd:     input.FinalUserCostUsd,
-			FinalQuota:           input.FinalQuota,
-			CostBreakdownJson:    input.CostBreakdownJson,
-			Status:               ACUFinalizeStatusCharged,
-			CreatedAt:            now,
-			UpdatedAt:            now,
+			ReportIdempotencyKey:                input.ReportIdempotencyKey,
+			LogicalRequestId:                    input.LogicalRequestId,
+			PayloadHash:                         input.PayloadHash,
+			UserId:                              input.UserId,
+			TokenId:                             input.TokenId,
+			LogId:                               input.LogId,
+			ActualModel:                         input.ActualModel,
+			Provider:                            input.Provider,
+			Channel:                             input.Channel,
+			InputTokens:                         input.InputTokens,
+			CachedInputTokens:                   input.CachedInputTokens,
+			OutputTokens:                        input.OutputTokens,
+			ReasoningTokens:                     input.ReasoningTokens,
+			JudgeCostUsd:                        input.JudgeCostUsd,
+			ProviderCostUsd:                     input.ProviderCostUsd,
+			FailedBilledCostUsd:                 input.FailedBilledCostUsd,
+			FinalUserCostUsd:                    input.FinalUserCostUsd,
+			NominalProviderCostUsd:              input.NominalProviderCostUsd,
+			ProviderBalanceChargeUsd:            input.ProviderBalanceChargeUsd,
+			EffectiveProviderCashCostCny:        input.EffectiveProviderCashCostCny,
+			JudgeCashCostCny:                    input.JudgeCashCostCny,
+			FailedAttemptCashCostCny:            input.FailedAttemptCashCostCny,
+			ActualTotalCashCostCny:              input.ActualTotalCashCostCny,
+			UserChargeCny:                       input.UserChargeCny,
+			CounterfactualQualityCeilingCostCny: input.CounterfactualQualityCeilingCostCny,
+			FinalQuota:                          input.FinalQuota,
+			CostBreakdownJson:                   input.CostBreakdownJson,
+			Status:                              ACUFinalizeStatusCharged,
+			CreatedAt:                           now,
+			UpdatedAt:                           now,
 		}
 		created := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&record)
 		if created.Error != nil {
@@ -211,17 +235,25 @@ func FinalizeACUConsumeLog(record *ACUUsageFinalize) error {
 		return err
 	}
 	other := map[string]interface{}{
-		"acu_pending_finalize":       false,
-		"acu_logical_request_id":     record.LogicalRequestId,
-		"acu_report_idempotency_key": record.ReportIdempotencyKey,
-		"actual_provider":            record.Provider,
-		"actual_channel":             record.Channel,
-		"cached_input_tokens":        record.CachedInputTokens,
-		"reasoning_tokens":           record.ReasoningTokens,
-		"judge_cost_usd":             record.JudgeCostUsd,
-		"provider_cost_usd":          record.ProviderCostUsd,
-		"failed_billed_cost_usd":     record.FailedBilledCostUsd,
-		"final_user_cost_usd":        record.FinalUserCostUsd,
+		"acu_pending_finalize":                    false,
+		"acu_logical_request_id":                  record.LogicalRequestId,
+		"acu_report_idempotency_key":              record.ReportIdempotencyKey,
+		"actual_provider":                         record.Provider,
+		"actual_channel":                          record.Channel,
+		"cached_input_tokens":                     record.CachedInputTokens,
+		"reasoning_tokens":                        record.ReasoningTokens,
+		"judge_cost_usd":                          record.JudgeCostUsd,
+		"provider_cost_usd":                       record.ProviderCostUsd,
+		"failed_billed_cost_usd":                  record.FailedBilledCostUsd,
+		"final_user_cost_usd":                     record.FinalUserCostUsd,
+		"nominal_provider_cost_usd":               record.NominalProviderCostUsd,
+		"provider_balance_charge_usd":             record.ProviderBalanceChargeUsd,
+		"effective_provider_cash_cost_cny":        record.EffectiveProviderCashCostCny,
+		"judge_cash_cost_cny":                     record.JudgeCashCostCny,
+		"failed_attempt_cash_cost_cny":            record.FailedAttemptCashCostCny,
+		"actual_total_cash_cost_cny":              record.ActualTotalCashCostCny,
+		"user_charge_cny":                         record.UserChargeCny,
+		"counterfactual_quality_ceiling_cost_cny": record.CounterfactualQualityCeilingCostCny,
 	}
 	var breakdown interface{}
 	if err := common.UnmarshalJsonStr(record.CostBreakdownJson, &breakdown); err == nil {

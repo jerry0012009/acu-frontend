@@ -9,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/shopspring/decimal"
 )
 
@@ -77,7 +78,66 @@ func FinalizeACUUsage(request dto.ACUUsageFinalizeRequest, payloadHash string) (
 	if err != nil {
 		return dto.ACUUsageFinalizeResponse{}, err
 	}
-	if !judgeCost.Add(providerCost).Add(failedCost).Equal(finalCost) {
+	actualCashV2 := strings.TrimSpace(request.ActualTotalCashCostCNY) != "" || strings.TrimSpace(request.UserChargeCNY) != ""
+	nominalProviderCost := providerCost
+	providerBalanceCharge := decimal.Zero
+	effectiveProviderCash := decimal.Zero
+	judgeCash := decimal.Zero
+	failedAttemptCash := decimal.Zero
+	actualTotalCash := decimal.Zero
+	userChargeCny := decimal.Zero
+	counterfactualCost := decimal.Zero
+	if actualCashV2 {
+		for name, raw := range map[string]string{
+			"nominal_provider_cost_usd":        request.NominalProviderCostUSD,
+			"provider_balance_charge_usd":      request.ProviderBalanceChargeUSD,
+			"effective_provider_cash_cost_cny": request.EffectiveProviderCashCostCNY,
+			"judge_cash_cost_cny":              request.JudgeCashCostCNY,
+			"failed_attempt_cash_cost_cny":     request.FailedAttemptCashCostCNY,
+			"actual_total_cash_cost_cny":       request.ActualTotalCashCostCNY,
+			"user_charge_cny":                  request.UserChargeCNY,
+		} {
+			value, parseErr := parseACUCost(name, raw)
+			if parseErr != nil {
+				return dto.ACUUsageFinalizeResponse{}, parseErr
+			}
+			switch name {
+			case "nominal_provider_cost_usd":
+				nominalProviderCost = value
+			case "provider_balance_charge_usd":
+				providerBalanceCharge = value
+			case "effective_provider_cash_cost_cny":
+				effectiveProviderCash = value
+			case "judge_cash_cost_cny":
+				judgeCash = value
+			case "failed_attempt_cash_cost_cny":
+				failedAttemptCash = value
+			case "actual_total_cash_cost_cny":
+				actualTotalCash = value
+			case "user_charge_cny":
+				userChargeCny = value
+			}
+		}
+		if strings.TrimSpace(request.CounterfactualQualityCeilingCostCNY) != "" {
+			counterfactualCost, err = parseACUCost("counterfactual_quality_ceiling_cost_cny", request.CounterfactualQualityCeilingCostCNY)
+			if err != nil {
+				return dto.ACUUsageFinalizeResponse{}, err
+			}
+		}
+		if !nominalProviderCost.Equal(providerCost) {
+			return dto.ACUUsageFinalizeResponse{}, errors.New("nominal_provider_cost_usd does not match provider_cost_usd")
+		}
+		if !effectiveProviderCash.Add(judgeCash).Add(failedAttemptCash).Equal(actualTotalCash) {
+			return dto.ACUUsageFinalizeResponse{}, errors.New("actual_total_cash_cost_cny does not match the cash cost components")
+		}
+		if !userChargeCny.Equal(actualTotalCash) {
+			return dto.ACUUsageFinalizeResponse{}, errors.New("Founder Alpha user_charge_cny must equal actual_total_cash_cost_cny")
+		}
+		if operation_setting.USDExchangeRate <= 0 {
+			return dto.ACUUsageFinalizeResponse{}, errors.New("USD/CNY exchange rate is invalid")
+		}
+		finalCost = userChargeCny.Div(decimal.NewFromFloat(operation_setting.USDExchangeRate))
+	} else if !judgeCost.Add(providerCost).Add(failedCost).Equal(finalCost) {
 		return dto.ACUUsageFinalizeResponse{}, errors.New("final_user_cost_usd does not match the cost components")
 	}
 	quotaDecimal := finalCost.Mul(decimal.NewFromFloat(common.QuotaPerUnit))
@@ -90,25 +150,33 @@ func FinalizeACUUsage(request dto.ACUUsageFinalizeRequest, payloadHash string) (
 		return dto.ACUUsageFinalizeResponse{}, err
 	}
 	record, alreadyProcessed, err := model.ApplyACUUsageCharge(model.ACUUsageChargeInput{
-		ReportIdempotencyKey: strings.TrimSpace(request.ReportIdempotencyKey),
-		LogicalRequestId:     strings.TrimSpace(request.LogicalRequestID),
-		PayloadHash:          payloadHash,
-		UserId:               userID,
-		TokenId:              tokenID,
-		LogId:                strings.TrimSpace(request.NewAPILogID),
-		ActualModel:          strings.TrimSpace(request.ActualModel),
-		Provider:             strings.TrimSpace(request.Provider),
-		Channel:              strings.TrimSpace(request.Channel),
-		InputTokens:          request.Usage.InputTokens,
-		CachedInputTokens:    request.Usage.CachedInputTokens,
-		OutputTokens:         request.Usage.OutputTokens,
-		ReasoningTokens:      request.Usage.ReasoningTokens,
-		JudgeCostUsd:         judgeCost.StringFixed(10),
-		ProviderCostUsd:      providerCost.StringFixed(10),
-		FailedBilledCostUsd:  failedCost.StringFixed(10),
-		FinalUserCostUsd:     finalCost.StringFixed(10),
-		FinalQuota:           finalQuota,
-		CostBreakdownJson:    string(costBreakdown),
+		ReportIdempotencyKey:                strings.TrimSpace(request.ReportIdempotencyKey),
+		LogicalRequestId:                    strings.TrimSpace(request.LogicalRequestID),
+		PayloadHash:                         payloadHash,
+		UserId:                              userID,
+		TokenId:                             tokenID,
+		LogId:                               strings.TrimSpace(request.NewAPILogID),
+		ActualModel:                         strings.TrimSpace(request.ActualModel),
+		Provider:                            strings.TrimSpace(request.Provider),
+		Channel:                             strings.TrimSpace(request.Channel),
+		InputTokens:                         request.Usage.InputTokens,
+		CachedInputTokens:                   request.Usage.CachedInputTokens,
+		OutputTokens:                        request.Usage.OutputTokens,
+		ReasoningTokens:                     request.Usage.ReasoningTokens,
+		JudgeCostUsd:                        judgeCost.StringFixed(10),
+		ProviderCostUsd:                     providerCost.StringFixed(10),
+		FailedBilledCostUsd:                 failedCost.StringFixed(10),
+		FinalUserCostUsd:                    finalCost.StringFixed(10),
+		NominalProviderCostUsd:              nominalProviderCost.StringFixed(10),
+		ProviderBalanceChargeUsd:            providerBalanceCharge.StringFixed(10),
+		EffectiveProviderCashCostCny:        effectiveProviderCash.StringFixed(10),
+		JudgeCashCostCny:                    judgeCash.StringFixed(10),
+		FailedAttemptCashCostCny:            failedAttemptCash.StringFixed(10),
+		ActualTotalCashCostCny:              actualTotalCash.StringFixed(10),
+		UserChargeCny:                       userChargeCny.StringFixed(10),
+		CounterfactualQualityCeilingCostCny: counterfactualCost.StringFixed(10),
+		FinalQuota:                          finalQuota,
+		CostBreakdownJson:                   string(costBreakdown),
 	})
 	if err != nil {
 		return dto.ACUUsageFinalizeResponse{}, err

@@ -8,7 +8,9 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/glebarez/sqlite"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
@@ -19,6 +21,7 @@ func setupACUFinalizeTestDB(t *testing.T) {
 	previousRedis := common.RedisEnabled
 	previousLogConsume := common.LogConsumeEnabled
 	previousQuotaPerUnit := common.QuotaPerUnit
+	previousUSDExchangeRate := operation_setting.USDExchangeRate
 	dsn := fmt.Sprintf("file:acu-finalize-%d?mode=memory&cache=shared", time.Now().UnixNano())
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)
@@ -27,12 +30,47 @@ func setupACUFinalizeTestDB(t *testing.T) {
 	common.RedisEnabled = false
 	common.LogConsumeEnabled = true
 	common.QuotaPerUnit = 500_000
+	operation_setting.USDExchangeRate = 5
 	t.Cleanup(func() {
 		model.DB, model.LOG_DB = previousDB, previousLogDB
 		common.RedisEnabled = previousRedis
 		common.LogConsumeEnabled = previousLogConsume
 		common.QuotaPerUnit = previousQuotaPerUnit
+		operation_setting.USDExchangeRate = previousUSDExchangeRate
 	})
+}
+
+func TestFinalizeACUUsageChargesFounderAlphaActualCashAtOneTimes(t *testing.T) {
+	setupACUFinalizeTestDB(t)
+	user := model.User{Username: "acu-actual-cash-user", Password: "test-only-password", Status: common.UserStatusEnabled, Quota: 10_000}
+	require.NoError(t, model.DB.Create(&user).Error)
+	token := model.Token{UserId: user.Id, Key: "test-only-actual-cash-token", Name: "acu-actual-cash", Status: common.TokenStatusEnabled, RemainQuota: 10_000}
+	require.NoError(t, model.DB.Create(&token).Error)
+
+	request := dto.ACUUsageFinalizeRequest{
+		ReportIdempotencyKey: "report_actual_cash_1", NewAPIUserID: fmt.Sprint(user.Id), NewAPITokenID: fmt.Sprint(token.Id),
+		NewAPILogID: "req_actual_cash_1", LogicalRequestID: "logical_actual_cash_1", ActualModel: "gpt-5.6-luna",
+		Provider: "lucen", Channel: "cx006", JudgeCostUSD: "0.0020000000", ProviderCostUSD: "0.1393640000",
+		FailedBilledCostUSD: "0.0000000000", FinalUserCostUSD: "0.0000000000",
+		NominalProviderCostUSD: "0.1393640000", ProviderBalanceChargeUSD: "0.0083618400",
+		EffectiveProviderCashCostCNY: "0.0083618400", JudgeCashCostCNY: "0.0001200000",
+		FailedAttemptCashCostCNY: "0.0000000000", ActualTotalCashCostCNY: "0.0084818400", UserChargeCNY: "0.0084818400",
+	}
+
+	result, err := FinalizeACUUsage(request, "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd")
+	require.NoError(t, err)
+	require.False(t, result.AlreadyProcessed)
+
+	var updated model.User
+	require.NoError(t, model.DB.First(&updated, user.Id).Error)
+	require.Equal(t, 9_152, updated.Quota)
+	var finalized model.ACUUsageFinalize
+	require.NoError(t, model.DB.First(&finalized).Error)
+	require.Equal(t, 848, finalized.FinalQuota)
+	require.True(t, decimal.RequireFromString("0.0084818400").Equal(
+		decimal.RequireFromString(finalized.ActualTotalCashCostCny),
+	))
+	require.Equal(t, finalized.ActualTotalCashCostCny, finalized.UserChargeCny)
 }
 
 func TestFinalizeACUUsageChargesAndUpdatesLogExactlyOnce(t *testing.T) {
