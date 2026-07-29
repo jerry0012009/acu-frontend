@@ -81,6 +81,8 @@ func FinalizeACUUsage(request dto.ACUUsageFinalizeRequest, payloadHash string) (
 	actualCashV2 := strings.TrimSpace(request.ActualTotalCashCostCNY) != "" || strings.TrimSpace(request.UserChargeCNY) != ""
 	nominalProviderCost := providerCost
 	providerBalanceCharge := decimal.Zero
+	providerCreditCashCost := decimal.Zero
+	providerBalanceCurrency := strings.TrimSpace(request.ProviderBalanceCurrency)
 	effectiveProviderCash := decimal.Zero
 	judgeCash := decimal.Zero
 	failedAttemptCash := decimal.Zero
@@ -88,9 +90,15 @@ func FinalizeACUUsage(request dto.ACUUsageFinalizeRequest, payloadHash string) (
 	userChargeCny := decimal.Zero
 	counterfactualCost := decimal.Zero
 	if actualCashV2 {
+		providerBalanceChargeRaw := request.ProviderBalanceCharge
+		legacyProviderBalance := strings.TrimSpace(providerBalanceChargeRaw) == ""
+		if legacyProviderBalance {
+			providerBalanceChargeRaw = request.ProviderBalanceChargeUSD
+		}
 		for name, raw := range map[string]string{
 			"nominal_provider_cost_usd":        request.NominalProviderCostUSD,
-			"provider_balance_charge_usd":      request.ProviderBalanceChargeUSD,
+			"provider_balance_charge":          providerBalanceChargeRaw,
+			"provider_credit_cash_cost_cny":    request.ProviderCreditCashCostCNY,
 			"effective_provider_cash_cost_cny": request.EffectiveProviderCashCostCNY,
 			"judge_cash_cost_cny":              request.JudgeCashCostCNY,
 			"failed_attempt_cash_cost_cny":     request.FailedAttemptCashCostCNY,
@@ -104,8 +112,10 @@ func FinalizeACUUsage(request dto.ACUUsageFinalizeRequest, payloadHash string) (
 			switch name {
 			case "nominal_provider_cost_usd":
 				nominalProviderCost = value
-			case "provider_balance_charge_usd":
+			case "provider_balance_charge":
 				providerBalanceCharge = value
+			case "provider_credit_cash_cost_cny":
+				providerCreditCashCost = value
 			case "effective_provider_cash_cost_cny":
 				effectiveProviderCash = value
 			case "judge_cash_cost_cny":
@@ -126,6 +136,20 @@ func FinalizeACUUsage(request dto.ACUUsageFinalizeRequest, payloadHash string) (
 		}
 		if !nominalProviderCost.Equal(providerCost) {
 			return dto.ACUUsageFinalizeResponse{}, errors.New("nominal_provider_cost_usd does not match provider_cost_usd")
+		}
+		if providerBalanceCurrency != "USD-denominated credits" {
+			if legacyProviderBalance && providerBalanceCurrency == "" {
+				providerBalanceCurrency = "USD-denominated credits"
+			}
+		}
+		if providerBalanceCurrency != "USD-denominated credits" {
+			return dto.ACUUsageFinalizeResponse{}, errors.New("provider_balance_currency must be USD-denominated credits")
+		}
+		if legacyProviderBalance && strings.TrimSpace(request.ProviderCreditCashCostCNY) == "" && !providerBalanceCharge.IsZero() {
+			providerCreditCashCost = effectiveProviderCash.Div(providerBalanceCharge)
+		}
+		if !providerBalanceCharge.Mul(providerCreditCashCost).Equal(effectiveProviderCash) {
+			return dto.ACUUsageFinalizeResponse{}, errors.New("effective_provider_cash_cost_cny does not match Provider Credits conversion")
 		}
 		if !effectiveProviderCash.Add(judgeCash).Add(failedAttemptCash).Equal(actualTotalCash) {
 			return dto.ACUUsageFinalizeResponse{}, errors.New("actual_total_cash_cost_cny does not match the cash cost components")
@@ -169,6 +193,9 @@ func FinalizeACUUsage(request dto.ACUUsageFinalizeRequest, payloadHash string) (
 		FinalUserCostUsd:                    finalCost.StringFixed(10),
 		NominalProviderCostUsd:              nominalProviderCost.StringFixed(10),
 		ProviderBalanceChargeUsd:            providerBalanceCharge.StringFixed(10),
+		ProviderBalanceCharge:               providerBalanceCharge.StringFixed(10),
+		ProviderBalanceCurrency:             providerBalanceCurrency,
+		ProviderCreditCashCostCny:           providerCreditCashCost.StringFixed(10),
 		EffectiveProviderCashCostCny:        effectiveProviderCash.StringFixed(10),
 		JudgeCashCostCny:                    judgeCash.StringFixed(10),
 		FailedAttemptCashCostCny:            failedAttemptCash.StringFixed(10),

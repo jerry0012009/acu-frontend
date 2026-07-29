@@ -20,7 +20,12 @@ import assert from 'node:assert/strict'
 import { after, describe, test } from 'node:test'
 
 import { Window } from 'happy-dom'
-import type React from 'react'
+import React from 'react'
+
+Object.defineProperty(globalThis, 'React', {
+  configurable: true,
+  value: React,
+})
 
 const domWindow = new Window()
 const domGlobals = [
@@ -151,6 +156,29 @@ describe('log cost display', () => {
     assert.ok(
       rendered.container.querySelector('[data-tool-surcharge-indicator="true"]')
     )
+
+    await unmountCost(rendered)
+  })
+
+  test('shows ACU actual CNY charge instead of the internal Quota equivalent', async () => {
+    const rendered = await renderCost({
+      quota: 848,
+      other: { user_charge_cny: '0.0084818400' },
+    })
+
+    assert.equal(normalizedText(rendered.container.textContent), '¥0.00848184')
+    assert.equal(rendered.container.textContent?.includes(formatLogQuota(848)), false)
+
+    await unmountCost(rendered)
+  })
+
+  test('keeps zero-cost ACU records denominated in CNY', async () => {
+    const rendered = await renderCost({
+      quota: 0,
+      other: { user_charge_cny: '0' },
+    })
+
+    assert.equal(normalizedText(rendered.container.textContent), '¥0.00000000')
 
     await unmountCost(rendered)
   })

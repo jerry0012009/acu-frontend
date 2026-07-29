@@ -52,7 +52,8 @@ func TestFinalizeACUUsageChargesFounderAlphaActualCashAtOneTimes(t *testing.T) {
 		NewAPILogID: "req_actual_cash_1", LogicalRequestID: "logical_actual_cash_1", ActualModel: "gpt-5.6-luna",
 		Provider: "lucen", Channel: "cx006", JudgeCostUSD: "0.0020000000", ProviderCostUSD: "0.1393640000",
 		FailedBilledCostUSD: "0.0000000000", FinalUserCostUSD: "0.0000000000",
-		NominalProviderCostUSD: "0.1393640000", ProviderBalanceChargeUSD: "0.0083618400",
+		NominalProviderCostUSD: "0.1393640000", ProviderBalanceCharge: "0.0083618400",
+		ProviderBalanceCurrency: "USD-denominated credits", ProviderCreditCashCostCNY: "1.0000000000",
 		EffectiveProviderCashCostCNY: "0.0083618400", JudgeCashCostCNY: "0.0001200000",
 		FailedAttemptCashCostCNY: "0.0000000000", ActualTotalCashCostCNY: "0.0084818400", UserChargeCNY: "0.0084818400",
 	}
@@ -71,6 +72,13 @@ func TestFinalizeACUUsageChargesFounderAlphaActualCashAtOneTimes(t *testing.T) {
 		decimal.RequireFromString(finalized.ActualTotalCashCostCny),
 	))
 	require.Equal(t, finalized.ActualTotalCashCostCny, finalized.UserChargeCny)
+	require.True(t, decimal.RequireFromString("0.0083618400").Equal(
+		decimal.RequireFromString(finalized.ProviderBalanceCharge),
+	))
+	require.Equal(t, "USD-denominated credits", finalized.ProviderBalanceCurrency)
+	require.True(t, decimal.RequireFromString("1.0000000000").Equal(
+		decimal.RequireFromString(finalized.ProviderCreditCashCostCny),
+	))
 }
 
 func TestFinalizeACUUsageChargesAndUpdatesLogExactlyOnce(t *testing.T) {

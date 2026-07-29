@@ -118,6 +118,13 @@ function SubscriptionBadge(props: { quota: number }) {
 }
 
 export function LogCostDisplay(props: LogCostDisplayProps) {
+  if (props.other?.user_charge_cny != null) {
+    return (
+      <span className='border-border/80 bg-muted/60 inline-flex h-6 w-fit items-center rounded-md border px-2 [font-family:var(--font-body)] text-sm leading-none font-semibold tabular-nums'>
+        {`¥${Number(props.other.user_charge_cny).toFixed(8)}`}
+      </span>
+    )
+  }
   const isSubscription = props.other?.billing_source === 'subscription'
   const showToolSurcharge = hasToolSurcharge(props.other)
 

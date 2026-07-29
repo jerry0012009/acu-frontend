@@ -36,6 +36,9 @@ type ACUUsageFinalize struct {
 	FinalUserCostUsd                    string `json:"final_user_cost_usd" gorm:"type:decimal(20,10);not null"`
 	NominalProviderCostUsd              string `json:"nominal_provider_cost_usd" gorm:"type:decimal(20,10);not null;default:0"`
 	ProviderBalanceChargeUsd            string `json:"provider_balance_charge_usd" gorm:"type:decimal(20,10);not null;default:0"`
+	ProviderBalanceCharge               string `json:"provider_balance_charge" gorm:"type:decimal(20,10);not null;default:0"`
+	ProviderBalanceCurrency             string `json:"provider_balance_currency" gorm:"type:varchar(64);not null;default:'USD-denominated credits'"`
+	ProviderCreditCashCostCny           string `json:"provider_credit_cash_cost_cny" gorm:"type:decimal(20,10);not null;default:0"`
 	EffectiveProviderCashCostCny        string `json:"effective_provider_cash_cost_cny" gorm:"type:decimal(20,10);not null;default:0"`
 	JudgeCashCostCny                    string `json:"judge_cash_cost_cny" gorm:"type:decimal(20,10);not null;default:0"`
 	FailedAttemptCashCostCny            string `json:"failed_attempt_cash_cost_cny" gorm:"type:decimal(20,10);not null;default:0"`
@@ -69,6 +72,9 @@ type ACUUsageChargeInput struct {
 	FinalUserCostUsd                    string
 	NominalProviderCostUsd              string
 	ProviderBalanceChargeUsd            string
+	ProviderBalanceCharge               string
+	ProviderBalanceCurrency             string
+	ProviderCreditCashCostCny           string
 	EffectiveProviderCashCostCny        string
 	JudgeCashCostCny                    string
 	FailedAttemptCashCostCny            string
@@ -128,6 +134,9 @@ func ApplyACUUsageCharge(input ACUUsageChargeInput) (*ACUUsageFinalize, bool, er
 			FinalUserCostUsd:                    input.FinalUserCostUsd,
 			NominalProviderCostUsd:              input.NominalProviderCostUsd,
 			ProviderBalanceChargeUsd:            input.ProviderBalanceChargeUsd,
+			ProviderBalanceCharge:               input.ProviderBalanceCharge,
+			ProviderBalanceCurrency:             input.ProviderBalanceCurrency,
+			ProviderCreditCashCostCny:           input.ProviderCreditCashCostCny,
 			EffectiveProviderCashCostCny:        input.EffectiveProviderCashCostCny,
 			JudgeCashCostCny:                    input.JudgeCashCostCny,
 			FailedAttemptCashCostCny:            input.FailedAttemptCashCostCny,
@@ -247,7 +256,9 @@ func FinalizeACUConsumeLog(record *ACUUsageFinalize) error {
 		"failed_billed_cost_usd":                  record.FailedBilledCostUsd,
 		"final_user_cost_usd":                     record.FinalUserCostUsd,
 		"nominal_provider_cost_usd":               record.NominalProviderCostUsd,
-		"provider_balance_charge_usd":             record.ProviderBalanceChargeUsd,
+		"provider_balance_charge":                 record.ProviderBalanceCharge,
+		"provider_balance_currency":               record.ProviderBalanceCurrency,
+		"provider_credit_cash_cost_cny":           record.ProviderCreditCashCostCny,
 		"effective_provider_cash_cost_cny":        record.EffectiveProviderCashCostCny,
 		"judge_cash_cost_cny":                     record.JudgeCashCostCny,
 		"failed_attempt_cash_cost_cny":            record.FailedAttemptCashCostCny,

@@ -254,6 +254,16 @@ export interface LogOtherData {
   provider_cost_usd?: string
   failed_billed_cost_usd?: string
   final_user_cost_usd?: string
+  nominal_provider_cost_usd?: string
+  provider_balance_charge?: string
+  provider_balance_currency?: string
+  provider_credit_cash_cost_cny?: string
+  effective_provider_cash_cost_cny?: string
+  judge_cash_cost_cny?: string
+  failed_attempt_cash_cost_cny?: string
+  actual_total_cash_cost_cny?: string
+  user_charge_cny?: string
+  counterfactual_quality_ceiling_cost_cny?: string
   acu_cost_breakdown?: {
     judge?: string
     provider?: string
@@ -285,9 +295,15 @@ export interface LogOtherData {
     effective_cost_status?: string
     billing_multiplier?: number
     nominal_provider_cost_usd?: number
-    provider_balance_charge_usd?: number
+    provider_balance_charge?: number
+    provider_balance_currency?: string
+    provider_credit_cash_cost_cny?: number
     effective_cash_cost_cny?: number
     user_charge?: string
+    actual_total_cash_cost_cny?: number
+    judge_cash_cost_cny?: number
+    failed_attempt_cash_cost_cny?: number
+    counterfactual_quality_ceiling_cost_cny?: number
     reference_provider?: string
     reference_effective_cash_cost_cny?: number
     effective_savings_vs_reference_cny?: number

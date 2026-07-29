@@ -388,8 +388,8 @@ function BillingBreakdown(props: {
   }
 
   rows.push({
-    label: t('Total Cost'),
-    value: formatLogQuota(log.quota),
+    label: other.user_charge_cny != null ? t('Actual charge') : t('Total Cost'),
+    value: other.user_charge_cny != null ? `¥${Number(other.user_charge_cny).toFixed(8)}` : formatLogQuota(log.quota),
   })
 
   if (rows.length === 0) return null
@@ -917,13 +917,6 @@ export function DetailsDialog(props: DetailsDialogProps) {
               value={other.acu_logical_request_id}
               mono
             />
-            {other.final_user_cost_usd && (
-              <DetailRow
-                label={t('Final Cost (USD)')}
-                value={other.final_user_cost_usd}
-                mono
-              />
-            )}
             {acuRoute?.nominal_provider_cost_usd != null && (
               <DetailRow
                 label={t('Nominal Provider Cost (USD)')}
@@ -931,12 +924,15 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 mono
               />
             )}
-            {acuRoute?.provider_balance_charge_usd != null && (
+            {acuRoute?.provider_balance_charge != null && (
               <DetailRow
-                label={t('Provider Balance Charge (USD)')}
-                value={`$${acuRoute.provider_balance_charge_usd.toFixed(10)}`}
+                label={t('Provider Credits Deduction')}
+                value={`${acuRoute.provider_balance_charge.toFixed(10)} Credits`}
                 mono
               />
+            )}
+            {acuRoute?.provider_credit_cash_cost_cny != null && (
+              <DetailRow label={t('Provider Credit Cash Conversion')} value={`¥${acuRoute.provider_credit_cash_cost_cny.toFixed(10)} / Credit`} mono />
             )}
             {acuRoute?.effective_cash_cost_cny != null && (
               <DetailRow
@@ -945,10 +941,29 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 mono
               />
             )}
-            {acuRoute?.user_charge && (
+            {acuRoute?.judge_cash_cost_cny != null && (
+              <DetailRow label={t('Judge Cost (CNY)')} value={`¥${acuRoute.judge_cash_cost_cny.toFixed(8)}`} mono />
+            )}
+            {acuRoute?.failed_attempt_cash_cost_cny != null && (
+              <DetailRow label={t('Failed Attempt Cost (CNY)')} value={`¥${acuRoute.failed_attempt_cash_cost_cny.toFixed(8)}`} mono />
+            )}
+            {acuRoute?.actual_total_cash_cost_cny != null && (
+              <DetailRow label={t('Actual Total Cost (CNY)')} value={`¥${acuRoute.actual_total_cash_cost_cny.toFixed(8)}`} mono />
+            )}
+            {acuRoute?.user_charge != null && (
               <DetailRow
-                label={t('User Charge (USD)')}
-                value={`$${acuRoute.user_charge}`}
+                label={t('Actual charge')}
+                value={`¥${Number(acuRoute.user_charge).toFixed(8)}`}
+                mono
+              />
+            )}
+            {acuRoute?.counterfactual_quality_ceiling_cost_cny != null && (
+              <DetailRow label={t('Quality Ceiling Counterfactual Cost (CNY)')} value={`¥${acuRoute.counterfactual_quality_ceiling_cost_cny.toFixed(8)}`} mono />
+            )}
+            {acuRoute?.counterfactual_quality_ceiling_cost_cny != null && acuRoute.actual_total_cash_cost_cny != null && acuRoute.counterfactual_quality_ceiling_cost_cny > 0 && (
+              <DetailRow
+                label={t('Cost Reduction vs Quality Ceiling')}
+                value={`${Math.max(0, (acuRoute.counterfactual_quality_ceiling_cost_cny - acuRoute.actual_total_cash_cost_cny) / acuRoute.counterfactual_quality_ceiling_cost_cny * 100).toFixed(2)}%`}
                 mono
               />
             )}

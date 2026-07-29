@@ -22,7 +22,10 @@ type ACUUsageFinalizeRequest struct {
 	FailedBilledCostUSD                 string                 `json:"failed_billed_cost_usd"`
 	FinalUserCostUSD                    string                 `json:"final_user_cost_usd"`
 	NominalProviderCostUSD              string                 `json:"nominal_provider_cost_usd"`
-	ProviderBalanceChargeUSD            string                 `json:"provider_balance_charge_usd"`
+	ProviderBalanceCharge               string                 `json:"provider_balance_charge"`
+	ProviderBalanceCurrency             string                 `json:"provider_balance_currency"`
+	ProviderCreditCashCostCNY           string                 `json:"provider_credit_cash_cost_cny"`
+	ProviderBalanceChargeUSD            string                 `json:"provider_balance_charge_usd,omitempty"`
 	EffectiveProviderCashCostCNY        string                 `json:"effective_provider_cash_cost_cny"`
 	JudgeCashCostCNY                    string                 `json:"judge_cash_cost_cny"`
 	FailedAttemptCashCostCNY            string                 `json:"failed_attempt_cash_cost_cny"`
