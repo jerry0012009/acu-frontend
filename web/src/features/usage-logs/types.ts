@@ -265,6 +265,7 @@ export interface LogOtherData {
     route_reason?: string
     quality_upper_bound_model?: string
     estimated_cost_reduction_vs_quality_upper_bound_usd?: number
+    reasoning_effort?: string
   }
 }
 

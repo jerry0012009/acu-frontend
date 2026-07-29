@@ -63,7 +63,10 @@ export type DynamicPricingSummary = {
 const PRIMARY_DYNAMIC_FIELDS = new Set(['inputPrice', 'outputPrice'])
 
 export function isDynamicPricingModel(model: PricingModel): boolean {
-  return model.billing_mode === 'tiered_expr' && Boolean(model.billing_expr)
+  return (
+    model.billing_mode === 'acu_dynamic' ||
+    (model.billing_mode === 'tiered_expr' && Boolean(model.billing_expr))
+  )
 }
 
 export function getDynamicDisplayGroupRatio(

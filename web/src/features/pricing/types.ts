@@ -30,6 +30,7 @@ export type PricingVendor = {
 export type PricingModel = {
   id: number
   model_name: string
+  display_name?: string
   description?: string
   icon?: string
   vendor_id?: number
@@ -56,6 +57,18 @@ export type PricingModel = {
   billing_expr?: string
   /** Pricing version returned by backend, useful for cache busting */
   pricing_version?: string
+  input_price_per_million?: number
+  output_price_per_million?: number
+  cached_input_price_per_million?: number
+  acu_role?: string
+  acu_protocol?: string
+  acu_tool_call?: boolean
+  acu_reasoning?: boolean
+  acu_active?: boolean
+  acu_provider?: string
+  acu_status?: string
+  pricing_label?: string
+  pricing_description?: string
   /**
    * Optional model metadata fields reserved for backend-provided catalog data.
    * Keep them data-driven; do not synthesize display values on the client.
@@ -97,6 +110,13 @@ export type PricingData = {
   usable_group: Record<string, { desc: string; ratio: number }>
   supported_endpoint: Record<string, string>
   auto_groups: string[]
+  acu_catalog_version?: string
+  acu_catalog_error?: string
+  acu_curve_model_statuses?: Array<{
+    modelId: string
+    statuses: string[]
+  }>
+  acu_curve_status_counts?: Record<string, number>
 }
 
 export type TokenUnit = 'M' | 'K'

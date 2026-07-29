@@ -605,10 +605,11 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const useChannel = other?.admin_info?.use_channel
   const channelChain =
     useChannel && useChannel.length > 0 ? useChannel.join(' → ') : undefined
+  const reasoningEffort = other?.reasoning_effort || acuRoute?.reasoning_effort
   let reasoningEffortVariant: StatusBadgeProps['variant'] = 'green'
-  if (other?.reasoning_effort === 'high') {
+  if (reasoningEffort === 'high') {
     reasoningEffortVariant = 'orange'
-  } else if (other?.reasoning_effort === 'medium') {
+  } else if (reasoningEffort === 'medium') {
     reasoningEffortVariant = 'yellow'
   }
 
@@ -1110,12 +1111,12 @@ export function DetailsDialog(props: DetailsDialogProps) {
         )}
 
         {/* Reasoning effort */}
-        {other?.reasoning_effort && (
+        {reasoningEffort && (
           <DetailRow
             label={t('Reasoning Effort')}
             value={
               <StatusBadge
-                label={other.reasoning_effort}
+                label={reasoningEffort}
                 variant={reasoningEffortVariant}
                 size='sm'
                 copyable={false}

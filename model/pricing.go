@@ -17,6 +17,7 @@ import (
 
 type Pricing struct {
 	ModelName              string                  `json:"model_name"`
+	DisplayName            string                  `json:"display_name,omitempty"`
 	Description            string                  `json:"description,omitempty"`
 	Icon                   string                  `json:"icon,omitempty"`
 	Tags                   string                  `json:"tags,omitempty"`
@@ -36,6 +37,18 @@ type Pricing struct {
 	BillingMode            string                  `json:"billing_mode,omitempty"`
 	BillingExpr            string                  `json:"billing_expr,omitempty"`
 	PricingVersion         string                  `json:"pricing_version,omitempty"`
+	InputPricePerMillion   *float64                `json:"input_price_per_million,omitempty"`
+	OutputPricePerMillion  *float64                `json:"output_price_per_million,omitempty"`
+	CachedPricePerMillion  *float64                `json:"cached_input_price_per_million,omitempty"`
+	ACURole                string                  `json:"acu_role,omitempty"`
+	ACUProtocol            string                  `json:"acu_protocol,omitempty"`
+	ACUToolCall            *bool                   `json:"acu_tool_call,omitempty"`
+	ACUReasoning           *bool                   `json:"acu_reasoning,omitempty"`
+	ACUActive              *bool                   `json:"acu_active,omitempty"`
+	ACUProvider            string                  `json:"acu_provider,omitempty"`
+	ACUStatus              string                  `json:"acu_status,omitempty"`
+	PricingLabel           string                  `json:"pricing_label,omitempty"`
+	PricingDescription     string                  `json:"pricing_description,omitempty"`
 }
 
 type PricingVendor struct {

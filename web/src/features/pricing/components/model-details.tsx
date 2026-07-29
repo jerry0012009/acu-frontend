@@ -535,7 +535,7 @@ function ModelHeader(props: { model: PricingModel }) {
       <div className='flex items-center gap-2.5'>
         {modelIcon}
         <h1 className='font-mono text-xl font-bold tracking-tight sm:text-2xl'>
-          {model.model_name}
+          {model.display_name || model.model_name}
         </h1>
         <CopyButton
           value={model.model_name || ''}
@@ -556,6 +556,11 @@ function ModelHeader(props: { model: PricingModel }) {
       {description && (
         <p className='text-muted-foreground mt-2 text-sm leading-relaxed'>
           {description}
+        </p>
+      )}
+      {model.pricing_description && (
+        <p className='text-muted-foreground mt-1 text-xs leading-relaxed'>
+          {model.pricing_description}
         </p>
       )}
     </header>
@@ -1141,9 +1146,7 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
   const { t } = useTranslation()
   const showRechargePrice = props.showRechargePrice ?? false
 
-  const isDynamic =
-    props.model.billing_mode === 'tiered_expr' &&
-    Boolean(props.model.billing_expr)
+  const isDynamic = isDynamicPricingModel(props.model)
 
   return (
     <div className='@container/details space-y-4'>
@@ -1233,7 +1236,9 @@ export function ModelDetailsDrawer(props: ModelDetailsDrawerProps) {
         )}
       >
         <SheetHeader className='sr-only'>
-          <SheetTitle>{props.model.model_name}</SheetTitle>
+          <SheetTitle>
+            {props.model.display_name || props.model.model_name}
+          </SheetTitle>
           <SheetDescription>{t('Model details')}</SheetDescription>
         </SheetHeader>
         <div className='flex-1 overflow-y-auto px-4 pt-11 pb-5 sm:px-6 sm:pt-12 sm:pb-6'>

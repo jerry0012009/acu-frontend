@@ -28,6 +28,7 @@ import { DEFAULT_TOKEN_UNIT } from '../constants'
 import {
   getDynamicDisplayGroupRatio,
   getDynamicPricingSummary,
+  isDynamicPricingModel,
 } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
 import { isTokenBasedModel } from '../lib/model-helpers'
@@ -61,10 +62,9 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   const endpoints = props.model.supported_endpoint_types || []
   const modelIconKey = props.model.icon || props.model.vendor_icon
   const modelIcon = modelIconKey ? getLobeIcon(modelIconKey, 28) : null
-  const initial = props.model.model_name?.charAt(0).toUpperCase() || '?'
-  const isDynamicPricing =
-    props.model.billing_mode === 'tiered_expr' &&
-    Boolean(props.model.billing_expr)
+  const displayName = props.model.display_name || props.model.model_name
+  const initial = displayName?.charAt(0).toUpperCase() || '?'
+  const isDynamicPricing = isDynamicPricingModel(props.model)
   const hasCachedPrice = isTokenBased && props.model.cache_ratio != null
   const dynamicSummary = isDynamicPricing
     ? getDynamicPricingSummary(props.model, {
@@ -123,7 +123,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
     } else {
       priceSummary = (
         <span className='text-muted-foreground text-sm'>
-          {t('Dynamic Pricing')}
+          {props.model.pricing_label || t('Dynamic Pricing')}
         </span>
       )
     }
@@ -212,8 +212,13 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
           </div>
           <div className='min-w-0'>
             <h3 className='text-foreground truncate font-mono text-[15px] leading-tight font-bold'>
-              {props.model.model_name}
+              {displayName}
             </h3>
+            {props.model.display_name && (
+              <div className='text-muted-foreground truncate font-mono text-[11px]'>
+                {props.model.model_name}
+              </div>
+            )}
             <div className='mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm sm:mt-1 sm:gap-x-3'>
               {priceSummary}
             </div>

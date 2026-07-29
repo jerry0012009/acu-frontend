@@ -35,6 +35,10 @@ func filterPricingByUsableGroups(pricing []model.Pricing, usableGroup map[string
 
 func GetPricing(c *gin.Context) {
 	pricing := model.GetPricing()
+	acuCatalog, acuCatalogErr := loadACUPricingCatalog()
+	if acuCatalogErr == nil {
+		pricing = overlayACUPricing(acuCatalog, pricing)
+	}
 	userId, exists := c.Get("id")
 	usableGroup := map[string]string{}
 	groupRatio := map[string]float64{}
@@ -64,15 +68,28 @@ func GetPricing(c *gin.Context) {
 		}
 	}
 
+	acuCatalogVersion := ""
+	acuCatalogError := ""
+	if acuCatalog != nil {
+		acuCatalogVersion = acuCatalog.SourceCatalogVersion
+	}
+	if acuCatalogErr != nil {
+		acuCatalogError = "catalog_load_failed"
+	}
+
 	c.JSON(200, gin.H{
-		"success":            true,
-		"data":               pricing,
-		"vendors":            model.GetVendors(),
-		"group_ratio":        groupRatio,
-		"usable_group":       usableGroup,
-		"supported_endpoint": model.GetSupportedEndpointMap(),
-		"auto_groups":        service.GetUserAutoGroup(group),
-		"pricing_version":    "a42d372ccf0b5dd13ecf71203521f9d2",
+		"success":                  true,
+		"data":                     pricing,
+		"vendors":                  model.GetVendors(),
+		"group_ratio":              groupRatio,
+		"usable_group":             usableGroup,
+		"supported_endpoint":       model.GetSupportedEndpointMap(),
+		"auto_groups":              service.GetUserAutoGroup(group),
+		"pricing_version":          "a42d372ccf0b5dd13ecf71203521f9d2",
+		"acu_catalog_version":      acuCatalogVersion,
+		"acu_catalog_error":        acuCatalogError,
+		"acu_curve_model_statuses": sortedCurveStatuses(acuCatalog),
+		"acu_curve_status_counts":  acuCurveStatusCounts(acuCatalog),
 	})
 }
 

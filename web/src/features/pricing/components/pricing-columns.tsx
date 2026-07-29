@@ -85,8 +85,15 @@ export function usePricingColumns(
         return (
           <div className='flex max-w-full min-w-0 items-center gap-2'>
             {modelIcon}
-            <span className='truncate font-mono text-sm font-medium'>
-              {model.model_name}
+            <span className='min-w-0'>
+              <span className='block truncate font-mono text-sm font-medium'>
+                {model.display_name || model.model_name}
+              </span>
+              {model.display_name && (
+                <span className='text-muted-foreground block truncate font-mono text-[10px]'>
+                  {model.model_name}
+                </span>
+              )}
             </span>
           </div>
         )
@@ -146,7 +153,7 @@ export function usePricingColumns(
           if (primaryEntries.length === 0) {
             return (
               <span className='text-muted-foreground text-xs'>
-                {t('Dynamic Pricing')}
+                {model.pricing_label || t('Dynamic Pricing')}
               </span>
             )
           }
