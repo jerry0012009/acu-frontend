@@ -37,6 +37,7 @@ const USAGE_LOGS_SECTIONS = [
     titleKey: 'Task Logs',
     build: () => null, // Content is rendered directly in the page component
   },
+  { id: 'timeline', titleKey: '工作路由轨迹', build: () => null },
 ] as const
 
 export type UsageLogsSectionId = (typeof USAGE_LOGS_SECTIONS)[number]['id']

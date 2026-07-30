@@ -27,6 +27,7 @@ import {
   ListTodo,
   MessageSquare,
   Radio,
+  Route,
   ServerCog,
   Settings,
   Ticket,
@@ -36,7 +37,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import { type SidebarData } from '@/components/layout/types'
+import type { SidebarData } from '@/components/layout/types'
 import { ROLE } from '@/lib/roles'
 
 /**
@@ -90,6 +91,7 @@ export function useSidebarData(): SidebarData {
             url: '/usage-logs/common',
             icon: FileText,
           },
+          { title: t('工作路由轨迹'), url: '/usage-logs/timeline', icon: Route },
           {
             title: t('Task Logs'),
             url: '/usage-logs/task',

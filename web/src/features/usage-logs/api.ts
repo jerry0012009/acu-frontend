@@ -96,6 +96,25 @@ export async function getACUSessionTrace(identifier: string) {
   }
 }
 
+export type ACUWorkTimelineItem = {
+  timestamp: number; sequence: number; logicalRequestId: string; sessionId: string; taskId: string; segmentId: string
+  judgeCalled: boolean; judgeReused: boolean; judgeModel: string; judgeBackupUsed: boolean; difficulty: number
+  requestedModel: string; actualModel: string; provider: string; channel: string; status: string
+  firstModelEventLatencyMs: number; totalLatencyMs: number; actualCostCny: number; judgeCostCny: number
+  providerCostCny: number; failedAttemptCostCny: number; errorClass?: string; cooldownUntil?: string
+}
+
+export type ACUWorkTimeline = {
+  from: number; to: number
+  summary: { apiSteps: number; judgeCalls: number; judgeReuseRate: number; completionRate: number; actualTotalCostCny: number; p50FirstModelEventLatencyMs: number; p95FirstModelEventLatencyMs: number }
+  items: ACUWorkTimelineItem[]
+}
+
+export async function getACUWorkTimeline(from: number, to: number) {
+  const res = await api.get(`/api/log/self/acu-work-timeline?from=${from}&to=${to}`)
+  return res.data as { success: boolean; message?: string; data?: ACUWorkTimeline }
+}
+
 export async function getUserInfo(
   userId: number
 ): Promise<{ success: boolean; message?: string; data?: UserInfo }> {

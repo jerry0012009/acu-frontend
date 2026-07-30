@@ -34,6 +34,7 @@ import {
   useUsageLogsContext,
 } from './components/usage-logs-provider'
 import { UsageLogsTable } from './components/usage-logs-table'
+import { ACUWorkTimeline } from './components/acu-work-timeline'
 import {
   isUsageLogsSectionId,
   USAGE_LOGS_DEFAULT_SECTION,
@@ -53,6 +54,7 @@ const SECTION_META: Record<UsageLogsSectionId, { titleKey: string }> = {
   task: {
     titleKey: 'Task Logs',
   },
+  timeline: { titleKey: '工作路由轨迹' },
 }
 
 function UsageLogsContent() {
@@ -152,7 +154,7 @@ function UsageLogsContent() {
               </Tabs>
             )}
             <div className='min-h-0 flex-1'>
-              <UsageLogsTable logCategory={activeCategory} />
+              {activeCategory === 'timeline' ? <ACUWorkTimeline /> : <UsageLogsTable logCategory={activeCategory} />}
             </div>
           </div>
         </SectionPageLayout.Content>

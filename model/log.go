@@ -655,6 +655,12 @@ func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int
 	return logs, total, err
 }
 
+func GetUserACUTimelineLogs(userID int, from, to int64) (logs []*Log, err error) {
+	err = LOG_DB.Where("user_id = ? AND created_at >= ? AND created_at <= ? AND other LIKE ?", userID, from, to, "%acu_logical_request_id%").
+		Order("created_at asc, id asc").Limit(5000).Find(&logs).Error
+	return logs, err
+}
+
 type Stat struct {
 	Quota int `json:"quota"`
 	Rpm   int `json:"rpm"`
