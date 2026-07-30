@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
-import { useCallback, useMemo } from 'react'
+import { type ReactNode, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
@@ -26,6 +26,8 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CacheStatsDialog } from '@/features/system-settings/general/channel-affinity/cache-stats-dialog'
 import { useSidebarConfig } from '@/hooks/use-sidebar-config'
 
+import { ACUChannelMonitor } from './components/acu-channel-monitor'
+import { ACUWorkTimeline } from './components/acu-work-timeline'
 import { UserInfoDialog } from './components/dialogs/user-info-dialog'
 import {
   type LogsViewScope,
@@ -34,7 +36,6 @@ import {
   useUsageLogsContext,
 } from './components/usage-logs-provider'
 import { UsageLogsTable } from './components/usage-logs-table'
-import { ACUWorkTimeline } from './components/acu-work-timeline'
 import {
   isUsageLogsSectionId,
   USAGE_LOGS_DEFAULT_SECTION,
@@ -55,6 +56,7 @@ const SECTION_META: Record<UsageLogsSectionId, { titleKey: string }> = {
     titleKey: 'Task Logs',
   },
   timeline: { titleKey: '工作路由轨迹' },
+  'channel-monitor': { titleKey: 'Channel Monitor' },
 }
 
 function UsageLogsContent() {
@@ -119,10 +121,17 @@ function UsageLogsContent() {
     [setViewScope]
   )
 
-  const pageMeta =
-    activeCategory === 'common' ? SECTION_META.common : SECTION_META.task
+  const pageMeta = SECTION_META[activeCategory]
   const showTaskSwitcher =
     activeCategory !== 'common' && visibleSections.length > 1
+  let sectionContent: ReactNode
+  if (activeCategory === 'timeline') {
+    sectionContent = <ACUWorkTimeline />
+  } else if (activeCategory === 'channel-monitor') {
+    sectionContent = <ACUChannelMonitor />
+  } else {
+    sectionContent = <UsageLogsTable logCategory={activeCategory} />
+  }
 
   return (
     <>
@@ -153,9 +162,7 @@ function UsageLogsContent() {
                 </TabsList>
               </Tabs>
             )}
-            <div className='min-h-0 flex-1'>
-              {activeCategory === 'timeline' ? <ACUWorkTimeline /> : <UsageLogsTable logCategory={activeCategory} />}
-            </div>
+            <div className='min-h-0 flex-1'>{sectionContent}</div>
           </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>

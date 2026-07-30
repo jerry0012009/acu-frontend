@@ -97,22 +97,112 @@ export async function getACUSessionTrace(identifier: string) {
 }
 
 export type ACUWorkTimelineItem = {
-  timestamp: number; sequence: number; logicalRequestId: string; sessionId: string; taskId: string; segmentId: string
-  judgeCalled: boolean; judgeReused: boolean; judgeModel: string; judgeBackupUsed: boolean; difficulty: number
-  requestedModel: string; actualModel: string; provider: string; channel: string; status: string
-  firstModelEventLatencyMs: number; totalLatencyMs: number; actualCostCny: number; judgeCostCny: number
-  providerCostCny: number; failedAttemptCostCny: number; errorClass?: string; cooldownUntil?: string
+  timestamp: number
+  sequence: number
+  logicalRequestId: string
+  sessionId: string
+  taskId: string
+  segmentId: string
+  judgeCalled: boolean
+  judgeReused: boolean
+  judgeModel: string
+  judgeBackupUsed: boolean
+  difficulty: number
+  requestedModel: string
+  actualModel: string
+  provider: string
+  channel: string
+  status: string
+  firstModelEventLatencyMs: number
+  endToEndLatencyMs: number
+  judgeLatencyMs: number
+  providerLatencyMs: number
+  actualCostCny: number
+  judgeCostCny: number
+  providerCostCny: number
+  failedAttemptCostCny: number
+  errorClass?: string
+  cooldownUntil?: string
 }
 
 export type ACUWorkTimeline = {
-  from: number; to: number
-  summary: { apiSteps: number; judgeCalls: number; judgeReuseRate: number; completionRate: number; actualTotalCostCny: number; p50FirstModelEventLatencyMs: number; p95FirstModelEventLatencyMs: number }
+  from: number
+  to: number
+  summary: {
+    apiSteps: number
+    judgeCalls: number
+    judgeReuseRate: number
+    completionRate: number
+    actualTotalCostCny: number
+    p50FirstModelEventLatencyMs: number
+    p95FirstModelEventLatencyMs: number
+  }
   items: ACUWorkTimelineItem[]
 }
 
 export async function getACUWorkTimeline(from: number, to: number) {
-  const res = await api.get(`/api/log/self/acu-work-timeline?from=${from}&to=${to}`)
-  return res.data as { success: boolean; message?: string; data?: ACUWorkTimeline }
+  const res = await api.get(
+    `/api/log/self/acu-work-timeline?from=${from}&to=${to}`
+  )
+  return res.data as {
+    success: boolean
+    message?: string
+    data?: ACUWorkTimeline
+  }
+}
+
+export type ACUChannelMonitorProfile = {
+  executionProfileId: string
+  canonicalModel: string
+  protocol: string[]
+  provider: string
+  channel: string
+  endpointHost: string
+  multiplier: number
+  effectiveCostStatus: string
+  enabled: boolean
+  administratorAllowed: boolean
+  routingEligible: boolean
+  state: string
+  recentSuccessRate: number
+  consecutiveFailures: number
+  p50FirstModelEventLatencyMs: number
+  p95FirstModelEventLatencyMs: number
+  lastError: string
+  lastSuccessAt: string
+  cooldownUntil: string
+}
+
+export type ACUChannelMonitor = {
+  range: string
+  generatedAt: string
+  profiles: ACUChannelMonitorProfile[]
+  history: Array<Record<string, string | number | null>>
+  supplyInventory: Array<Record<string, unknown>>
+}
+
+export async function getACUChannelMonitor(range: '1h' | '24h' | '7d') {
+  const res = await api.get(`/api/log/acu-channel-monitor?range=${range}`)
+  return res.data as {
+    success: boolean
+    message?: string
+    data?: ACUChannelMonitor
+  }
+}
+
+export async function pauseACUChannel(
+  channelId: string,
+  durationMinutes: 30 | 120
+) {
+  const res = await api.post('/api/log/acu-channel-monitor/pause', {
+    channelId,
+    durationMinutes,
+  })
+  return res.data as {
+    success: boolean
+    message?: string
+    data?: { channelId: string; state: string; cooldownUntil: string }
+  }
 }
 
 export async function getUserInfo(

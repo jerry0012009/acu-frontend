@@ -35,7 +35,9 @@ type ACUWorkTimelineItem struct {
 	Channel                  string  `json:"channel"`
 	Status                   string  `json:"status"`
 	FirstModelEventLatencyMs int     `json:"firstModelEventLatencyMs"`
-	TotalLatencyMs           int     `json:"totalLatencyMs"`
+	EndToEndLatencyMs        int     `json:"endToEndLatencyMs"`
+	JudgeLatencyMs           int     `json:"judgeLatencyMs"`
+	ProviderLatencyMs        int     `json:"providerLatencyMs"`
 	ActualCostCNY            float64 `json:"actualCostCny"`
 	JudgeCostCNY             float64 `json:"judgeCostCny"`
 	ProviderCostCNY          float64 `json:"providerCostCny"`

@@ -91,7 +91,11 @@ export function useSidebarData(): SidebarData {
             url: '/usage-logs/common',
             icon: FileText,
           },
-          { title: t('工作路由轨迹'), url: '/usage-logs/timeline', icon: Route },
+          {
+            title: t('工作路由轨迹'),
+            url: '/usage-logs/timeline',
+            icon: Route,
+          },
           {
             title: t('Task Logs'),
             url: '/usage-logs/task',
@@ -125,6 +129,11 @@ export function useSidebarData(): SidebarData {
             title: t('Channels'),
             url: '/channels',
             icon: Radio,
+          },
+          {
+            title: t('Channel Monitor'),
+            url: '/usage-logs/channel-monitor',
+            icon: Activity,
           },
           {
             title: t('Models'),

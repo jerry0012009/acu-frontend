@@ -38,6 +38,7 @@ const USAGE_LOGS_SECTIONS = [
     build: () => null, // Content is rendered directly in the page component
   },
   { id: 'timeline', titleKey: '工作路由轨迹', build: () => null },
+  { id: 'channel-monitor', titleKey: 'Channel Monitor', build: () => null },
 ] as const
 
 export type UsageLogsSectionId = (typeof USAGE_LOGS_SECTIONS)[number]['id']

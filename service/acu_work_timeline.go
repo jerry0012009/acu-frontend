@@ -1,10 +1,10 @@
 package service
 
 import (
-	"encoding/json"
 	"sort"
 	"strings"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 )
@@ -21,7 +21,7 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 	byRequest := map[string]dto.ACUWorkTimelineItem{}
 	for _, log := range logs {
 		var other map[string]interface{}
-		if json.Unmarshal([]byte(log.Other), &other) != nil {
+		if common.Unmarshal([]byte(log.Other), &other) != nil {
 			continue
 		}
 		logicalID := stringValue(other, "acu_logical_request_id")
@@ -31,9 +31,22 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 		}
 		attempts, _ := breakdown["channel_attempts"].([]interface{})
 		firstLatency, totalLatency, errorClass, cooldown := attemptFields(attempts)
-		status := "completed"
-		if errorClass != "" || log.Type == model.LogTypeError {
-			status = "error"
+		status := stringValue(breakdown, "logical_request_status")
+		if status == "success" {
+			status = "completed"
+		}
+		if status == "error" {
+			status = "failed"
+		}
+		if status == "" {
+			status = "completed"
+			if log.Type == model.LogTypeError {
+				status = "failed"
+			}
+		}
+		hasFailure, hasSuccess := attemptTerminalStates(attempts)
+		if status == "completed" && hasFailure && hasSuccess {
+			status = "completed_with_recovery"
 		}
 		judgeModel := stringValue(breakdown, "judge_model")
 		item := dto.ACUWorkTimelineItem{
@@ -45,12 +58,17 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 			ActualModel: firstTimelineValue(stringValue(breakdown, "canonical_model"), log.ModelName),
 			Provider:    firstTimelineValue(stringValue(breakdown, "actual_provider"), stringValue(other, "actual_provider")),
 			Channel:     firstTimelineValue(stringValue(breakdown, "channel_id"), stringValue(other, "actual_channel")), Status: status,
-			FirstModelEventLatencyMs: firstLatency, TotalLatencyMs: totalLatency,
-			ActualCostCNY: numberValue(breakdown, "actual_total_cash_cost_cny"), JudgeCostCNY: numberValue(breakdown, "judge_cash_cost_cny"),
+			FirstModelEventLatencyMs: firstLatency,
+			EndToEndLatencyMs:        firstPositiveInt(int(numberValue(breakdown, "end_to_end_latency_ms")), totalLatency+int(numberValue(breakdown, "judge_latency_ms"))),
+			JudgeLatencyMs:           int(numberValue(breakdown, "judge_latency_ms")),
+			ProviderLatencyMs:        firstPositiveInt(int(numberValue(breakdown, "provider_latency_ms")), totalLatency),
+			ActualCostCNY:            numberValue(breakdown, "actual_total_cash_cost_cny"), JudgeCostCNY: numberValue(breakdown, "judge_cash_cost_cny"),
 			ProviderCostCNY: numberValue(breakdown, "effective_provider_cash_cost_cny"), FailedAttemptCostCNY: numberValue(breakdown, "failed_attempt_cash_cost_cny"),
 			ErrorClass: errorClass, CooldownUntil: cooldown,
 		}
-		byRequest[logicalID] = item
+		if previous, exists := byRequest[logicalID]; !exists || timelineItemIsMoreFinal(item, previous, log.Type) {
+			byRequest[logicalID] = item
+		}
 	}
 	items := make([]dto.ACUWorkTimelineItem, 0, len(byRequest))
 	for _, item := range byRequest {
@@ -63,7 +81,7 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 	for i := range items {
 		items[i].Sequence = i + 1
 		totalCost += items[i].ActualCostCNY
-		if items[i].Status == "completed" {
+		if items[i].Status == "completed" || items[i].Status == "completed_with_recovery" {
 			completed++
 		}
 		if items[i].JudgeCalled {
@@ -82,6 +100,36 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 		APISteps: len(items), JudgeCalls: judgeCalls, JudgeReuseRate: ratio(reused, denom), CompletionRate: ratio(completed, len(items)),
 		ActualTotalCostCNY: totalCost, P50FirstModelEventLatencyMs: percentile(latencies, .5), P95FirstModelEventLatencyMs: percentile(latencies, .95),
 	}}
+}
+
+func attemptTerminalStates(values []interface{}) (bool, bool) {
+	hasFailure, hasSuccess := false, false
+	for _, value := range values {
+		attempt, _ := value.(map[string]interface{})
+		switch stringValue(attempt, "status") {
+		case "error", "failed":
+			hasFailure = true
+		case "success", "completed":
+			hasSuccess = true
+		}
+	}
+	return hasFailure, hasSuccess
+}
+
+func timelineItemIsMoreFinal(current, previous dto.ACUWorkTimelineItem, logType int) bool {
+	if current.Status == "completed" || current.Status == "completed_with_recovery" || current.Status == "cancelled" {
+		return true
+	}
+	return previous.Status == "" || logType == model.LogTypeConsume
+}
+
+func firstPositiveInt(values ...int) int {
+	for _, value := range values {
+		if value > 0 {
+			return value
+		}
+	}
+	return 0
 }
 
 func attemptFields(values []interface{}) (int, int, string, string) {

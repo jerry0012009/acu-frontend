@@ -278,6 +278,8 @@ func SetApiRouter(router *gin.Engine) {
 		logRoute.GET("/self/search", middleware.UserAuth(), middleware.SearchRateLimit(), controller.SearchUserLogs)
 		logRoute.GET("/self/acu-session-trace/:identifier", middleware.UserAuth(), middleware.DisableCache(), controller.GetACUSessionTrace)
 		logRoute.GET("/self/acu-work-timeline", middleware.UserAuth(), middleware.DisableCache(), controller.GetACUWorkTimeline)
+		logRoute.GET("/acu-channel-monitor", middleware.AdminAuth(), middleware.DisableCache(), controller.GetACUChannelMonitor)
+		logRoute.POST("/acu-channel-monitor/pause", middleware.AdminAuth(), controller.PauseACUChannel)
 
 		systemTaskRoute := apiRouter.Group("/system-task")
 		systemTaskRoute.Use(middleware.RootAuth())
