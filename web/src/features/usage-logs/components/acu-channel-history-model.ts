@@ -1,4 +1,8 @@
-import type { ACUChannelCooldownInterval, ACUChannelHistoryRow } from '../api'
+import type {
+  ACUChannelCooldownInterval,
+  ACUChannelHistoryRow,
+  ACUMonitorRange,
+} from '../api'
 
 export type HistoryFilters = {
   model: string
@@ -16,6 +20,16 @@ export type MonitorChartPoint = {
   watchdogCount: number
   recoveryCount: number
   [key: string]: string | number | ACUChannelHistoryRow[]
+}
+
+const RANGE_WINDOWS: Record<
+  ACUMonitorRange,
+  { durationMs: number; bucketMs: number }
+> = {
+  '1h': { durationMs: 60 * 60 * 1000, bucketMs: 60 * 1000 },
+  '6h': { durationMs: 6 * 60 * 60 * 1000, bucketMs: 5 * 60 * 1000 },
+  '24h': { durationMs: 24 * 60 * 60 * 1000, bucketMs: 15 * 60 * 1000 },
+  '7d': { durationMs: 7 * 24 * 60 * 60 * 1000, bucketMs: 60 * 60 * 1000 },
 }
 
 export function monitorNumber(value: unknown): number {
@@ -44,11 +58,28 @@ export function selectMonitorHistoryRows(
 }
 
 export function buildMonitorChartData(
-  rows: ACUChannelHistoryRow[]
+  rows: ACUChannelHistoryRow[],
+  range?: ACUMonitorRange,
+  nowMs = Date.now()
 ): MonitorChartPoint[] {
   const buckets = new Map<string, ACUChannelHistoryRow[]>()
+  const bucketMs = range ? RANGE_WINDOWS[range].bucketMs : 0
   for (const row of rows) {
-    buckets.set(row.bucket, [...(buckets.get(row.bucket) ?? []), row])
+    const timestamp = new Date(row.bucket).getTime()
+    const bucket =
+      bucketMs > 0 && Number.isFinite(timestamp)
+        ? new Date(Math.floor(timestamp / bucketMs) * bucketMs).toISOString()
+        : row.bucket
+    buckets.set(bucket, [...(buckets.get(bucket) ?? []), row])
+  }
+  if (range) {
+    const { durationMs, bucketMs } = RANGE_WINDOWS[range]
+    const endMs = Math.floor(nowMs / bucketMs) * bucketMs
+    const startMs = endMs - durationMs
+    for (let bucketMsValue = startMs; bucketMsValue <= endMs; bucketMsValue += bucketMs) {
+      const bucket = new Date(bucketMsValue).toISOString()
+      if (!buckets.has(bucket)) buckets.set(bucket, [])
+    }
   }
   return [...buckets.entries()]
     .sort(

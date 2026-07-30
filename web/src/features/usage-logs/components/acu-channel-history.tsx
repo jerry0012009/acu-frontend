@@ -171,8 +171,8 @@ export function ACUChannelHistory(props: {
     [selectedRows]
   )
   const chartData = useMemo(
-    () => buildMonitorChartData(selectedRows),
-    [selectedRows]
+    () => buildMonitorChartData(selectedRows, props.range),
+    [props.range, selectedRows]
   )
 
   const lastIndex = Math.max(0, chartData.length - 1)
@@ -282,6 +282,9 @@ export function ACUChannelHistory(props: {
   return (
     <div className='min-w-0 space-y-3'>
       <div className='flex flex-wrap items-center gap-2'>
+        <span className='text-muted-foreground mr-1 text-xs'>
+          {t('Loaded range')}
+        </span>
         {(['1h', '6h', '24h', '7d'] as ACUMonitorRange[]).map((value) => (
           <Button
             key={value}
@@ -301,6 +304,11 @@ export function ACUChannelHistory(props: {
           {t('Reset zoom')}
         </Button>
       </div>
+      <p className='text-muted-foreground text-xs'>
+        {t(
+          'Drag the overview handles or use the mouse wheel to inspect any interval inside the loaded range.'
+        )}
+      </p>
       <div className='grid gap-2 sm:grid-cols-2 xl:grid-cols-4'>
         {(
           [

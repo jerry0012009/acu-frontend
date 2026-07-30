@@ -115,6 +115,31 @@ test('keeps Brush zoom, drag pan, reset, and visible summary deterministic', () 
   })
 })
 
+test('fills a loaded 24h range with continuous time buckets for K-line style zoom', () => {
+  const now = Date.parse('2026-07-30T12:00:00Z')
+  const points = buildMonitorChartData(
+    [
+      row({ bucket: '2026-07-30T10:00:00.000Z' }),
+      row({ bucket: '2026-07-30T11:00:00.000Z' }),
+    ],
+    '24h',
+    now
+  )
+  assert.equal(points.length, 97)
+  assert.equal(points[0].bucket, '2026-07-29T12:00:00.000Z')
+  assert.equal(points.at(-1)?.bucket, '2026-07-30T12:00:00.000Z')
+  assert.equal(
+    points.find((point) => point.bucket === '2026-07-30T10:15:00.000Z')
+      ?.details.length,
+    0
+  )
+  assert.equal(
+    points.find((point) => point.bucket === '2026-07-30T10:00:00.000Z')
+      ?.requestCount,
+    4
+  )
+})
+
 test('filters cooldown, manual pause, and half-open intervals with the visible object', () => {
   const intervals: ACUChannelCooldownInterval[] = [
     {

@@ -51,7 +51,7 @@ export function ACUChannelMonitor() {
   const { t } = useTranslation()
   const isAdmin = useIsAdmin()
   const queryClient = useQueryClient()
-  const [range, setRange] = useState<ACUMonitorRange>('1h')
+  const [range, setRange] = useState<ACUMonitorRange>('24h')
   const [filters, setFilters] = useState({
     model: '',
     provider: '',
