@@ -535,13 +535,41 @@ export function AcuDecisionVisualization(props: {
     const value = Number(candidateByModel.get(modelId)?.estimatedQuality ?? 0)
     return value <= 1 ? value * 100 : value
   }
-  const cashCostFor = (modelId: string) => {
+  const cashCostFor = (modelId: string): number | null => {
     const snapshotCost = snapshotByModel.get(modelId)?.effectiveCashCost
-    if (snapshotCost != null) return Number(snapshotCost)
-    return Number(candidateByModel.get(modelId)?.expectedTotalCost ?? 0)
+    const rawCost =
+      snapshotCost ?? candidateByModel.get(modelId)?.expectedTotalCost
+    if (rawCost == null) return null
+    const cost = Number(rawCost)
+    return Number.isFinite(cost) ? cost : null
   }
   const displayNameFor = (modelId: string) =>
     candidateByModel.get(modelId)?.displayName || modelId
+  const selectedQuality = qualityFor(selectedModel)
+  const selectedCost = cashCostFor(selectedModel)
+  const candidateReason = (modelId: string) => {
+    const candidate = candidateByModel.get(modelId)
+    if (!candidate) return '-'
+    if (modelId === selectedModel) return t('Selected')
+    const isPareto = pareto.has(modelId) || candidate.paretoEfficient === true
+    if (!isPareto) {
+      return t(
+        'Dominated by another option with higher quality and lower cost.'
+      )
+    }
+    const quality = qualityFor(modelId)
+    const cost = cashCostFor(modelId)
+    if (cost == null || selectedCost == null) {
+      return candidate.selectionReason ?? '-'
+    }
+    if (cost < selectedCost && quality < selectedQuality) {
+      return t('Lower cost, but the estimated quality gain is insufficient.')
+    }
+    if (quality > selectedQuality && cost > selectedCost) {
+      return t('Higher quality, but the marginal cost increases materially.')
+    }
+    return t('Overall value is lower than the selected option.')
+  }
   const attempts = breakdown.channel_attempts ?? []
   const counterfactual = Number(
     breakdown.counterfactual_quality_ceiling_cost_cny ?? 0
@@ -620,11 +648,37 @@ export function AcuDecisionVisualization(props: {
                   }}
                 />
                 <Tooltip
-                  labelFormatter={(value) => `${t('Difficulty')}: ${value}`}
-                  formatter={(value, name) => [
-                    `${Number(value).toFixed(1)}`,
-                    displayNameFor(String(name)),
-                  ]}
+                  content={({ active, label, payload }) => {
+                    if (!active || !payload?.length) return null
+                    return (
+                      <div className='bg-popover text-popover-foreground max-w-[19rem] space-y-1 border p-2 text-xs shadow-md'>
+                        <div className='font-medium'>
+                          {t('Difficulty')}: {Number(label).toFixed(1)}
+                        </div>
+                        {payload.map((entry) => {
+                          const modelId = String(
+                            entry.dataKey ?? entry.name ?? ''
+                          )
+                          const cost = cashCostFor(modelId)
+                          return (
+                            <div
+                              key={modelId}
+                              className='grid grid-cols-[minmax(7rem,1fr)_auto] gap-x-3'
+                            >
+                              <span>{displayNameFor(modelId)}</span>
+                              <span className='font-mono'>
+                                {t('Quality')} {Number(entry.value).toFixed(1)}{' '}
+                                ·{' '}
+                                {cost == null
+                                  ? t('Cost unavailable')
+                                  : `¥${cost.toFixed(6)}`}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  }}
                 />
                 <Legend formatter={(value) => displayNameFor(String(value))} />
                 <ReferenceLine
@@ -651,15 +705,26 @@ export function AcuDecisionVisualization(props: {
                 {candidates.map((candidate, index) => {
                   const modelId = candidate.modelId ?? ''
                   if (!modelId) return null
+                  const selected = modelId === selectedModel
+                  const cost = cashCostFor(modelId)
+                  const labelPosition = index % 2 === 0 ? 'top' : 'bottom'
                   return (
                     <ReferenceDot
                       key={modelId}
                       x={difficulty}
                       y={qualityFor(modelId)}
-                      r={modelId === selectedModel ? 6 : 4}
+                      r={selected ? 6 : 4}
                       fill={ACU_CURVE_COLORS[index % ACU_CURVE_COLORS.length]}
-                      stroke={modelId === selectedModel ? '#111827' : '#ffffff'}
-                      strokeWidth={modelId === selectedModel ? 2 : 1}
+                      stroke={selected ? '#111827' : '#ffffff'}
+                      strokeWidth={selected ? 2 : 1}
+                      label={{
+                        value: `${displayNameFor(modelId)} · Q ${qualityFor(modelId).toFixed(1)} · ${cost == null ? t('Cost unavailable') : `¥${cost.toFixed(6)}`}`,
+                        position: labelPosition,
+                        offset: 10 + Math.floor(index / 2) * 12,
+                        fill: selected ? '#111827' : '#4b5563',
+                        fontSize: selected ? 12 : 10,
+                        fontWeight: selected ? 700 : 500,
+                      }}
                     />
                   )
                 })}
@@ -702,18 +767,16 @@ export function AcuDecisionVisualization(props: {
                   <span className='font-mono'>{displayNameFor(modelId)}</span>
                   <span>{qualityFor(modelId).toFixed(1)}</span>
                   <span className='font-mono'>
-                    ¥{cashCostFor(modelId).toFixed(6)}
+                    {cashCostFor(modelId) == null
+                      ? t('Cost unavailable')
+                      : `¥${cashCostFor(modelId)!.toFixed(6)}`}
                   </span>
                   <span>
                     {pareto.has(modelId) || candidate.paretoEfficient
                       ? t('Yes')
                       : t('No')}
                   </span>
-                  <span>
-                    {selected
-                      ? t('Selected')
-                      : (candidate.selectionReason ?? '-')}
-                  </span>
+                  <span>{candidateReason(modelId)}</span>
                 </div>
               )
             })}

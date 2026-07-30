@@ -75,6 +75,13 @@ const breakdown: NonNullable<LogOtherData['acu_cost_breakdown']> = {
         expectedTotalCost: 0.2,
         paretoEfficient: true,
       },
+      {
+        modelId: 'gpt-5.4-mini',
+        displayName: 'Mini',
+        estimatedQuality: 82,
+        expectedTotalCost: 0.08,
+        paretoEfficient: false,
+      },
     ],
     pareto_frontier: ['gpt-5.6-terra', 'gpt-5.6-sol'],
     curves: {
@@ -85,6 +92,10 @@ const breakdown: NonNullable<LogOtherData['acu_cost_breakdown']> = {
       'gpt-5.6-sol': Array.from({ length: 101 }, (_, difficulty) => ({
         difficulty,
         estimatedQuality: 99 - difficulty * 0.04,
+      })),
+      'gpt-5.4-mini': Array.from({ length: 101 }, (_, difficulty) => ({
+        difficulty,
+        estimatedQuality: 94 - difficulty * 0.16,
       })),
     },
     decision_snapshot: {
@@ -103,18 +114,50 @@ let window: Window
 
 before(() => {
   window = new Window({ url: 'http://localhost/' })
+  const resizeObserver = class {
+    private readonly callback: (entries: unknown[]) => void
+
+    constructor(callback: (entries: unknown[]) => void) {
+      this.callback = callback
+    }
+
+    observe(target: Element) {
+      this.callback([
+        {
+          target,
+          contentRect: { width: 900, height: 400 },
+        },
+      ])
+    }
+
+    unobserve() {}
+    disconnect() {}
+  }
   Object.assign(globalThis, {
     window,
     document: window.document,
     HTMLElement: window.HTMLElement,
     SVGElement: window.SVGElement,
     React,
-    ResizeObserver: class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    },
+    ResizeObserver: resizeObserver,
+    requestAnimationFrame: window.requestAnimationFrame.bind(window),
+    cancelAnimationFrame: window.cancelAnimationFrame.bind(window),
     IS_REACT_ACT_ENVIRONMENT: true,
+  })
+  Object.assign(window, { ResizeObserver: resizeObserver })
+  Object.defineProperty(window.HTMLElement.prototype, 'getBoundingClientRect', {
+    configurable: true,
+    value: () => ({
+      x: 0,
+      y: 0,
+      top: 0,
+      right: 900,
+      bottom: 400,
+      left: 0,
+      width: 900,
+      height: 400,
+      toJSON: () => ({}),
+    }),
   })
   Object.defineProperty(globalThis, 'navigator', {
     configurable: true,
@@ -146,6 +189,16 @@ test('renders the complete historical ACU route decision fixture', async () => {
   const content = host.textContent ?? ''
   assert.match(content, /Terra/)
   assert.match(content, /Sol/)
+  assert.match(content, /Mini/)
+  assert.match(
+    content,
+    /Dominated by another option with higher quality and lower cost/
+  )
+  assert.match(
+    content,
+    /Higher quality, but the marginal cost increases materially/
+  )
+  assert.match(host.innerHTML, /Terra · Q 91\.0 · ¥0\.120000/)
   assert.match(content, /Pareto/)
   assert.match(content, /Channel Attempt Timeline/)
   assert.match(content, /lucen-a/)
