@@ -7,11 +7,20 @@ the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 */
 import { useQuery } from '@tanstack/react-query'
-import { Activity, Clock3, Coins, Gauge, Route, Scale } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import {
+  Activity,
+  Clock3,
+  Coins,
+  Gauge,
+  RotateCcw,
+  Route,
+  Scale,
+} from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Bar,
   BarChart,
+  Brush,
   CartesianGrid,
   Cell,
   ComposedChart,
@@ -33,6 +42,11 @@ import {
 import { cn } from '@/lib/utils'
 
 import { getACUWorkTimeline, type ACUWorkTimelineItem } from '../api'
+import {
+  boundTimelineViewport,
+  buildTimelineBuckets,
+  summarizeTimelineItems,
+} from './acu-work-timeline-model'
 import { ACUSessionTracePanel } from './dialogs/acu-session-trace'
 
 const MODEL_COLORS: Record<string, string> = {
@@ -107,6 +121,17 @@ function TimelineTooltip({
 export function ACUWorkTimeline() {
   const [hours, setHours] = useState(1)
   const [traceId, setTraceId] = useState('')
+  const [viewport, setViewport] = useState({
+    start: 0,
+    end: Number.MAX_SAFE_INTEGER,
+  })
+  const drag = useRef<{
+    x: number
+    start: number
+    end: number
+    moved: boolean
+  } | null>(null)
+  const suppressTraceClickUntil = useRef(0)
   const to = Math.floor(Date.now() / 1000)
   const from = to - hours * 3600
   const query = useQuery({
@@ -116,44 +141,121 @@ export function ACUWorkTimeline() {
   })
   const data = query.data?.data
   const items = useMemo(() => data?.items ?? [], [data])
+  const buckets = useMemo(
+    () => buildTimelineBuckets(from, to, hours, items),
+    [from, hours, items, to]
+  )
+  const lastIndex = Math.max(0, buckets.length - 1)
+  const startIndex = Math.min(viewport.start, lastIndex)
+  const endIndex = Math.min(viewport.end, lastIndex)
+  const visibleFrom = buckets[startIndex]?.timestamp ?? from
+  const visibleTo = buckets[endIndex]?.timestamp ?? to
+  const visibleItems = useMemo(
+    () =>
+      items.filter(
+        (item) => item.timestamp >= visibleFrom && item.timestamp <= visibleTo
+      ),
+    [items, visibleFrom, visibleTo]
+  )
+  const resetViewport = useCallback(
+    () => setViewport({ start: 0, end: Number.MAX_SAFE_INTEGER }),
+    []
+  )
+  useEffect(() => {
+    resetViewport()
+  }, [hours, resetViewport])
+  const setBoundedViewport = useCallback(
+    (start: number, end: number) => {
+      const minimumIntervals = Math.min(
+        hours <= 1 ? 5 : 4,
+        Math.max(1, buckets.length - 1)
+      )
+      setViewport(
+        boundTimelineViewport(buckets.length, start, end, minimumIntervals)
+      )
+    },
+    [buckets.length, hours]
+  )
+  const onWheel = useCallback(
+    (event: React.WheelEvent<HTMLDivElement>) => {
+      if (buckets.length < 3) return
+      event.preventDefault()
+      const currentWidth = endIndex - startIndex
+      const nextWidth = Math.round(
+        currentWidth * (event.deltaY > 0 ? 1.2 : 0.8)
+      )
+      const bounds = event.currentTarget.getBoundingClientRect()
+      const center = Math.max(
+        0,
+        Math.min(1, (event.clientX - bounds.left) / bounds.width)
+      )
+      const anchor = startIndex + center * currentWidth
+      setBoundedViewport(
+        anchor - center * nextWidth,
+        anchor + (1 - center) * nextWidth
+      )
+    },
+    [buckets.length, endIndex, setBoundedViewport, startIndex]
+  )
+  const onMouseMove = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (!drag.current || buckets.length < 2) return
+      if (Math.abs(event.clientX - drag.current.x) > 5) {
+        drag.current.moved = true
+      }
+      if (!drag.current.moved) return
+      const bounds = event.currentTarget.getBoundingClientRect()
+      const width = drag.current.end - drag.current.start
+      const shift = Math.round(
+        ((drag.current.x - event.clientX) / Math.max(1, bounds.width)) * width
+      )
+      setBoundedViewport(drag.current.start + shift, drag.current.end + shift)
+    },
+    [buckets.length, setBoundedViewport]
+  )
+  const finishDrag = useCallback(() => {
+    if (drag.current?.moved) suppressTraceClickUntil.current = Date.now() + 250
+    drag.current = null
+  }, [])
+  const openTrace = useCallback((item: ACUWorkTimelineItem) => {
+    if (Date.now() >= suppressTraceClickUntil.current) {
+      setTraceId(item.logicalRequestId)
+    }
+  }, [])
   const segmentSeries = useMemo(
-    () => [...new Set(items.map((item) => item.segmentId))],
-    [items]
+    () => [...new Set(visibleItems.map((item) => item.segmentId))],
+    [visibleItems]
   )
   const taskRanges = useMemo(
     () =>
-      [...new Set(items.map((item) => item.taskId))].map((taskId, index) => {
-        const taskItems = items.filter((item) => item.taskId === taskId)
-        return {
-          taskId,
-          index,
-          from: taskItems[0]?.timestamp ?? 0,
-          to: taskItems.at(-1)?.timestamp ?? 0,
+      [...new Set(visibleItems.map((item) => item.taskId))].map(
+        (taskId, index) => {
+          const taskItems = visibleItems.filter(
+            (item) => item.taskId === taskId
+          )
+          return {
+            taskId,
+            index,
+            from: taskItems[0]?.timestamp ?? 0,
+            to: taskItems.at(-1)?.timestamp ?? 0,
+          }
         }
-      }),
-    [items]
+      ),
+    [visibleItems]
   )
-  const summary = data?.summary
-  const openActivePoint = (state: unknown) => {
-    const index = Number(
-      (state as { activeIndex?: number | string } | undefined)?.activeIndex
-    )
-    const item = Number.isInteger(index) ? items[index] : undefined
-    if (item) setTraceId(item.logicalRequestId)
-  }
+  const summary = useMemo(
+    () => summarizeTimelineItems(visibleItems),
+    [visibleItems]
+  )
   const stats = [
-    ['API Steps', summary?.apiSteps ?? 0, Activity],
-    ['Judge Calls', summary?.judgeCalls ?? 0, Scale],
-    [
-      'Judge Reuse',
-      `${((summary?.judgeReuseRate ?? 0) * 100).toFixed(0)}%`,
-      Route,
-    ],
-    ['完成率', `${((summary?.completionRate ?? 0) * 100).toFixed(0)}%`, Gauge],
-    ['实际总成本', money(summary?.actualTotalCostCny ?? 0), Coins],
+    ['API Steps', summary.apiSteps, Activity],
+    ['Judge Calls', summary.judgeCalls, Scale],
+    ['Judge Reuse', `${(summary.judgeReuseRate * 100).toFixed(0)}%`, Route],
+    ['完成率', `${(summary.completionRate * 100).toFixed(0)}%`, Gauge],
+    ['实际总成本', money(summary.actualTotalCostCny), Coins],
     [
       '首事件 p50 / p95',
-      `${ms(summary?.p50FirstModelEventLatencyMs ?? 0)} / ${ms(summary?.p95FirstModelEventLatencyMs ?? 0)}`,
+      `${ms(summary.p50FirstModelEventLatencyMs)} / ${ms(summary.p95FirstModelEventLatencyMs)}`,
       Clock3,
     ],
   ] as const
@@ -170,17 +272,43 @@ export function ACUWorkTimeline() {
     )
   } else if (items.length > 0) {
     chartContent = (
-      <>
+      <div
+        className='min-w-0 touch-pan-y space-y-3 select-none'
+        onWheel={onWheel}
+        onMouseDown={(event) => {
+          const target = event.target as Element
+          if (
+            target.closest('[data-trace-point]') ||
+            target.closest('.recharts-brush')
+          ) {
+            return
+          }
+          drag.current = {
+            x: event.clientX,
+            start: startIndex,
+            end: endIndex,
+            moved: false,
+          }
+        }}
+        onMouseMove={onMouseMove}
+        onMouseUp={finishDrag}
+        onMouseLeave={finishDrag}
+        onDoubleClick={(event) => {
+          const target = event.target as Element
+          if (!target.closest('[data-trace-point]')) resetViewport()
+        }}
+      >
         <section className='min-w-0 shrink-0 rounded border p-3'>
           <div className='mb-2 text-xs font-medium'>难度轨迹</div>
           <div className='h-72 w-full min-w-0'>
             <ResponsiveContainer width='100%' height='100%'>
-              <ComposedChart data={items} onClick={openActivePoint}>
+              <ComposedChart data={visibleItems}>
                 <CartesianGrid strokeDasharray='3 3' vertical={false} />
                 <XAxis
                   dataKey='timestamp'
                   type='number'
-                  domain={['dataMin', 'dataMax']}
+                  domain={[visibleFrom, visibleTo]}
+                  allowDataOverflow
                   tickFormatter={time}
                   tickLine={false}
                 />
@@ -198,7 +326,9 @@ export function ACUWorkTimeline() {
                 {segmentSeries.map((segmentId) => (
                   <Line
                     key={segmentId}
-                    data={items.filter((item) => item.segmentId === segmentId)}
+                    data={visibleItems.filter(
+                      (item) => item.segmentId === segmentId
+                    )}
                     dataKey='difficulty'
                     stroke='#64748b'
                     strokeWidth={1.5}
@@ -225,12 +355,18 @@ export function ACUWorkTimeline() {
                       return (
                         <circle
                           key={props.key}
+                          data-trace-point='true'
                           cx={props.cx}
                           cy={props.cy}
                           r={(item?.judgeBackupUsed ? 7 : 5) + costRadius}
                           fill={item?.judgeCalled ? color : 'var(--background)'}
                           stroke={border}
                           strokeWidth={item?.judgeBackupUsed ? 3 : 2}
+                          className='cursor-pointer'
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            if (item) openTrace(item)
+                          }}
                         />
                       )
                     }}
@@ -244,22 +380,29 @@ export function ACUWorkTimeline() {
           <div className='mb-2 text-xs font-medium'>实际人民币成本</div>
           <div className='h-52 w-full min-w-0'>
             <ResponsiveContainer width='100%' height='100%'>
-              <BarChart data={items} onClick={openActivePoint}>
+              <BarChart data={visibleItems}>
                 <CartesianGrid strokeDasharray='3 3' vertical={false} />
                 <XAxis
                   dataKey='timestamp'
                   type='number'
-                  domain={['dataMin', 'dataMax']}
+                  domain={[visibleFrom, visibleTo]}
+                  allowDataOverflow
                   tickFormatter={time}
                   tickLine={false}
                 />
                 <YAxis width={42} />
                 <Tooltip content={<TimelineTooltip />} />
                 <Bar dataKey='actualCostCny' radius={[3, 3, 0, 0]}>
-                  {items.map((item) => (
+                  {visibleItems.map((item) => (
                     <Cell
                       key={item.logicalRequestId}
+                      data-trace-point='true'
+                      className='cursor-pointer'
                       fill={MODEL_COLORS[item.actualModel] ?? '#64748b'}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        openTrace(item)
+                      }}
                     />
                   ))}
                 </Bar>
@@ -267,11 +410,39 @@ export function ACUWorkTimeline() {
             </ResponsiveContainer>
           </div>
         </section>
-      </>
+        <div className='h-14 min-w-0 rounded border px-2 pt-1'>
+          <ResponsiveContainer width='100%' height='100%'>
+            <BarChart data={buckets}>
+              <Bar
+                dataKey='requestCount'
+                fill='#64748b'
+                isAnimationActive={false}
+              />
+              <Brush
+                dataKey='timestamp'
+                height={30}
+                travellerWidth={10}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                tickFormatter={time}
+                onChange={(selection) => {
+                  if (
+                    selection.startIndex == null ||
+                    selection.endIndex == null
+                  ) {
+                    return
+                  }
+                  setBoundedViewport(selection.startIndex, selection.endIndex)
+                }}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
     )
   }
   return (
-    <div className='flex h-full min-h-0 flex-col gap-4 overflow-y-auto overflow-x-hidden pb-4'>
+    <div className='flex h-full min-h-0 flex-col gap-4 overflow-x-hidden overflow-y-auto pb-4'>
       <div className='flex flex-wrap items-center justify-between gap-3'>
         <div>
           <h2 className='text-base font-semibold'>工作路由轨迹</h2>
@@ -279,20 +450,31 @@ export function ACUWorkTimeline() {
             每个点是一条 Logical Request，点击查看完整 Session Trace。
           </p>
         </div>
-        <div className='flex gap-1'>
-          {[1, 6, 24].map((value) => (
+        <div className='flex flex-wrap items-center justify-end gap-1'>
+          {[1, 6, 24, 168].map((value) => (
             <Button
               key={value}
               size='sm'
               variant={hours === value ? 'default' : 'outline'}
               onClick={() => setHours(value)}
             >
-              {value} 小时
+              {value === 168 ? '7 天' : `${value} 小时`}
             </Button>
           ))}
+          <Button size='sm' variant='outline' onClick={resetViewport}>
+            <RotateCcw className='mr-1.5 size-3.5' />
+            重置缩放
+          </Button>
         </div>
       </div>
-      <div className='grid shrink-0 grid-cols-2 gap-px overflow-hidden rounded border bg-border lg:grid-cols-6'>
+      <div className='text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs'>
+        <span>
+          可见区间 {new Date(visibleFrom * 1000).toLocaleString()} -{' '}
+          {new Date(visibleTo * 1000).toLocaleString()}
+        </span>
+        <span>滚轮缩放 · 空白处拖动平移 · 双击重置</span>
+      </div>
+      <div className='bg-border grid shrink-0 grid-cols-2 gap-px overflow-hidden rounded border lg:grid-cols-6'>
         {stats.map(([label, value, Icon]) => (
           <div key={label} className='bg-background min-w-0 p-3'>
             <div className='text-muted-foreground flex items-center gap-1.5 text-[11px]'>

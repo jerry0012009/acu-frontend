@@ -144,7 +144,12 @@ export function ACUChannelHistory(props: {
   })
   const [activeCooldown, setActiveCooldown] =
     useState<ACUChannelCooldownInterval | null>(null)
-  const drag = useRef<{ x: number; start: number; end: number } | null>(null)
+  const drag = useRef<{
+    x: number
+    start: number
+    end: number
+    moved: boolean
+  } | null>(null)
 
   const models = unique(props.profiles.map((profile) => profile.canonicalModel))
   const providers = unique(props.profiles.map((profile) => profile.provider))
@@ -232,6 +237,10 @@ export function ACUChannelHistory(props: {
   const onMouseMove = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
       if (!drag.current || chartData.length < 2) return
+      if (Math.abs(event.clientX - drag.current.x) > 5) {
+        drag.current.moved = true
+      }
+      if (!drag.current.moved) return
       const bounds = event.currentTarget.getBoundingClientRect()
       const width = drag.current.end - drag.current.start + 1
       const shift = Math.round(
@@ -362,7 +371,7 @@ export function ACUChannelHistory(props: {
         ].map(([label, value]) => (
           <div key={String(label)} className='bg-background min-w-0 p-2.5'>
             <div className='text-muted-foreground text-[11px]'>{label}</div>
-            <div className='mt-1 break-words text-xs font-medium'>{value}</div>
+            <div className='mt-1 text-xs font-medium break-words'>{value}</div>
           </div>
         ))}
       </div>
@@ -381,10 +390,15 @@ export function ACUChannelHistory(props: {
         </div>
       )}
       <div
-        className='min-w-0 select-none touch-pan-y space-y-3'
+        className='min-w-0 touch-pan-y space-y-3 select-none'
         onWheel={onWheel}
         onMouseDown={(event) => {
-          drag.current = { x: event.clientX, start: startIndex, end: endIndex }
+          drag.current = {
+            x: event.clientX,
+            start: startIndex,
+            end: endIndex,
+            moved: false,
+          }
         }}
         onMouseMove={onMouseMove}
         onMouseUp={() => {
