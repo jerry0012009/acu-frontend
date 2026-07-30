@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -207,6 +208,9 @@ func AddToken(c *gin.Context) {
 		common.SysLog("failed to generate token key: " + err.Error())
 		return
 	}
+	if token.ModelLimitsEnabled {
+		token.ModelLimits = normalizeACUTokenModelLimits(token.ModelLimits)
+	}
 	cleanToken := model.Token{
 		UserId:             c.GetInt("id"),
 		Name:               token.Name,
@@ -289,6 +293,9 @@ func UpdateToken(c *gin.Context) {
 	if statusOnly != "" {
 		cleanToken.Status = token.Status
 	} else {
+		if token.ModelLimitsEnabled {
+			token.ModelLimits = normalizeACUTokenModelLimits(token.ModelLimits)
+		}
 		// If you add more fields, please also update token.Update()
 		cleanToken.Name = token.Name
 		cleanToken.ExpiredTime = token.ExpiredTime
@@ -310,6 +317,22 @@ func UpdateToken(c *gin.Context) {
 		"message": "",
 		"data":    buildMaskedTokenResponse(cleanToken),
 	})
+}
+
+func normalizeACUTokenModelLimits(value string) string {
+	seen := map[string]struct{}{"acu-auto": {}, "acu-high": {}}
+	for _, modelID := range strings.Split(value, ",") {
+		modelID = strings.TrimSpace(modelID)
+		if modelID != "" {
+			seen[modelID] = struct{}{}
+		}
+	}
+	models := make([]string, 0, len(seen))
+	for modelID := range seen {
+		models = append(models, modelID)
+	}
+	sort.Strings(models)
+	return strings.Join(models, ",")
 }
 
 type TokenBatch struct {

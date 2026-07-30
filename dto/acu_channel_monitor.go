@@ -7,6 +7,7 @@ type ACUChannelMonitor struct {
 	History           []map[string]interface{}   `json:"history"`
 	CooldownIntervals []map[string]interface{}   `json:"cooldownIntervals"`
 	SupplyInventory   []map[string]interface{}   `json:"supplyInventory"`
+	ModelPool         []map[string]interface{}   `json:"modelPool"`
 }
 
 type ACUChannelMonitorProfile struct {
@@ -33,6 +34,15 @@ type ACUChannelMonitorProfile struct {
 	LastError                   string   `json:"lastError"`
 	LastSuccessAt               string   `json:"lastSuccessAt"`
 	CooldownUntil               string   `json:"cooldownUntil"`
+	RequiresFreshProbe          bool     `json:"requiresFreshProbe"`
+	LastProbeAt                 string   `json:"lastProbeAt"`
+	ProbeStatus                 string   `json:"probeStatus"`
+	ProbeLatencyMs              float64  `json:"probeLatencyMs"`
+	ProbeCostCNY                float64  `json:"probeCostCny"`
+	NextEligibleProbeAt         string   `json:"nextEligibleProbeAt"`
+	ProbeFreshness              string   `json:"probeFreshness"`
+	ProbeDailySpendCNY          float64  `json:"probeDailySpendCny"`
+	ProbeSuccessRate            *float64 `json:"probeSuccessRate"`
 }
 
 type ACUChannelPauseRequest struct {

@@ -496,7 +496,10 @@ func SetupContextForToken(c *gin.Context, token *model.Token, parts ...string) e
 	}
 	if token.ModelLimitsEnabled {
 		c.Set("token_model_limit_enabled", true)
-		c.Set("token_model_limit", token.GetModelLimitsMap())
+		limits := token.GetModelLimitsMap()
+		limits["acu-auto"] = true
+		limits["acu-high"] = true
+		c.Set("token_model_limit", limits)
 	} else {
 		c.Set("token_model_limit_enabled", false)
 	}

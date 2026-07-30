@@ -22,7 +22,7 @@ import { z } from 'zod'
 import { parseQuotaFromDollars, quotaUnitsToDollars } from '@/lib/format'
 
 import { DEFAULT_GROUP } from '../constants'
-import { type ApiKeyFormData, type ApiKey } from '../types'
+import type { ApiKeyFormData, ApiKey } from '../types'
 
 // ============================================================================
 // Form Schema
@@ -36,12 +36,21 @@ export function getApiKeyFormSchema(t: TFunction) {
       expired_time: z.date().optional(),
       unlimited_quota: z.boolean(),
       model_limits: z.array(z.string()),
+      acu_model_scope_custom: z.boolean(),
       allow_ips: z.string().optional(),
       group: z.string().optional(),
       cross_group_retry: z.boolean().optional(),
       tokenCount: z.number().min(1).optional(),
     })
     .superRefine((data, ctx) => {
+      if (data.acu_model_scope_custom && data.model_limits.length === 0) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['model_limits'],
+          message: t('Select at least one verified model'),
+        })
+      }
+
       if (data.unlimited_quota) {
         return
       }
@@ -71,6 +80,7 @@ export const API_KEY_FORM_DEFAULT_VALUES: ApiKeyFormValues = {
   expired_time: undefined,
   unlimited_quota: true,
   model_limits: [],
+  acu_model_scope_custom: false,
   allow_ips: '',
   group: DEFAULT_GROUP,
   cross_group_retry: true,
@@ -106,8 +116,10 @@ export function transformFormDataToPayload(
       ? Math.floor(data.expired_time.getTime() / 1000)
       : -1,
     unlimited_quota: data.unlimited_quota,
-    model_limits_enabled: data.model_limits.length > 0,
-    model_limits: data.model_limits.join(','),
+    model_limits_enabled: data.acu_model_scope_custom,
+    model_limits: data.acu_model_scope_custom
+      ? [...new Set([...data.model_limits, 'acu-auto', 'acu-high'])].join(',')
+      : '',
     allow_ips: data.allow_ips || '',
     group: data.group || '',
     cross_group_retry: data.group === 'auto' ? !!data.cross_group_retry : false,
@@ -131,8 +143,11 @@ export function transformApiKeyToFormDefaults(
         : undefined,
     unlimited_quota: apiKey.unlimited_quota,
     model_limits: apiKey.model_limits
-      ? apiKey.model_limits.split(',').filter(Boolean)
+      ? apiKey.model_limits
+          .split(',')
+          .filter((model) => model && model !== 'acu-auto' && model !== 'acu-high')
       : [],
+    acu_model_scope_custom: apiKey.model_limits_enabled,
     allow_ips: apiKey.allow_ips || '',
     group: apiKey.group || DEFAULT_GROUP,
     cross_group_retry: !!apiKey.cross_group_retry,

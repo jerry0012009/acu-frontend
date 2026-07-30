@@ -175,6 +175,33 @@ export type ACUChannelMonitorProfile = {
   lastError: string
   lastSuccessAt: string
   cooldownUntil: string
+  requiresFreshProbe: boolean
+  lastProbeAt: string
+  probeStatus: string
+  probeLatencyMs: number
+  probeCostCny: number
+  nextEligibleProbeAt: string
+  probeFreshness: string
+  probeDailySpendCny: number
+  probeSuccessRate: number | null
+}
+
+export type ACUModelPoolEntry = {
+  modelId: string
+  vendor: string
+  modelCategory: 'text_agent' | 'image' | 'audio' | 'realtime' | 'unsupported'
+  capabilityTier: 'LUNA' | 'TERRA' | 'SOL' | 'FRONTIER'
+  protocols: string[]
+  verificationStatus: 'discovered' | 'verified_provisional' | 'verified' | 'rejected'
+  activeProfileCount: number
+  healthyProfileCount: number
+  independentProviderCount: number
+  currentBestChannel: string | null
+  currentMultiplier: number | null
+  backupChannel: string | null
+  autoRouteEnabled: boolean
+  exclusionReason: string | null
+  profiles: ACUChannelMonitorProfile[]
 }
 
 export type ACUChannelHistoryRow = {
@@ -218,6 +245,7 @@ export type ACUChannelMonitor = {
   history: ACUChannelHistoryRow[]
   cooldownIntervals: ACUChannelCooldownInterval[]
   supplyInventory: Array<Record<string, unknown>>
+  modelPool: ACUModelPoolEntry[]
 }
 
 export async function getACUChannelMonitor(range: ACUMonitorRange) {

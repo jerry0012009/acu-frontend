@@ -182,18 +182,21 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	tokenID := strconv.Itoa(info.TokenId)
 	logID := requestID
 	clientVersion := acuClientVersion(c)
-	routingPolicy := strings.TrimSpace(info.UserSetting.ACURoutingPolicy)
-	if routingPolicy == "" {
-		routingPolicy = "all_routing_eligible"
+	routingPolicy := "all_routing_eligible"
+	allowedModelIDs := make([]string, 0)
+	if c.GetBool("token_model_limit_enabled") {
+		routingPolicy = "custom_allowlist"
+		if rawLimits, exists := c.Get("token_model_limit"); exists {
+			if limits, ok := rawLimits.(map[string]bool); ok {
+				for modelID, allowed := range limits {
+					if allowed && modelID != "acu-auto" && modelID != "acu-high" {
+						allowedModelIDs = append(allowedModelIDs, modelID)
+					}
+				}
+			}
+		}
 	}
-	if routingPolicy != "all_routing_eligible" && routingPolicy != "custom_allowlist" && routingPolicy != "explicit_only" {
-		return errors.New("ACU routing policy is invalid")
-	}
-	allowedModelIDs := append([]string(nil), info.UserSetting.ACUAllowedModelIds...)
 	sort.Strings(allowedModelIDs)
-	if routingPolicy != "custom_allowlist" {
-		allowedModelIDs = []string{}
-	}
 	if routingPolicy == "custom_allowlist" && len(allowedModelIDs) == 0 {
 		return errors.New("ACU custom routing allowlist is empty")
 	}

@@ -60,8 +60,10 @@ func TestApplyACUTrustedIdentitySignsCustomUserAllowlist(t *testing.T) {
 	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
 	req := httptest.NewRequest(http.MethodPost, "http://acu-router/v1/responses", nil)
 	info := &relaycommon.RelayInfo{IsACUChannel: true, UserId: 17, TokenId: 29, RequestId: "req_policy"}
-	info.UserSetting.ACURoutingPolicy = "custom_allowlist"
-	info.UserSetting.ACUAllowedModelIds = []string{"gpt-5.6-sol", "gpt-5.6-luna"}
+	ctx.Set("token_model_limit_enabled", true)
+	ctx.Set("token_model_limit", map[string]bool{
+		"acu-auto": true, "acu-high": true, "gpt-5.6-sol": true, "gpt-5.6-luna": true,
+	})
 	info.UserSetting.ACURoutingPreference = "quality"
 
 	require.NoError(t, applyACUTrustedIdentity(req, ctx, info, []byte(`{"model":"acu-auto"}`)))

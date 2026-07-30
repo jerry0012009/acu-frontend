@@ -21,6 +21,7 @@ import {
   getACUChannelMonitor,
   pauseACUChannel,
   type ACUChannelMonitorProfile,
+  type ACUModelPoolEntry,
   type ACUMonitorRange,
 } from '../api'
 import { ACUChannelHistory } from './acu-channel-history'
@@ -145,6 +146,7 @@ export function ACUChannelMonitor() {
           <TabsTrigger value='current'>{t('Current')}</TabsTrigger>
           <TabsTrigger value='history'>{t('History')}</TabsTrigger>
           <TabsTrigger value='inventory'>{t('Supply inventory')}</TabsTrigger>
+          <TabsTrigger value='models'>{t('Model pool')}</TabsTrigger>
         </TabsList>
         <TabsContent value='current' className='min-w-0 space-y-3'>
           <div className='flex flex-wrap gap-2'>
@@ -195,7 +197,73 @@ export function ACUChannelMonitor() {
         <TabsContent value='inventory' className='min-w-0'>
           <InventoryTable rows={query.data?.data?.supplyInventory ?? []} />
         </TabsContent>
+        <TabsContent value='models' className='min-w-0'>
+          <ModelPoolTable rows={query.data?.data?.modelPool ?? []} />
+        </TabsContent>
       </Tabs>
+    </div>
+  )
+}
+
+function ModelPoolTable({ rows }: { rows: ACUModelPoolEntry[] }) {
+  const { t } = useTranslation()
+  return (
+    <div className='max-w-full overflow-x-auto rounded border'>
+      <table className='w-full min-w-[1120px] text-left text-xs'>
+        <thead className='bg-muted/50'>
+          <tr>
+            {[
+              'Model',
+              'Vendor / Tier',
+              'Protocol',
+              'Verification',
+              'Profiles',
+              'Providers',
+              'Best / Backup Channel',
+              'Multiplier',
+              'Auto Route',
+              'Exclusion Reason',
+            ].map((label) => (
+              <th key={label} className='px-3 py-2 font-medium'>{t(label)}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((model) => (
+            <tr key={model.modelId} className='border-t align-top'>
+              <td className='px-3 py-2.5'>
+                <details>
+                  <summary className='cursor-pointer font-medium'>{model.modelId}</summary>
+                  <div className='text-muted-foreground mt-2 space-y-1 pl-3'>
+                    {model.profiles.map((profile) => (
+                      <div key={profile.executionProfileId}>
+                        {profile.provider} · {profile.channel} · {profile.routingEligibility}
+                        {profile.requiresFreshProbe && (
+                          <> · Probe {profile.probeFreshness} / {profile.probeStatus || 'never'}</>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              </td>
+              <td className='px-3 py-2.5'>{model.vendor} · {model.capabilityTier}</td>
+              <td className='px-3 py-2.5'>{model.protocols.join(', ')}</td>
+              <td className='px-3 py-2.5'>{model.verificationStatus}</td>
+              <td className='px-3 py-2.5'>
+                {model.activeProfileCount} active / {model.healthyProfileCount} healthy
+              </td>
+              <td className='px-3 py-2.5'>{model.independentProviderCount}</td>
+              <td className='px-3 py-2.5'>
+                {model.currentBestChannel || 'n/a'}
+                <div className='text-muted-foreground'>{model.backupChannel || 'n/a'}</div>
+              </td>
+              <td className='px-3 py-2.5'>{model.currentMultiplier ?? 'n/a'}</td>
+              <td className='px-3 py-2.5'>{model.autoRouteEnabled ? t('Enabled') : t('Disabled')}</td>
+              <td className='px-3 py-2.5'>{model.exclusionReason || t('None')}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -223,6 +291,7 @@ function MonitorTable(props: {
               'Last error',
               'Last success',
               'Cooldown',
+              'Adaptive Probe',
               'Eligible',
               ...(props.canPause ? ['Actions'] : []),
             ].map((label) => (
@@ -272,6 +341,17 @@ function MonitorTable(props: {
                 {profile.cooldownUntil
                   ? new Date(profile.cooldownUntil).toLocaleString()
                   : t('none')}
+              </td>
+              <td className='px-3 py-2'>
+                <div>{profile.probeStatus || t('never')}</div>
+                <div className='text-muted-foreground'>
+                  {profile.probeFreshness} · {ms(profile.probeLatencyMs)} · ¥{Number(profile.probeCostCny || 0).toFixed(4)}
+                </div>
+                <div className='text-muted-foreground'>
+                  {profile.lastProbeAt
+                    ? new Date(profile.lastProbeAt).toLocaleString()
+                    : t('n/a')} · today ¥{Number(profile.probeDailySpendCny || 0).toFixed(4)}
+                </div>
               </td>
               <td className='px-3 py-2'>
                 <Badge

@@ -63,9 +63,10 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { useStatus } from '@/hooks/use-status'
-import { getUserModels, getUserGroups } from '@/lib/api'
+import { getUserGroups } from '@/lib/api'
 import { getCurrencyDisplay, getCurrencyLabel } from '@/lib/currency'
 import { cn } from '@/lib/utils'
+import { getACUChannelMonitor } from '@/features/usage-logs/api'
 
 import { createApiKey, updateApiKey, getApiKey } from '../api'
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
@@ -100,14 +101,18 @@ export function ApiKeysMutateDrawer({
   const { status } = useStatus()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [acuModelFilters, setAcuModelFilters] = useState({
+    vendor: '',
+    protocol: '',
+    tier: '',
+  })
   const defaultUseAutoGroup = status?.default_use_auto_group === true
 
-  // Fetch models
-  const { data: modelsData } = useQuery({
-    queryKey: ['user-models'],
-    queryFn: getUserModels,
+  const { data: modelPoolData } = useQuery({
+    queryKey: ['acu-model-pool'],
+    queryFn: () => getACUChannelMonitor('24h'),
     enabled: open,
-    staleTime: 0,
+    staleTime: 60_000,
   })
 
   // Fetch groups
@@ -118,7 +123,16 @@ export function ApiKeysMutateDrawer({
     staleTime: 0,
   })
 
-  const models = modelsData?.data || []
+  const routingModels = (modelPoolData?.data?.modelPool ?? []).filter(
+    (model) =>
+      model.modelCategory === 'text_agent' &&
+      model.autoRouteEnabled &&
+      ['verified', 'verified_provisional'].includes(model.verificationStatus) &&
+      (!acuModelFilters.vendor || model.vendor === acuModelFilters.vendor) &&
+      (!acuModelFilters.protocol ||
+        model.protocols.includes(acuModelFilters.protocol)) &&
+      (!acuModelFilters.tier || model.capabilityTier === acuModelFilters.tier)
+  )
   const groupsRaw = groupsData?.data || {}
   const groups: ApiKeyGroupOption[] = Object.entries(groupsRaw).map(
     ([key, info]) => ({
@@ -528,30 +542,88 @@ export function ApiKeysMutateDrawer({
                   <div className='flex flex-col gap-4 pt-2'>
                     <FormField
                       control={form.control}
-                      name='model_limits'
+                      name='acu_model_scope_custom'
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t('Model Limits')}</FormLabel>
+                        <FormItem className={sideDrawerSwitchItemClassName()}>
+                          <div className='flex flex-col gap-0.5'>
+                            <FormLabel className='text-sm'>
+                              {t('ACU routing model scope')}
+                            </FormLabel>
+                            <FormDescription className='text-xs'>
+                              {field.value
+                                ? t('Custom allowed models')
+                                : t('All verified text and agent models')}
+                            </FormDescription>
+                          </div>
                           <FormControl>
-                            <MultiSelect
-                              options={models.map((m) => ({
-                                label: m,
-                                value: m,
-                              }))}
-                              selected={field.value}
-                              onChange={field.onChange}
-                              placeholder={t(
-                                'Select models (empty for allow all)'
-                              )}
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
                             />
                           </FormControl>
-                          <FormDescription>
-                            {t('Limit which models can be used with this key')}
-                          </FormDescription>
-                          <FormMessage />
                         </FormItem>
                       )}
                     />
+
+                    {form.watch('acu_model_scope_custom') && (
+                      <>
+                        <div className='grid grid-cols-3 gap-2'>
+                          {(
+                            [
+                              ['vendor', [...new Set((modelPoolData?.data?.modelPool ?? []).map((item) => item.vendor))]],
+                              ['protocol', [...new Set((modelPoolData?.data?.modelPool ?? []).flatMap((item) => item.protocols))]],
+                              ['tier', [...new Set((modelPoolData?.data?.modelPool ?? []).map((item) => item.capabilityTier))]],
+                            ] as const
+                          ).map(([key, values]) => (
+                            <select
+                              key={key}
+                              aria-label={key}
+                              className='bg-background h-9 min-w-0 rounded border px-2 text-xs'
+                              value={acuModelFilters[key]}
+                              onChange={(event) =>
+                                setAcuModelFilters((current) => ({
+                                  ...current,
+                                  [key]: event.target.value,
+                                }))
+                              }
+                            >
+                              <option value=''>
+                                {t('All')} {t(key)}
+                              </option>
+                              {[...values].sort().map((value: string) => (
+                                <option key={value} value={value}>
+                                  {value}
+                                </option>
+                              ))}
+                            </select>
+                          ))}
+                        </div>
+                        <FormField
+                          control={form.control}
+                          name='model_limits'
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t('Custom allowed models')}</FormLabel>
+                              <FormControl>
+                                <MultiSelect
+                                  options={routingModels.map((model) => ({
+                                    label: `${model.modelId} · ${model.vendor} · ${model.capabilityTier}`,
+                                    value: model.modelId,
+                                  }))}
+                                  selected={field.value}
+                                  onChange={field.onChange}
+                                  placeholder={t('Select verified models')}
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                {t('Virtual ACU entry models are allowed automatically')}
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </>
+                    )}
 
                     <FormField
                       control={form.control}
