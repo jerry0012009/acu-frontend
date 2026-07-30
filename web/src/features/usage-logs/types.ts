@@ -112,6 +112,77 @@ export interface ToolSurchargeItem {
   price: number
 }
 
+export interface AcuRouteCandidateEstimate {
+  modelId?: string
+  displayName?: string
+  estimatedQuality?: number
+  expectedTotalCost?: number
+  paretoEfficient?: boolean
+  selectionReason?: string
+  [key: string]: unknown
+}
+
+export interface AcuRouteDecisionView {
+  route_decision_id?: string
+  phase?: string
+  curve_version?: string
+  price_version?: string
+  routing_formula_version?: string
+  difficulty?: number
+  routing_preference?: string
+  effective_quality_target?: number
+  candidate_estimates?: AcuRouteCandidateEstimate[]
+  pareto_frontier?: string[]
+  selected_profile?: Record<string, unknown>
+  route_explanation?: string
+  excluded_profiles?: Array<{
+    executionProfileId?: string
+    reasons?: string[]
+    exclusionReason?: string
+    exclusionDetail?: string
+  }>
+  decision_snapshot?: {
+    selectedModel?: string
+    selectedChannel?: string
+    modelSelectionReason?: string
+    channelSelectionReason?: string
+    qualityCeilingModel?: string
+    costReductionVsCeiling?: number
+    candidates?: Array<{
+      modelId?: string
+      estimatedQuality?: number
+      nominalCost?: number | null
+      effectiveCashCost?: number | null
+      valueScore?: number | null
+      pareto?: boolean | null
+      exclusionReason?: string | null
+    }>
+    [key: string]: unknown
+  }
+  curves?: Record<
+    string,
+    Array<{
+      difficulty: number
+      estimatedQuality?: number
+      estimated_quality?: number
+    }>
+  >
+}
+
+export interface AcuChannelAttempt {
+  attempt_index?: number
+  provider?: string
+  channel?: string
+  execution_profile_id?: string
+  status?: string
+  error_category?: string | null
+  http_status?: number | null
+  latency_ms?: number | null
+  started_at?: string
+  completed_at?: string | null
+  nominal_cost_usd?: number
+}
+
 export interface LogOtherData {
   admin_info?: {
     is_multi_key?: boolean
@@ -264,7 +335,12 @@ export interface LogOtherData {
   judge_output_tokens?: number
   judge_official_payg_equivalent_cost?: string
   judge_cost_currency?: string
-  judge_cost_status?: 'estimated_blended' | 'estimated_upper_bound' | 'verified' | 'mixed' | 'not_applicable'
+  judge_cost_status?:
+    | 'estimated_blended'
+    | 'estimated_upper_bound'
+    | 'verified'
+    | 'mixed'
+    | 'not_applicable'
   judge_cost_source?: string
   judge_provider?: string
   judge_model?: string
@@ -314,7 +390,12 @@ export interface LogOtherData {
     judge_output_tokens?: number
     judge_official_payg_equivalent_cost?: number
     judge_cost_currency?: string
-    judge_cost_status?: 'estimated_blended' | 'estimated_upper_bound' | 'verified' | 'mixed' | 'not_applicable'
+    judge_cost_status?:
+      | 'estimated_blended'
+      | 'estimated_upper_bound'
+      | 'verified'
+      | 'mixed'
+      | 'not_applicable'
     judge_cost_source?: string
     judge_provider?: string
     judge_model?: string
@@ -334,6 +415,10 @@ export interface LogOtherData {
     web_fallback_chain?: string[]
     web_tool_pruned?: boolean
     web_tool_prune_reason?: string
+    phase?: string
+    judge_explanation?: string
+    route_decision?: AcuRouteDecisionView
+    channel_attempts?: AcuChannelAttempt[]
   }
 }
 

@@ -49,8 +49,22 @@ import {
   UserCog,
   Info,
   LogIn,
+  Target,
+  TimerReset,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ReferenceDot,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 
 import { Dialog } from '@/components/dialog'
 import { StatusBadge, type StatusBadgeProps } from '@/components/status-badge'
@@ -82,6 +96,15 @@ import {
   isTimingLogType,
 } from '../../lib/utils'
 import { USAGE_BILLING_PATH, type LogOtherData } from '../../types'
+
+const ACU_CURVE_COLORS = [
+  '#0f766e',
+  '#2563eb',
+  '#c2410c',
+  '#a21caf',
+  '#ca8a04',
+  '#475569',
+]
 
 // Maps a channel-update changed-field token (as recorded by the backend audit)
 // to its i18n label key for display in the audit details.
@@ -389,7 +412,10 @@ function BillingBreakdown(props: {
 
   rows.push({
     label: other.user_charge_cny != null ? t('Actual charge') : t('Total Cost'),
-    value: other.user_charge_cny != null ? `¥${Number(other.user_charge_cny).toFixed(8)}` : formatLogQuota(log.quota),
+    value:
+      other.user_charge_cny != null
+        ? `¥${Number(other.user_charge_cny).toFixed(8)}`
+        : formatLogQuota(log.quota),
   })
 
   if (rows.length === 0) return null
@@ -469,6 +495,387 @@ function TokenBreakdown(props: { log: UsageLog; other: LogOtherData }) {
   )
 }
 
+export function AcuDecisionVisualization(props: {
+  route: NonNullable<
+    NonNullable<LogOtherData['acu_cost_breakdown']>['route_decision']
+  >
+  breakdown: NonNullable<LogOtherData['acu_cost_breakdown']>
+  other: LogOtherData
+  actualModel: string
+}) {
+  const { t } = useTranslation()
+  const { route, breakdown, other } = props
+  const candidates = route.candidate_estimates ?? []
+  const snapshotCandidates = route.decision_snapshot?.candidates ?? []
+  const curves = route.curves ?? {}
+  const modelIds = Object.keys(curves)
+  const selectedModel =
+    route.decision_snapshot?.selectedModel ??
+    String(route.selected_profile?.modelId ?? breakdown.selected_model ?? '')
+  const difficulty = Number(route.difficulty ?? breakdown.difficulty ?? 0)
+  const pareto = new Set(route.pareto_frontier ?? [])
+  const candidateByModel = new Map(
+    candidates.map((candidate) => [candidate.modelId ?? '', candidate])
+  )
+  const snapshotByModel = new Map(
+    snapshotCandidates.map((candidate) => [candidate.modelId ?? '', candidate])
+  )
+  const curveData = Array.from({ length: 101 }, (_, difficultyValue) => {
+    const row: Record<string, number> = { difficulty: difficultyValue }
+    for (const modelId of modelIds) {
+      const point = curves[modelId]?.find(
+        (entry) => entry.difficulty === difficultyValue
+      )
+      const quality = point?.estimatedQuality ?? point?.estimated_quality
+      if (quality != null) row[modelId] = quality
+    }
+    return row
+  })
+  const qualityFor = (modelId: string) => {
+    const value = Number(candidateByModel.get(modelId)?.estimatedQuality ?? 0)
+    return value <= 1 ? value * 100 : value
+  }
+  const cashCostFor = (modelId: string) => {
+    const snapshotCost = snapshotByModel.get(modelId)?.effectiveCashCost
+    if (snapshotCost != null) return Number(snapshotCost)
+    return Number(candidateByModel.get(modelId)?.expectedTotalCost ?? 0)
+  }
+  const displayNameFor = (modelId: string) =>
+    candidateByModel.get(modelId)?.displayName || modelId
+  const attempts = breakdown.channel_attempts ?? []
+  const counterfactual = Number(
+    breakdown.counterfactual_quality_ceiling_cost_cny ?? 0
+  )
+  const actualCost = Number(breakdown.actual_total_cash_cost_cny ?? 0)
+  const reduction =
+    counterfactual > 0
+      ? Math.max(0, ((counterfactual - actualCost) / counterfactual) * 100)
+      : null
+
+  return (
+    <DetailSection
+      icon={<Target className='size-3' aria-hidden='true' />}
+      iconTone='success'
+      label={t('ACU Routing Decision')}
+    >
+      <div className='grid gap-2 border-b pb-2 sm:grid-cols-3 lg:grid-cols-6'>
+        <DetailRow label={t('Difficulty')} value={difficulty.toFixed(1)} mono />
+        <DetailRow
+          label={t('Routing Preference')}
+          value={
+            route.routing_preference ?? breakdown.routing_preference ?? '-'
+          }
+          mono
+        />
+        <DetailRow
+          label={t('Phase')}
+          value={route.phase ?? breakdown.phase ?? '-'}
+          mono
+        />
+        <DetailRow
+          label={t('Selected Model')}
+          value={selectedModel || props.actualModel}
+          mono
+        />
+        <DetailRow
+          label={t('Actual Provider')}
+          value={other.actual_provider ?? breakdown.actual_provider ?? '-'}
+          mono
+        />
+        <DetailRow
+          label={t('Actual Channel')}
+          value={other.actual_channel ?? breakdown.channel_id ?? '-'}
+          mono
+        />
+      </div>
+
+      {modelIds.length > 0 && (
+        <div className='space-y-2 pt-1'>
+          <div className='h-[340px] min-h-[340px] w-full sm:h-[400px]'>
+            <ResponsiveContainer width='100%' height='100%'>
+              <LineChart
+                data={curveData}
+                margin={{ top: 18, right: 22, bottom: 12, left: 0 }}
+              >
+                <CartesianGrid strokeDasharray='3 3' opacity={0.35} />
+                <XAxis
+                  dataKey='difficulty'
+                  type='number'
+                  domain={[0, 100]}
+                  ticks={[0, 20, 40, 60, 80, 100]}
+                  label={{
+                    value: t('Task Difficulty'),
+                    position: 'insideBottom',
+                    offset: -8,
+                  }}
+                />
+                <YAxis
+                  domain={[0, 100]}
+                  ticks={[0, 20, 40, 60, 80, 100]}
+                  width={34}
+                  label={{
+                    value: t('Estimated Quality'),
+                    angle: -90,
+                    position: 'insideLeft',
+                  }}
+                />
+                <Tooltip
+                  labelFormatter={(value) => `${t('Difficulty')}: ${value}`}
+                  formatter={(value, name) => [
+                    `${Number(value).toFixed(1)}`,
+                    displayNameFor(String(name)),
+                  ]}
+                />
+                <Legend formatter={(value) => displayNameFor(String(value))} />
+                <ReferenceLine
+                  x={difficulty}
+                  stroke='#111827'
+                  strokeDasharray='5 4'
+                  label={{
+                    value: `D ${difficulty.toFixed(1)}`,
+                    position: 'insideTopRight',
+                  }}
+                />
+                {modelIds.map((modelId, index) => (
+                  <Line
+                    key={modelId}
+                    type='monotone'
+                    dataKey={modelId}
+                    stroke={ACU_CURVE_COLORS[index % ACU_CURVE_COLORS.length]}
+                    strokeWidth={modelId === selectedModel ? 3.5 : 1.8}
+                    strokeOpacity={modelId === selectedModel ? 1 : 0.72}
+                    dot={false}
+                    isAnimationActive={false}
+                  />
+                ))}
+                {candidates.map((candidate, index) => {
+                  const modelId = candidate.modelId ?? ''
+                  if (!modelId) return null
+                  return (
+                    <ReferenceDot
+                      key={modelId}
+                      x={difficulty}
+                      y={qualityFor(modelId)}
+                      r={modelId === selectedModel ? 6 : 4}
+                      fill={ACU_CURVE_COLORS[index % ACU_CURVE_COLORS.length]}
+                      stroke={modelId === selectedModel ? '#111827' : '#ffffff'}
+                      strokeWidth={modelId === selectedModel ? 2 : 1}
+                    />
+                  )
+                })}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <p className='text-muted-foreground text-xs'>
+            {t(
+              'Estimated quality is a curve estimate, not the measured success rate of this request.'
+            )}
+          </p>
+        </div>
+      )}
+
+      <div className='space-y-1.5 border-t pt-2'>
+        <div className='text-xs font-semibold'>
+          {t('All Eligible Candidates')}
+        </div>
+        <div className='overflow-x-auto'>
+          <div className='min-w-[620px]'>
+            <div className='text-muted-foreground grid grid-cols-[minmax(11rem,1.6fr)_6rem_7.5rem_6rem_minmax(10rem,1.4fr)] gap-2 border-b pb-1 text-[11px]'>
+              <span>{t('Model')}</span>
+              <span>{t('Quality')}</span>
+              <span>{t('Estimated Cost')}</span>
+              <span>{t('Pareto')}</span>
+              <span>{t('Selection')}</span>
+            </div>
+            {candidates.map((candidate) => {
+              const modelId = candidate.modelId ?? ''
+              const selected = modelId === selectedModel
+              return (
+                <div
+                  key={modelId}
+                  className={cn(
+                    'grid grid-cols-[minmax(11rem,1.6fr)_6rem_7.5rem_6rem_minmax(10rem,1.4fr)] gap-2 border-b py-1.5 text-xs last:border-b-0',
+                    selected &&
+                      'bg-emerald-50 font-medium dark:bg-emerald-950/25'
+                  )}
+                >
+                  <span className='font-mono'>{displayNameFor(modelId)}</span>
+                  <span>{qualityFor(modelId).toFixed(1)}</span>
+                  <span className='font-mono'>
+                    ¥{cashCostFor(modelId).toFixed(6)}
+                  </span>
+                  <span>
+                    {pareto.has(modelId) || candidate.paretoEfficient
+                      ? t('Yes')
+                      : t('No')}
+                  </span>
+                  <span>
+                    {selected
+                      ? t('Selected')
+                      : (candidate.selectionReason ?? '-')}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className='grid gap-2 border-t pt-2 sm:grid-cols-2'>
+        <div className='space-y-1'>
+          <div className='text-xs font-semibold'>{t('Final Selection')}</div>
+          <DetailRow
+            label={t('Model')}
+            value={selectedModel || props.actualModel}
+            mono
+          />
+          <DetailRow
+            label={t('Reason')}
+            value={
+              route.decision_snapshot?.modelSelectionReason ??
+              route.route_explanation ??
+              breakdown.route_reason ??
+              '-'
+            }
+          />
+          <DetailRow
+            label={t('Channel Reason')}
+            value={
+              route.decision_snapshot?.channelSelectionReason ??
+              breakdown.provider_selection_reason ??
+              '-'
+            }
+          />
+        </div>
+        <div className='space-y-1'>
+          <div className='text-xs font-semibold'>{t('Cost Outcome')}</div>
+          <DetailRow
+            label={t('Actual Cost')}
+            value={`¥${actualCost.toFixed(8)}`}
+            mono
+          />
+          <DetailRow
+            label={t('Quality Ceiling Cost')}
+            value={counterfactual > 0 ? `¥${counterfactual.toFixed(8)}` : '-'}
+            mono
+          />
+          <DetailRow
+            label={t('Reduction')}
+            value={reduction == null ? '-' : `${reduction.toFixed(2)}%`}
+            mono
+          />
+        </div>
+      </div>
+
+      {attempts.length > 0 && (
+        <div className='space-y-1.5 border-t pt-2'>
+          <div className='flex items-center gap-1 text-xs font-semibold'>
+            <TimerReset className='size-3.5' aria-hidden='true' />
+            {t('Channel Attempt Timeline')}
+          </div>
+          <div className='space-y-0'>
+            {attempts.map((attempt, index) => (
+              <div
+                key={`${attempt.attempt_index ?? index}-${attempt.execution_profile_id ?? ''}`}
+                className='grid grid-cols-[1.5rem_minmax(0,1fr)] gap-2 pb-2 last:pb-0'
+              >
+                <div className='flex flex-col items-center'>
+                  <span
+                    className={cn(
+                      'flex size-5 items-center justify-center rounded-full text-[10px] font-semibold text-white',
+                      attempt.status === 'success'
+                        ? 'bg-emerald-600'
+                        : 'bg-rose-600'
+                    )}
+                  >
+                    {attempt.attempt_index ?? index + 1}
+                  </span>
+                  {index < attempts.length - 1 && (
+                    <span className='bg-border mt-1 h-full w-px' />
+                  )}
+                </div>
+                <div className='grid gap-1 text-xs sm:grid-cols-4'>
+                  <span className='font-medium'>{attempt.provider ?? '-'}</span>
+                  <span className='font-mono'>{attempt.channel ?? '-'}</span>
+                  <span>{attempt.status ?? '-'}</span>
+                  <span className='text-muted-foreground'>
+                    {attempt.error_category ||
+                      (attempt.http_status
+                        ? `HTTP ${attempt.http_status}`
+                        : '-')}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(route.excluded_profiles?.length ?? 0) > 0 && (
+        <details className='border-t pt-2 text-xs'>
+          <summary className='cursor-pointer font-semibold'>
+            {t('Excluded Models')}
+          </summary>
+          <div className='mt-2 space-y-1'>
+            {route.excluded_profiles?.map((excluded, index) => (
+              <DetailRow
+                key={`${excluded.executionProfileId ?? 'excluded'}-${index}`}
+                label={excluded.executionProfileId ?? t('Profile')}
+                value={
+                  excluded.exclusionReason ??
+                  excluded.reasons?.[0] ??
+                  excluded.exclusionDetail ??
+                  '-'
+                }
+                mono
+              />
+            ))}
+          </div>
+        </details>
+      )}
+
+      {breakdown.judge_explanation && (
+        <details className='border-t pt-2 text-xs'>
+          <summary className='cursor-pointer font-semibold'>
+            {t('Judge Explanation')}
+          </summary>
+          <p className='mt-2 break-words whitespace-pre-wrap'>
+            {breakdown.judge_explanation}
+          </p>
+        </details>
+      )}
+
+      <details className='border-t pt-2 text-xs'>
+        <summary className='cursor-pointer font-semibold'>
+          {t('Decision Versions')}
+        </summary>
+        <div className='mt-2 space-y-1'>
+          <DetailRow
+            label={t('Curve Version')}
+            value={route.curve_version ?? '-'}
+            mono
+          />
+          <DetailRow
+            label={t('Price Version')}
+            value={route.price_version ?? '-'}
+            mono
+          />
+          <DetailRow
+            label={t('Formula Version')}
+            value={route.routing_formula_version ?? '-'}
+            mono
+          />
+          <DetailRow
+            label={t('Route Decision ID')}
+            value={route.route_decision_id ?? '-'}
+            mono
+          />
+        </div>
+      </details>
+    </DetailSection>
+  )
+}
+
 interface DetailsDialogProps {
   log: UsageLog
   isAdmin: boolean
@@ -482,6 +889,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const details = props.log.content ?? ''
   const other = parseLogOther(props.log.other)
   const acuRoute = other?.acu_cost_breakdown
+  const acuDecision = acuRoute?.route_decision
   const typeConfig = getLogTypeConfig(props.log.type)
 
   const isViolation = isViolationFeeLog(other)
@@ -632,7 +1040,9 @@ export function DetailsDialog(props: DetailsDialogProps) {
       contentClassName={cn(
         'min-w-0 overflow-hidden',
         'max-sm:max-h-[calc(100dvh-1.5rem)] max-sm:w-[calc(100vw-1.5rem)] max-sm:max-w-[calc(100vw-1.5rem)] max-sm:p-4',
-        isTieredBilling ? 'sm:max-w-4xl lg:max-w-5xl' : 'sm:max-w-lg'
+        isTieredBilling || acuDecision
+          ? 'sm:max-w-6xl lg:max-w-7xl'
+          : 'sm:max-w-lg'
       )}
       headerClassName='max-sm:gap-1'
       titleClassName='flex items-center gap-2 text-base'
@@ -641,6 +1051,14 @@ export function DetailsDialog(props: DetailsDialogProps) {
       bodyClassName='pr-2 sm:pr-4'
     >
       <div className='w-full max-w-full min-w-0 space-y-2.5 overflow-x-hidden py-1 sm:space-y-3'>
+        {acuDecision && acuRoute && (
+          <AcuDecisionVisualization
+            route={acuDecision}
+            breakdown={acuRoute}
+            other={other}
+            actualModel={props.log.model_name}
+          />
+        )}
         {/* Overview section - key identifiers */}
         <div className='min-w-0 space-y-1'>
           {props.log.request_id && (
@@ -743,7 +1161,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
         </div>
 
         {other?.acu_logical_request_id && (
-          <DetailSection label={t('ACU Route')}>
+          <DetailSection label={t('ACU Advanced Details')}>
             {acuRoute?.mode && (
               <DetailRow label={t('Mode')} value={acuRoute.mode} mono />
             )}
@@ -776,7 +1194,11 @@ export function DetailsDialog(props: DetailsDialogProps) {
               />
             )}
             {acuRoute?.web_intent && (
-              <DetailRow label={t('Web Intent')} value={acuRoute.web_intent} mono />
+              <DetailRow
+                label={t('Web Intent')}
+                value={acuRoute.web_intent}
+                mono
+              />
             )}
             {acuRoute?.web_intent_source && (
               <DetailRow
@@ -806,13 +1228,14 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 mono
               />
             )}
-            {acuRoute?.web_fallback_chain && acuRoute.web_fallback_chain.length > 0 && (
-              <DetailRow
-                label={t('Web Fallback Chain')}
-                value={acuRoute.web_fallback_chain.join(' -> ')}
-                mono
-              />
-            )}
+            {acuRoute?.web_fallback_chain &&
+              acuRoute.web_fallback_chain.length > 0 && (
+                <DetailRow
+                  label={t('Web Fallback Chain')}
+                  value={acuRoute.web_fallback_chain.join(' -> ')}
+                  mono
+                />
+              )}
             {acuRoute?.web_tool_pruned != null && (
               <DetailRow
                 label={t('Web Tool Pruned')}
@@ -873,37 +1296,80 @@ export function DetailsDialog(props: DetailsDialogProps) {
               />
             )}
             {acuRoute?.model_selection_reason && (
-              <DetailRow label={t('Model Selection Reason')} value={acuRoute.model_selection_reason} />
+              <DetailRow
+                label={t('Model Selection Reason')}
+                value={acuRoute.model_selection_reason}
+              />
             )}
             {acuRoute?.routing_group && (
-              <DetailRow label={t('Routing Group')} value={acuRoute.routing_group} mono />
+              <DetailRow
+                label={t('Routing Group')}
+                value={acuRoute.routing_group}
+                mono
+              />
             )}
             {acuRoute?.channel_id && (
-              <DetailRow label={t('Channel ID')} value={acuRoute.channel_id} mono />
+              <DetailRow
+                label={t('Channel ID')}
+                value={acuRoute.channel_id}
+                mono
+              />
             )}
             {acuRoute?.network_endpoint && (
-              <DetailRow label={t('Network Endpoint')} value={acuRoute.network_endpoint} mono />
+              <DetailRow
+                label={t('Network Endpoint')}
+                value={acuRoute.network_endpoint}
+                mono
+              />
             )}
             {acuRoute?.fallback_chain && (
-              <DetailRow label={t('Fallback Chain')} value={acuRoute.fallback_chain} mono />
+              <DetailRow
+                label={t('Fallback Chain')}
+                value={acuRoute.fallback_chain}
+                mono
+              />
             )}
             {acuRoute?.circuit_state && (
-              <DetailRow label={t('Circuit State')} value={acuRoute.circuit_state} mono />
+              <DetailRow
+                label={t('Circuit State')}
+                value={acuRoute.circuit_state}
+                mono
+              />
             )}
             {acuRoute?.cooldown_until && (
-              <DetailRow label={t('Cooldown Until')} value={acuRoute.cooldown_until} mono />
+              <DetailRow
+                label={t('Cooldown Until')}
+                value={acuRoute.cooldown_until}
+                mono
+              />
             )}
             {acuRoute?.error_class && (
-              <DetailRow label={t('Error Class')} value={acuRoute.error_class} mono />
+              <DetailRow
+                label={t('Error Class')}
+                value={acuRoute.error_class}
+                mono
+              />
             )}
             {acuRoute?.recent_success_rate != null && (
-              <DetailRow label={t('Recent Success Rate')} value={`${(acuRoute.recent_success_rate * 100).toFixed(1)}%`} mono />
+              <DetailRow
+                label={t('Recent Success Rate')}
+                value={`${(acuRoute.recent_success_rate * 100).toFixed(1)}%`}
+                mono
+              />
             )}
             {acuRoute?.effective_cost_status && (
-              <DetailRow label={t('Effective Cost Status')} value={acuRoute.effective_cost_status} mono />
+              <DetailRow
+                label={t('Effective Cost Status')}
+                value={acuRoute.effective_cost_status}
+                mono
+              />
             )}
             {acuRoute?.billing_multiplier != null && (
-              <DetailRow label={t('Billing Multiplier')} value={String(acuRoute.billing_multiplier)} mono />
+              <DetailRow
+                label={t('Billing Multiplier')}
+                value={String(acuRoute.billing_multiplier)}
+                mono
+              />
             )}
             {other.actual_channel && (
               <DetailRow
@@ -932,7 +1398,11 @@ export function DetailsDialog(props: DetailsDialogProps) {
               />
             )}
             {acuRoute?.provider_credit_cash_cost_cny != null && (
-              <DetailRow label={t('Provider Credit Cash Conversion')} value={`¥${acuRoute.provider_credit_cash_cost_cny.toFixed(10)} / Credit`} mono />
+              <DetailRow
+                label={t('Provider Credit Cash Conversion')}
+                value={`¥${acuRoute.provider_credit_cash_cost_cny.toFixed(10)} / Credit`}
+                mono
+              />
             )}
             {acuRoute?.effective_cash_cost_cny != null && (
               <DetailRow
@@ -943,34 +1413,53 @@ export function DetailsDialog(props: DetailsDialogProps) {
             )}
             {acuRoute?.judge_cash_cost_cny != null && (
               <DetailRow
-                label={acuRoute.judge_cost_status === 'estimated_blended'
-                  ? t('MiMo Judge Cost (Blended Estimate)')
-                  : acuRoute.judge_cost_status === 'mixed'
-                    ? t('Judge Cost (Mixed Estimate)')
-                  : t('Judge Cost (CNY)')}
+                label={
+                  acuRoute.judge_cost_status === 'estimated_blended'
+                    ? t('MiMo Judge Cost (Blended Estimate)')
+                    : acuRoute.judge_cost_status === 'mixed'
+                      ? t('Judge Cost (Mixed Estimate)')
+                      : t('Judge Cost (CNY)')
+                }
                 value={`¥${acuRoute.judge_cash_cost_cny.toFixed(8)}`}
                 mono
               />
             )}
-            {(acuRoute?.judge_cost_status === 'estimated_blended' || acuRoute?.judge_cost_status === 'mixed')
-              && acuRoute.judge_official_payg_equivalent_cost != null && (
+            {(acuRoute?.judge_cost_status === 'estimated_blended' ||
+              acuRoute?.judge_cost_status === 'mixed') &&
+              acuRoute.judge_official_payg_equivalent_cost != null && (
+                <DetailRow
+                  label={t('MiMo Official PAYG Equivalent')}
+                  value={`¥${acuRoute.judge_official_payg_equivalent_cost.toFixed(8)}`}
+                  mono
+                />
+              )}
+            {acuRoute?.judge_model && (
               <DetailRow
-                label={t('MiMo Official PAYG Equivalent')}
-                value={`¥${acuRoute.judge_official_payg_equivalent_cost.toFixed(8)}`}
+                label={t('Judge Model')}
+                value={acuRoute.judge_model}
                 mono
               />
             )}
-            {acuRoute?.judge_model && (
-              <DetailRow label={t('Judge Model')} value={acuRoute.judge_model} mono />
-            )}
             {acuRoute?.judge_cost_status && (
-              <DetailRow label={t('Judge Cost Status')} value={acuRoute.judge_cost_status} mono />
+              <DetailRow
+                label={t('Judge Cost Status')}
+                value={acuRoute.judge_cost_status}
+                mono
+              />
             )}
             {acuRoute?.failed_attempt_cash_cost_cny != null && (
-              <DetailRow label={t('Failed Attempt Cost (CNY)')} value={`¥${acuRoute.failed_attempt_cash_cost_cny.toFixed(8)}`} mono />
+              <DetailRow
+                label={t('Failed Attempt Cost (CNY)')}
+                value={`¥${acuRoute.failed_attempt_cash_cost_cny.toFixed(8)}`}
+                mono
+              />
             )}
             {acuRoute?.actual_total_cash_cost_cny != null && (
-              <DetailRow label={t('Actual Total Cost (CNY)')} value={`¥${acuRoute.actual_total_cash_cost_cny.toFixed(8)}`} mono />
+              <DetailRow
+                label={t('Actual Total Cost (CNY)')}
+                value={`¥${acuRoute.actual_total_cash_cost_cny.toFixed(8)}`}
+                mono
+              />
             )}
             {acuRoute?.user_charge != null && (
               <DetailRow
@@ -980,15 +1469,21 @@ export function DetailsDialog(props: DetailsDialogProps) {
               />
             )}
             {acuRoute?.counterfactual_quality_ceiling_cost_cny != null && (
-              <DetailRow label={t('Quality Ceiling Counterfactual Cost (CNY)')} value={`¥${acuRoute.counterfactual_quality_ceiling_cost_cny.toFixed(8)}`} mono />
-            )}
-            {acuRoute?.counterfactual_quality_ceiling_cost_cny != null && acuRoute.actual_total_cash_cost_cny != null && acuRoute.counterfactual_quality_ceiling_cost_cny > 0 && (
               <DetailRow
-                label={t('Cost Reduction vs Quality Ceiling')}
-                value={`${Math.max(0, (acuRoute.counterfactual_quality_ceiling_cost_cny - acuRoute.actual_total_cash_cost_cny) / acuRoute.counterfactual_quality_ceiling_cost_cny * 100).toFixed(2)}%`}
+                label={t('Quality Ceiling Counterfactual Cost (CNY)')}
+                value={`¥${acuRoute.counterfactual_quality_ceiling_cost_cny.toFixed(8)}`}
                 mono
               />
             )}
+            {acuRoute?.counterfactual_quality_ceiling_cost_cny != null &&
+              acuRoute.actual_total_cash_cost_cny != null &&
+              acuRoute.counterfactual_quality_ceiling_cost_cny > 0 && (
+                <DetailRow
+                  label={t('Cost Reduction vs Quality Ceiling')}
+                  value={`${Math.max(0, ((acuRoute.counterfactual_quality_ceiling_cost_cny - acuRoute.actual_total_cash_cost_cny) / acuRoute.counterfactual_quality_ceiling_cost_cny) * 100).toFixed(2)}%`}
+                  mono
+                />
+              )}
             {acuRoute?.reference_provider && (
               <DetailRow
                 label={t('Reference Provider')}
