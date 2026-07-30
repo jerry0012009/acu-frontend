@@ -37,6 +37,7 @@ func TestApplyACUTrustedIdentityReplacesForgedHeadersAndBindsBody(t *testing.T) 
 	require.Equal(t, "all_routing_eligible", req.Header.Get("X-ACU-Routing-Policy"))
 	require.Equal(t, "balanced", req.Header.Get("X-ACU-Routing-Preference"))
 	require.Equal(t, "[]", req.Header.Get("X-ACU-Allowed-Model-Ids"))
+	require.Equal(t, "[]", req.Header.Get("X-ACU-Allowed-Profile-Ids"))
 	require.NotEmpty(t, req.Header.Get("X-ACU-Routing-Policy-Version"))
 	require.Empty(t, req.Header.Get("X-ACU-Unrecognized-Internal"))
 
@@ -45,7 +46,7 @@ func TestApplyACUTrustedIdentityReplacesForgedHeadersAndBindsBody(t *testing.T) 
 	require.Equal(t, bodyHash, req.Header.Get("X-ACU-Body-SHA256"))
 	payload := strings.Join([]string{
 		"17", "29", "req_alpha_1", "req_alpha_1", "0.145.0",
-		"all_routing_eligible", "[]", req.Header.Get("X-ACU-Routing-Policy-Version"),
+		"all_routing_eligible", "[]", "[]", req.Header.Get("X-ACU-Routing-Policy-Version"),
 		"balanced", req.Header.Get("X-ACU-Timestamp"), bodyHash,
 	}, "\n")
 	mac := hmac.New(sha256.New, []byte("test-only-shared-secret"))
@@ -64,13 +65,32 @@ func TestApplyACUTrustedIdentitySignsCustomUserAllowlist(t *testing.T) {
 	ctx.Set("token_model_limit", map[string]bool{
 		"acu-auto": true, "acu-high": true, "gpt-5.6-sol": true, "gpt-5.6-luna": true,
 	})
+	ctx.Set("acu_profile_limit_enabled", true)
+	ctx.Set("acu_profile_limits", []string{"lucen:luna:responses", "closeai:luna:responses"})
 	info.UserSetting.ACURoutingPreference = "quality"
 
 	require.NoError(t, applyACUTrustedIdentity(req, ctx, info, []byte(`{"model":"acu-auto"}`)))
 	require.Equal(t, "custom_allowlist", req.Header.Get("X-ACU-Routing-Policy"))
 	require.Equal(t, `["gpt-5.6-luna","gpt-5.6-sol"]`, req.Header.Get("X-ACU-Allowed-Model-Ids"))
+	require.Equal(t, `["closeai:luna:responses","lucen:luna:responses"]`, req.Header.Get("X-ACU-Allowed-Profile-Ids"))
 	require.Equal(t, "quality", req.Header.Get("X-ACU-Routing-Preference"))
 	require.Contains(t, req.Header.Get("X-ACU-Routing-Policy-Version"), "acu-user-policy-v2-")
+}
+
+func TestACUProfileAllowlistChangesRoutingPolicyVersion(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Setenv("ACU_TRUSTED_IDENTITY_SECRET", "test-only-shared-secret")
+	versionFor := func(profileID string) string {
+		ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+		ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+		ctx.Set("acu_profile_limit_enabled", true)
+		ctx.Set("acu_profile_limits", []string{profileID})
+		req := httptest.NewRequest(http.MethodPost, "http://acu-router/v1/responses", nil)
+		info := &relaycommon.RelayInfo{IsACUChannel: true, UserId: 17, TokenId: 29, RequestId: "req_profile_policy"}
+		require.NoError(t, applyACUTrustedIdentity(req, ctx, info, []byte(`{"model":"acu-auto"}`)))
+		return req.Header.Get("X-ACU-Routing-Policy-Version")
+	}
+	require.NotEqual(t, versionFor("lucen:luna:responses"), versionFor("closeai:luna:responses"))
 }
 
 func TestACUClientVersionUsesOnlyRecognizedNativeUserAgents(t *testing.T) {

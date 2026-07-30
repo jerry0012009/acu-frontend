@@ -211,11 +211,27 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	if err != nil {
 		return fmt.Errorf("marshal ACU routing allowlist: %w", err)
 	}
-	policyDigest := sha256.Sum256([]byte(routingPolicy + "\n" + string(allowedModelIDsJSON) + "\n" + routingPreference))
+	allowedProfileIDs := make([]string, 0)
+	if c.GetBool("acu_profile_limit_enabled") {
+		if rawProfileLimits, exists := c.Get("acu_profile_limits"); exists {
+			if profileLimits, ok := rawProfileLimits.([]string); ok {
+				allowedProfileIDs = append(allowedProfileIDs, profileLimits...)
+			}
+		}
+		if len(allowedProfileIDs) == 0 {
+			return errors.New("ACU custom execution Profile allowlist is empty")
+		}
+	}
+	sort.Strings(allowedProfileIDs)
+	allowedProfileIDsJSON, err := json.Marshal(allowedProfileIDs)
+	if err != nil {
+		return fmt.Errorf("marshal ACU execution Profile allowlist: %w", err)
+	}
+	policyDigest := sha256.Sum256([]byte(routingPolicy + "\n" + string(allowedModelIDsJSON) + "\n" + string(allowedProfileIDsJSON) + "\n" + routingPreference))
 	routingPolicyVersion := "acu-user-policy-v2-" + hex.EncodeToString(policyDigest[:8])
 	payload := strings.Join([]string{
 		userID, tokenID, logID, requestID, clientVersion, routingPolicy,
-		string(allowedModelIDsJSON), routingPolicyVersion, routingPreference, timestamp, bodySHA,
+		string(allowedModelIDsJSON), string(allowedProfileIDsJSON), routingPolicyVersion, routingPreference, timestamp, bodySHA,
 	}, "\n")
 	mac := hmac.New(sha256.New, []byte(secret))
 	_, _ = mac.Write([]byte(payload))
@@ -226,6 +242,7 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	req.Header.Set("X-ACU-Client-Version", clientVersion)
 	req.Header.Set("X-ACU-Routing-Policy", routingPolicy)
 	req.Header.Set("X-ACU-Allowed-Model-Ids", string(allowedModelIDsJSON))
+	req.Header.Set("X-ACU-Allowed-Profile-Ids", string(allowedProfileIDsJSON))
 	req.Header.Set("X-ACU-Routing-Policy-Version", routingPolicyVersion)
 	req.Header.Set("X-ACU-Routing-Preference", routingPreference)
 	req.Header.Set("X-ACU-Timestamp", timestamp)

@@ -211,20 +211,29 @@ func AddToken(c *gin.Context) {
 	if token.ModelLimitsEnabled {
 		token.ModelLimits = normalizeACUTokenModelLimits(token.ModelLimits)
 	}
+	if token.ACUProfileLimitsEnabled {
+		token.ACUProfileLimits = normalizeACUProfileLimits(token.ACUProfileLimits)
+		if err := validateACUProfileLimits(token.ACUProfileLimits); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
 	cleanToken := model.Token{
-		UserId:             c.GetInt("id"),
-		Name:               token.Name,
-		Key:                key,
-		CreatedTime:        common.GetTimestamp(),
-		AccessedTime:       common.GetTimestamp(),
-		ExpiredTime:        token.ExpiredTime,
-		RemainQuota:        token.RemainQuota,
-		UnlimitedQuota:     token.UnlimitedQuota,
-		ModelLimitsEnabled: token.ModelLimitsEnabled,
-		ModelLimits:        token.ModelLimits,
-		AllowIps:           token.AllowIps,
-		Group:              token.Group,
-		CrossGroupRetry:    token.CrossGroupRetry,
+		UserId:                  c.GetInt("id"),
+		Name:                    token.Name,
+		Key:                     key,
+		CreatedTime:             common.GetTimestamp(),
+		AccessedTime:            common.GetTimestamp(),
+		ExpiredTime:             token.ExpiredTime,
+		RemainQuota:             token.RemainQuota,
+		UnlimitedQuota:          token.UnlimitedQuota,
+		ModelLimitsEnabled:      token.ModelLimitsEnabled,
+		ModelLimits:             token.ModelLimits,
+		ACUProfileLimitsEnabled: token.ACUProfileLimitsEnabled,
+		ACUProfileLimits:        normalizeACUProfileLimits(token.ACUProfileLimits),
+		AllowIps:                token.AllowIps,
+		Group:                   token.Group,
+		CrossGroupRetry:         token.CrossGroupRetry,
 	}
 	err = cleanToken.Insert()
 	if err != nil {
@@ -296,6 +305,13 @@ func UpdateToken(c *gin.Context) {
 		if token.ModelLimitsEnabled {
 			token.ModelLimits = normalizeACUTokenModelLimits(token.ModelLimits)
 		}
+		if token.ACUProfileLimitsEnabled {
+			token.ACUProfileLimits = normalizeACUProfileLimits(token.ACUProfileLimits)
+			if err := validateACUProfileLimits(token.ACUProfileLimits); err != nil {
+				common.ApiError(c, err)
+				return
+			}
+		}
 		// If you add more fields, please also update token.Update()
 		cleanToken.Name = token.Name
 		cleanToken.ExpiredTime = token.ExpiredTime
@@ -303,6 +319,8 @@ func UpdateToken(c *gin.Context) {
 		cleanToken.UnlimitedQuota = token.UnlimitedQuota
 		cleanToken.ModelLimitsEnabled = token.ModelLimitsEnabled
 		cleanToken.ModelLimits = token.ModelLimits
+		cleanToken.ACUProfileLimitsEnabled = token.ACUProfileLimitsEnabled
+		cleanToken.ACUProfileLimits = normalizeACUProfileLimits(token.ACUProfileLimits)
 		cleanToken.AllowIps = token.AllowIps
 		cleanToken.Group = token.Group
 		cleanToken.CrossGroupRetry = token.CrossGroupRetry
@@ -333,6 +351,37 @@ func normalizeACUTokenModelLimits(value string) string {
 	}
 	sort.Strings(models)
 	return strings.Join(models, ",")
+}
+
+func normalizeACUProfileLimits(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	for _, profileID := range values {
+		profileID = strings.TrimSpace(profileID)
+		if profileID != "" {
+			seen[profileID] = struct{}{}
+		}
+	}
+	profiles := make([]string, 0, len(seen))
+	for profileID := range seen {
+		profiles = append(profiles, profileID)
+	}
+	sort.Strings(profiles)
+	return profiles
+}
+
+func validateACUProfileLimits(values []string) error {
+	if len(values) == 0 {
+		return fmt.Errorf("ACU custom execution Profile allowlist is empty")
+	}
+	if len(values) > 512 {
+		return fmt.Errorf("ACU execution Profile allowlist exceeds 512 entries")
+	}
+	for _, profileID := range values {
+		if len(profileID) > 256 {
+			return fmt.Errorf("ACU execution Profile ID exceeds 256 characters")
+		}
+	}
+	return nil
 }
 
 type TokenBatch struct {

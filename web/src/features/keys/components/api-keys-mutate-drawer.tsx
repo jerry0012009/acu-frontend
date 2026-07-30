@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, KeyRound, Settings2, WalletCards } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm, type SubmitErrorHandler } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -106,6 +106,11 @@ export function ApiKeysMutateDrawer({
     protocol: '',
     tier: '',
   })
+  const [acuProfileFilters, setAcuProfileFilters] = useState({
+    model: '',
+    provider: '',
+    protocol: '',
+  })
   const defaultUseAutoGroup = status?.default_use_auto_group === true
 
   const { data: modelPoolData } = useQuery({
@@ -133,6 +138,25 @@ export function ApiKeysMutateDrawer({
         model.protocols.includes(acuModelFilters.protocol)) &&
       (!acuModelFilters.tier || model.capabilityTier === acuModelFilters.tier)
   )
+  const routingProfileGroups = (modelPoolData?.data?.modelPool ?? [])
+    .filter(
+      (model) =>
+        model.modelCategory === 'text_agent' &&
+        model.autoRouteEnabled &&
+        ['verified', 'verified_provisional'].includes(model.verificationStatus)
+    )
+    .map((model) => ({
+      modelId: model.modelId,
+      profiles: model.profiles.filter(
+        (profile) =>
+          profile.enabled &&
+          profile.administratorAllowed &&
+          (!acuProfileFilters.model || model.modelId === acuProfileFilters.model) &&
+          (!acuProfileFilters.provider || profile.provider === acuProfileFilters.provider) &&
+          (!acuProfileFilters.protocol || profile.protocol.includes(acuProfileFilters.protocol))
+      ),
+    }))
+    .filter((group) => group.profiles.length > 0)
   const groupsRaw = groupsData?.data || {}
   const groups: ApiKeyGroupOption[] = Object.entries(groupsRaw).map(
     ([key, info]) => ({
@@ -149,6 +173,14 @@ export function ApiKeysMutateDrawer({
     resolver: zodResolver(schema),
     defaultValues: getApiKeyFormDefaultValues(defaultUseAutoGroup),
   })
+  const selectedProfileIds = form.watch('acu_profile_limits')
+  const selectedProfiles = (modelPoolData?.data?.modelPool ?? [])
+    .flatMap((model) => model.profiles.map((profile) => ({ ...profile, modelId: model.modelId })))
+    .filter((profile) => selectedProfileIds.includes(profile.executionProfileId))
+  const selectedModelCount = new Set(selectedProfiles.map((profile) => profile.modelId)).size
+  const selectedProviderCount = new Set(selectedProfiles.map((profile) => profile.provider)).size
+  const singleProfileModelCount = [...new Set(selectedProfiles.map((profile) => profile.modelId))]
+    .filter((modelId) => selectedProfiles.filter((profile) => profile.modelId === modelId).length === 1).length
 
   // Load existing data when updating
   useEffect(() => {
@@ -627,6 +659,119 @@ export function ApiKeysMutateDrawer({
 
                     <FormField
                       control={form.control}
+                      name='acu_profile_scope_custom'
+                      render={({ field }) => (
+                        <FormItem className={sideDrawerSwitchItemClassName()}>
+                          <div className='flex flex-col gap-0.5'>
+                            <FormLabel className='text-sm'>
+                              {t('ACU execution Profile scope')}
+                            </FormLabel>
+                            <FormDescription className='text-xs'>
+                              {field.value
+                                ? t('Custom allowed execution Profiles')
+                                : t('All verified execution Profiles')}
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    {form.watch('acu_profile_scope_custom') && (
+                      <FormItem>
+                        <FormLabel>{t('Allowed execution Profiles')}</FormLabel>
+                        <div className='grid grid-cols-3 gap-2'>
+                          {(
+                            [
+                              ['model', [...new Set((modelPoolData?.data?.modelPool ?? []).map((item) => item.modelId))]],
+                              ['provider', [...new Set((modelPoolData?.data?.profiles ?? []).map((item) => item.provider))]],
+                              ['protocol', [...new Set((modelPoolData?.data?.profiles ?? []).flatMap((item) => item.protocol))]],
+                            ] as const
+                          ).map(([key, values]) => (
+                            <select
+                              key={key}
+                              aria-label={`profile-${key}`}
+                              className='bg-background h-9 min-w-0 rounded border px-2 text-xs'
+                              value={acuProfileFilters[key]}
+                              onChange={(event) =>
+                                setAcuProfileFilters((current) => ({
+                                  ...current,
+                                  [key]: event.target.value,
+                                }))
+                              }
+                            >
+                              <option value=''>{t('All')} {t(key)}</option>
+                              {[...values].sort().map((value: string) => (
+                                <option key={value} value={value}>{value}</option>
+                              ))}
+                            </select>
+                          ))}
+                        </div>
+                        <div className='max-h-72 space-y-2 overflow-y-auto rounded border p-2'>
+                          {routingProfileGroups.map((group) => {
+                            const groupIds = group.profiles.map((profile) => profile.executionProfileId)
+                            const selectedCount = groupIds.filter((profileId) => selectedProfileIds.includes(profileId)).length
+                            return (
+                              <div key={group.modelId} className='space-y-1.5'>
+                                <label className='flex items-center gap-2 text-xs font-medium'>
+                                  <TriStateCheckbox
+                                    checked={selectedCount === groupIds.length}
+                                    indeterminate={selectedCount > 0 && selectedCount < groupIds.length}
+                                    onChange={(checked) => {
+                                      const next = checked
+                                        ? [...new Set([...selectedProfileIds, ...groupIds])]
+                                        : selectedProfileIds.filter((profileId) => !groupIds.includes(profileId))
+                                      form.setValue('acu_profile_limits', next, { shouldDirty: true, shouldValidate: true })
+                                    }}
+                                  />
+                                  {group.modelId}
+                                </label>
+                                <div className='space-y-1 pl-6'>
+                                  {group.profiles.map((profile) => (
+                                    <label key={profile.executionProfileId} className='flex items-start gap-2 text-xs'>
+                                      <input
+                                        type='checkbox'
+                                        className='mt-0.5 size-4'
+                                        checked={selectedProfileIds.includes(profile.executionProfileId)}
+                                        onChange={(event) => {
+                                          const next = event.target.checked
+                                            ? [...new Set([...selectedProfileIds, profile.executionProfileId])]
+                                            : selectedProfileIds.filter((profileId) => profileId !== profile.executionProfileId)
+                                          form.setValue('acu_profile_limits', next, { shouldDirty: true, shouldValidate: true })
+                                        }}
+                                      />
+                                      <span>
+                                        {profile.provider} / {profile.channel} / {profile.protocol.join(', ')} / {profile.multiplier ?? 'n/a'}x / {profile.routingEligibility}
+                                        <span className='text-muted-foreground block break-all'>{profile.executionProfileId}</span>
+                                      </span>
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        <div className='bg-muted/40 grid grid-cols-2 gap-2 rounded p-2 text-xs sm:grid-cols-4'>
+                          <span>{selectedProfileIds.length} {t('Profiles')}</span>
+                          <span>{selectedModelCount} {t('Models')}</span>
+                          <span>{selectedProviderCount} {t('Providers')}</span>
+                          <span>{singleProfileModelCount} {t('Single-profile models')}</span>
+                        </div>
+                        {form.formState.errors.acu_profile_limits?.message && (
+                          <p className='text-destructive text-xs'>
+                            {form.formState.errors.acu_profile_limits.message}
+                          </p>
+                        )}
+                      </FormItem>
+                    )}
+
+                    <FormField
+                      control={form.control}
                       name='allow_ips'
                       render={({ field }) => (
                         <FormItem>
@@ -675,5 +820,26 @@ export function ApiKeysMutateDrawer({
         </SheetFooter>
       </SheetContent>
     </Sheet>
+  )
+}
+
+function TriStateCheckbox(props: {
+  checked: boolean
+  indeterminate: boolean
+  onChange: (checked: boolean) => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (inputRef.current) inputRef.current.indeterminate = props.indeterminate
+  }, [props.indeterminate])
+  return (
+    <input
+      ref={inputRef}
+      type='checkbox'
+      className='size-4'
+      checked={props.checked}
+      aria-checked={props.indeterminate ? 'mixed' : props.checked}
+      onChange={(event) => props.onChange(event.target.checked)}
+    />
   )
 }

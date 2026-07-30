@@ -15,6 +15,8 @@ test('all verified mode disables existing Token ModelLimits', () => {
     unlimited_quota: true,
     model_limits: [],
     acu_model_scope_custom: false,
+    acu_profile_scope_custom: false,
+    acu_profile_limits: [],
     allow_ips: '',
     group: 'default',
     cross_group_retry: false,
@@ -30,6 +32,8 @@ test('custom mode persists virtual ACU entry models without showing them as choi
     unlimited_quota: true,
     model_limits: ['gpt-5.6-luna'],
     acu_model_scope_custom: true,
+    acu_profile_scope_custom: false,
+    acu_profile_limits: [],
     allow_ips: '',
     group: 'default',
     cross_group_retry: false,
@@ -54,6 +58,8 @@ test('custom mode persists virtual ACU entry models without showing them as choi
     unlimited_quota: true,
     model_limits_enabled: true,
     model_limits: payload.model_limits,
+    acu_profile_limits_enabled: false,
+    acu_profile_limits: [],
     allow_ips: '',
     used_quota: 0,
     group: 'default',
@@ -71,9 +77,31 @@ test('custom mode requires at least one real routing model', () => {
     unlimited_quota: true,
     model_limits: [],
     acu_model_scope_custom: true,
+    acu_profile_scope_custom: false,
+    acu_profile_limits: [],
     allow_ips: '',
     group: 'default',
     cross_group_retry: false,
   })
   assert.equal(result.success, false)
+})
+
+test('custom Profile mode persists exact execution Profile IDs', () => {
+  const payload = transformFormDataToPayload({
+    name: 'profile-scope',
+    remain_quota_dollars: 0,
+    unlimited_quota: true,
+    model_limits: [],
+    acu_model_scope_custom: false,
+    acu_profile_scope_custom: true,
+    acu_profile_limits: ['lucen:luna:responses', 'closeai:luna:responses'],
+    allow_ips: '',
+    group: 'default',
+    cross_group_retry: false,
+  })
+  assert.equal(payload.acu_profile_limits_enabled, true)
+  assert.deepEqual(payload.acu_profile_limits, [
+    'closeai:luna:responses',
+    'lucen:luna:responses',
+  ])
 })

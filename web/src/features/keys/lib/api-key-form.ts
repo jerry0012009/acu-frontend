@@ -37,6 +37,8 @@ export function getApiKeyFormSchema(t: TFunction) {
       unlimited_quota: z.boolean(),
       model_limits: z.array(z.string()),
       acu_model_scope_custom: z.boolean(),
+      acu_profile_scope_custom: z.boolean(),
+      acu_profile_limits: z.array(z.string()),
       allow_ips: z.string().optional(),
       group: z.string().optional(),
       cross_group_retry: z.boolean().optional(),
@@ -48,6 +50,13 @@ export function getApiKeyFormSchema(t: TFunction) {
           code: 'custom',
           path: ['model_limits'],
           message: t('Select at least one verified model'),
+        })
+      }
+      if (data.acu_profile_scope_custom && data.acu_profile_limits.length === 0) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['acu_profile_limits'],
+          message: t('Select at least one execution Profile'),
         })
       }
 
@@ -81,6 +90,8 @@ export const API_KEY_FORM_DEFAULT_VALUES: ApiKeyFormValues = {
   unlimited_quota: true,
   model_limits: [],
   acu_model_scope_custom: false,
+  acu_profile_scope_custom: false,
+  acu_profile_limits: [],
   allow_ips: '',
   group: DEFAULT_GROUP,
   cross_group_retry: true,
@@ -120,6 +131,10 @@ export function transformFormDataToPayload(
     model_limits: data.acu_model_scope_custom
       ? [...new Set([...data.model_limits, 'acu-auto', 'acu-high'])].join(',')
       : '',
+    acu_profile_limits_enabled: data.acu_profile_scope_custom,
+    acu_profile_limits: data.acu_profile_scope_custom
+      ? [...new Set(data.acu_profile_limits)].sort()
+      : [],
     allow_ips: data.allow_ips || '',
     group: data.group || '',
     cross_group_retry: data.group === 'auto' ? !!data.cross_group_retry : false,
@@ -148,6 +163,8 @@ export function transformApiKeyToFormDefaults(
           .filter((model) => model && model !== 'acu-auto' && model !== 'acu-high')
       : [],
     acu_model_scope_custom: apiKey.model_limits_enabled,
+    acu_profile_scope_custom: apiKey.acu_profile_limits_enabled,
+    acu_profile_limits: apiKey.acu_profile_limits ?? [],
     allow_ips: apiKey.allow_ips || '',
     group: apiKey.group || DEFAULT_GROUP,
     cross_group_retry: !!apiKey.cross_group_retry,
