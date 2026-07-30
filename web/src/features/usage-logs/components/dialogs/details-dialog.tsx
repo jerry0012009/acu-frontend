@@ -1429,7 +1429,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
               acuRoute.judge_official_payg_equivalent_cost != null && (
                 <DetailRow
                   label={t('MiMo Official PAYG Equivalent')}
-                  value={`¥${acuRoute.judge_official_payg_equivalent_cost.toFixed(8)}`}
+                  value={`¥${Number(acuRoute.judge_official_payg_equivalent_cost).toFixed(8)}`}
                   mono
                 />
               )}
