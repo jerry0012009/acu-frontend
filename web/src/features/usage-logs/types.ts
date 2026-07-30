@@ -317,6 +317,13 @@ export interface LogOtherData {
   acu_pending_finalize?: boolean
   acu_logical_request_id?: string
   acu_report_idempotency_key?: string
+  acu_related_events?: Array<{
+    id: number
+    type: number
+    status?: number
+    content: string
+    created_at: number
+  }>
   actual_provider?: string
   actual_channel?: string
   cached_input_tokens?: number
@@ -349,6 +356,16 @@ export interface LogOtherData {
   user_charge_cny?: string
   counterfactual_quality_ceiling_cost_cny?: string
   acu_cost_breakdown?: {
+    requested_model?: string
+    routed_by_acu?: boolean
+    session_id?: string
+    task_id?: string
+    segment_id?: string
+    judge_trigger?: string
+    judge_calls?: number
+    judge_reused?: boolean
+    reused_judge_evaluation_id?: string
+    route_refresh_reason?: string
     judge?: string
     provider?: string
     usageSource?: string

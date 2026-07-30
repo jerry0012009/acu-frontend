@@ -18,7 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { api } from '@/lib/api'
 
-import { buildQueryParams } from './lib/utils'
+import { buildQueryParams } from './lib/query-params'
+import type { ACUSessionTrace } from './session-trace-types'
 import type {
   GetLogsParams,
   GetLogsResponse,
@@ -83,6 +84,17 @@ export const getLogStats = (params: GetLogStatsParams = {}) =>
 export const getUserLogStats = (
   params: Omit<GetLogStatsParams, 'username' | 'channel'> = {}
 ) => fetchLogStats('/api/log', params, false)
+
+export async function getACUSessionTrace(identifier: string) {
+  const res = await api.get(
+    `/api/log/self/acu-session-trace/${encodeURIComponent(identifier)}`
+  )
+  return res.data as {
+    success: boolean
+    message?: string
+    data?: ACUSessionTrace
+  }
+}
 
 export async function getUserInfo(
   userId: number

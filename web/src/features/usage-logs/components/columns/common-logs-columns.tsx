@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { ColumnDef } from '@tanstack/react-table'
-import { GitBranch, Sparkles, KeyRound } from 'lucide-react'
+import { GitBranch, Sparkles, KeyRound, Route } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -606,6 +606,37 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         if (!isDisplayableLogType(log.type)) return null
 
         const modelInfo = formatModelName(log)
+        const other = parseLogOther(log.other)
+        const routeBreakdown = other?.acu_cost_breakdown
+        const routedByACU =
+          routeBreakdown?.routed_by_acu ||
+          routeBreakdown?.requested_model === 'acu-auto' ||
+          !!other?.acu_logical_request_id
+        let judgeLine = t('Judge unavailable')
+        if (routeBreakdown?.judge_reused) {
+          judgeLine = t('Judge reused')
+        } else if (routeBreakdown?.judge_model === 'mimo-v2.5-pro') {
+          judgeLine = t('MiMo Judge')
+        } else if (routeBreakdown?.judge_model === 'deepseek-v4-flash') {
+          judgeLine = t('DeepSeek Backup')
+        }
+
+        if (routedByACU) {
+          return (
+            <div className='flex min-w-0 flex-col gap-0.5'>
+              <div className='flex min-w-0 items-center gap-1 text-xs font-medium'>
+                <Route
+                  className='size-3.5 shrink-0 text-cyan-700'
+                  aria-hidden='true'
+                />
+                <span className='truncate'>ACU Auto → {log.model_name}</span>
+              </div>
+              <span className='text-muted-foreground truncate text-[11px]'>
+                {judgeLine}
+              </span>
+            </div>
+          )
+        }
 
         return (
           <div className='flex w-fit flex-col gap-0.5'>
@@ -613,6 +644,9 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
               modelName={modelInfo.name}
               actualModel={modelInfo.actualModel}
             />
+            <span className='text-muted-foreground text-[11px]'>
+              {log.model_name} · {t('Direct')}
+            </span>
           </div>
         )
       },

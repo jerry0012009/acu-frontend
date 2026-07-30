@@ -1,0 +1,98 @@
+export interface ACUSessionTrace {
+  session: {
+    sessionId: string
+    status: string
+    startedAt: string
+    lastActivityAt: string
+  }
+  task: { taskId: string; goalSummary: string; status: string }
+  segments: ACUSessionTraceSegment[]
+}
+
+export interface ACUSessionTraceSegment {
+  segmentId: string
+  previousSegmentId?: string
+  creationReason: string
+  phase: string
+  status: string
+  startedAt: string
+  completedAt?: string
+  judge?: {
+    trigger: string
+    judgeCalls: number
+    judgeReused: boolean
+    reusedJudgeEvaluationId?: string
+    routeRefreshReason?: string
+    evaluationId?: string
+    model?: string
+    provider?: string
+    status: string
+    difficulty: number
+    confidence: number
+    explanation: string
+    inputTokens: number
+    outputTokens: number
+    latencyMs: number
+    attempts: Array<{
+      role: string
+      model: string
+      provider: string
+      status: string
+      errorCategory?: string
+      httpStatus?: number
+      latencyMs: number
+      backupReason?: string
+    }>
+  }
+  route?: {
+    routeDecisionId: string
+    requestedModel: string
+    selectedCanonicalModel: string
+    selectedProvider: string
+    selectedChannel: string
+    modelSelectionReason: string
+    channelSelectionReason: string
+    candidateCount: number
+    paretoFrontier: string[]
+  }
+  logicalRequests: Array<{
+    logicalRequestId: string
+    newApiLogId: string
+    requestId: string
+    requestedModel: string
+    actualModel?: string
+    status: string
+    startedAt: string
+    completedAt?: string
+    totalLatencyMs: number
+    firstTokenLatencyMs: number | null
+    visibleOutputBytes: number
+    actualCostCny: number
+    errorDiagnosis?: {
+      errorSource: string
+      endpoint: string
+      cfRay?: string
+      firstByteReceived: boolean
+      visibleBytes: number
+      recoveryEligible: boolean
+      recoveryExecuted: boolean
+      recoveryReason?: string
+    }
+  }>
+  providerAttempts: Array<{
+    attemptIndex: number
+    model: string
+    provider: string
+    channel: string
+    endpoint: string
+    status: string
+    httpStatus?: number
+    errorCategory?: string
+    startedAt: string
+    completedAt?: string
+    latencyMs: number
+    firstTokenLatencyMs: number | null
+    visibleOutputBytes: number
+    recoveryReason?: string
+  }>
+}

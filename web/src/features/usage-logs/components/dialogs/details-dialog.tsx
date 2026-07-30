@@ -96,6 +96,7 @@ import {
   isTimingLogType,
 } from '../../lib/utils'
 import { USAGE_BILLING_PATH, type LogOtherData } from '../../types'
+import { ACUSessionTracePanel } from './acu-session-trace'
 
 const ACU_CURVE_COLORS = [
   '#0f766e',
@@ -769,7 +770,7 @@ export function AcuDecisionVisualization(props: {
                   <span className='font-mono'>
                     {cashCostFor(modelId) == null
                       ? t('Cost unavailable')
-                      : `¥${cashCostFor(modelId)!.toFixed(6)}`}
+                      : `¥${Number(cashCostFor(modelId)).toFixed(6)}`}
                   </span>
                   <span>
                     {pareto.has(modelId) || candidate.paretoEfficient
@@ -880,9 +881,9 @@ export function AcuDecisionVisualization(props: {
             {t('Excluded Models')}
           </summary>
           <div className='mt-2 space-y-1'>
-            {route.excluded_profiles?.map((excluded, index) => (
+            {route.excluded_profiles?.map((excluded) => (
               <DetailRow
-                key={`${excluded.executionProfileId ?? 'excluded'}-${index}`}
+                key={`${excluded.executionProfileId ?? 'excluded'}-${excluded.exclusionReason ?? excluded.exclusionDetail ?? excluded.reasons?.join(',')}`}
                 label={excluded.executionProfileId ?? t('Profile')}
                 value={
                   excluded.exclusionReason ??
@@ -954,6 +955,12 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const acuRoute = other?.acu_cost_breakdown
   const acuDecision = acuRoute?.route_decision
   const typeConfig = getLogTypeConfig(props.log.type)
+  let judgeCostLabel = t('Judge Cost (CNY)')
+  if (acuRoute?.judge_cost_status === 'estimated_blended') {
+    judgeCostLabel = t('MiMo Judge Cost (Blended Estimate)')
+  } else if (acuRoute?.judge_cost_status === 'mixed') {
+    judgeCostLabel = t('Judge Cost (Mixed Estimate)')
+  }
 
   const isViolation = isViolationFeeLog(other)
   const isRefund = props.log.type === 6
@@ -1114,6 +1121,35 @@ export function DetailsDialog(props: DetailsDialogProps) {
       bodyClassName='pr-2 sm:pr-4'
     >
       <div className='w-full max-w-full min-w-0 space-y-2.5 overflow-x-hidden py-1 sm:space-y-3'>
+        {props.open && other?.acu_logical_request_id && (
+          <ACUSessionTracePanel identifier={other.acu_logical_request_id} />
+        )}
+        {!!other?.acu_related_events?.length && (
+          <details className='border-border/70 min-w-0 rounded-md border p-3 text-xs'>
+            <summary className='cursor-pointer font-medium'>
+              {t('Related request events')} (
+              {other.acu_related_events.length + 1})
+            </summary>
+            <div className='mt-2 space-y-1.5'>
+              {other.acu_related_events.map((event) => (
+                <div
+                  key={event.id}
+                  className='bg-muted/30 flex min-w-0 flex-wrap items-center gap-x-2 rounded px-2 py-1.5'
+                >
+                  <span className='font-mono'>#{event.id}</span>
+                  <span>
+                    {event.status
+                      ? `HTTP ${event.status}`
+                      : t('Finalization event')}
+                  </span>
+                  <span className='text-muted-foreground min-w-0 break-words'>
+                    {event.content}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
         {acuDecision && acuRoute && (
           <AcuDecisionVisualization
             route={acuDecision}
@@ -1476,13 +1512,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
             )}
             {acuRoute?.judge_cash_cost_cny != null && (
               <DetailRow
-                label={
-                  acuRoute.judge_cost_status === 'estimated_blended'
-                    ? t('MiMo Judge Cost (Blended Estimate)')
-                    : acuRoute.judge_cost_status === 'mixed'
-                      ? t('Judge Cost (Mixed Estimate)')
-                      : t('Judge Cost (CNY)')
-                }
+                label={judgeCostLabel}
                 value={`¥${Number(acuRoute.judge_cash_cost_cny).toFixed(8)}`}
                 mono
               />
