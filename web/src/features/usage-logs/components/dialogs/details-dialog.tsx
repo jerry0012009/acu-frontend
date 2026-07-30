@@ -1168,7 +1168,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
             {acuRoute?.difficulty != null && (
               <DetailRow
                 label={t('Difficulty')}
-                value={acuRoute.difficulty.toFixed(1)}
+                value={Number(acuRoute.difficulty).toFixed(1)}
                 mono
               />
             )}
@@ -1386,28 +1386,28 @@ export function DetailsDialog(props: DetailsDialogProps) {
             {acuRoute?.nominal_provider_cost_usd != null && (
               <DetailRow
                 label={t('Nominal Provider Cost (USD)')}
-                value={`$${acuRoute.nominal_provider_cost_usd.toFixed(10)}`}
+                value={`$${Number(acuRoute.nominal_provider_cost_usd).toFixed(10)}`}
                 mono
               />
             )}
             {acuRoute?.provider_balance_charge != null && (
               <DetailRow
                 label={t('Provider Credits Deduction')}
-                value={`${acuRoute.provider_balance_charge.toFixed(10)} Credits`}
+                value={`${Number(acuRoute.provider_balance_charge).toFixed(10)} Credits`}
                 mono
               />
             )}
             {acuRoute?.provider_credit_cash_cost_cny != null && (
               <DetailRow
                 label={t('Provider Credit Cash Conversion')}
-                value={`¥${acuRoute.provider_credit_cash_cost_cny.toFixed(10)} / Credit`}
+                value={`¥${Number(acuRoute.provider_credit_cash_cost_cny).toFixed(10)} / Credit`}
                 mono
               />
             )}
             {acuRoute?.effective_cash_cost_cny != null && (
               <DetailRow
                 label={t('Effective Cash Cost (CNY)')}
-                value={`¥${acuRoute.effective_cash_cost_cny.toFixed(8)}`}
+                value={`¥${Number(acuRoute.effective_cash_cost_cny).toFixed(8)}`}
                 mono
               />
             )}
@@ -1420,7 +1420,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
                       ? t('Judge Cost (Mixed Estimate)')
                       : t('Judge Cost (CNY)')
                 }
-                value={`¥${acuRoute.judge_cash_cost_cny.toFixed(8)}`}
+                value={`¥${Number(acuRoute.judge_cash_cost_cny).toFixed(8)}`}
                 mono
               />
             )}
@@ -1450,14 +1450,14 @@ export function DetailsDialog(props: DetailsDialogProps) {
             {acuRoute?.failed_attempt_cash_cost_cny != null && (
               <DetailRow
                 label={t('Failed Attempt Cost (CNY)')}
-                value={`¥${acuRoute.failed_attempt_cash_cost_cny.toFixed(8)}`}
+                value={`¥${Number(acuRoute.failed_attempt_cash_cost_cny).toFixed(8)}`}
                 mono
               />
             )}
             {acuRoute?.actual_total_cash_cost_cny != null && (
               <DetailRow
                 label={t('Actual Total Cost (CNY)')}
-                value={`¥${acuRoute.actual_total_cash_cost_cny.toFixed(8)}`}
+                value={`¥${Number(acuRoute.actual_total_cash_cost_cny).toFixed(8)}`}
                 mono
               />
             )}
@@ -1471,7 +1471,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
             {acuRoute?.counterfactual_quality_ceiling_cost_cny != null && (
               <DetailRow
                 label={t('Quality Ceiling Counterfactual Cost (CNY)')}
-                value={`¥${acuRoute.counterfactual_quality_ceiling_cost_cny.toFixed(8)}`}
+                value={`¥${Number(acuRoute.counterfactual_quality_ceiling_cost_cny).toFixed(8)}`}
                 mono
               />
             )}
@@ -1494,7 +1494,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
             {acuRoute?.effective_savings_vs_reference_cny != null && (
               <DetailRow
                 label={t('Effective Savings vs Reference (CNY)')}
-                value={`¥${acuRoute.effective_savings_vs_reference_cny.toFixed(8)}`}
+                value={`¥${Number(acuRoute.effective_savings_vs_reference_cny).toFixed(8)}`}
                 mono
               />
             )}
@@ -1523,7 +1523,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
               null && (
               <DetailRow
                 label={t('Estimated Cost Reduction vs Quality Upper Bound')}
-                value={`$${acuRoute.estimated_cost_reduction_vs_quality_upper_bound_usd.toFixed(6)}`}
+                value={`$${Number(acuRoute.estimated_cost_reduction_vs_quality_upper_bound_usd).toFixed(6)}`}
                 mono
               />
             )}
@@ -1533,7 +1533,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 label={t(
                   'Estimated Cost Reduction vs Quality Upper Bound (CNY)'
                 )}
-                value={`¥${acuRoute.estimated_cost_reduction_vs_quality_upper_bound_cny.toFixed(8)}`}
+                value={`¥${Number(acuRoute.estimated_cost_reduction_vs_quality_upper_bound_cny).toFixed(8)}`}
                 mono
               />
             )}
