@@ -163,7 +163,11 @@ export type ACUChannelMonitorProfile = {
   enabled: boolean
   administratorAllowed: boolean
   routingEligible: boolean
+  routingEligibility: string
   state: string
+  channelState: string
+  profileState: string
+  usageTrusted: boolean
   recentSuccessRate: number
   consecutiveFailures: number
   p50FirstModelEventLatencyMs: number
@@ -173,15 +177,50 @@ export type ACUChannelMonitorProfile = {
   cooldownUntil: string
 }
 
+export type ACUChannelHistoryRow = {
+  bucket: string
+  scope_type: 'channel' | 'channel_model' | 'profile'
+  scope_id: string
+  execution_profile_id: string | null
+  canonical_model: string | null
+  provider: string
+  channel: string
+  request_count: number
+  success_count: number
+  error_count: number
+  rate_limited_count: number
+  server_error_count: number
+  watchdog_count: number
+  recovery_count: number
+  p50_first_model_event_ms: number | null
+  p95_first_model_event_ms: number | null
+}
+
+export type ACUChannelCooldownInterval = {
+  channel: string
+  provider: string | null
+  execution_profile_id: string | null
+  started_at: string
+  ended_at: string
+  reason: string
+  error_class: string | null
+  manual_pause: boolean
+  half_open_probe: boolean
+  probe_result: string | null
+}
+
+export type ACUMonitorRange = '1h' | '6h' | '24h' | '7d'
+
 export type ACUChannelMonitor = {
   range: string
   generatedAt: string
   profiles: ACUChannelMonitorProfile[]
-  history: Array<Record<string, string | number | null>>
+  history: ACUChannelHistoryRow[]
+  cooldownIntervals: ACUChannelCooldownInterval[]
   supplyInventory: Array<Record<string, unknown>>
 }
 
-export async function getACUChannelMonitor(range: '1h' | '24h' | '7d') {
+export async function getACUChannelMonitor(range: ACUMonitorRange) {
   const res = await api.get(`/api/log/acu-channel-monitor?range=${range}`)
   return res.data as {
     success: boolean

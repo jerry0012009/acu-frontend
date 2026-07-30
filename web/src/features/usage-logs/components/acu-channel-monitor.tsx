@@ -10,16 +10,6 @@ import {
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import {
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
@@ -31,7 +21,9 @@ import {
   getACUChannelMonitor,
   pauseACUChannel,
   type ACUChannelMonitorProfile,
+  type ACUMonitorRange,
 } from '../api'
+import { ACUChannelHistory } from './acu-channel-history'
 
 function ms(value?: number) {
   if (!value) return 'n/a'
@@ -59,7 +51,7 @@ export function ACUChannelMonitor() {
   const { t } = useTranslation()
   const isAdmin = useIsAdmin()
   const queryClient = useQueryClient()
-  const [range, setRange] = useState<'1h' | '24h' | '7d'>('1h')
+  const [range, setRange] = useState<ACUMonitorRange>('1h')
   const [filters, setFilters] = useState({
     model: '',
     provider: '',
@@ -192,62 +184,13 @@ export function ACUChannelMonitor() {
           />
         </TabsContent>
         <TabsContent value='history' className='min-w-0 space-y-3'>
-          <div className='flex gap-1'>
-            {(['1h', '24h', '7d'] as const).map((value) => (
-              <Button
-                key={value}
-                size='sm'
-                variant={range === value ? 'default' : 'outline'}
-                onClick={() => setRange(value)}
-              >
-                {value}
-              </Button>
-            ))}
-          </div>
-          <div className='h-80 min-w-0 rounded border p-3'>
-            <ResponsiveContainer width='100%' height='100%'>
-              <LineChart data={query.data?.data?.history ?? []}>
-                <CartesianGrid strokeDasharray='3 3' vertical={false} />
-                <XAxis
-                  dataKey='bucket'
-                  tickFormatter={(value) =>
-                    new Date(String(value)).toLocaleString([], {
-                      month: '2-digit',
-                      day: '2-digit',
-                      hour: '2-digit',
-                    })
-                  }
-                />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line
-                  dataKey='p95_first_model_event_ms'
-                  name={t('p95 First Model Event')}
-                  stroke='#2563eb'
-                  dot={false}
-                />
-                <Line
-                  dataKey='server_error_count'
-                  name={t('5xx / 524')}
-                  stroke='#e11d48'
-                  dot={false}
-                />
-                <Line
-                  dataKey='watchdog_count'
-                  name={t('Watchdog')}
-                  stroke='#f97316'
-                  dot={false}
-                />
-                <Line
-                  dataKey='recovery_count'
-                  name={t('Recovery')}
-                  stroke='#0f766e'
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          <ACUChannelHistory
+            range={range}
+            onRangeChange={setRange}
+            profiles={query.data?.data?.profiles ?? []}
+            rows={query.data?.data?.history ?? []}
+            cooldownIntervals={query.data?.data?.cooldownIntervals ?? []}
+          />
         </TabsContent>
         <TabsContent value='inventory' className='min-w-0'>
           <InventoryTable rows={query.data?.data?.supplyInventory ?? []} />
@@ -331,7 +274,16 @@ function MonitorTable(props: {
                   : t('none')}
               </td>
               <td className='px-3 py-2'>
-                {profile.routingEligible ? t('yes') : t('no')}
+                <Badge
+                  variant={
+                    profile.routingEligibility === 'eligible'
+                      ? 'secondary'
+                      : 'outline'
+                  }
+                >
+                  {profile.routingEligibility ||
+                    (profile.routingEligible ? 'eligible' : 'unavailable')}
+                </Badge>
               </td>
               {props.canPause && (
                 <td className='px-3 py-2'>
@@ -375,7 +327,10 @@ function InventoryTable(props: { rows: Array<Record<string, unknown>> }) {
               'Protocol candidates',
               'Models',
               'Verification',
+              'Protocol verified',
               'Routing',
+              'Profiles',
+              'Rejection',
             ].map((label) => (
               <th key={label} className='px-3 py-2 font-medium'>
                 {t(label)}
@@ -385,37 +340,39 @@ function InventoryTable(props: { rows: Array<Record<string, unknown>> }) {
         </thead>
         <tbody>
           {props.rows.map((row, index) => {
-            const models = Array.isArray(row.exactCanonicalMatches)
-              ? row.exactCanonicalMatches.join(', ')
-              : ''
-            const protocols = [
-              Array.isArray(row.responsesCandidates) &&
-              row.responsesCandidates.length
-                ? 'Responses'
-                : '',
-              Array.isArray(row.messagesCandidates) &&
-              row.messagesCandidates.length
-                ? 'Messages'
-                : '',
-            ]
-              .filter(Boolean)
-              .join(', ')
+            const model = String(row.canonicalModel ?? '')
+            const protocol = String(row.protocol ?? 'undetermined')
             return (
-              <tr key={String(row.channelId ?? index)} className='border-t'>
+              <tr
+                key={`${String(row.channelId ?? index)}:${model}:${protocol}`}
+                className='border-t'
+              >
                 <td className='px-3 py-2'>{String(row.providerId ?? '')}</td>
                 <td className='px-3 py-2 font-medium'>
                   {String(row.channelId ?? '')}
                 </td>
                 <td className='px-3 py-2'>{String(row.endpointHost ?? '')}</td>
-                <td className='px-3 py-2'>{protocols || t('undetermined')}</td>
+                <td className='px-3 py-2'>{protocol}</td>
                 <td className='max-w-96 px-3 py-2'>
-                  {models || t('no canonical match')}
+                  {model || t('no canonical match')}
                 </td>
                 <td className='px-3 py-2'>
-                  {String(row.status ?? 'discovered')}
+                  {String(row.discoveryStatus ?? 'not_discovered')} /{' '}
+                  {row.modelListVerified ? t('verified') : t('unverified')}
                 </td>
                 <td className='px-3 py-2'>
-                  {String(row.routingActive ?? 'inactive')}
+                  {row.protocolVerified ? t('verified') : t('unverified')}
+                </td>
+                <td className='px-3 py-2'>
+                  {String(row.verificationState ?? 'inventory_only')}
+                </td>
+                <td className='px-3 py-2'>
+                  {Array.isArray(row.activeExecutionProfileIds)
+                    ? row.activeExecutionProfileIds.join(', ')
+                    : t('none')}
+                </td>
+                <td className='px-3 py-2'>
+                  {String(row.rejectionReason ?? t('none'))}
                 </td>
               </tr>
             )

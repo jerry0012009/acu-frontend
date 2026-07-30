@@ -33,7 +33,7 @@ func acuRouterAdminRequest(ctx context.Context, method, path string, body []byte
 }
 
 func GetACUChannelMonitor(ctx context.Context, rangeValue string) (dto.ACUChannelMonitor, error) {
-	if rangeValue != "1h" && rangeValue != "24h" && rangeValue != "7d" {
+	if rangeValue != "1h" && rangeValue != "6h" && rangeValue != "24h" && rangeValue != "7d" {
 		rangeValue = "1h"
 	}
 	response, err := acuRouterAdminRequest(ctx, http.MethodGet, "/internal/admin/channel-monitor?range="+url.QueryEscape(rangeValue), nil)

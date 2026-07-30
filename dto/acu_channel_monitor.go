@@ -1,11 +1,12 @@
 package dto
 
 type ACUChannelMonitor struct {
-	Range           string                     `json:"range"`
-	GeneratedAt     string                     `json:"generatedAt"`
-	Profiles        []ACUChannelMonitorProfile `json:"profiles"`
-	History         []map[string]interface{}   `json:"history"`
-	SupplyInventory []map[string]interface{}   `json:"supplyInventory"`
+	Range             string                     `json:"range"`
+	GeneratedAt       string                     `json:"generatedAt"`
+	Profiles          []ACUChannelMonitorProfile `json:"profiles"`
+	History           []map[string]interface{}   `json:"history"`
+	CooldownIntervals []map[string]interface{}   `json:"cooldownIntervals"`
+	SupplyInventory   []map[string]interface{}   `json:"supplyInventory"`
 }
 
 type ACUChannelMonitorProfile struct {
@@ -20,7 +21,11 @@ type ACUChannelMonitorProfile struct {
 	Enabled                     bool     `json:"enabled"`
 	AdministratorAllowed        bool     `json:"administratorAllowed"`
 	RoutingEligible             bool     `json:"routingEligible"`
+	RoutingEligibility          string   `json:"routingEligibility"`
 	State                       string   `json:"state"`
+	ChannelState                string   `json:"channelState"`
+	ProfileState                string   `json:"profileState"`
+	UsageTrusted                bool     `json:"usageTrusted"`
 	RecentSuccessRate           float64  `json:"recentSuccessRate"`
 	ConsecutiveFailures         int      `json:"consecutiveFailures"`
 	P50FirstModelEventLatencyMs float64  `json:"p50FirstModelEventLatencyMs"`
