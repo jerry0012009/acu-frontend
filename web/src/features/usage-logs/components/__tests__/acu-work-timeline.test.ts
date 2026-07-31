@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
 import type { ACUWorkTimelineItem } from '../../api'
@@ -161,4 +162,13 @@ test('visible summary is derived only from items inside the engine viewport', ()
     p50FirstModelEventLatencyMs: 1000,
     p95FirstModelEventLatencyMs: 3000,
   })
+})
+
+test('session trace inspector does not lock timeline wheel interaction', () => {
+  const source = readFileSync(
+    new URL('../acu-work-timeline.tsx', import.meta.url),
+    'utf8'
+  )
+  assert.match(source, /<Dialog\s+modal=\{false\}/)
+  assert.match(source, /<DialogContent\s+showBackdrop=\{false\}/)
 })

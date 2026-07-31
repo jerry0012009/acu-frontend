@@ -262,12 +262,18 @@ export function ACUWorkTimeline() {
       </div>
       {chartContent}
       <Dialog
+        modal={false}
         open={Boolean(traceId)}
         onOpenChange={(open) => {
           if (!open) setTraceId('')
         }}
       >
-        <DialogContent className={cn('max-h-[92vh] max-w-6xl overflow-y-auto')}>
+        <DialogContent
+          showBackdrop={false}
+          className={cn(
+            'top-4 right-4 bottom-4 left-auto max-h-none w-[min(48rem,calc(100%-2rem))] max-w-none translate-x-0 translate-y-0 overflow-y-auto'
+          )}
+        >
           <DialogHeader>
             <DialogTitle>ACU Session Trace</DialogTitle>
           </DialogHeader>
