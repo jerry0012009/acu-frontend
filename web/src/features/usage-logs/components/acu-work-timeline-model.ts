@@ -139,6 +139,8 @@ export function buildACUWorkTimelineChartSpec({
       orient: 'bottom',
       regionId: 'difficulty-region',
       type: 'linear',
+      zero: false,
+      nice: false,
       visible: false,
     },
     {
@@ -146,6 +148,8 @@ export function buildACUWorkTimelineChartSpec({
       orient: 'bottom',
       regionId: 'cost-region',
       type: 'linear',
+      zero: false,
+      nice: false,
       label: {
         formatMethod: (value) => formatTime(numericLabel(value)),
         style: { fill: text, fontSize: 10 },
@@ -154,6 +158,7 @@ export function buildACUWorkTimelineChartSpec({
       tick: { visible: false },
     },
     {
+      id: 'difficulty-y-axis',
       orient: 'left',
       regionId: 'difficulty-region',
       min: 0,
@@ -166,6 +171,7 @@ export function buildACUWorkTimelineChartSpec({
       },
     },
     {
+      id: 'cost-y-axis',
       orient: 'left',
       regionId: 'cost-region',
       min: 0,
@@ -185,6 +191,27 @@ export function buildACUWorkTimelineChartSpec({
     type: 'common',
     background: 'transparent',
     padding: { top: 14, right: 16, bottom: 58, left: 8 },
+    layout: {
+      type: 'grid',
+      col: 2,
+      row: 5,
+      colWidth: [{ index: 0, size: 58 }],
+      rowHeight: [
+        { index: 0, size: (height) => height * 0.52 },
+        { index: 1, size: 20 },
+        { index: 3, size: 28 },
+        { index: 4, size: 46 },
+      ],
+      elements: [
+        { modelId: 'difficulty-region', col: 1, row: 0 },
+        { modelId: 'difficulty-x-axis', col: 1, row: 1 },
+        { modelId: 'difficulty-y-axis', col: 0, row: 0 },
+        { modelId: 'cost-region', col: 1, row: 2 },
+        { modelId: 'cost-x-axis', col: 1, row: 3 },
+        { modelId: 'cost-y-axis', col: 0, row: 2 },
+        { modelId: ACU_TIMELINE_ZOOM_ID, col: 1, row: 4 },
+      ],
+    },
     data: [
       { id: 'acu-timeline-items', values: items },
       { id: 'acu-timeline-backups', values: backupItems },
@@ -192,19 +219,11 @@ export function buildACUWorkTimelineChartSpec({
     region: [
       {
         id: 'difficulty-region',
-        layoutType: 'absolute',
-        left: 54,
-        right: 18,
-        top: 8,
-        height: '55%',
+        padding: { right: 18, top: 8, bottom: 4 },
       },
       {
         id: 'cost-region',
-        layoutType: 'absolute',
-        left: 54,
-        right: 18,
-        top: '64%',
-        bottom: 52,
+        padding: { right: 18, top: 8, bottom: 4 },
       },
     ],
     series: [
@@ -282,11 +301,10 @@ export function buildACUWorkTimelineChartSpec({
       {
         id: ACU_TIMELINE_ZOOM_ID,
         orient: 'bottom',
-        axisId: 'cost-x-axis',
-        regionId: ['difficulty-region', 'cost-region'],
+        regionIndex: [0, 1],
         field: 'timestamp',
         valueField: 'timestamp',
-        filterMode: 'axis',
+        filterMode: 'filter',
         start: 0,
         end: 1,
         minValueSpan: minimumWindowSeconds,

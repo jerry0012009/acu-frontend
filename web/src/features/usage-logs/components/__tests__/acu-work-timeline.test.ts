@@ -47,14 +47,38 @@ test('uses one mature VChart composition with shared native zoom and pan', () =>
     dark: false,
   })
   assert.equal(spec.type, 'common')
+  assert.equal(spec.layout?.type, 'grid')
+  assert.deepEqual(
+    spec.layout?.elements?.filter((element) =>
+      'modelId' in element
+        ? ['difficulty-region', 'cost-region', ACU_TIMELINE_ZOOM_ID].includes(
+            String(element.modelId)
+          )
+        : false
+    ),
+    [
+      { modelId: 'difficulty-region', col: 1, row: 0 },
+      { modelId: 'cost-region', col: 1, row: 2 },
+      { modelId: ACU_TIMELINE_ZOOM_ID, col: 1, row: 4 },
+    ]
+  )
   assert.deepEqual(
     spec.region?.map((region) => region.id),
     ['difficulty-region', 'cost-region']
   )
+  const timeAxes = spec.axes?.filter((axis) =>
+    ['difficulty-x-axis', 'cost-x-axis'].includes(String(axis.id))
+  ) as Array<{ zero?: boolean; nice?: boolean }> | undefined
+  assert.equal(timeAxes?.length, 2)
+  assert.equal(
+    timeAxes?.every((axis) => !axis.zero && !axis.nice),
+    true
+  )
   const zoom = Array.isArray(spec.dataZoom) ? spec.dataZoom[0] : spec.dataZoom
   assert.equal(zoom?.id, ACU_TIMELINE_ZOOM_ID)
   assert.equal(zoom?.minValueSpan, 60 * 60)
-  assert.deepEqual(zoom?.regionId, ['difficulty-region', 'cost-region'])
+  assert.deepEqual(zoom?.regionIndex, [0, 1])
+  assert.equal(zoom?.filterMode, 'filter')
   assert.deepEqual(zoom?.roamZoom, { enable: true, focus: true, rate: 1.2 })
   assert.deepEqual(zoom?.roamDrag, { enable: true, rate: 1 })
   assert.deepEqual(zoom?.roamScroll, { enable: true, rate: 1 })
