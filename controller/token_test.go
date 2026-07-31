@@ -32,10 +32,11 @@ type tokenPageResponse struct {
 }
 
 type tokenResponseItem struct {
-	ID     int    `json:"id"`
-	Name   string `json:"name"`
-	Key    string `json:"key"`
-	Status int    `json:"status"`
+	ID               int      `json:"id"`
+	Name             string   `json:"name"`
+	Key              string   `json:"key"`
+	Status           int      `json:"status"`
+	ACUProfileLimits []string `json:"acu_profile_limits"`
 }
 
 type tokenKeyResponse struct {
@@ -411,6 +412,9 @@ func TestGetAllTokensMasksKeyInResponse(t *testing.T) {
 	}
 	if page.Items[0].Key != token.GetMaskedKey() {
 		t.Fatalf("expected masked key %q, got %q", token.GetMaskedKey(), page.Items[0].Key)
+	}
+	if page.Items[0].ACUProfileLimits == nil || len(page.Items[0].ACUProfileLimits) != 0 {
+		t.Fatalf("expected legacy null ACU Profile limits to serialize as [], got %#v", page.Items[0].ACUProfileLimits)
 	}
 	if strings.Contains(recorder.Body.String(), token.Key) {
 		t.Fatalf("list response leaked raw token key: %s", recorder.Body.String())

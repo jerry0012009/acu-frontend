@@ -45,7 +45,10 @@ export const apiKeySchema = z.object({
   model_limits_enabled: z.boolean(),
   model_limits: z.string().nullish().default(''),
   acu_profile_limits_enabled: z.boolean().optional().default(false),
-  acu_profile_limits: z.array(z.string()).optional().default([]),
+  acu_profile_limits: z
+    .array(z.string())
+    .nullish()
+    .transform((value) => value ?? []),
   allow_ips: z.string().nullish().default(''),
 })
 

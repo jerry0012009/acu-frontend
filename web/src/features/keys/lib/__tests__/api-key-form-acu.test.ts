@@ -6,7 +6,28 @@ import {
   transformApiKeyToFormDefaults,
   transformFormDataToPayload,
 } from '../api-key-form.ts'
-import type { ApiKey } from '../../types.ts'
+import { apiKeySchema, type ApiKey } from '../../types.ts'
+
+test('legacy null Profile limits normalize to an empty array', () => {
+  const result = apiKeySchema.parse({
+    id: 1,
+    key: 'masked',
+    name: 'legacy-token',
+    status: 1,
+    created_time: 0,
+    accessed_time: 0,
+    expired_time: -1,
+    remain_quota: 0,
+    used_quota: 0,
+    unlimited_quota: true,
+    model_limits_enabled: false,
+    model_limits: '',
+    acu_profile_limits_enabled: false,
+    acu_profile_limits: null,
+    allow_ips: '',
+  })
+  assert.deepEqual(result.acu_profile_limits, [])
+})
 
 test('all verified mode disables existing Token ModelLimits', () => {
   const payload = transformFormDataToPayload({

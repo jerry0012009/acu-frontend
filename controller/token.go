@@ -21,6 +21,9 @@ func buildMaskedTokenResponse(token *model.Token) *model.Token {
 	}
 	maskedToken := *token
 	maskedToken.Key = token.GetMaskedKey()
+	if maskedToken.ACUProfileLimits == nil {
+		maskedToken.ACUProfileLimits = make([]string, 0)
+	}
 	return &maskedToken
 }
 
