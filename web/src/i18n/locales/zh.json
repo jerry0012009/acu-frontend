@@ -5220,7 +5220,7 @@
     "Client Declared Web Tool": "客户端声明 Web 工具",
     "Web Intent": "Web 意图",
     "Web Intent Source": "Web 意图来源",
-    "Web Actually Invoked": "实际调用 Web",
+    "Web Actually Invoked": "Provider 托管 Web 搜索已调用",
     "Web Search Event Status": "Web 搜索事件状态",
     "Web Profile Verified": "Web Profile 已验证",
     "Web Fallback Chain": "Web 回退链",
