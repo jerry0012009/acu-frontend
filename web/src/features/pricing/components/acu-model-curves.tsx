@@ -54,7 +54,6 @@ import {
   priceRankColor,
 } from '../lib/price-rank-color'
 import {
-  corridorIntervals,
   corridorPointAtDifficulty,
   type CorridorPreference,
 } from '../lib/selection-corridor'
@@ -80,11 +79,10 @@ type CurveSortMode = 'price' | 'ability'
 const CORRIDOR_PREFERENCES: Array<{
   id: CorridorPreference
   label: string
-  color: string
 }> = [
-  { id: 'economy', label: '省钱', color: '#0284c7' },
-  { id: 'balanced', label: '均衡', color: '#16a34a' },
-  { id: 'quality', label: '性能', color: '#c026d3' },
+  { id: 'economy', label: '省钱' },
+  { id: 'balanced', label: '均衡' },
+  { id: 'quality', label: '性能' },
 ]
 
 export function ACUModelCurves(props: { models: PricingModel[] }) {
@@ -114,6 +112,8 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
   const [inputTokens, setInputTokens] = useState(100_000)
   const [outputTokens, setOutputTokens] = useState(4_000)
   const [sortMode, setSortMode] = useState<CurveSortMode>('price')
+  const [corridorPreference, setCorridorPreference] =
+    useState<CorridorPreference>('balanced')
   const [hoveredDifficulty, setHoveredDifficulty] = useState<number | null>(
     null
   )
@@ -264,18 +264,20 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
       })),
     [selectionCorridor]
   )
-
+  const activeCorridor = useMemo(
+    () =>
+      corridorData.find((corridor) => corridor.id === corridorPreference) ??
+      corridorData[1],
+    [corridorData, corridorPreference]
+  )
   const corridorAtHover = useMemo(
     () =>
-      CORRIDOR_PREFERENCES.map((preference) => ({
-        ...preference,
-        point: corridorPointAtDifficulty(
-          selectionCorridor,
-          preference.id,
-          abilityDifficulty
-        ),
-      })),
-    [abilityDifficulty, selectionCorridor]
+      corridorPointAtDifficulty(
+        selectionCorridor,
+        corridorPreference,
+        abilityDifficulty
+      ),
+    [abilityDifficulty, corridorPreference, selectionCorridor]
   )
   let corridorStatusText = '正在读取当前路由快照'
   if (selectionCorridor) {
@@ -290,35 +292,31 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
     () => ({
       type: 'common' as const,
       data: [
-        ...corridorData.map((corridor) => ({
-          id: `acu-corridor-${corridor.id}`,
-          values: corridor.values,
-        })),
+        {
+          id: `acu-corridor-${corridorPreference}`,
+          values: activeCorridor?.values ?? [],
+        },
         { id: 'acu-model-curves', values: curveData },
       ],
       series: [
-        ...corridorData.map((corridor, index) => ({
+        {
           type: 'rangeArea' as const,
-          dataIndex: index,
+          dataIndex: 0,
           xField: 'difficulty',
           yField: ['qualityLower', 'qualityUpper'],
           animation: false,
           area: {
-            style: { fill: corridor.color, fillOpacity: 0.075 },
-          },
-          line: {
             style: {
-              stroke: corridor.color,
-              lineWidth: 1,
-              lineDash: [4, 4],
-              strokeOpacity: 0.5,
+              fill: resolvedTheme === 'dark' ? '#94a3b8' : '#64748b',
+              fillOpacity: resolvedTheme === 'dark' ? 0.14 : 0.09,
             },
           },
+          line: { visible: false },
           tooltip: { visible: false },
-        })),
+        },
         {
           type: 'line' as const,
-          dataIndex: corridorData.length,
+          dataIndex: 1,
           xField: 'difficulty',
           yField: 'quality',
           seriesField: 'modelName',
@@ -354,6 +352,7 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
       axes: [
         {
           orient: 'bottom' as const,
+          type: 'linear' as const,
           title: { visible: true, text: t('Difficulty') },
           min: 0,
           max: 100,
@@ -376,7 +375,16 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
         },
       ],
     }),
-    [axisColor, chartColors, corridorData, curveData, gridColor, t]
+    [
+      activeCorridor,
+      axisColor,
+      chartColors,
+      corridorPreference,
+      curveData,
+      gridColor,
+      resolvedTheme,
+      t,
+    ]
   )
 
   const costSpec = useMemo(
@@ -589,31 +597,55 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
                 <BarChart3 className='text-muted-foreground size-4' />
                 {t('Difficulty and estimated quality')}
               </div>
-              <div
-                className='bg-muted/40 inline-flex h-8 items-center rounded-md border p-0.5'
-                role='group'
-                aria-label={t('Curve ranking')}
-              >
-                <Button
-                  type='button'
-                  size='sm'
-                  variant={sortMode === 'price' ? 'secondary' : 'ghost'}
-                  className='h-6 gap-1 px-2 text-xs shadow-none'
-                  onClick={() => setSortMode('price')}
+              <div className='flex flex-wrap items-center justify-end gap-1.5'>
+                <div
+                  className='bg-muted/40 inline-flex h-8 items-center rounded-md border p-0.5'
+                  role='group'
+                  aria-label='ACU Auto 选择模式'
                 >
-                  <CircleDollarSign className='size-3' />
-                  {t('Price ranking')}
-                </Button>
-                <Button
-                  type='button'
-                  size='sm'
-                  variant={sortMode === 'ability' ? 'secondary' : 'ghost'}
-                  className='h-6 gap-1 px-2 text-xs shadow-none'
-                  onClick={() => setSortMode('ability')}
+                  {CORRIDOR_PREFERENCES.map((preference) => (
+                    <Button
+                      key={preference.id}
+                      type='button'
+                      size='sm'
+                      variant={
+                        corridorPreference === preference.id
+                          ? 'secondary'
+                          : 'ghost'
+                      }
+                      className='h-6 px-2 text-xs shadow-none'
+                      onClick={() => setCorridorPreference(preference.id)}
+                    >
+                      {preference.label}
+                    </Button>
+                  ))}
+                </div>
+                <div
+                  className='bg-muted/40 inline-flex h-8 items-center rounded-md border p-0.5'
+                  role='group'
+                  aria-label={t('Curve ranking')}
                 >
-                  <ArrowDownUp className='size-3' />
-                  {t('Ability ranking')} · D{Math.round(abilityDifficulty)}
-                </Button>
+                  <Button
+                    type='button'
+                    size='sm'
+                    variant={sortMode === 'price' ? 'secondary' : 'ghost'}
+                    className='h-6 gap-1 px-2 text-xs shadow-none'
+                    onClick={() => setSortMode('price')}
+                  >
+                    <CircleDollarSign className='size-3' />
+                    {t('Price ranking')}
+                  </Button>
+                  <Button
+                    type='button'
+                    size='sm'
+                    variant={sortMode === 'ability' ? 'secondary' : 'ghost'}
+                    className='h-6 gap-1 px-2 text-xs shadow-none'
+                    onClick={() => setSortMode('ability')}
+                  >
+                    <ArrowDownUp className='size-3' />
+                    {t('Ability ranking')} · D{Math.round(abilityDifficulty)}
+                  </Button>
+                </div>
               </div>
             </div>
             <div className='h-[360px] min-w-0 sm:h-[440px]'>
@@ -632,104 +664,55 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
             </div>
             <div className='mt-3 border-t pt-3'>
               <div className='mb-2 flex flex-wrap items-center justify-between gap-2'>
-                <div className='text-xs font-medium'>ACU Auto 选择走廊</div>
+                <div className='text-xs font-medium'>
+                  ACU Auto · {activeCorridor?.label} · D
+                  {Math.round(abilityDifficulty)}
+                </div>
                 <div className='text-muted-foreground text-[10px]'>
                   {corridorStatusText}
                 </div>
               </div>
-              <div className='space-y-1.5'>
-                {corridorData.map((corridor) => (
-                  <div
-                    key={corridor.id}
-                    className='grid grid-cols-[36px_minmax(0,1fr)] items-center gap-2'
-                  >
-                    <span
-                      className='text-[11px] font-medium'
-                      style={{ color: corridor.color }}
-                    >
-                      {corridor.label}
+              {corridorAtHover ? (
+                <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
+                  <div className='min-w-0'>
+                    <span className='text-sm font-semibold'>
+                      {modelNameById.get(corridorAtHover.selectedModelId) ||
+                        corridorAtHover.selectedModelId}
                     </span>
-                    <div className='bg-muted/60 relative h-5 overflow-hidden rounded-sm border'>
-                      {corridorIntervals(corridor.values).map((interval) => {
-                        const width = Math.max(
-                          2,
-                          interval.endDifficulty - interval.startDifficulty + 2
-                        )
-                        return (
-                          <div
-                            key={`${corridor.id}-${interval.modelId}-${interval.startDifficulty}-${interval.endDifficulty}`}
-                            className='absolute inset-y-0 flex items-center justify-center overflow-hidden border-r border-white/40 px-1 text-[9px] font-medium text-white'
-                            title={`${interval.startDifficulty}–${interval.endDifficulty}: ${
-                              modelNameById.get(interval.modelId) ||
-                              interval.modelId
-                            }`}
-                            style={{
-                              left: `${interval.startDifficulty}%`,
-                              width: `${Math.min(
-                                100 - interval.startDifficulty,
-                                width
-                              )}%`,
-                              backgroundColor:
-                                colorByModel.get(interval.modelId) ||
-                                corridor.color,
-                            }}
-                          >
-                            {width >= 9
-                              ? modelNameById.get(interval.modelId) ||
-                                interval.modelId
-                              : ''}
-                          </div>
-                        )
-                      })}
-                    </div>
+                    <span className='text-muted-foreground ml-2 text-xs'>
+                      预计质量 {corridorAtHover.selectedQuality.toFixed(1)}% ·{' '}
+                      {formatACUCNY(corridorAtHover.selectedCostCny)}
+                    </span>
                   </div>
-                ))}
-              </div>
-              <div className='mt-3 grid gap-2 sm:grid-cols-3'>
-                {corridorAtHover.map(({ id, label, color, point }) => (
-                  <div
-                    key={id}
-                    className='bg-muted/25 min-w-0 rounded-md border px-2.5 py-2'
-                  >
-                    <div className='flex items-center justify-between gap-2 text-[11px]'>
-                      <span className='font-semibold' style={{ color }}>
-                        {label} · D{Math.round(abilityDifficulty)}
+                  <div className='flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[10px]'>
+                    {corridorAtHover.candidates.map((candidate) => (
+                      <span
+                        key={candidate.modelId}
+                        className='inline-flex items-center gap-1'
+                      >
+                        <span
+                          className='size-1.5 rounded-full'
+                          style={{
+                            backgroundColor:
+                              colorByModel.get(candidate.modelId) ||
+                              priceRankColor(0.5),
+                          }}
+                        />
+                        {modelNameById.get(candidate.modelId) ||
+                          candidate.modelId}
                       </span>
-                      {point && (
-                        <span className='font-mono'>
-                          {point.selectedQuality.toFixed(1)}%
-                        </span>
-                      )}
-                    </div>
-                    <div className='mt-1 truncate text-xs font-medium'>
-                      {point
-                        ? modelNameById.get(point.selectedModelId) ||
-                          point.selectedModelId
-                        : '暂无可路由模型'}
-                    </div>
-                    {point && (
-                      <div className='text-muted-foreground mt-1 text-[10px] leading-4'>
-                        前沿候选：
-                        {point.candidates
-                          .map(
-                            (candidate) =>
-                              modelNameById.get(candidate.modelId) ||
-                              candidate.modelId
-                          )
-                          .join(' / ')}
-                        <br />
-                        质量范围 {point.qualityLower.toFixed(1)}%–
-                        {point.qualityUpper.toFixed(1)}% · 首选成本{' '}
-                        {formatACUCNY(point.selectedCostCny)}
-                      </div>
-                    )}
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              ) : (
+                <div className='text-muted-foreground text-xs'>
+                  暂无可路由模型
+                </div>
+              )}
               <p className='text-muted-foreground mt-2 text-[10px] leading-4'>
-                范围带由当前健康供给、实际人民币参考成本、Pareto
-                前沿和生产路由公式计算；展示 Responses、无工具、基础质量目标 80
-                的条件结果，不代表每个真实请求必然选择同一模型。
+                淡色区域表示当前模式下前三个 Pareto
+                前沿候选的质量覆盖范围；模型曲线颜色按实际人民币价格由蓝到紫排列。
+                展示 Responses、无工具、基础质量目标 80 的条件结果。
               </p>
             </div>
           </div>
