@@ -3,8 +3,8 @@ import { test } from 'node:test'
 
 import type { ACUWorkTimelineItem } from '../../api'
 import {
-  boundTimelineViewport,
-  buildTimelineBuckets,
+  ACU_TIMELINE_ZOOM_ID,
+  buildACUWorkTimelineChartSpec,
   summarizeTimelineItems,
 } from '../acu-work-timeline-model.ts'
 
@@ -40,27 +40,60 @@ function item(overrides: Partial<ACUWorkTimelineItem>): ACUWorkTimelineItem {
   }
 }
 
-test('builds continuous 24h buckets so the viewport can zoom to one hour', () => {
-  const to = Date.parse('2026-07-30T12:00:00Z') / 1000
-  const from = to - 24 * 60 * 60
-  const buckets = buildTimelineBuckets(from, to, 24, [item({})])
-  assert.equal(buckets.length, 97)
-  const oneHour = boundTimelineViewport(buckets.length, 40, 44, 4)
-  assert.deepEqual(oneHour, { start: 40, end: 44 })
+test('uses one mature VChart composition with shared native zoom and pan', () => {
+  const spec = buildACUWorkTimelineChartSpec({
+    items: [item({})],
+    hours: 24,
+    dark: false,
+  })
+  assert.equal(spec.type, 'common')
+  assert.deepEqual(
+    spec.region?.map((region) => region.id),
+    ['difficulty-region', 'cost-region']
+  )
+  const zoom = Array.isArray(spec.dataZoom) ? spec.dataZoom[0] : spec.dataZoom
+  assert.equal(zoom?.id, ACU_TIMELINE_ZOOM_ID)
+  assert.equal(zoom?.minValueSpan, 60 * 60)
+  assert.deepEqual(zoom?.regionId, ['difficulty-region', 'cost-region'])
+  assert.deepEqual(zoom?.roamZoom, { enable: true, focus: true, rate: 1.2 })
+  assert.deepEqual(zoom?.roamDrag, { enable: true, rate: 1 })
+  assert.deepEqual(zoom?.roamScroll, { enable: true, rate: 1 })
+  assert.equal(zoom?.brushSelect, true)
+  assert.equal(zoom?.updateDataAfterChange, undefined)
 })
 
-test('bounds zoom and pan without changing the loaded range', () => {
-  assert.deepEqual(boundTimelineViewport(97, 80, 100, 4), {
-    start: 76,
-    end: 96,
+test('makes only task points and cost bars interactive', () => {
+  const spec = buildACUWorkTimelineChartSpec({
+    items: [item({ judgeBackupUsed: true })],
+    hours: 1,
+    dark: true,
   })
-  assert.deepEqual(boundTimelineViewport(97, 0, Number.MAX_SAFE_INTEGER, 4), {
-    start: 0,
-    end: 96,
-  })
+  const difficulty = spec.series?.find(
+    (series) => series.id === 'difficulty-series'
+  )
+  const backup = spec.series?.find(
+    (series) => series.id === 'judge-backup-rings'
+  )
+  const cost = spec.series?.find((series) => series.id === 'cost-series')
+  assert.equal(
+    (difficulty as { line?: { interactive?: boolean } })?.line?.interactive,
+    false
+  )
+  assert.equal(
+    (difficulty as { point?: { interactive?: boolean } })?.point?.interactive,
+    true
+  )
+  assert.equal(
+    (backup as { point?: { interactive?: boolean } })?.point?.interactive,
+    false
+  )
+  assert.equal(
+    (cost as { bar?: { interactive?: boolean } })?.bar?.interactive,
+    true
+  )
 })
 
-test('visible summary is derived only from items inside the viewport', () => {
+test('visible summary is derived only from items inside the engine viewport', () => {
   const summary = summarizeTimelineItems([
     item({ firstModelEventLatencyMs: 1000 }),
     item({

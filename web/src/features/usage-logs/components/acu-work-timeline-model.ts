@@ -1,55 +1,332 @@
+import type {
+  Datum,
+  ICartesianAxisSpec,
+  ICommonChartSpec,
+} from '@visactor/vchart'
+
 import type { ACUWorkTimelineItem } from '../api'
 
-export type TimelineViewport = { start: number; end: number }
+export const ACU_TIMELINE_ZOOM_ID = 'acu-timeline-data-zoom'
 
-export type TimelineBucket = {
-  timestamp: number
-  requestCount: number
+const MODEL_COLORS: Record<string, string> = {
+  'gpt-5.4-mini': '#0f766e',
+  'gpt-5.6-luna': '#2563eb',
+  'gpt-5.6-terra': '#c2410c',
+  'gpt-5.6-sol': '#a21caf',
+  'gpt-5.5': '#ca8a04',
 }
 
-const HOUR_SECONDS = 60 * 60
-
-export function timelineBucketSeconds(hours: number): number {
-  if (hours <= 1) return 60
-  if (hours <= 6) return 5 * 60
-  if (hours <= 24) return 15 * 60
-  return HOUR_SECONDS
-}
-
-export function buildTimelineBuckets(
-  from: number,
-  to: number,
-  hours: number,
+type TimelineChartOptions = {
   items: ACUWorkTimelineItem[]
-): TimelineBucket[] {
-  const bucketSeconds = timelineBucketSeconds(hours)
-  const first = Math.floor(from / bucketSeconds) * bucketSeconds
-  const last = Math.ceil(to / bucketSeconds) * bucketSeconds
-  const counts = new Map<number, number>()
-  for (const item of items) {
-    const bucket = Math.floor(item.timestamp / bucketSeconds) * bucketSeconds
-    counts.set(bucket, (counts.get(bucket) ?? 0) + 1)
-  }
-  const buckets: TimelineBucket[] = []
-  for (let timestamp = first; timestamp <= last; timestamp += bucketSeconds) {
-    buckets.push({ timestamp, requestCount: counts.get(timestamp) ?? 0 })
-  }
-  return buckets
+  hours: number
+  dark: boolean
 }
 
-export function boundTimelineViewport(
-  pointCount: number,
-  start: number,
-  end: number,
-  minimumIntervals = 1
-): TimelineViewport {
-  const maximum = Math.max(0, pointCount - 1)
-  const width = Math.max(
-    Math.min(minimumIntervals, maximum),
-    Math.min(maximum, Math.round(end - start))
-  )
-  const boundedStart = Math.max(0, Math.min(Math.round(start), maximum - width))
-  return { start: boundedStart, end: Math.min(maximum, boundedStart + width) }
+function modelColor(datum: Record<string, unknown>): string {
+  return MODEL_COLORS[String(datum.actualModel ?? '')] ?? '#64748b'
+}
+
+function pointStroke(datum: Record<string, unknown>): string {
+  if (datum.status === 'failed') return '#e11d48'
+  if (datum.status === 'completed_with_recovery') return '#f97316'
+  return modelColor(datum)
+}
+
+function judgeMode(datum: Record<string, unknown>): string {
+  if (datum.judgeCalled) return 'New'
+  if (datum.judgeReused) return 'Reused'
+  return 'Unavailable'
+}
+
+function pointFill(datum: Record<string, unknown>, dark: boolean): string {
+  if (datum.judgeCalled) return modelColor(datum)
+  return dark ? '#0f172a' : '#ffffff'
+}
+
+function formatTime(value: number): string {
+  return new Date(value * 1000).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function formatLatency(value: unknown): string {
+  const parsed = Number(value) || 0
+  return parsed < 1000
+    ? `${Math.round(parsed)} ms`
+    : `${(parsed / 1000).toFixed(1)} s`
+}
+
+function formatMoney(value: unknown): string {
+  const parsed = Number(value) || 0
+  return `¥${parsed.toFixed(parsed < 0.01 ? 6 : 3)}`
+}
+
+function tooltipDatum(datum?: Datum): Record<string, unknown> {
+  return (datum ?? {}) as Record<string, unknown>
+}
+
+function numericLabel(value: string | string[]): number {
+  return Number(Array.isArray(value) ? value[0] : value)
+}
+
+function tooltipContent() {
+  return [
+    {
+      key: 'Difficulty',
+      value: (raw?: Datum) => {
+        const datum = tooltipDatum(raw)
+        return `${Number(datum.difficulty ?? 0).toFixed(1)} · Step ${datum.sequence ?? ''}`
+      },
+    },
+    {
+      key: 'Judge',
+      value: (raw?: Datum) => {
+        const datum = tooltipDatum(raw)
+        const mode = judgeMode(datum)
+        return `${mode}${datum.judgeBackupUsed ? ' · Backup' : ''}`
+      },
+    },
+    {
+      key: 'Supply',
+      value: (raw?: Datum) => {
+        const datum = tooltipDatum(raw)
+        return `${datum.provider ?? ''} · ${datum.channel ?? ''}`
+      },
+    },
+    {
+      key: 'End-to-end / First event',
+      value: (raw?: Datum) => {
+        const datum = tooltipDatum(raw)
+        return `${formatLatency(datum.endToEndLatencyMs)} / ${formatLatency(datum.firstModelEventLatencyMs)}`
+      },
+    },
+    {
+      key: 'Judge / Provider',
+      value: (raw?: Datum) => {
+        const datum = tooltipDatum(raw)
+        return `${formatLatency(datum.judgeLatencyMs)} / ${formatLatency(datum.providerLatencyMs)}`
+      },
+    },
+    {
+      key: 'Cost',
+      value: (raw?: Datum) => {
+        const datum = tooltipDatum(raw)
+        return `${formatMoney(datum.actualCostCny)} · Judge ${formatMoney(datum.judgeCostCny)} · Provider ${formatMoney(datum.providerCostCny)} · Failed ${formatMoney(datum.failedAttemptCostCny)}`
+      },
+    },
+  ]
+}
+
+export function buildACUWorkTimelineChartSpec({
+  items,
+  hours,
+  dark,
+}: TimelineChartOptions): ICommonChartSpec {
+  const text = dark ? '#cbd5e1' : '#475569'
+  const grid = dark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(100, 116, 139, 0.18)'
+  const surface = dark ? 'rgba(30, 41, 59, 0.76)' : 'rgba(241, 245, 249, 0.92)'
+  let minimumWindowSeconds = 5 * 60
+  if (hours >= 24) {
+    minimumWindowSeconds = 60 * 60
+  } else if (hours >= 6) {
+    minimumWindowSeconds = 15 * 60
+  }
+  const backupItems = items.filter((item) => item.judgeBackupUsed)
+  const axes: ICartesianAxisSpec[] = [
+    {
+      id: 'difficulty-x-axis',
+      orient: 'bottom',
+      regionId: 'difficulty-region',
+      type: 'linear',
+      visible: false,
+    },
+    {
+      id: 'cost-x-axis',
+      orient: 'bottom',
+      regionId: 'cost-region',
+      type: 'linear',
+      label: {
+        formatMethod: (value) => formatTime(numericLabel(value)),
+        style: { fill: text, fontSize: 10 },
+        autoHide: true,
+      },
+      tick: { visible: false },
+    },
+    {
+      orient: 'left',
+      regionId: 'difficulty-region',
+      min: 0,
+      max: 100,
+      title: { visible: true, text: 'Difficulty' },
+      label: { style: { fill: text, fontSize: 10 } },
+      grid: {
+        visible: true,
+        style: { stroke: grid, lineDash: [3, 3] },
+      },
+    },
+    {
+      orient: 'left',
+      regionId: 'cost-region',
+      min: 0,
+      title: { visible: true, text: 'Cost' },
+      label: {
+        formatMethod: (value) => formatMoney(numericLabel(value)),
+        style: { fill: text, fontSize: 10 },
+      },
+      grid: {
+        visible: true,
+        style: { stroke: grid, lineDash: [3, 3] },
+      },
+    },
+  ]
+
+  return {
+    type: 'common',
+    background: 'transparent',
+    padding: { top: 14, right: 16, bottom: 58, left: 8 },
+    data: [
+      { id: 'acu-timeline-items', values: items },
+      { id: 'acu-timeline-backups', values: backupItems },
+    ],
+    region: [
+      {
+        id: 'difficulty-region',
+        layoutType: 'absolute',
+        left: 54,
+        right: 18,
+        top: 8,
+        height: '55%',
+      },
+      {
+        id: 'cost-region',
+        layoutType: 'absolute',
+        left: 54,
+        right: 18,
+        top: '64%',
+        bottom: 52,
+      },
+    ],
+    series: [
+      {
+        id: 'difficulty-series',
+        type: 'line',
+        regionId: 'difficulty-region',
+        dataId: 'acu-timeline-items',
+        xField: 'timestamp',
+        yField: 'difficulty',
+        seriesField: 'segmentId',
+        invalidType: 'break',
+        line: {
+          interactive: false,
+          style: {
+            stroke: '#64748b',
+            lineWidth: 1.5,
+            strokeOpacity: 0.68,
+          },
+        },
+        point: {
+          visible: true,
+          interactive: true,
+          style: {
+            size: (datum: Record<string, unknown>) =>
+              datum.judgeBackupUsed ? 13 : 10,
+            fill: (datum: Record<string, unknown>) => pointFill(datum, dark),
+            stroke: pointStroke,
+            lineWidth: (datum: Record<string, unknown>) =>
+              datum.judgeBackupUsed ? 3 : 2,
+            cursor: 'pointer',
+          },
+        },
+      },
+      {
+        id: 'judge-backup-rings',
+        type: 'scatter',
+        regionId: 'difficulty-region',
+        dataId: 'acu-timeline-backups',
+        xField: 'timestamp',
+        yField: 'difficulty',
+        point: {
+          interactive: false,
+          style: {
+            size: 19,
+            fillOpacity: 0,
+            stroke: modelColor,
+            strokeOpacity: 0.5,
+            lineWidth: 1.5,
+          },
+        },
+      },
+      {
+        id: 'cost-series',
+        type: 'bar',
+        regionId: 'cost-region',
+        dataId: 'acu-timeline-items',
+        xField: 'timestamp',
+        yField: 'actualCostCny',
+        barMinWidth: 3,
+        barMaxWidth: 22,
+        bar: {
+          interactive: true,
+          style: {
+            fill: modelColor,
+            fillOpacity: 0.82,
+            cornerRadius: [3, 3, 0, 0],
+            cursor: 'pointer',
+          },
+        },
+      },
+    ],
+    axes,
+    dataZoom: [
+      {
+        id: ACU_TIMELINE_ZOOM_ID,
+        orient: 'bottom',
+        axisId: 'cost-x-axis',
+        regionId: ['difficulty-region', 'cost-region'],
+        field: 'timestamp',
+        valueField: 'timestamp',
+        filterMode: 'axis',
+        start: 0,
+        end: 1,
+        minValueSpan: minimumWindowSeconds,
+        height: 34,
+        showDetail: true,
+        showBackgroundChart: true,
+        brushSelect: true,
+        realTime: true,
+        roamZoom: { enable: true, focus: true, rate: 1.2 },
+        roamDrag: { enable: true, rate: 1 },
+        roamScroll: { enable: true, rate: 1 },
+        background: { style: { fill: surface } },
+        selectedBackground: {
+          style: { fill: dark ? '#1d4ed8' : '#bfdbfe', fillOpacity: 0.28 },
+        },
+        startText: {
+          formatMethod: (value: number | string) => formatTime(Number(value)),
+        },
+        endText: {
+          formatMethod: (value: number | string) => formatTime(Number(value)),
+        },
+      },
+    ],
+    crosshair: {
+      xField: { visible: true, line: { style: { stroke: '#64748b' } } },
+      yField: { visible: false },
+    },
+    tooltip: {
+      mark: {
+        title: {
+          value: (raw?: Datum) => {
+            const datum = tooltipDatum(raw)
+            return `${datum.actualModel ?? datum.requestedModel ?? ''} · ${new Date(Number(datum.timestamp) * 1000).toLocaleString()}`
+          },
+        },
+        content: tooltipContent(),
+      },
+    },
+    legends: { visible: false },
+  }
 }
 
 function percentile(values: number[], ratio: number): number {
