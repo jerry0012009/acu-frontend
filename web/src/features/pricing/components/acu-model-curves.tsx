@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { VChart } from '@visactor/react-vchart'
+import type { EventParamsDefinition } from '@visactor/vchart'
 import {
   ArrowDownUp,
   BarChart3,
@@ -24,7 +25,7 @@ import {
   CircleDollarSign,
   Route,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -34,23 +35,16 @@ import { cn } from '@/lib/utils'
 import { VCHART_OPTION } from '@/lib/vchart'
 
 import { formatACUCNY } from '../lib/price'
+import {
+  compareQualityAtDifficulty,
+  qualityAtDifficulty,
+} from '../lib/curve-ranking'
+import {
+  PRICE_COLOR_STOPS,
+  buildPriceRankColorMap,
+  priceRankColor,
+} from '../lib/price-rank-color'
 import type { PricingModel } from '../types'
-
-const MODEL_COLORS = [
-  '#2563eb',
-  '#dc2626',
-  '#059669',
-  '#7c3aed',
-  '#d97706',
-  '#0891b2',
-  '#db2777',
-  '#4f46e5',
-  '#65a30d',
-  '#ea580c',
-  '#0d9488',
-  '#9333ea',
-  '#475569',
-]
 
 function positiveInteger(value: string, fallback: number): number {
   const parsed = Number.parseInt(value, 10)
@@ -65,16 +59,6 @@ function estimatedCallCost(
   const inputPrice = model.input_price_per_million ?? 0
   const outputPrice = model.output_price_per_million ?? 0
   return (inputTokens * inputPrice + outputTokens * outputPrice) / 1_000_000
-}
-
-function modelAbilityScore(model: PricingModel): number {
-  const curve = model.acu_curve ?? []
-  if (curve.length === 0) return 0
-  return (
-    (curve.reduce((sum, point) => sum + point.estimatedQuality, 0) /
-      curve.length) *
-    100
-  )
 }
 
 type CurveSortMode = 'price' | 'ability'
@@ -106,6 +90,10 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
   const [inputTokens, setInputTokens] = useState(100_000)
   const [outputTokens, setOutputTokens] = useState(4_000)
   const [sortMode, setSortMode] = useState<CurveSortMode>('price')
+  const [hoveredDifficulty, setHoveredDifficulty] = useState<number | null>(
+    null
+  )
+  const abilityDifficulty = hoveredDifficulty ?? 50
 
   useEffect(() => {
     setSelectedModelIds(allModelIds)
@@ -119,30 +107,40 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
     () =>
       [...curveModels].sort((left, right) => {
         if (sortMode === 'ability') {
-          return modelAbilityScore(right) - modelAbilityScore(left)
+          return compareQualityAtDifficulty(
+            left.acu_curve ?? [],
+            right.acu_curve ?? [],
+            abilityDifficulty
+          )
         }
         return (
           estimatedCallCost(right, inputTokens, outputTokens) -
           estimatedCallCost(left, inputTokens, outputTokens)
         )
       }),
-    [curveModels, inputTokens, outputTokens, sortMode]
+    [abilityDifficulty, curveModels, inputTokens, outputTokens, sortMode]
   )
   const selectedModels = useMemo(
     () =>
-      orderedCurveModels.filter((model) => selectedSet.has(model.model_name)),
-    [orderedCurveModels, selectedSet]
+      curveModels.filter((model) => selectedSet.has(model.model_name)),
+    [curveModels, selectedSet]
   )
   const colorByModel = useMemo(
     () =>
-      new Map(
-        curveModels.map((model, index) => [
-          model.model_name,
-          MODEL_COLORS[index % MODEL_COLORS.length],
-        ])
+      buildPriceRankColorMap(
+        curveModels.map((model) => ({
+          id: model.model_name,
+          cost: estimatedCallCost(model, inputTokens, outputTokens),
+        }))
       ),
-    [curveModels]
+    [curveModels, inputTokens, outputTokens]
   )
+  const priceRange = useMemo(() => {
+    const costs = curveModels
+      .map((model) => estimatedCallCost(model, inputTokens, outputTokens))
+      .sort((left, right) => left - right)
+    return { minimum: costs[0] ?? 0, maximum: costs.at(-1) ?? 0 }
+  }, [curveModels, inputTokens, outputTokens])
 
   const curveData = useMemo(
     () =>
@@ -157,7 +155,6 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
           qualityLower: point.qualityLower * 100,
           qualityUpper: point.qualityUpper * 100,
           cost,
-          abilityScore: modelAbilityScore(model),
           provider: model.acu_cost_provider || '-',
           channel: model.acu_cost_channel || '-',
         }))
@@ -177,18 +174,33 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
           provider: model.acu_cost_provider || '-',
           channel: model.acu_cost_channel || '-',
           status: model.acu_effective_cost_status || 'estimated',
-          abilityScore: modelAbilityScore(model),
+          abilityScore:
+            qualityAtDifficulty(model.acu_curve ?? [], abilityDifficulty) * 100,
         }))
         .sort((left, right) =>
           sortMode === 'ability'
             ? right.abilityScore - left.abilityScore
             : right.cost - left.cost
         ),
-    [inputTokens, outputTokens, selectedModels, sortMode]
+    [abilityDifficulty, inputTokens, outputTokens, selectedModels, sortMode]
+  )
+
+  const handleDimensionHover = useCallback(
+    (event: EventParamsDefinition['dimensionHover']) => {
+      if (event.action === 'leave') {
+        setHoveredDifficulty(null)
+        return
+      }
+      const value = event.dimensionInfo.find(
+        (item) => Number.isFinite(Number(item.value))
+      )?.value
+      if (value !== undefined) setHoveredDifficulty(Number(value))
+    },
+    []
   )
 
   const chartColors = selectedModels.map(
-    (model) => colorByModel.get(model.model_name) || MODEL_COLORS[0]
+    (model) => colorByModel.get(model.model_name) || priceRankColor(0.5)
   )
   const axisColor =
     resolvedTheme === 'dark' ? 'rgba(255,255,255,0.66)' : 'rgba(15,23,42,0.62)'
@@ -262,7 +274,7 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
       yField: 'modelName',
       seriesField: 'modelName',
       color: costData.map(
-        (item) => colorByModel.get(item.modelId) || MODEL_COLORS[0]
+        (item) => colorByModel.get(item.modelId) || priceRankColor(0.5)
       ),
       animation: false,
       legends: { visible: false },
@@ -411,16 +423,43 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
                   className='size-2 rounded-full'
                   style={{
                     backgroundColor:
-                      colorByModel.get(model.model_name) || MODEL_COLORS[0],
+                      colorByModel.get(model.model_name) || priceRankColor(0.5),
                   }}
                 />
                 <span className='max-w-44 truncate'>
                   {model.display_name || model.model_name}
                 </span>
+                {sortMode === 'ability' && (
+                  <span className='text-muted-foreground font-mono text-[10px]'>
+                    D{Math.round(abilityDifficulty)} ·{' '}
+                    {(
+                      qualityAtDifficulty(
+                        model.acu_curve ?? [],
+                        abilityDifficulty
+                      ) * 100
+                    ).toFixed(1)}
+                    %
+                  </span>
+                )}
                 {selected && <Check className='size-3' />}
               </button>
             )
           })}
+        </div>
+        <div className='text-muted-foreground mt-3 flex flex-wrap items-center gap-2 text-[11px]'>
+          <span>
+            {t('Lower estimated cost')} {formatACUCNY(priceRange.minimum)}
+          </span>
+          <span
+            aria-hidden='true'
+            className='h-2.5 w-40 rounded-full border sm:w-56'
+            style={{
+              background: `linear-gradient(90deg, ${PRICE_COLOR_STOPS.join(', ')})`,
+            }}
+          />
+          <span>
+            {t('Higher estimated cost')} {formatACUCNY(priceRange.maximum)}
+          </span>
         </div>
       </div>
 
@@ -459,7 +498,7 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
                   onClick={() => setSortMode('ability')}
                 >
                   <ArrowDownUp className='size-3' />
-                  {t('Ability ranking')}
+                  {t('Ability ranking')} · D{Math.round(abilityDifficulty)}
                 </Button>
               </div>
             </div>
@@ -473,6 +512,7 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
                     background: 'transparent',
                   }}
                   option={VCHART_OPTION}
+                  onDimensionHover={handleDimensionHover}
                 />
               )}
             </div>

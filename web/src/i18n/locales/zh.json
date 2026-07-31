@@ -5238,6 +5238,8 @@
     "Curve ranking": "曲线排序",
     "Price ranking": "价格排序",
     "Ability ranking": "能力排序",
+    "Lower estimated cost": "较低预计成本",
+    "Higher estimated cost": "较高预计成本",
     "Average predicted quality": "曲线平均预计质量"
   }
 }
