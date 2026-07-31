@@ -6,6 +6,7 @@ type ACUChannelMonitor struct {
 	Profiles          []ACUChannelMonitorProfile `json:"profiles"`
 	History           []map[string]interface{}   `json:"history"`
 	CooldownIntervals []map[string]interface{}   `json:"cooldownIntervals"`
+	ProbeHistory      []map[string]interface{}   `json:"probeHistory"`
 	SupplyInventory   []map[string]interface{}   `json:"supplyInventory"`
 	ModelPool         []map[string]interface{}   `json:"modelPool"`
 }
@@ -21,11 +22,19 @@ type ACUChannelMonitorProfile struct {
 	EffectiveCostStatus         string   `json:"effectiveCostStatus"`
 	Enabled                     bool     `json:"enabled"`
 	AdministratorAllowed        bool     `json:"administratorAllowed"`
+	AutoRouteEnabled            bool     `json:"autoRouteEnabled"`
 	RoutingEligible             bool     `json:"routingEligible"`
 	RoutingEligibility          string   `json:"routingEligibility"`
 	State                       string   `json:"state"`
 	ChannelState                string   `json:"channelState"`
 	ProfileState                string   `json:"profileState"`
+	ProfileStateRaw             string   `json:"profileStateRaw"`
+	ChannelStateRaw             string   `json:"channelStateRaw"`
+	ProviderStateRaw            string   `json:"providerStateRaw"`
+	ProbeStateRaw               string   `json:"probeStateRaw"`
+	EffectiveState              string   `json:"effectiveState"`
+	BlockingScope               string   `json:"blockingScope"`
+	StatusReason                string   `json:"statusReason"`
 	UsageTrusted                bool     `json:"usageTrusted"`
 	RecentSuccessRate           float64  `json:"recentSuccessRate"`
 	ConsecutiveFailures         int      `json:"consecutiveFailures"`

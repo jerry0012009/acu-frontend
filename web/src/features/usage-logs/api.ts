@@ -162,11 +162,19 @@ export type ACUChannelMonitorProfile = {
   effectiveCostStatus: string
   enabled: boolean
   administratorAllowed: boolean
+  autoRouteEnabled: boolean
   routingEligible: boolean
   routingEligibility: string
   state: string
   channelState: string
   profileState: string
+  profileStateRaw: string
+  channelStateRaw: string
+  providerStateRaw: string
+  probeStateRaw: string
+  effectiveState: string
+  blockingScope: string
+  statusReason: string
   usageTrusted: boolean
   recentSuccessRate: number
   consecutiveFailures: number
@@ -236,6 +244,26 @@ export type ACUChannelCooldownInterval = {
   probe_result: string | null
 }
 
+export type ACUProbeHistoryRow = {
+  execution_profile_id: string
+  channel_id: string
+  provider_id: string
+  canonical_model_id: string
+  protocol: string
+  status: string
+  http_status: number | null
+  error_class: string | null
+  latency_ms: number | null
+  input_tokens: number
+  output_tokens: number
+  actual_model: string | null
+  usage_trusted: boolean
+  cost_cny: number
+  started_at: string
+  completed_at: string | null
+  metadata_json?: Record<string, unknown>
+}
+
 export type ACUMonitorRange = '1h' | '6h' | '24h' | '7d'
 
 export type ACUChannelMonitor = {
@@ -244,6 +272,7 @@ export type ACUChannelMonitor = {
   profiles: ACUChannelMonitorProfile[]
   history: ACUChannelHistoryRow[]
   cooldownIntervals: ACUChannelCooldownInterval[]
+  probeHistory: ACUProbeHistoryRow[]
   supplyInventory: Array<Record<string, unknown>>
   modelPool: ACUModelPoolEntry[]
 }
