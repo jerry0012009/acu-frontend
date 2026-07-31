@@ -3,9 +3,12 @@ import { test } from 'node:test'
 
 import type { ACUWorkTimelineItem } from '../../api'
 import {
-  ACU_TIMELINE_ZOOM_ID,
-  buildACUWorkTimelineChartSpec,
+  ACU_TIMELINE_INSIDE_ZOOM_ID,
+  ACU_TIMELINE_SLIDER_ZOOM_ID,
+  buildACUWorkTimelineChartOption,
   summarizeTimelineItems,
+  timelineItemFromChartEvent,
+  timelineRangeFromZoom,
 } from '../acu-work-timeline-model.ts'
 
 function item(overrides: Partial<ACUWorkTimelineItem>): ACUWorkTimelineItem {
@@ -40,80 +43,100 @@ function item(overrides: Partial<ACUWorkTimelineItem>): ACUWorkTimelineItem {
   }
 }
 
-test('uses one mature VChart composition with shared native zoom and pan', () => {
-  const spec = buildACUWorkTimelineChartSpec({
+test('uses ECharts financial-style zoom across both chart grids', () => {
+  const from = Date.parse('2026-07-29T10:00:00Z') / 1000
+  const to = from + 24 * 60 * 60
+  const option = buildACUWorkTimelineChartOption({
     items: [item({})],
     hours: 24,
+    from,
+    to,
     dark: false,
   })
-  assert.equal(spec.type, 'common')
-  assert.equal(spec.layout?.type, 'grid')
-  assert.deepEqual(
-    spec.layout?.elements?.filter((element) =>
-      'modelId' in element
-        ? ['difficulty-region', 'cost-region', ACU_TIMELINE_ZOOM_ID].includes(
-            String(element.modelId)
-          )
-        : false
-    ),
-    [
-      { modelId: 'difficulty-region', col: 1, row: 0 },
-      { modelId: 'cost-region', col: 1, row: 2 },
-      { modelId: ACU_TIMELINE_ZOOM_ID, col: 1, row: 4 },
-    ]
-  )
-  assert.deepEqual(
-    spec.region?.map((region) => region.id),
-    ['difficulty-region', 'cost-region']
-  )
-  const timeAxes = spec.axes?.filter((axis) =>
-    ['difficulty-x-axis', 'cost-x-axis'].includes(String(axis.id))
-  ) as Array<{ zero?: boolean; nice?: boolean }> | undefined
-  assert.equal(timeAxes?.length, 2)
+  assert.equal(Array.isArray(option.grid) ? option.grid.length : 0, 2)
+  const axes = option.xAxis as Array<{ min?: number; max?: number }>
+  assert.equal(axes.length, 2)
   assert.equal(
-    timeAxes?.every((axis) => !axis.zero && !axis.nice),
+    axes.every((axis) => axis.min === from * 1000),
     true
   )
-  const zoom = Array.isArray(spec.dataZoom) ? spec.dataZoom[0] : spec.dataZoom
-  assert.equal(zoom?.id, ACU_TIMELINE_ZOOM_ID)
-  assert.equal(zoom?.minValueSpan, 60 * 60)
-  assert.deepEqual(zoom?.regionIndex, [0, 1])
-  assert.equal(zoom?.filterMode, 'filter')
-  assert.deepEqual(zoom?.roamZoom, { enable: true, focus: true, rate: 1.2 })
-  assert.deepEqual(zoom?.roamDrag, { enable: true, rate: 1 })
-  assert.deepEqual(zoom?.roamScroll, { enable: true, rate: 1 })
-  assert.equal(zoom?.brushSelect, true)
-  assert.equal(zoom?.updateDataAfterChange, undefined)
+  assert.equal(
+    axes.every((axis) => axis.max === to * 1000),
+    true
+  )
+
+  const zooms = option.dataZoom as Array<{
+    id?: string
+    type?: string
+    xAxisIndex?: number[]
+    minValueSpan?: number
+    zoomOnMouseWheel?: boolean
+    moveOnMouseMove?: boolean
+    brushSelect?: boolean
+  }>
+  assert.deepEqual(
+    zooms.map((zoom) => zoom.id),
+    [ACU_TIMELINE_INSIDE_ZOOM_ID, ACU_TIMELINE_SLIDER_ZOOM_ID]
+  )
+  assert.deepEqual(zooms[0].xAxisIndex, [0, 1])
+  assert.deepEqual(zooms[1].xAxisIndex, [0, 1])
+  assert.equal(zooms[0].minValueSpan, 60 * 60 * 1000)
+  assert.equal(zooms[0].zoomOnMouseWheel, true)
+  assert.equal(zooms[0].moveOnMouseMove, true)
+  assert.equal(zooms[1].brushSelect, true)
 })
 
-test('makes only task points and cost bars interactive', () => {
-  const spec = buildACUWorkTimelineChartSpec({
-    items: [item({ judgeBackupUsed: true })],
+test('keeps backup rings silent and points and bars traceable', () => {
+  const timelineItem = item({ judgeBackupUsed: true })
+  const option = buildACUWorkTimelineChartOption({
+    items: [timelineItem],
     hours: 1,
+    from: timelineItem.timestamp - 3600,
+    to: timelineItem.timestamp,
     dark: true,
   })
-  const difficulty = spec.series?.find(
-    (series) => series.id === 'difficulty-series'
-  )
-  const backup = spec.series?.find(
-    (series) => series.id === 'judge-backup-rings'
-  )
-  const cost = spec.series?.find((series) => series.id === 'cost-series')
+  const series = option.series as Array<{
+    id?: string
+    type?: string
+    silent?: boolean
+    data?: unknown[]
+  }>
   assert.equal(
-    (difficulty as { line?: { interactive?: boolean } })?.line?.interactive,
-    false
-  )
-  assert.equal(
-    (difficulty as { point?: { interactive?: boolean } })?.point?.interactive,
+    series.find((entry) => entry.id === 'judge-backup-rings')?.silent,
     true
   )
   assert.equal(
-    (backup as { point?: { interactive?: boolean } })?.point?.interactive,
-    false
+    series.some((entry) => entry.type === 'line'),
+    true
   )
   assert.equal(
-    (cost as { bar?: { interactive?: boolean } })?.bar?.interactive,
+    series.some((entry) => entry.type === 'bar'),
     true
+  )
+  assert.equal(
+    timelineItemFromChartEvent({
+      data: { value: [0, 0], timelineItem },
+    })?.logicalRequestId,
+    'logical-1'
+  )
+  assert.equal(
+    timelineItemFromChartEvent({ data: { value: [0, 0] } }),
+    undefined
+  )
+})
+
+test('derives visible range from native ECharts zoom events', () => {
+  assert.deepEqual(timelineRangeFromZoom({ start: 25, end: 75 }, 1000, 2000), {
+    start: 1250,
+    end: 1750,
+  })
+  assert.deepEqual(
+    timelineRangeFromZoom(
+      { batch: [{ startValue: 1_400_000, endValue: 1_800_000 }] },
+      1000,
+      2000
+    ),
+    { start: 1400, end: 1800 }
   )
 })
 

@@ -7,8 +7,15 @@ it under the terms of the GNU Affero General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 */
-import { VChart } from '@visactor/react-vchart'
-import type { EventParamsDefinition, IVChart } from '@visactor/vchart'
+import { BarChart, LineChart, ScatterChart } from 'echarts/charts'
+import {
+  DataZoomComponent,
+  GridComponent,
+  TooltipComponent,
+} from 'echarts/components'
+import * as echarts from 'echarts/core'
+import type { EChartsType } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
 import {
   Activity,
   Clock3,
@@ -29,15 +36,26 @@ import {
 } from '@/components/ui/dialog'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { cn } from '@/lib/utils'
-import { VCHART_OPTION } from '@/lib/vchart'
 
-import { getACUWorkTimeline, type ACUWorkTimelineItem } from '../api'
+import { getACUWorkTimeline } from '../api'
 import {
-  ACU_TIMELINE_ZOOM_ID,
-  buildACUWorkTimelineChartSpec,
+  ACU_TIMELINE_INSIDE_ZOOM_ID,
+  buildACUWorkTimelineChartOption,
   summarizeTimelineItems,
+  timelineItemFromChartEvent,
+  timelineRangeFromZoom,
 } from './acu-work-timeline-model'
 import { ACUSessionTracePanel } from './dialogs/acu-session-trace'
+
+echarts.use([
+  LineChart,
+  BarChart,
+  ScatterChart,
+  GridComponent,
+  DataZoomComponent,
+  TooltipComponent,
+  CanvasRenderer,
+])
 
 function ms(value: number) {
   return value < 1000 ? `${value} ms` : `${(value / 1000).toFixed(1)} s`
@@ -56,32 +74,17 @@ function visibleTime(value: number) {
   })
 }
 
-function eventTimelineItem(
-  event: EventParamsDefinition['click'] | EventParamsDefinition['dblclick']
-): ACUWorkTimelineItem | undefined {
-  const datum = event.datum as Partial<ACUWorkTimelineItem> | undefined
-  return typeof datum?.logicalRequestId === 'string'
-    ? (datum as ACUWorkTimelineItem)
-    : undefined
-}
-
-type DataZoomChangeEvent = {
-  value?: {
-    startValue?: number | string
-    endValue?: number | string
-  }
-}
-
 export function ACUWorkTimeline() {
   const [hours, setHours] = useState(1)
   const [traceId, setTraceId] = useState('')
-  const chartRef = useRef<IVChart | null>(null)
+  const chartContainerRef = useRef<HTMLDivElement | null>(null)
+  const chartRef = useRef<EChartsType | null>(null)
   const { resolvedTheme, themeReady } = useChartTheme()
-  const to = Math.floor(Date.now() / 1000)
+  const to = Math.floor(Date.now() / 60_000) * 60
   const from = to - hours * 3600
   const [visibleRange, setVisibleRange] = useState({ start: from, end: to })
   const query = useQuery({
-    queryKey: ['acu-work-timeline', hours, Math.floor(to / 60)],
+    queryKey: ['acu-work-timeline', hours, to],
     queryFn: () => getACUWorkTimeline(from, to),
     refetchInterval: 60_000,
   })
@@ -92,16 +95,6 @@ export function ACUWorkTimeline() {
     setVisibleRange({ start: from, end: to })
   }, [from, hours, to])
 
-  const handleDataZoomChange = useCallback((event: DataZoomChangeEvent) => {
-    const start = Number(event.value?.startValue)
-    const end = Number(event.value?.endValue)
-    if (Number.isFinite(start) && Number.isFinite(end)) {
-      setVisibleRange({
-        start: Math.min(start, end),
-        end: Math.max(start, end),
-      })
-    }
-  }, [])
   const visibleItems = useMemo(
     () =>
       items.filter(
@@ -115,37 +108,73 @@ export function ACUWorkTimeline() {
     () => summarizeTimelineItems(visibleItems),
     [visibleItems]
   )
-  const chartSpec = useMemo(
+  const chartOption = useMemo(
     () =>
-      buildACUWorkTimelineChartSpec({
+      buildACUWorkTimelineChartOption({
         items,
         hours,
+        from,
+        to,
         dark: resolvedTheme === 'dark',
       }),
-    [hours, items, resolvedTheme]
+    [from, hours, items, resolvedTheme, to]
   )
 
   const resetZoom = useCallback(() => {
-    chartRef.current?.updateModelSpecSync(
-      ACU_TIMELINE_ZOOM_ID,
-      { start: 0, end: 1 },
-      true
-    )
+    chartRef.current?.dispatchAction({
+      type: 'dataZoom',
+      dataZoomId: ACU_TIMELINE_INSIDE_ZOOM_ID,
+      start: 0,
+      end: 100,
+    })
     setVisibleRange({ start: from, end: to })
   }, [from, to])
-  const handleChartClick = useCallback(
-    (event: EventParamsDefinition['click']) => {
-      const item = eventTimelineItem(event)
+
+  useEffect(() => {
+    const container = chartContainerRef.current
+    if (!container || !themeReady || items.length === 0) return
+    const chart = echarts.init(
+      container,
+      resolvedTheme === 'dark' ? 'dark' : undefined,
+      { renderer: 'canvas' }
+    )
+    chartRef.current = chart
+    chart.setOption(chartOption, { notMerge: true })
+
+    const handleZoom = (event: unknown) => {
+      const range = timelineRangeFromZoom(event, from, to)
+      if (range) setVisibleRange(range)
+    }
+    const handleClick = (event: unknown) => {
+      const item = timelineItemFromChartEvent(event)
       if (item) setTraceId(item.logicalRequestId)
-    },
-    []
-  )
-  const handleChartDoubleClick = useCallback(
-    (event: EventParamsDefinition['dblclick']) => {
-      if (!eventTimelineItem(event)) resetZoom()
-    },
-    [resetZoom]
-  )
+    }
+    const handleDoubleClick = (event: { target?: unknown }) => {
+      if (!event.target) resetZoom()
+    }
+    chart.on('datazoom', handleZoom)
+    chart.on('click', handleClick)
+    chart.getZr().on('dblclick', handleDoubleClick)
+
+    const resizeObserver = new ResizeObserver(() => chart.resize())
+    resizeObserver.observe(container)
+    return () => {
+      resizeObserver.disconnect()
+      chart.getZr().off('dblclick', handleDoubleClick)
+      chart.off('datazoom', handleZoom)
+      chart.off('click', handleClick)
+      chart.dispose()
+      if (chartRef.current === chart) chartRef.current = null
+    }
+  }, [
+    chartOption,
+    from,
+    items.length,
+    resetZoom,
+    resolvedTheme,
+    themeReady,
+    to,
+  ])
 
   const stats = [
     ['API Steps', summary.apiSteps, Activity],
@@ -181,20 +210,7 @@ export function ACUWorkTimeline() {
           </div>
         </div>
         <div className='h-[34rem] min-w-0 touch-pan-y sm:h-[38rem]'>
-          <VChart
-            key={`acu-work-timeline-${hours}-${resolvedTheme}`}
-            spec={{
-              ...chartSpec,
-              theme: resolvedTheme === 'dark' ? 'dark' : 'light',
-            }}
-            option={VCHART_OPTION}
-            onReady={(instance: IVChart) => {
-              chartRef.current = instance
-            }}
-            onClick={handleChartClick}
-            onDblClick={handleChartDoubleClick}
-            onDataZoomChange={handleDataZoomChange}
-          />
+          <div ref={chartContainerRef} className='size-full min-w-0' />
         </div>
       </section>
     )

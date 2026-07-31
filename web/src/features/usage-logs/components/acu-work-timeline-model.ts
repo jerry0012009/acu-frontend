@@ -1,12 +1,9 @@
-import type {
-  Datum,
-  ICartesianAxisSpec,
-  ICommonChartSpec,
-} from '@visactor/vchart'
+import type { EChartsOption } from 'echarts'
 
 import type { ACUWorkTimelineItem } from '../api'
 
-export const ACU_TIMELINE_ZOOM_ID = 'acu-timeline-data-zoom'
+export const ACU_TIMELINE_INSIDE_ZOOM_ID = 'acu-timeline-inside-zoom'
+export const ACU_TIMELINE_SLIDER_ZOOM_ID = 'acu-timeline-slider-zoom'
 
 const MODEL_COLORS: Record<string, string> = {
   'gpt-5.4-mini': '#0f766e',
@@ -16,334 +13,336 @@ const MODEL_COLORS: Record<string, string> = {
   'gpt-5.5': '#ca8a04',
 }
 
+export type TimelineChartDatum = {
+  value: [number, number]
+  timelineItem: ACUWorkTimelineItem
+  symbolSize?: number
+  itemStyle?: Record<string, unknown>
+}
+
 type TimelineChartOptions = {
   items: ACUWorkTimelineItem[]
   hours: number
+  from: number
+  to: number
   dark: boolean
 }
 
-function modelColor(datum: Record<string, unknown>): string {
-  return MODEL_COLORS[String(datum.actualModel ?? '')] ?? '#64748b'
+function modelColor(item: ACUWorkTimelineItem): string {
+  return MODEL_COLORS[item.actualModel] ?? '#64748b'
 }
 
-function pointStroke(datum: Record<string, unknown>): string {
-  if (datum.status === 'failed') return '#e11d48'
-  if (datum.status === 'completed_with_recovery') return '#f97316'
-  return modelColor(datum)
+function pointStroke(item: ACUWorkTimelineItem): string {
+  if (item.status === 'failed') return '#e11d48'
+  if (item.status === 'completed_with_recovery') return '#f97316'
+  return modelColor(item)
 }
 
-function judgeMode(datum: Record<string, unknown>): string {
-  if (datum.judgeCalled) return 'New'
-  if (datum.judgeReused) return 'Reused'
-  return 'Unavailable'
+function formatLatency(value: number): string {
+  return value < 1000
+    ? `${Math.round(value)} ms`
+    : `${(value / 1000).toFixed(1)} s`
 }
 
-function pointFill(datum: Record<string, unknown>, dark: boolean): string {
-  if (datum.judgeCalled) return modelColor(datum)
-  return dark ? '#0f172a' : '#ffffff'
+function formatMoney(value: number): string {
+  return `¥${value.toFixed(value < 0.01 ? 6 : 3)}`
 }
 
-function formatTime(value: number): string {
-  return new Date(value * 1000).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
 }
 
-function formatLatency(value: unknown): string {
-  const parsed = Number(value) || 0
-  return parsed < 1000
-    ? `${Math.round(parsed)} ms`
-    : `${(parsed / 1000).toFixed(1)} s`
+function judgeLabel(item: ACUWorkTimelineItem): string {
+  if (item.judgeCalled) return 'Judge New'
+  if (item.judgeReused) return 'Judge Reused'
+  return 'Judge unavailable'
 }
 
-function formatMoney(value: unknown): string {
-  const parsed = Number(value) || 0
-  return `¥${parsed.toFixed(parsed < 0.01 ? 6 : 3)}`
-}
-
-function tooltipDatum(datum?: Datum): Record<string, unknown> {
-  return (datum ?? {}) as Record<string, unknown>
-}
-
-function numericLabel(value: string | string[]): number {
-  return Number(Array.isArray(value) ? value[0] : value)
-}
-
-function tooltipContent() {
+function tooltipHtml(item: ACUWorkTimelineItem): string {
+  const backup = item.judgeBackupUsed ? ' · Backup' : ''
   return [
-    {
-      key: 'Difficulty',
-      value: (raw?: Datum) => {
-        const datum = tooltipDatum(raw)
-        return `${Number(datum.difficulty ?? 0).toFixed(1)} · Step ${datum.sequence ?? ''}`
-      },
-    },
-    {
-      key: 'Judge',
-      value: (raw?: Datum) => {
-        const datum = tooltipDatum(raw)
-        const mode = judgeMode(datum)
-        return `${mode}${datum.judgeBackupUsed ? ' · Backup' : ''}`
-      },
-    },
-    {
-      key: 'Supply',
-      value: (raw?: Datum) => {
-        const datum = tooltipDatum(raw)
-        return `${datum.provider ?? ''} · ${datum.channel ?? ''}`
-      },
-    },
-    {
-      key: 'End-to-end / First event',
-      value: (raw?: Datum) => {
-        const datum = tooltipDatum(raw)
-        return `${formatLatency(datum.endToEndLatencyMs)} / ${formatLatency(datum.firstModelEventLatencyMs)}`
-      },
-    },
-    {
-      key: 'Judge / Provider',
-      value: (raw?: Datum) => {
-        const datum = tooltipDatum(raw)
-        return `${formatLatency(datum.judgeLatencyMs)} / ${formatLatency(datum.providerLatencyMs)}`
-      },
-    },
-    {
-      key: 'Cost',
-      value: (raw?: Datum) => {
-        const datum = tooltipDatum(raw)
-        return `${formatMoney(datum.actualCostCny)} · Judge ${formatMoney(datum.judgeCostCny)} · Provider ${formatMoney(datum.providerCostCny)} · Failed ${formatMoney(datum.failedAttemptCostCny)}`
-      },
-    },
-  ]
+    `<div style="font-weight:600;margin-bottom:6px">${escapeHtml(item.actualModel || item.requestedModel)}</div>`,
+    `<div>Difficulty ${item.difficulty.toFixed(1)} · Step ${item.sequence}</div>`,
+    `<div>${judgeLabel(item)}${backup}</div>`,
+    `<div>${escapeHtml(item.provider)} · ${escapeHtml(item.channel)}</div>`,
+    `<div>端到端 ${formatLatency(item.endToEndLatencyMs)} · 首模型事件 ${formatLatency(item.firstModelEventLatencyMs)}</div>`,
+    `<div>Judge ${formatLatency(item.judgeLatencyMs)} · Provider ${formatLatency(item.providerLatencyMs)}</div>`,
+    `<div>成本 ${formatMoney(item.actualCostCny)}（Judge ${formatMoney(item.judgeCostCny)} / Provider ${formatMoney(item.providerCostCny)} / 失败 ${formatMoney(item.failedAttemptCostCny)}）</div>`,
+    item.errorClass
+      ? `<div style="color:#e11d48;margin-top:4px">${escapeHtml(item.errorClass)}</div>`
+      : '',
+  ].join('')
 }
 
-export function buildACUWorkTimelineChartSpec({
+function timelineItemFromTooltip(
+  params: unknown
+): ACUWorkTimelineItem | undefined {
+  const data = (params as { data?: Partial<TimelineChartDatum> })?.data
+  return data?.timelineItem
+}
+
+function difficultyDatum(
+  item: ACUWorkTimelineItem,
+  dark: boolean
+): TimelineChartDatum {
+  let fill = dark ? '#0f172a' : '#ffffff'
+  if (item.judgeCalled) fill = modelColor(item)
+  return {
+    value: [item.timestamp * 1000, item.difficulty],
+    timelineItem: item,
+    symbolSize: item.judgeBackupUsed ? 13 : 10,
+    itemStyle: {
+      color: fill,
+      borderColor: pointStroke(item),
+      borderWidth: item.judgeBackupUsed ? 3 : 2,
+    },
+  }
+}
+
+function costDatum(item: ACUWorkTimelineItem): TimelineChartDatum {
+  return {
+    value: [item.timestamp * 1000, item.actualCostCny],
+    timelineItem: item,
+    itemStyle: { color: modelColor(item), opacity: 0.82 },
+  }
+}
+
+export function timelineRangeFromZoom(
+  event: unknown,
+  from: number,
+  to: number
+): { start: number; end: number } | undefined {
+  const payload = event as {
+    start?: number
+    end?: number
+    startValue?: number
+    endValue?: number
+    batch?: Array<{
+      start?: number
+      end?: number
+      startValue?: number
+      endValue?: number
+    }>
+  }
+  const zoom = payload.batch?.[0] ?? payload
+  if (Number.isFinite(zoom.startValue) && Number.isFinite(zoom.endValue)) {
+    return {
+      start: Number(zoom.startValue) / 1000,
+      end: Number(zoom.endValue) / 1000,
+    }
+  }
+  if (!Number.isFinite(zoom.start) || !Number.isFinite(zoom.end)) return
+  const duration = to - from
+  return {
+    start: from + (duration * Number(zoom.start)) / 100,
+    end: from + (duration * Number(zoom.end)) / 100,
+  }
+}
+
+export function timelineItemFromChartEvent(
+  event: unknown
+): ACUWorkTimelineItem | undefined {
+  const data = (event as { data?: Partial<TimelineChartDatum> })?.data
+  return data?.timelineItem?.logicalRequestId ? data.timelineItem : undefined
+}
+
+export function buildACUWorkTimelineChartOption({
   items,
   hours,
+  from,
+  to,
   dark,
-}: TimelineChartOptions): ICommonChartSpec {
+}: TimelineChartOptions): EChartsOption {
   const text = dark ? '#cbd5e1' : '#475569'
   const grid = dark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(100, 116, 139, 0.18)'
-  const surface = dark ? 'rgba(30, 41, 59, 0.76)' : 'rgba(241, 245, 249, 0.92)'
+  const slider = dark ? '#1e293b' : '#f1f5f9'
+  const handle = dark ? '#93c5fd' : '#2563eb'
   let minimumWindowSeconds = 5 * 60
-  if (hours >= 24) {
-    minimumWindowSeconds = 60 * 60
-  } else if (hours >= 6) {
-    minimumWindowSeconds = 15 * 60
-  }
-  const backupItems = items.filter((item) => item.judgeBackupUsed)
-  const axes: ICartesianAxisSpec[] = [
-    {
-      id: 'difficulty-x-axis',
-      orient: 'bottom',
-      regionId: 'difficulty-region',
-      type: 'linear',
-      zero: false,
-      nice: false,
-      visible: false,
-    },
-    {
-      id: 'cost-x-axis',
-      orient: 'bottom',
-      regionId: 'cost-region',
-      type: 'linear',
-      zero: false,
-      nice: false,
-      label: {
-        formatMethod: (value) => formatTime(numericLabel(value)),
-        style: { fill: text, fontSize: 10 },
-        autoHide: true,
-      },
-      tick: { visible: false },
-    },
-    {
-      id: 'difficulty-y-axis',
-      orient: 'left',
-      regionId: 'difficulty-region',
-      min: 0,
-      max: 100,
-      title: { visible: true, text: 'Difficulty' },
-      label: { style: { fill: text, fontSize: 10 } },
-      grid: {
-        visible: true,
-        style: { stroke: grid, lineDash: [3, 3] },
-      },
-    },
-    {
-      id: 'cost-y-axis',
-      orient: 'left',
-      regionId: 'cost-region',
-      min: 0,
-      title: { visible: true, text: 'Cost' },
-      label: {
-        formatMethod: (value) => formatMoney(numericLabel(value)),
-        style: { fill: text, fontSize: 10 },
-      },
-      grid: {
-        visible: true,
-        style: { stroke: grid, lineDash: [3, 3] },
-      },
-    },
-  ]
+  if (hours >= 24) minimumWindowSeconds = 60 * 60
+  else if (hours >= 6) minimumWindowSeconds = 15 * 60
+
+  const segments = [...new Set(items.map((item) => item.segmentId))]
+  const difficultySeries = segments.map((segmentId) => ({
+    id: `difficulty-${segmentId}`,
+    name: segmentId,
+    type: 'line' as const,
+    xAxisIndex: 0,
+    yAxisIndex: 0,
+    data: items
+      .filter((item) => item.segmentId === segmentId)
+      .map((item) => difficultyDatum(item, dark)),
+    showSymbol: true,
+    connectNulls: false,
+    symbol: 'circle',
+    lineStyle: { color: '#64748b', width: 1.5, opacity: 0.68 },
+    emphasis: { focus: 'self' as const, scale: 1.3 },
+    animation: false,
+  }))
 
   return {
-    type: 'common',
-    background: 'transparent',
-    padding: { top: 14, right: 16, bottom: 58, left: 8 },
-    layout: {
-      type: 'grid',
-      col: 2,
-      row: 5,
-      colWidth: [{ index: 0, size: 58 }],
-      rowHeight: [
-        { index: 0, size: (height) => height * 0.52 },
-        { index: 1, size: 20 },
-        { index: 3, size: 28 },
-        { index: 4, size: 46 },
-      ],
-      elements: [
-        { modelId: 'difficulty-region', col: 1, row: 0 },
-        { modelId: 'difficulty-x-axis', col: 1, row: 1 },
-        { modelId: 'difficulty-y-axis', col: 0, row: 0 },
-        { modelId: 'cost-region', col: 1, row: 2 },
-        { modelId: 'cost-x-axis', col: 1, row: 3 },
-        { modelId: 'cost-y-axis', col: 0, row: 2 },
-        { modelId: ACU_TIMELINE_ZOOM_ID, col: 1, row: 4 },
-      ],
+    animation: false,
+    backgroundColor: 'transparent',
+    grid: [
+      { left: 62, right: 22, top: 18, height: '48%' },
+      { left: 62, right: 22, top: '63%', bottom: 78 },
+    ],
+    axisPointer: {
+      link: [{ xAxisIndex: [0, 1] }],
+      lineStyle: { color: '#64748b', type: 'dashed' },
     },
-    data: [
-      { id: 'acu-timeline-items', values: items },
-      { id: 'acu-timeline-backups', values: backupItems },
-    ],
-    region: [
+    xAxis: [
       {
-        id: 'difficulty-region',
-        padding: { right: 18, top: 8, bottom: 4 },
+        type: 'time',
+        gridIndex: 0,
+        min: from * 1000,
+        max: to * 1000,
+        axisLabel: { show: false },
+        axisLine: { show: false },
+        axisTick: { show: false },
+        splitLine: { show: false },
       },
       {
-        id: 'cost-region',
-        padding: { right: 18, top: 8, bottom: 4 },
+        type: 'time',
+        gridIndex: 1,
+        min: from * 1000,
+        max: to * 1000,
+        axisLabel: { color: text, fontSize: 10, hideOverlap: true },
+        axisLine: { lineStyle: { color: grid } },
+        axisTick: { show: false },
+        splitLine: { show: false },
       },
     ],
+    yAxis: [
+      {
+        type: 'value',
+        gridIndex: 0,
+        min: 0,
+        max: 100,
+        name: 'Difficulty',
+        nameLocation: 'middle',
+        nameGap: 42,
+        nameTextStyle: { color: text, fontSize: 11 },
+        axisLabel: { color: text, fontSize: 10 },
+        axisLine: { show: false },
+        axisTick: { show: false },
+        splitLine: { lineStyle: { color: grid, type: 'dashed' } },
+      },
+      {
+        type: 'value',
+        gridIndex: 1,
+        min: 0,
+        name: 'Cost',
+        nameLocation: 'middle',
+        nameGap: 50,
+        nameTextStyle: { color: text, fontSize: 11 },
+        axisLabel: {
+          color: text,
+          fontSize: 10,
+          formatter: (value: number) => formatMoney(value),
+        },
+        axisLine: { show: false },
+        axisTick: { show: false },
+        splitLine: { lineStyle: { color: grid, type: 'dashed' } },
+      },
+    ],
+    dataZoom: [
+      {
+        id: ACU_TIMELINE_INSIDE_ZOOM_ID,
+        type: 'inside',
+        xAxisIndex: [0, 1],
+        filterMode: 'filter',
+        start: 0,
+        end: 100,
+        minValueSpan: minimumWindowSeconds * 1000,
+        zoomOnMouseWheel: true,
+        moveOnMouseMove: true,
+        moveOnMouseWheel: false,
+        preventDefaultMouseMove: true,
+      },
+      {
+        id: ACU_TIMELINE_SLIDER_ZOOM_ID,
+        type: 'slider',
+        xAxisIndex: [0, 1],
+        filterMode: 'filter',
+        start: 0,
+        end: 100,
+        minValueSpan: minimumWindowSeconds * 1000,
+        bottom: 14,
+        height: 30,
+        showDetail: true,
+        realtime: true,
+        brushSelect: true,
+        backgroundColor: slider,
+        fillerColor: dark
+          ? 'rgba(37, 99, 235, 0.24)'
+          : 'rgba(147, 197, 253, 0.38)',
+        borderColor: grid,
+        handleStyle: { color: handle, borderColor: handle },
+        moveHandleStyle: { color: handle, opacity: 0.7 },
+        dataBackground: {
+          lineStyle: { color: '#64748b', opacity: 0.5 },
+          areaStyle: { color: '#94a3b8', opacity: 0.16 },
+        },
+        selectedDataBackground: {
+          lineStyle: { color: handle, opacity: 0.8 },
+          areaStyle: { color: handle, opacity: 0.18 },
+        },
+      },
+    ],
+    tooltip: {
+      trigger: 'item',
+      confine: true,
+      backgroundColor: dark
+        ? 'rgba(15, 23, 42, 0.96)'
+        : 'rgba(255, 255, 255, 0.98)',
+      borderColor: grid,
+      textStyle: { color: dark ? '#e2e8f0' : '#0f172a', fontSize: 12 },
+      formatter: (params: unknown) => {
+        const item = timelineItemFromTooltip(params)
+        return item ? tooltipHtml(item) : ''
+      },
+    },
     series: [
-      {
-        id: 'difficulty-series',
-        type: 'line',
-        regionId: 'difficulty-region',
-        dataId: 'acu-timeline-items',
-        xField: 'timestamp',
-        yField: 'difficulty',
-        seriesField: 'segmentId',
-        invalidType: 'break',
-        line: {
-          interactive: false,
-          style: {
-            stroke: '#64748b',
-            lineWidth: 1.5,
-            strokeOpacity: 0.68,
-          },
-        },
-        point: {
-          visible: true,
-          interactive: true,
-          style: {
-            size: (datum: Record<string, unknown>) =>
-              datum.judgeBackupUsed ? 13 : 10,
-            fill: (datum: Record<string, unknown>) => pointFill(datum, dark),
-            stroke: pointStroke,
-            lineWidth: (datum: Record<string, unknown>) =>
-              datum.judgeBackupUsed ? 3 : 2,
-            cursor: 'pointer',
-          },
-        },
-      },
+      ...difficultySeries,
       {
         id: 'judge-backup-rings',
         type: 'scatter',
-        regionId: 'difficulty-region',
-        dataId: 'acu-timeline-backups',
-        xField: 'timestamp',
-        yField: 'difficulty',
-        point: {
-          interactive: false,
-          style: {
-            size: 19,
-            fillOpacity: 0,
-            stroke: modelColor,
-            strokeOpacity: 0.5,
-            lineWidth: 1.5,
-          },
-        },
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        silent: true,
+        symbol: 'circle',
+        symbolSize: 19,
+        data: items
+          .filter((item) => item.judgeBackupUsed)
+          .map((item) => ({
+            value: [item.timestamp * 1000, item.difficulty],
+            itemStyle: {
+              color: 'transparent',
+              borderColor: modelColor(item),
+              borderWidth: 1.5,
+              opacity: 0.5,
+            },
+          })),
+        animation: false,
       },
       {
         id: 'cost-series',
         type: 'bar',
-        regionId: 'cost-region',
-        dataId: 'acu-timeline-items',
-        xField: 'timestamp',
-        yField: 'actualCostCny',
+        xAxisIndex: 1,
+        yAxisIndex: 1,
+        data: items.map(costDatum),
         barMinWidth: 3,
         barMaxWidth: 22,
-        bar: {
-          interactive: true,
-          style: {
-            fill: modelColor,
-            fillOpacity: 0.82,
-            cornerRadius: [3, 3, 0, 0],
-            cursor: 'pointer',
-          },
-        },
+        itemStyle: { borderRadius: [3, 3, 0, 0] },
+        emphasis: { focus: 'self' },
+        animation: false,
       },
     ],
-    axes,
-    dataZoom: [
-      {
-        id: ACU_TIMELINE_ZOOM_ID,
-        orient: 'bottom',
-        regionIndex: [0, 1],
-        field: 'timestamp',
-        valueField: 'timestamp',
-        filterMode: 'filter',
-        start: 0,
-        end: 1,
-        minValueSpan: minimumWindowSeconds,
-        height: 34,
-        showDetail: true,
-        showBackgroundChart: true,
-        brushSelect: true,
-        realTime: true,
-        roamZoom: { enable: true, focus: true, rate: 1.2 },
-        roamDrag: { enable: true, rate: 1 },
-        roamScroll: { enable: true, rate: 1 },
-        background: { style: { fill: surface } },
-        selectedBackground: {
-          style: { fill: dark ? '#1d4ed8' : '#bfdbfe', fillOpacity: 0.28 },
-        },
-        startText: {
-          formatMethod: (value: number | string) => formatTime(Number(value)),
-        },
-        endText: {
-          formatMethod: (value: number | string) => formatTime(Number(value)),
-        },
-      },
-    ],
-    crosshair: {
-      xField: { visible: true, line: { style: { stroke: '#64748b' } } },
-      yField: { visible: false },
-    },
-    tooltip: {
-      mark: {
-        title: {
-          value: (raw?: Datum) => {
-            const datum = tooltipDatum(raw)
-            return `${datum.actualModel ?? datum.requestedModel ?? ''} · ${new Date(Number(datum.timestamp) * 1000).toLocaleString()}`
-          },
-        },
-        content: tooltipContent(),
-      },
-    },
-    legends: { visible: false },
   }
 }
 
