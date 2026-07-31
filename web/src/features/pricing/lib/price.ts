@@ -102,6 +102,14 @@ function hasRatio(value: number | null | undefined): boolean {
   return value !== undefined && value !== null && Number.isFinite(Number(value))
 }
 
+export function formatACUCNY(value: number, maximumFractionDigits = 6): string {
+  if (!Number.isFinite(value)) return '-'
+  return `¥${new Intl.NumberFormat('zh-CN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits,
+  }).format(value)}`
+}
+
 /**
  * Apply recharge rate to price
  *
@@ -154,9 +162,15 @@ export function formatPrice(
     return '-'
   }
 
-  const displayGroupRatio = getDisplayGroupRatio(model, selectedGroup)
+  const isDirectCNY = model.price_currency === 'CNY'
+  const displayGroupRatio = isDirectCNY
+    ? 1
+    : getDisplayGroupRatio(model, selectedGroup)
 
   let priceInUSD = calculateTokenPrice(model, type, displayGroupRatio)
+  if (isDirectCNY) {
+    return formatACUCNY(priceInUSD / TOKEN_UNIT_DIVISORS[tokenUnit])
+  }
   priceInUSD = applyRechargeRate(
     priceInUSD,
     showWithRecharge,
@@ -189,8 +203,13 @@ export function formatGroupPrice(
     return '-'
   }
 
-  const ratio = getConfiguredGroupRatio(groupRatio, group)
+  const isDirectCNY = model.price_currency === 'CNY'
+  const ratio = isDirectCNY ? 1 : getConfiguredGroupRatio(groupRatio, group)
   let priceInUSD = calculateTokenPrice(model, type, ratio)
+
+  if (isDirectCNY) {
+    return formatACUCNY(priceInUSD / TOKEN_UNIT_DIVISORS[tokenUnit])
+  }
 
   priceInUSD = applyRechargeRate(
     priceInUSD,

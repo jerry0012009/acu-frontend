@@ -5225,6 +5225,15 @@
     "Web Profile Verified": "Web Profile Verified",
     "Web Fallback Chain": "Web Fallback Chain",
     "Web Tool Pruned": "Web Tool Pruned",
-    "Prune Reason": "Prune Reason"
+    "Prune Reason": "Prune Reason",
+    "ACU model quality curves": "ACU model quality curves",
+    "Quality is predicted by task difficulty. CNY prices use the current reference execution profile and real provider cash conversion.": "Quality is predicted by task difficulty. CNY prices use the current reference execution profile and real provider cash conversion.",
+    "Expected output tokens": "Expected output tokens",
+    "Estimated quality": "Estimated quality",
+    "Estimated execution cost": "Estimated execution cost",
+    "Estimated execution cost (CNY)": "Estimated execution cost (CNY)",
+    "Difficulty and estimated quality": "Difficulty and estimated quality",
+    "Select at least one model": "Select at least one model",
+    "Marketplace cost is a pre-request estimate. Final historical cost uses the settled user charge in CNY.": "Marketplace cost is a pre-request estimate. Final historical cost uses the settled user charge in CNY."
   }
 }

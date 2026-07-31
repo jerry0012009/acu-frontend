@@ -69,6 +69,16 @@ export type PricingModel = {
   acu_status?: string
   pricing_label?: string
   pricing_description?: string
+  price_currency?: 'CNY' | 'USD'
+  price_semantics?: 'estimated_user_cash_cost' | string
+  acu_cost_basis?: string
+  acu_cost_execution_profile_id?: string
+  acu_cost_provider?: string
+  acu_cost_channel?: string
+  acu_effective_cost_status?: 'verified' | 'estimated'
+  acu_curve_profile?: string
+  acu_profile_confidence?: string
+  acu_curve?: ACUCurvePoint[]
   /**
    * Optional model metadata fields reserved for backend-provided catalog data.
    * Keep them data-driven; do not synthesize display values on the client.
@@ -81,6 +91,13 @@ export type PricingModel = {
   input_modalities?: Modality[]
   output_modalities?: Modality[]
   capabilities?: ModelCapability[]
+}
+
+export type ACUCurvePoint = {
+  difficultyScore: number
+  estimatedQuality: number
+  qualityLower: number
+  qualityUpper: number
 }
 
 /** Input/output modalities supported by a model. */

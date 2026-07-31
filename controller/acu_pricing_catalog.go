@@ -19,20 +19,36 @@ type acuPricingAuto struct {
 }
 
 type acuPricingResponse struct {
-	ModelID                    string   `json:"modelId"`
-	Role                       string   `json:"role"`
-	InputPricePerMillion       float64  `json:"inputPricePerMillion"`
-	OutputPricePerMillion      float64  `json:"outputPricePerMillion"`
-	CachedInputPricePerMillion float64  `json:"cachedInputPricePerMillion"`
-	Protocol                   string   `json:"protocol"`
-	ToolCall                   bool     `json:"toolCall"`
-	Reasoning                  bool     `json:"reasoning"`
-	ActiveInAcuAuto            bool     `json:"activeInAcuAuto"`
-	Provider                   string   `json:"provider"`
-	Status                     string   `json:"status"`
-	HealthyChannelCount        int      `json:"healthyChannelCount"`
-	EffectiveCostStatuses      []string `json:"effectiveCostStatuses"`
+	ModelID                                string          `json:"modelId"`
+	DisplayName                            string          `json:"displayName"`
+	Role                                   string          `json:"role"`
+	InputPricePerMillion                   float64         `json:"inputPricePerMillion"`
+	OutputPricePerMillion                  float64         `json:"outputPricePerMillion"`
+	CachedInputPricePerMillion             float64         `json:"cachedInputPricePerMillion"`
+	EffectiveInputPriceCNYPerMillion       float64         `json:"effectiveInputPriceCnyPerMillion"`
+	EffectiveOutputPriceCNYPerMillion      float64         `json:"effectiveOutputPriceCnyPerMillion"`
+	EffectiveCachedInputPriceCNYPerMillion float64         `json:"effectiveCachedInputPriceCnyPerMillion"`
+	CostCurrency                           string          `json:"costCurrency"`
+	CostSemantics                          string          `json:"costSemantics"`
+	CostBasis                              string          `json:"costBasis"`
+	CostExecutionProfileID                 string          `json:"costExecutionProfileId"`
+	CostProvider                           string          `json:"costProvider"`
+	CostChannel                            string          `json:"costChannel"`
+	EffectiveCostStatus                    string          `json:"effectiveCostStatus"`
+	CurveProfile                           string          `json:"curveProfile"`
+	ProfileConfidence                      string          `json:"profileConfidence"`
+	Curve                                  []acuCurvePoint `json:"curve"`
+	Protocol                               string          `json:"protocol"`
+	ToolCall                               bool            `json:"toolCall"`
+	Reasoning                              bool            `json:"reasoning"`
+	ActiveInAcuAuto                        bool            `json:"activeInAcuAuto"`
+	Provider                               string          `json:"provider"`
+	Status                                 string          `json:"status"`
+	HealthyChannelCount                    int             `json:"healthyChannelCount"`
+	EffectiveCostStatuses                  []string        `json:"effectiveCostStatuses"`
 }
+
+type acuCurvePoint = model.ACUPricingCurvePoint
 
 type acuCurveModelStatus struct {
 	ModelID                      string   `json:"modelId"`
@@ -104,16 +120,27 @@ func overlayACUPricing(catalog *acuPricingCatalog, current []model.Pricing) []mo
 	for _, source := range catalog.Responses {
 		item := byName[source.ModelID]
 		item.ModelName = source.ModelID
+		item.DisplayName = source.DisplayName
 		item.Description = source.Role + " · " + source.Protocol + " · Tool Call · Reasoning · ACU Auto · " + source.Provider + " · " + source.Status
 		item.Tags = strings.Join([]string{source.Role, source.Protocol, "Tool Call", "Reasoning", "ACU Auto", source.Provider, source.Status}, ",")
 		item.QuotaType = 0
-		item.ModelRatio = source.InputPricePerMillion / 2
-		item.CompletionRatio = source.OutputPricePerMillion / source.InputPricePerMillion
-		cacheRatio := source.CachedInputPricePerMillion / source.InputPricePerMillion
+		item.ModelRatio = source.EffectiveInputPriceCNYPerMillion / 2
+		item.CompletionRatio = source.EffectiveOutputPriceCNYPerMillion / source.EffectiveInputPriceCNYPerMillion
+		cacheRatio := source.EffectiveCachedInputPriceCNYPerMillion / source.EffectiveInputPriceCNYPerMillion
 		item.CacheRatio = &cacheRatio
-		item.InputPricePerMillion = &source.InputPricePerMillion
-		item.OutputPricePerMillion = &source.OutputPricePerMillion
-		item.CachedPricePerMillion = &source.CachedInputPricePerMillion
+		item.InputPricePerMillion = &source.EffectiveInputPriceCNYPerMillion
+		item.OutputPricePerMillion = &source.EffectiveOutputPriceCNYPerMillion
+		item.CachedPricePerMillion = &source.EffectiveCachedInputPriceCNYPerMillion
+		item.PriceCurrency = source.CostCurrency
+		item.PriceSemantics = source.CostSemantics
+		item.ACUCostBasis = source.CostBasis
+		item.ACUCostExecutionProfileID = source.CostExecutionProfileID
+		item.ACUCostProvider = source.CostProvider
+		item.ACUCostChannel = source.CostChannel
+		item.ACUEffectiveCostStatus = source.EffectiveCostStatus
+		item.ACUCurveProfile = source.CurveProfile
+		item.ACUProfileConfidence = source.ProfileConfidence
+		item.ACUCurve = source.Curve
 		item.ACURole = source.Role
 		item.ACUProtocol = source.Protocol
 		item.ACUToolCall = &source.ToolCall

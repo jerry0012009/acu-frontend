@@ -5225,6 +5225,15 @@
     "Web Profile Verified": "Web Profile 已验证",
     "Web Fallback Chain": "Web 回退链",
     "Web Tool Pruned": "已裁剪 Web 工具",
-    "Prune Reason": "裁剪原因"
+    "Prune Reason": "裁剪原因",
+    "ACU model quality curves": "ACU 模型质量曲线",
+    "Quality is predicted by task difficulty. CNY prices use the current reference execution profile and real provider cash conversion.": "质量随任务难度预测；人民币价格使用当前参考执行线路与 Provider 真实充值现金换算。",
+    "Expected output tokens": "预期输出 Token",
+    "Estimated quality": "预计质量",
+    "Estimated execution cost": "预计执行成本",
+    "Estimated execution cost (CNY)": "预计执行成本（人民币）",
+    "Difficulty and estimated quality": "任务难度与预计质量",
+    "Select at least one model": "请至少选择一个模型",
+    "Marketplace cost is a pre-request estimate. Final historical cost uses the settled user charge in CNY.": "模型广场展示请求前估算；历史请求成本以最终结算的用户人民币扣费为准。"
   }
 }
