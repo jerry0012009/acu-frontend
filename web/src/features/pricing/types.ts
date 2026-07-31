@@ -139,6 +139,35 @@ export type PricingData = {
   acu_curve_status_counts?: Record<string, number>
 }
 
+export type ACUSelectionCandidate = {
+  modelId: string
+  quality: number
+  costCny: number
+  valueUtility: number
+}
+
+export type ACUSelectionCorridorPoint = {
+  difficulty: number
+  selectedModelId: string
+  selectedQuality: number
+  selectedCostCny: number
+  qualityLower: number
+  qualityUpper: number
+  candidates: ACUSelectionCandidate[]
+}
+
+export type ACUSelectionCorridor = {
+  formulaVersion: string
+  generatedAt: string
+  inputTokens: number
+  expectedOutputTokens: number
+  assumptions: Record<string, unknown>
+  series: Record<
+    'economy' | 'balanced' | 'quality',
+    ACUSelectionCorridorPoint[]
+  >
+}
+
 export type TokenUnit = 'M' | 'K'
 export type PriceType =
   | 'input'

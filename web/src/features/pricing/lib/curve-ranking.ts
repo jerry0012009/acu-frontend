@@ -35,3 +35,14 @@ export function compareQualityAtDifficulty(
     qualityAtDifficulty(left, difficulty)
   )
 }
+
+export function sortTooltipLinesByQuality<
+  T extends { datum?: { quality?: number } },
+>(lines: T[]): T[] {
+  return [...lines]
+    .filter((line) => Number.isFinite(line.datum?.quality))
+    .sort(
+      (left, right) =>
+        Number(right.datum?.quality ?? 0) - Number(left.datum?.quality ?? 0)
+    )
+}

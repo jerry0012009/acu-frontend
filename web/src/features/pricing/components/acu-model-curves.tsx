@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query'
 /*
 Copyright (C) 2023-2026 QuantumNous
 
@@ -25,7 +26,13 @@ import {
   CircleDollarSign,
   Route,
 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -34,16 +41,23 @@ import { useChartTheme } from '@/lib/use-chart-theme'
 import { cn } from '@/lib/utils'
 import { VCHART_OPTION } from '@/lib/vchart'
 
-import { formatACUCNY } from '../lib/price'
+import { getACUSelectionCorridor } from '../api'
 import {
   compareQualityAtDifficulty,
   qualityAtDifficulty,
+  sortTooltipLinesByQuality,
 } from '../lib/curve-ranking'
+import { formatACUCNY } from '../lib/price'
 import {
   PRICE_COLOR_STOPS,
   buildPriceRankColorMap,
   priceRankColor,
 } from '../lib/price-rank-color'
+import {
+  corridorIntervals,
+  corridorPointAtDifficulty,
+  type CorridorPreference,
+} from '../lib/selection-corridor'
 import type { PricingModel } from '../types'
 
 function positiveInteger(value: string, fallback: number): number {
@@ -62,6 +76,16 @@ function estimatedCallCost(
 }
 
 type CurveSortMode = 'price' | 'ability'
+
+const CORRIDOR_PREFERENCES: Array<{
+  id: CorridorPreference
+  label: string
+  color: string
+}> = [
+  { id: 'economy', label: '省钱', color: '#0284c7' },
+  { id: 'balanced', label: '均衡', color: '#16a34a' },
+  { id: 'quality', label: '性能', color: '#c026d3' },
+]
 
 export function ACUModelCurves(props: { models: PricingModel[] }) {
   const { t } = useTranslation()
@@ -93,6 +117,20 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
   const [hoveredDifficulty, setHoveredDifficulty] = useState<number | null>(
     null
   )
+  const deferredInputTokens = useDeferredValue(inputTokens)
+  const deferredOutputTokens = useDeferredValue(outputTokens)
+  const { data: selectionCorridor, isError: selectionCorridorUnavailable } =
+    useQuery({
+      queryKey: [
+        'acu-selection-corridor',
+        deferredInputTokens,
+        deferredOutputTokens,
+      ],
+      queryFn: () =>
+        getACUSelectionCorridor(deferredInputTokens, deferredOutputTokens),
+      staleTime: 60 * 1000,
+      retry: 1,
+    })
   const abilityDifficulty = hoveredDifficulty ?? 50
 
   useEffect(() => {
@@ -121,9 +159,18 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
     [abilityDifficulty, curveModels, inputTokens, outputTokens, sortMode]
   )
   const selectedModels = useMemo(
-    () =>
-      curveModels.filter((model) => selectedSet.has(model.model_name)),
+    () => curveModels.filter((model) => selectedSet.has(model.model_name)),
     [curveModels, selectedSet]
+  )
+  const modelNameById = useMemo(
+    () =>
+      new Map(
+        curveModels.map((model) => [
+          model.model_name,
+          model.display_name || model.model_name,
+        ])
+      ),
+    [curveModels]
   )
   const colorByModel = useMemo(
     () =>
@@ -191,8 +238,8 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
         setHoveredDifficulty(null)
         return
       }
-      const value = event.dimensionInfo.find(
-        (item) => Number.isFinite(Number(item.value))
+      const value = event.dimensionInfo.find((item) =>
+        Number.isFinite(Number(item.value))
       )?.value
       if (value !== undefined) setHoveredDifficulty(Number(value))
     },
@@ -207,17 +254,81 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
   const gridColor =
     resolvedTheme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(15,23,42,0.1)'
 
+  const corridorData = useMemo(
+    () =>
+      CORRIDOR_PREFERENCES.map((preference) => ({
+        ...preference,
+        values: (selectionCorridor?.series[preference.id] ?? []).map(
+          (point) => ({ ...point, preference: preference.label })
+        ),
+      })),
+    [selectionCorridor]
+  )
+
+  const corridorAtHover = useMemo(
+    () =>
+      CORRIDOR_PREFERENCES.map((preference) => ({
+        ...preference,
+        point: corridorPointAtDifficulty(
+          selectionCorridor,
+          preference.id,
+          abilityDifficulty
+        ),
+      })),
+    [abilityDifficulty, selectionCorridor]
+  )
+  let corridorStatusText = '正在读取当前路由快照'
+  if (selectionCorridor) {
+    corridorStatusText = `${selectionCorridor.formulaVersion} · 零调用模拟 · ${new Date(
+      selectionCorridor.generatedAt
+    ).toLocaleTimeString()}`
+  } else if (selectionCorridorUnavailable) {
+    corridorStatusText = '当前路由快照暂不可用'
+  }
+
   const curveSpec = useMemo(
     () => ({
-      type: 'line' as const,
-      data: [{ id: 'acu-model-curves', values: curveData }],
-      xField: 'difficulty',
-      yField: 'quality',
-      seriesField: 'modelName',
-      color: chartColors,
+      type: 'common' as const,
+      data: [
+        ...corridorData.map((corridor) => ({
+          id: `acu-corridor-${corridor.id}`,
+          values: corridor.values,
+        })),
+        { id: 'acu-model-curves', values: curveData },
+      ],
+      series: [
+        ...corridorData.map((corridor, index) => ({
+          type: 'rangeArea' as const,
+          dataIndex: index,
+          xField: 'difficulty',
+          yField: ['qualityLower', 'qualityUpper'],
+          animation: false,
+          area: {
+            style: { fill: corridor.color, fillOpacity: 0.075 },
+          },
+          line: {
+            style: {
+              stroke: corridor.color,
+              lineWidth: 1,
+              lineDash: [4, 4],
+              strokeOpacity: 0.5,
+            },
+          },
+          tooltip: { visible: false },
+        })),
+        {
+          type: 'line' as const,
+          dataIndex: corridorData.length,
+          xField: 'difficulty',
+          yField: 'quality',
+          seriesField: 'modelName',
+          color: chartColors,
+          animation: false,
+          line: { style: { lineWidth: 2 } },
+          point: { visible: false },
+        },
+      ],
       animation: false,
-      line: { style: { lineWidth: 2 } },
-      point: { visible: false },
       legends: { visible: false },
       crosshair: {
         xField: { visible: true, line: { style: { stroke: axisColor } } },
@@ -235,6 +346,9 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
                 `${datum.quality.toFixed(1)} · ${formatACUCNY(datum.cost)}`,
             },
           ],
+          updateContent: (
+            previous: Array<{ datum?: { quality?: number } }> = []
+          ) => sortTooltipLinesByQuality(previous),
         },
       },
       axes: [
@@ -262,7 +376,7 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
         },
       ],
     }),
-    [axisColor, chartColors, curveData, gridColor, t]
+    [axisColor, chartColors, corridorData, curveData, gridColor, t]
   )
 
   const costSpec = useMemo(
@@ -515,6 +629,108 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
                   onDimensionHover={handleDimensionHover}
                 />
               )}
+            </div>
+            <div className='mt-3 border-t pt-3'>
+              <div className='mb-2 flex flex-wrap items-center justify-between gap-2'>
+                <div className='text-xs font-medium'>ACU Auto 选择走廊</div>
+                <div className='text-muted-foreground text-[10px]'>
+                  {corridorStatusText}
+                </div>
+              </div>
+              <div className='space-y-1.5'>
+                {corridorData.map((corridor) => (
+                  <div
+                    key={corridor.id}
+                    className='grid grid-cols-[36px_minmax(0,1fr)] items-center gap-2'
+                  >
+                    <span
+                      className='text-[11px] font-medium'
+                      style={{ color: corridor.color }}
+                    >
+                      {corridor.label}
+                    </span>
+                    <div className='bg-muted/60 relative h-5 overflow-hidden rounded-sm border'>
+                      {corridorIntervals(corridor.values).map((interval) => {
+                        const width = Math.max(
+                          2,
+                          interval.endDifficulty - interval.startDifficulty + 2
+                        )
+                        return (
+                          <div
+                            key={`${corridor.id}-${interval.modelId}-${interval.startDifficulty}-${interval.endDifficulty}`}
+                            className='absolute inset-y-0 flex items-center justify-center overflow-hidden border-r border-white/40 px-1 text-[9px] font-medium text-white'
+                            title={`${interval.startDifficulty}–${interval.endDifficulty}: ${
+                              modelNameById.get(interval.modelId) ||
+                              interval.modelId
+                            }`}
+                            style={{
+                              left: `${interval.startDifficulty}%`,
+                              width: `${Math.min(
+                                100 - interval.startDifficulty,
+                                width
+                              )}%`,
+                              backgroundColor:
+                                colorByModel.get(interval.modelId) ||
+                                corridor.color,
+                            }}
+                          >
+                            {width >= 9
+                              ? modelNameById.get(interval.modelId) ||
+                                interval.modelId
+                              : ''}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className='mt-3 grid gap-2 sm:grid-cols-3'>
+                {corridorAtHover.map(({ id, label, color, point }) => (
+                  <div
+                    key={id}
+                    className='bg-muted/25 min-w-0 rounded-md border px-2.5 py-2'
+                  >
+                    <div className='flex items-center justify-between gap-2 text-[11px]'>
+                      <span className='font-semibold' style={{ color }}>
+                        {label} · D{Math.round(abilityDifficulty)}
+                      </span>
+                      {point && (
+                        <span className='font-mono'>
+                          {point.selectedQuality.toFixed(1)}%
+                        </span>
+                      )}
+                    </div>
+                    <div className='mt-1 truncate text-xs font-medium'>
+                      {point
+                        ? modelNameById.get(point.selectedModelId) ||
+                          point.selectedModelId
+                        : '暂无可路由模型'}
+                    </div>
+                    {point && (
+                      <div className='text-muted-foreground mt-1 text-[10px] leading-4'>
+                        前沿候选：
+                        {point.candidates
+                          .map(
+                            (candidate) =>
+                              modelNameById.get(candidate.modelId) ||
+                              candidate.modelId
+                          )
+                          .join(' / ')}
+                        <br />
+                        质量范围 {point.qualityLower.toFixed(1)}%–
+                        {point.qualityUpper.toFixed(1)}% · 首选成本{' '}
+                        {formatACUCNY(point.selectedCostCny)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className='text-muted-foreground mt-2 text-[10px] leading-4'>
+                范围带由当前健康供给、实际人民币参考成本、Pareto
+                前沿和生产路由公式计算；展示 Responses、无工具、基础质量目标 80
+                的条件结果，不代表每个真实请求必然选择同一模型。
+              </p>
             </div>
           </div>
 

@@ -4,6 +4,7 @@ import { test } from 'node:test'
 import {
   compareQualityAtDifficulty,
   qualityAtDifficulty,
+  sortTooltipLinesByQuality,
 } from '../curve-ranking.ts'
 
 const curve = [
@@ -30,4 +31,16 @@ test('changes ability ranking when curves cross at the hovered difficulty', () =
   ]
   assert.ok(compareQualityAtDifficulty(curve, resilient, 0) < 0)
   assert.ok(compareQualityAtDifficulty(curve, resilient, 100) > 0)
+})
+
+test('orders hover labels by their vertical curve position', () => {
+  const lines = [
+    { key: 'middle', datum: { quality: 72 } },
+    { key: 'top', datum: { quality: 91 } },
+    { key: 'bottom', datum: { quality: 48 } },
+  ]
+  assert.deepEqual(
+    sortTooltipLinesByQuality(lines).map((line) => line.key),
+    ['top', 'middle', 'bottom']
+  )
 })

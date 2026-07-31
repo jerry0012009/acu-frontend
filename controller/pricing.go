@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"strconv"
+
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
@@ -76,7 +78,6 @@ func GetPricing(c *gin.Context) {
 	if acuCatalogErr != nil {
 		acuCatalogError = "catalog_load_failed"
 	}
-
 	c.JSON(200, gin.H{
 		"success":                  true,
 		"data":                     pricing,
@@ -91,6 +92,17 @@ func GetPricing(c *gin.Context) {
 		"acu_curve_model_statuses": sortedCurveStatuses(acuCatalog),
 		"acu_curve_status_counts":  acuCurveStatusCounts(acuCatalog),
 	})
+}
+
+func GetACUSelectionCorridor(c *gin.Context) {
+	inputTokens, _ := strconv.Atoi(c.DefaultQuery("input_tokens", "100000"))
+	expectedOutputTokens, _ := strconv.Atoi(c.DefaultQuery("output_tokens", "4000"))
+	result, err := service.GetACUSelectionCorridor(c.Request.Context(), inputTokens, expectedOutputTokens)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"success": true, "data": result})
 }
 
 func ResetModelRatio(c *gin.Context) {

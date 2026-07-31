@@ -51,6 +51,27 @@ func GetACUChannelMonitor(ctx context.Context, rangeValue string) (dto.ACUChanne
 	return result, nil
 }
 
+func GetACUSelectionCorridor(ctx context.Context, inputTokens, expectedOutputTokens int) (map[string]interface{}, error) {
+	path := fmt.Sprintf(
+		"/internal/admin/selection-corridor?inputTokens=%d&expectedOutputTokens=%d",
+		inputTokens,
+		expectedOutputTokens,
+	)
+	response, err := acuRouterAdminRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("ACU selection corridor returned HTTP %d", response.StatusCode)
+	}
+	result := map[string]interface{}{}
+	if err := common.DecodeJson(response.Body, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 func PauseACUChannel(ctx context.Context, input dto.ACUChannelPauseRequest, actor string) (dto.ACUChannelPauseResult, error) {
 	if input.DurationMinutes != 30 && input.DurationMinutes != 120 {
 		return dto.ACUChannelPauseResult{}, errors.New("pause duration must be 30 or 120 minutes")

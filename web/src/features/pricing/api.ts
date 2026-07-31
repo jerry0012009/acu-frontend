@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { api } from '@/lib/api'
 
-import type { PricingData } from './types'
+import type { ACUSelectionCorridor, PricingData } from './types'
 
 // ----------------------------------------------------------------------------
 // Pricing APIs
@@ -28,4 +28,14 @@ import type { PricingData } from './types'
 export async function getPricing(): Promise<PricingData> {
   const res = await api.get('/api/pricing')
   return res.data
+}
+
+export async function getACUSelectionCorridor(
+  inputTokens: number,
+  outputTokens: number
+): Promise<ACUSelectionCorridor> {
+  const res = await api.get('/api/pricing/acu-selection-corridor', {
+    params: { input_tokens: inputTokens, output_tokens: outputTokens },
+  })
+  return res.data.data
 }
