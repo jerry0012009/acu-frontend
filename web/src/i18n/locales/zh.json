@@ -5234,6 +5234,10 @@
     "Estimated execution cost (CNY)": "预计执行成本（人民币）",
     "Difficulty and estimated quality": "任务难度与预计质量",
     "Select at least one model": "请至少选择一个模型",
-    "Marketplace cost is a pre-request estimate. Final historical cost uses the settled user charge in CNY.": "模型广场展示请求前估算；历史请求成本以最终结算的用户人民币扣费为准。"
+    "Marketplace cost is a pre-request estimate. Final historical cost uses the settled user charge in CNY.": "模型广场展示请求前估算；历史请求成本以最终结算的用户人民币扣费为准。",
+    "Curve ranking": "曲线排序",
+    "Price ranking": "价格排序",
+    "Ability ranking": "能力排序",
+    "Average predicted quality": "曲线平均预计质量"
   }
 }

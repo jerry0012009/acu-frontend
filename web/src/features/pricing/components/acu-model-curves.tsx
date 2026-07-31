@@ -17,7 +17,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { VChart } from '@visactor/react-vchart'
-import { BarChart3, Check, CircleDollarSign, Route } from 'lucide-react'
+import {
+  ArrowDownUp,
+  BarChart3,
+  Check,
+  CircleDollarSign,
+  Route,
+} from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -61,6 +67,18 @@ function estimatedCallCost(
   return (inputTokens * inputPrice + outputTokens * outputPrice) / 1_000_000
 }
 
+function modelAbilityScore(model: PricingModel): number {
+  const curve = model.acu_curve ?? []
+  if (curve.length === 0) return 0
+  return (
+    (curve.reduce((sum, point) => sum + point.estimatedQuality, 0) /
+      curve.length) *
+    100
+  )
+}
+
+type CurveSortMode = 'price' | 'ability'
+
 export function ACUModelCurves(props: { models: PricingModel[] }) {
   const { t } = useTranslation()
   const { resolvedTheme, themeReady } = useChartTheme()
@@ -87,6 +105,7 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
   const [selectedModelIds, setSelectedModelIds] = useState<string[]>([])
   const [inputTokens, setInputTokens] = useState(100_000)
   const [outputTokens, setOutputTokens] = useState(4_000)
+  const [sortMode, setSortMode] = useState<CurveSortMode>('price')
 
   useEffect(() => {
     setSelectedModelIds(allModelIds)
@@ -96,9 +115,23 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
     () => new Set(selectedModelIds),
     [selectedModelIds]
   )
+  const orderedCurveModels = useMemo(
+    () =>
+      [...curveModels].sort((left, right) => {
+        if (sortMode === 'ability') {
+          return modelAbilityScore(right) - modelAbilityScore(left)
+        }
+        return (
+          estimatedCallCost(left, inputTokens, outputTokens) -
+          estimatedCallCost(right, inputTokens, outputTokens)
+        )
+      }),
+    [curveModels, inputTokens, outputTokens, sortMode]
+  )
   const selectedModels = useMemo(
-    () => curveModels.filter((model) => selectedSet.has(model.model_name)),
-    [curveModels, selectedSet]
+    () =>
+      orderedCurveModels.filter((model) => selectedSet.has(model.model_name)),
+    [orderedCurveModels, selectedSet]
   )
   const colorByModel = useMemo(
     () =>
@@ -124,6 +157,7 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
           qualityLower: point.qualityLower * 100,
           qualityUpper: point.qualityUpper * 100,
           cost,
+          abilityScore: modelAbilityScore(model),
           provider: model.acu_cost_provider || '-',
           channel: model.acu_cost_channel || '-',
         }))
@@ -143,9 +177,14 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
           provider: model.acu_cost_provider || '-',
           channel: model.acu_cost_channel || '-',
           status: model.acu_effective_cost_status || 'estimated',
+          abilityScore: modelAbilityScore(model),
         }))
-        .sort((left, right) => left.cost - right.cost),
-    [inputTokens, outputTokens, selectedModels]
+        .sort((left, right) =>
+          sortMode === 'ability'
+            ? right.abilityScore - left.abilityScore
+            : left.cost - right.cost
+        ),
+    [inputTokens, outputTokens, selectedModels, sortMode]
   )
 
   const chartColors = selectedModels.map(
@@ -235,6 +274,11 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
             {
               key: t('Estimated execution cost'),
               value: (datum: { cost: number }) => formatACUCNY(datum.cost),
+            },
+            {
+              key: t('Average predicted quality'),
+              value: (datum: { abilityScore: number }) =>
+                `${datum.abilityScore.toFixed(1)}%`,
             },
             {
               key: `${t('Input')} / 1M`,
@@ -343,7 +387,7 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
           >
             {t('All')} {allModelIds.length}
           </Button>
-          {curveModels.map((model) => {
+          {orderedCurveModels.map((model) => {
             const selected = selectedSet.has(model.model_name)
             return (
               <button
@@ -387,9 +431,37 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
       ) : (
         <div className='bg-border/60 grid min-w-0 gap-px xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.85fr)]'>
           <div className='bg-card min-w-0 p-3 sm:p-5'>
-            <div className='mb-2 flex items-center gap-2 text-sm font-medium'>
-              <BarChart3 className='text-muted-foreground size-4' />
-              {t('Difficulty and estimated quality')}
+            <div className='mb-2 flex flex-wrap items-center justify-between gap-2'>
+              <div className='flex items-center gap-2 text-sm font-medium'>
+                <BarChart3 className='text-muted-foreground size-4' />
+                {t('Difficulty and estimated quality')}
+              </div>
+              <div
+                className='bg-muted/40 inline-flex h-8 items-center rounded-md border p-0.5'
+                role='group'
+                aria-label={t('Curve ranking')}
+              >
+                <Button
+                  type='button'
+                  size='sm'
+                  variant={sortMode === 'price' ? 'secondary' : 'ghost'}
+                  className='h-6 gap-1 px-2 text-xs shadow-none'
+                  onClick={() => setSortMode('price')}
+                >
+                  <CircleDollarSign className='size-3' />
+                  {t('Price ranking')}
+                </Button>
+                <Button
+                  type='button'
+                  size='sm'
+                  variant={sortMode === 'ability' ? 'secondary' : 'ghost'}
+                  className='h-6 gap-1 px-2 text-xs shadow-none'
+                  onClick={() => setSortMode('ability')}
+                >
+                  <ArrowDownUp className='size-3' />
+                  {t('Ability ranking')}
+                </Button>
+              </div>
             </div>
             <div className='h-[360px] min-w-0 sm:h-[440px]'>
               {themeReady && (

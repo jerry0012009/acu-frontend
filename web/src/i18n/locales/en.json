@@ -5234,6 +5234,10 @@
     "Estimated execution cost (CNY)": "Estimated execution cost (CNY)",
     "Difficulty and estimated quality": "Difficulty and estimated quality",
     "Select at least one model": "Select at least one model",
-    "Marketplace cost is a pre-request estimate. Final historical cost uses the settled user charge in CNY.": "Marketplace cost is a pre-request estimate. Final historical cost uses the settled user charge in CNY."
+    "Marketplace cost is a pre-request estimate. Final historical cost uses the settled user charge in CNY.": "Marketplace cost is a pre-request estimate. Final historical cost uses the settled user charge in CNY.",
+    "Curve ranking": "Curve ranking",
+    "Price ranking": "Price ranking",
+    "Ability ranking": "Ability ranking",
+    "Average predicted quality": "Average predicted quality"
   }
 }
