@@ -301,6 +301,7 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
       series: [
         {
           type: 'rangeArea' as const,
+          zIndex: 0,
           dataIndex: 0,
           xField: 'difficulty',
           yField: ['qualityLower', 'qualityUpper'],
@@ -316,13 +317,20 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
         },
         {
           type: 'line' as const,
+          zIndex: 10,
           dataIndex: 1,
           xField: 'difficulty',
           yField: 'quality',
           seriesField: 'modelName',
           color: chartColors,
           animation: false,
-          line: { style: { lineWidth: 2 } },
+          line: {
+            style: {
+              lineWidth: 2,
+              stroke: (datum: { modelId?: string }) =>
+                colorByModel.get(datum.modelId ?? '') || priceRankColor(0.5),
+            },
+          },
           point: { visible: false },
         },
       ],
@@ -379,6 +387,7 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
       activeCorridor,
       axisColor,
       chartColors,
+      colorByModel,
       corridorPreference,
       curveData,
       gridColor,
@@ -400,7 +409,13 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
       ),
       animation: false,
       legends: { visible: false },
-      bar: { style: { cornerRadius: 3 } },
+      bar: {
+        style: {
+          cornerRadius: 3,
+          fill: (datum: { modelId?: string }) =>
+            colorByModel.get(datum.modelId ?? '') || priceRankColor(0.5),
+        },
+      },
       tooltip: {
         mark: {
           title: { value: (datum: { modelName: string }) => datum.modelName },
