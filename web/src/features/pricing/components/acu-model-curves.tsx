@@ -122,8 +122,8 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
           return modelAbilityScore(right) - modelAbilityScore(left)
         }
         return (
-          estimatedCallCost(left, inputTokens, outputTokens) -
-          estimatedCallCost(right, inputTokens, outputTokens)
+          estimatedCallCost(right, inputTokens, outputTokens) -
+          estimatedCallCost(left, inputTokens, outputTokens)
         )
       }),
     [curveModels, inputTokens, outputTokens, sortMode]
@@ -182,7 +182,7 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
         .sort((left, right) =>
           sortMode === 'ability'
             ? right.abilityScore - left.abilityScore
-            : left.cost - right.cost
+            : right.cost - left.cost
         ),
     [inputTokens, outputTokens, selectedModels, sortMode]
   )
