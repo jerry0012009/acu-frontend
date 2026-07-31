@@ -3,6 +3,7 @@ package controller
 import (
 	"testing"
 
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/stretchr/testify/require"
 )
@@ -74,4 +75,23 @@ func TestACUCurveModelIDSetContainsOnlyCatalogCurves(t *testing.T) {
 		{ModelID: " qwen3.7-max ", Statuses: []string{"preflight_failed"}},
 	}})
 	require.Equal(t, map[string]struct{}{"gpt-5.6-luna": {}, "qwen3.7-max": {}}, set)
+}
+
+func TestOverlayACUPricingPreservesNativeACUProtocols(t *testing.T) {
+	catalog := &acuPricingCatalog{
+		Auto: acuPricingAuto{ModelID: "acu-auto"},
+		Responses: []acuPricingResponse{
+			{ModelID: "claude-test", Protocol: "Messages", InputPricePerMillion: 1, OutputPricePerMillion: 2},
+			{ModelID: "dual-test", Protocol: "Messages + Responses", InputPricePerMillion: 1, OutputPricePerMillion: 2},
+		},
+	}
+
+	got := overlayACUPricing(catalog, nil)
+	require.Equal(t, []string{"acu-auto", "claude-test", "dual-test"}, []string{
+		got[0].ModelName, got[1].ModelName, got[2].ModelName,
+	})
+	require.Equal(t, []constant.EndpointType{constant.EndpointTypeAnthropic}, got[1].SupportedEndpointTypes)
+	require.Equal(t, []constant.EndpointType{
+		constant.EndpointTypeOpenAIResponse, constant.EndpointTypeAnthropic,
+	}, got[2].SupportedEndpointTypes)
 }

@@ -67,6 +67,17 @@ func loadACUPricingCatalog() (*acuPricingCatalog, error) {
 	return &catalog, nil
 }
 
+func acuEndpointTypes(protocol string) []constant.EndpointType {
+	result := make([]constant.EndpointType, 0, 2)
+	if strings.Contains(protocol, "Responses") {
+		result = append(result, constant.EndpointTypeOpenAIResponse)
+	}
+	if strings.Contains(protocol, "Messages") {
+		result = append(result, constant.EndpointTypeAnthropic)
+	}
+	return result
+}
+
 func overlayACUPricing(catalog *acuPricingCatalog, current []model.Pricing) []model.Pricing {
 	if catalog == nil {
 		return current
@@ -93,8 +104,8 @@ func overlayACUPricing(catalog *acuPricingCatalog, current []model.Pricing) []mo
 	for _, source := range catalog.Responses {
 		item := byName[source.ModelID]
 		item.ModelName = source.ModelID
-		item.Description = source.Role + " · Responses · Tool Call · Reasoning · ACU Auto · " + source.Provider + " · " + source.Status
-		item.Tags = strings.Join([]string{source.Role, "Responses", "Tool Call", "Reasoning", "ACU Auto", source.Provider, source.Status}, ",")
+		item.Description = source.Role + " · " + source.Protocol + " · Tool Call · Reasoning · ACU Auto · " + source.Provider + " · " + source.Status
+		item.Tags = strings.Join([]string{source.Role, source.Protocol, "Tool Call", "Reasoning", "ACU Auto", source.Provider, source.Status}, ",")
 		item.QuotaType = 0
 		item.ModelRatio = source.InputPricePerMillion / 2
 		item.CompletionRatio = source.OutputPricePerMillion / source.InputPricePerMillion
@@ -112,7 +123,7 @@ func overlayACUPricing(catalog *acuPricingCatalog, current []model.Pricing) []mo
 		item.ACUStatus = source.Status
 		item.PricingVersion = catalog.PricingVersion
 		item.EnableGroup = []string{"default"}
-		item.SupportedEndpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAIResponse}
+		item.SupportedEndpointTypes = acuEndpointTypes(source.Protocol)
 		result = append(result, item)
 	}
 	return result
