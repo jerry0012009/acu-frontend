@@ -284,6 +284,10 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
     corridorStatusText = `${selectionCorridor.formulaVersion} · 零调用模拟 · ${new Date(
       selectionCorridor.generatedAt
     ).toLocaleTimeString()}`
+    if (selectionCorridor.assumptions.workload === 'Codex Agent') {
+      corridorStatusText +=
+        ' · Codex Agent · Responses API · Function / Custom / Local tools · 无 Provider 托管 Web 要求'
+    }
   } else if (selectionCorridorUnavailable) {
     corridorStatusText = '当前路由快照暂不可用'
   }
