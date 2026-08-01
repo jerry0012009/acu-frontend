@@ -50,9 +50,31 @@ function latestRoute(trace: ACUSessionTrace) {
   return [...trace.segments].reverse().find((segment) => segment.route)?.route
 }
 
+function uniqueRoute(values: string[]): string {
+  return [...new Set(values.filter(Boolean))].join(' → ') || '—'
+}
+
+function segmentRequestSummary(segment: ACUSessionTraceSegment) {
+  const completed = segment.logicalRequests.filter((request) =>
+    ['success', 'completed', 'completed_with_recovery'].includes(request.status)
+  ).length
+  const cancelled = segment.logicalRequests.filter(
+    (request) => request.status === 'cancelled'
+  ).length
+  const running = segment.logicalRequests.filter((request) =>
+    ['pending', 'started', 'running'].includes(request.status)
+  ).length
+  return { completed, cancelled, running }
+}
+
+function isNeutralCancellation(request: ReturnType<typeof latestRequest>) {
+  return request?.deliveryStatus === 'client_cancelled_after_output'
+}
+
 function Waterfall(props: { trace: ACUSessionTrace }) {
   const { t } = useTranslation()
   const request = latestRequest(props.trace)
+  const neutralCancellation = isNeutralCancellation(request)
   const judgeMs = props.trace.segments.reduce(
     (total, segment) =>
       total + (segment.judge?.judgeCalls ? segment.judge.latencyMs : 0),
@@ -82,9 +104,19 @@ function Waterfall(props: { trace: ACUSessionTrace }) {
       tone: 'bg-amber-500',
     },
     {
-      label: request?.status === 'success' ? t('Complete') : t('Error'),
+      label:
+        request?.status === 'success'
+          ? t('Complete')
+          : neutralCancellation
+            ? t('Client ended stream')
+            : t('Error'),
       value: 1,
-      tone: request?.status === 'success' ? 'bg-emerald-500' : 'bg-rose-500',
+      tone:
+        request?.status === 'success'
+          ? 'bg-emerald-500'
+          : neutralCancellation
+            ? 'bg-slate-500'
+            : 'bg-rose-500',
     },
   ]
 
@@ -233,8 +265,22 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
   const segmentJudgeLabel = (segment: ACUSessionTraceSegment): string => {
     if (segment.judge?.judgeReused) return t('Judge reused')
     if (segment.judge?.judgeCalls) return t('Judge new')
-    return t('Judge unavailable')
+    return segment.judgeStatusReason || t('Legacy segment has no Judge record')
   }
+  const executionRoute = uniqueRoute(
+    props.trace.segments.map(
+      (segment) => segment.route?.selectedCanonicalModel || ''
+    )
+  )
+  const judgeModels = props.trace.segments.flatMap(
+    (segment) => segment.judge?.attempts.map((attempt) => attempt.model) ?? []
+  )
+  const judgeRoute = [...new Set(judgeModels)]
+    .map(
+      (model) =>
+        `${model} × ${judgeModels.filter((item) => item === model).length}`
+    )
+    .join(' → ') || '—'
 
   return (
     <section
@@ -253,12 +299,21 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
             </h3>
           </div>
           <p className='text-muted-foreground mt-1 truncate text-xs'>
-            {judgeLabel}
+            {t('Execution models')}: {executionRoute}
+          </p>
+          <p className='text-muted-foreground mt-1 truncate text-xs'>
+            {t('Judge models')}: {judgeRoute} · {judgeLabel}
           </p>
         </div>
         <StatusBadge
           label={request?.status || props.trace.session.status}
-          variant={request?.status === 'success' ? 'green' : 'red'}
+          variant={
+            request?.status === 'success'
+              ? 'green'
+              : isNeutralCancellation(request)
+                ? 'neutral'
+                : 'red'
+          }
           size='sm'
           copyable={false}
         />
@@ -334,6 +389,12 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
               <span className='text-muted-foreground'>
                 {segment.logicalRequests.length} {t('requests')}
               </span>
+              <span className='text-muted-foreground'>
+                {segmentRequestSummary(segment).completed} {t('completed')} ·{' '}
+                {segmentRequestSummary(segment).cancelled}{' '}
+                {t('client cancelled')} · {segmentRequestSummary(segment).running}{' '}
+                {t('running')}
+              </span>
             </div>
             <div className='mt-2'>
               <AttemptTimeline segment={segment} />
@@ -348,9 +409,37 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
                 </p>
               </details>
             )}
-            {segment.logicalRequests.map(
-              (logical) =>
-                logical.errorDiagnosis && (
+            <details className='mt-2 text-xs'>
+              <summary className='cursor-pointer font-medium'>
+                {t('Request details')}
+              </summary>
+              {segment.logicalRequests.map((logical) => {
+                if (logical.deliveryStatus === 'client_cancelled_after_output') {
+                  return (
+                    <div
+                      key={logical.logicalRequestId}
+                      className='mt-2 rounded border p-2 text-xs'
+                    >
+                      <div className='font-medium'>{t('Client ended stream')}</div>
+                      <div className='text-muted-foreground mt-1'>
+                        {t(
+                          'Visible output was produced. Recovery was skipped to avoid duplicate generation.'
+                        )}
+                      </div>
+                    </div>
+                  )
+                }
+                if (logical.deliveryStatus === 'client_cancelled_before_output') {
+                  return (
+                    <div
+                      key={logical.logicalRequestId}
+                      className='mt-2 rounded border p-2 text-xs'
+                    >
+                      {t('Client disconnected before receiving output')}
+                    </div>
+                  )
+                }
+                return logical.errorDiagnosis ? (
                   <div
                     key={logical.logicalRequestId}
                     className='mt-2 rounded border border-rose-500/30 bg-rose-500/5 p-2 text-xs'
@@ -372,7 +461,9 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
                         {t('First byte')}:{' '}
                         {logical.errorDiagnosis.firstByteReceived
                           ? t('Yes')
-                          : t('No')}
+                          : logical.errorDiagnosis.visibleBytes > 0
+                            ? t('Not recorded')
+                            : t('No')}
                       </span>
                       <span>
                         {t('Visible bytes')}:{' '}
@@ -397,8 +488,9 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
                       )}
                     </div>
                   </div>
-                )
-            )}
+                ) : null
+              })}
+            </details>
           </article>
         ))}
       </div>

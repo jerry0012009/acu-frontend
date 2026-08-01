@@ -230,6 +230,8 @@ test('renders two segments and complete Judge and Provider attempt chains withou
   )
 
   assert.match(html, /ACU Auto → gpt-5\.6-luna/)
+  assert.match(html, /Execution models/)
+  assert.match(html, /Judge models/)
   assert.match(html, /mimo-v2\.5-pro/)
   assert.match(html, /deepseek-v4-flash/)
   assert.match(html, /luna-a/)
@@ -238,4 +240,27 @@ test('renders two segments and complete Judge and Provider attempt chains withou
   assert.match(html, /fixture-ray/)
   assert.match(html, /max-w-full overflow-x-auto/)
   assert.doesNotMatch(html, /Authorization|API Key|raw payload body/)
+})
+
+test('summarizes and neutrally renders cancellation after visible output', async () => {
+  const neutral = structuredClone(trace)
+  const latest = neutral.segments.at(-1)!.logicalRequests.at(-1)!
+  latest.status = 'cancelled'
+  latest.deliveryStatus =
+    'client_cancelled_after_output'
+  latest.visibleOutputBytes = 200
+  const i18n = createInstance()
+  await i18n
+    .use(initReactI18next)
+    .init({ lng: 'en', resources: { en: { translation: {} } } })
+  const html = renderToStaticMarkup(
+    <I18nextProvider i18n={i18n}>
+      <ACUSessionTraceView trace={neutral} />
+    </I18nextProvider>
+  )
+
+  assert.match(html, /Client ended stream/)
+  assert.match(html, /client cancelled/)
+  assert.doesNotMatch(html, /Error diagnosis.*Client ended stream/)
+  assert.match(html, /bg-slate-500/)
 })

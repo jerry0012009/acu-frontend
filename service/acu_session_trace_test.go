@@ -40,7 +40,7 @@ func TestBuildACUSessionTracePreservesChainsAndExcludesRawPayload(t *testing.T) 
 		},
 		Attempts: []acuRawProviderAttempt{
 			{AttemptID: "pa_1", LogicalRequestID: "req_3", AttemptIndex: 1, ActualModel: "gpt-5.6-luna", Provider: "lucen", Channel: "luna-a", Endpoint: "https://provider.example/v1", Status: "failed", HTTPStatus: 524, ErrorCategory: "provider_http", LatencyMs: 100000, VisibleOutputBytes: 7710},
-			{AttemptID: "pa_2", LogicalRequestID: "req_3", AttemptIndex: 2, ActualModel: "gpt-5.6-luna", Provider: "closeai", Channel: "luna-b", Endpoint: "https://backup.example/v1", Status: "success", HTTPStatus: 200, LatencyMs: 19000, Metadata: map[string]interface{}{"firstTokenLatencyMs": float64(1200)}},
+			{AttemptID: "pa_2", LogicalRequestID: "req_3", AttemptIndex: 2, ActualModel: "gpt-5.6-luna", Provider: "closeai", Channel: "luna-b", Endpoint: "https://backup.example/v1", Status: "success", HTTPStatus: 200, LatencyMs: 19000, Metadata: map[string]interface{}{"first_model_event_latency_ms": float64(1200)}},
 		},
 		UsageReports: []acuRawUsageReport{{LogicalRequestID: "req_3", ActualModel: "gpt-5.6-luna", ActualTotalCashCostCNY: .18}},
 		Payloads: []acuRawPayload{
@@ -63,4 +63,47 @@ func TestBuildACUSessionTracePreservesChainsAndExcludesRawPayload(t *testing.T) 
 	assert.Equal(t, "gpt-5.6-luna", trace.Segments[1].Route.SelectedCanonicalModel)
 	assert.Equal(t, "fixture-ray", trace.Segments[1].LogicalRequests[0].ErrorDiagnosis.CFRay)
 	assert.NotContains(t, trace.Task.GoalSummary, "must-not-escape")
+}
+
+func TestBuildACUSessionTraceTreatsCancellationAfterOutputAsNeutral(t *testing.T) {
+	raw := acuRawTrace{
+		Session:  acuRawSession{SessionID: "ses_fixture"},
+		Task:     acuRawTask{TaskID: "task_fixture"},
+		Segments: []acuRawSegment{{SegmentID: "seg_1", CreationReason: "human_message", Phase: "execution"}},
+		LogicalRequests: []acuRawLogicalRequest{{
+			LogicalRequestID: "req_1", SegmentID: "seg_1", Status: "cancelled",
+			Metadata: map[string]interface{}{"deliveryStatus": "client_cancelled_after_output"},
+		}},
+		Attempts: []acuRawProviderAttempt{{
+			AttemptID: "pa_1", LogicalRequestID: "req_1", AttemptIndex: 1, Status: "cancelled",
+			HTTPStatus: 200, VisibleOutputBytes: 2048,
+			Metadata: map[string]interface{}{
+				"deliveryStatus": "client_cancelled_after_output", "first_model_event_latency_ms": float64(850),
+			},
+		}},
+	}
+
+	trace := buildACUSessionTrace(raw)
+	require.Len(t, trace.Segments, 1)
+	require.Len(t, trace.Segments[0].LogicalRequests, 1)
+	request := trace.Segments[0].LogicalRequests[0]
+	assert.Nil(t, request.ErrorDiagnosis)
+	assert.Equal(t, "client_cancelled_after_output", request.DeliveryStatus)
+	require.NotNil(t, request.FirstTokenLatencyMs)
+	assert.Equal(t, 850, *request.FirstTokenLatencyMs)
+}
+
+func TestBuildACUSessionTraceExplainsMissingJudgePersistence(t *testing.T) {
+	raw := acuRawTrace{
+		Session:  acuRawSession{SessionID: "ses_fixture"},
+		Task:     acuRawTask{TaskID: "task_fixture"},
+		Segments: []acuRawSegment{{SegmentID: "seg_1", CreationReason: "human_message", Phase: "execution"}},
+		LogicalRequests: []acuRawLogicalRequest{{
+			LogicalRequestID: "req_1", SegmentID: "seg_1", Status: "failed",
+			Metadata: map[string]interface{}{"routingErrorMessage": "acu_judge_attempts violates check constraint"},
+		}},
+	}
+
+	trace := buildACUSessionTrace(raw)
+	assert.Equal(t, "Judge result could not be persisted", trace.Segments[0].JudgeStatusReason)
 }

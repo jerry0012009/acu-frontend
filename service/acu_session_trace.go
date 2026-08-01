@@ -233,6 +233,9 @@ func buildACUSessionTrace(raw acuRawTrace) dto.ACUSessionTrace {
 			LogicalRequests:  []dto.ACUSessionTraceLogicalRequest{},
 			ProviderAttempts: []dto.ACUSessionTraceProviderAttempt{},
 		}
+		if segment.JudgeEvaluationID == "" {
+			entry.JudgeStatusReason = judgeStatusReason(requests[segment.SegmentID])
+		}
 		admission := admissions[segment.SegmentID]
 		if evaluation, ok := evaluations[segment.JudgeEvaluationID]; ok {
 			judgeCalls := intField(admission.Metadata, "judgeCalls")
@@ -269,7 +272,7 @@ func buildACUSessionTrace(raw acuRawTrace) dto.ACUSessionTrace {
 			var firstTokenLatencyMs *int
 			for _, attempt := range requestAttempts {
 				visibleBytes += attempt.VisibleOutputBytes
-				if value := intField(attempt.Metadata, "firstTokenLatencyMs"); value > 0 && firstTokenLatencyMs == nil {
+				if value := firstNonZeroInt(attempt.Metadata, "first_model_event_latency_ms", "firstTokenLatencyMs"); value > 0 && firstTokenLatencyMs == nil {
 					firstTokenLatencyMs = &value
 				}
 				entry.ProviderAttempts = append(entry.ProviderAttempts, providerAttemptDTO(attempt))
@@ -280,6 +283,7 @@ func buildACUSessionTrace(raw acuRawTrace) dto.ACUSessionTrace {
 				ActualModel: usage.ActualModel, Status: request.Status, StartedAt: request.StartedAt,
 				CompletedAt: request.CompletedAt, TotalLatencyMs: durationMs(request.StartedAt, request.CompletedAt),
 				FirstTokenLatencyMs: firstTokenLatencyMs, VisibleOutputBytes: visibleBytes, ActualCostCNY: usage.ActualTotalCashCostCNY,
+				DeliveryStatus: stringField(request.Metadata, "deliveryStatus"),
 			}
 			logical.ErrorDiagnosis = errorDiagnosis(requestAttempts, payloadsByRequest[request.LogicalRequestID])
 			entry.LogicalRequests = append(entry.LogicalRequests, logical)
@@ -305,7 +309,7 @@ func providerAttemptDTO(attempt acuRawProviderAttempt) dto.ACUSessionTraceProvid
 		recoveryReason = "same_model_channel_recovery"
 	}
 	var firstTokenLatencyMs *int
-	if value := intField(attempt.Metadata, "firstTokenLatencyMs"); value > 0 {
+	if value := firstNonZeroInt(attempt.Metadata, "first_model_event_latency_ms", "firstTokenLatencyMs"); value > 0 {
 		firstTokenLatencyMs = &value
 	}
 	return dto.ACUSessionTraceProviderAttempt{
@@ -324,7 +328,7 @@ func errorDiagnosis(attempts []acuRawProviderAttempt, payloads []acuRawPayload) 
 	}
 	var failed *acuRawProviderAttempt
 	for index := range attempts {
-		if attempts[index].Status != "success" {
+		if attempts[index].Status != "success" && !isNeutralClientCancellation(attempts[index]) {
 			failed = &attempts[index]
 		}
 	}
@@ -352,9 +356,36 @@ func errorDiagnosis(attempts []acuRawProviderAttempt, payloads []acuRawPayload) 
 	if !recoveryEligible {
 		reason = fmt.Sprintf("HTTP %d was not recovery-eligible in the running Router build", failed.HTTPStatus)
 	}
+	firstByteReceived := firstNonZeroInt(failed.Metadata, "first_model_event_latency_ms", "firstTokenLatencyMs") > 0
 	return &dto.ACUErrorDiagnosis{ErrorSource: source, Endpoint: failed.Endpoint, CFRay: cfRay,
-		FirstByteReceived: false, VisibleBytes: failed.VisibleOutputBytes, RecoveryEligible: recoveryEligible,
+		FirstByteReceived: firstByteReceived, VisibleBytes: failed.VisibleOutputBytes, RecoveryEligible: recoveryEligible,
 		RecoveryExecuted: len(attempts) > 1, RecoveryReason: reason}
+}
+
+func isNeutralClientCancellation(attempt acuRawProviderAttempt) bool {
+	return attempt.HTTPStatus == http.StatusOK && stringField(attempt.Metadata, "deliveryStatus") == "client_cancelled_after_output"
+}
+
+func judgeStatusReason(requests []acuRawLogicalRequest) string {
+	for _, request := range requests {
+		message := stringField(request.Metadata, "routingErrorMessage")
+		if strings.Contains(message, "acu_judge_attempts") && strings.Contains(message, "constraint") {
+			return "Judge result could not be persisted"
+		}
+	}
+	if len(requests) > 0 {
+		return "Request did not reach a persisted Judge evaluation"
+	}
+	return "Legacy segment has no Judge record"
+}
+
+func firstNonZeroInt(value map[string]interface{}, keys ...string) int {
+	for _, key := range keys {
+		if result := intField(value, key); result > 0 {
+			return result
+		}
+	}
+	return 0
 }
 
 func stringField(value map[string]interface{}, key string) string {

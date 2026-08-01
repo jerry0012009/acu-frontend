@@ -31,6 +31,7 @@ type ACUSessionTraceSegment struct {
 	Route             *ACUSessionTraceRoute            `json:"route,omitempty"`
 	LogicalRequests   []ACUSessionTraceLogicalRequest  `json:"logicalRequests"`
 	ProviderAttempts  []ACUSessionTraceProviderAttempt `json:"providerAttempts"`
+	JudgeStatusReason string                           `json:"judgeStatusReason,omitempty"`
 }
 
 type ACUSessionTraceJudge struct {
@@ -88,6 +89,7 @@ type ACUSessionTraceLogicalRequest struct {
 	FirstTokenLatencyMs *int               `json:"firstTokenLatencyMs"`
 	VisibleOutputBytes  int64              `json:"visibleOutputBytes"`
 	ActualCostCNY       float64            `json:"actualCostCny"`
+	DeliveryStatus      string             `json:"deliveryStatus,omitempty"`
 	ErrorDiagnosis      *ACUErrorDiagnosis `json:"errorDiagnosis,omitempty"`
 }
 

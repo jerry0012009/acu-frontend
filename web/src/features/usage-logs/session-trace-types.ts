@@ -17,6 +17,7 @@ export interface ACUSessionTraceSegment {
   status: string
   startedAt: string
   completedAt?: string
+  judgeStatusReason?: string
   judge?: {
     trigger: string
     judgeCalls: number
@@ -68,6 +69,7 @@ export interface ACUSessionTraceSegment {
     firstTokenLatencyMs: number | null
     visibleOutputBytes: number
     actualCostCny: number
+    deliveryStatus?: string
     errorDiagnosis?: {
       errorSource: string
       endpoint: string
