@@ -220,6 +220,11 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
           outputPrice: model.output_price_per_million ?? 0,
           provider: model.acu_cost_provider || '-',
           channel: model.acu_cost_channel || '-',
+          executionProfileId: model.acu_cost_execution_profile_id || '-',
+          multiplier: model.acu_cost_observed_billing_multiplier,
+          costBasisLabel:
+            model.acu_cost_basis_label ||
+            '参考渠道价格，不代表每次请求最终渠道',
           status: model.acu_effective_cost_status || 'estimated',
           abilityScore:
             qualityAtDifficulty(model.acu_curve ?? [], abilityDifficulty) * 100,
@@ -450,6 +455,23 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
             {
               key: t('Channel'),
               value: (datum: { channel: string }) => datum.channel,
+            },
+            {
+              key: '本次模拟参考渠道',
+              value: (datum: { executionProfileId: string }) =>
+                datum.executionProfileId,
+            },
+            {
+              key: 'Multiplier',
+              value: (datum: { multiplier?: number }) =>
+                Number.isFinite(datum.multiplier)
+                  ? `${datum.multiplier}x`
+                  : '-',
+            },
+            {
+              key: '价格口径',
+              value: (datum: { costBasisLabel: string }) =>
+                datum.costBasisLabel,
             },
           ],
         },

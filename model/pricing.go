@@ -51,14 +51,16 @@ type Pricing struct {
 	PricingDescription        string                  `json:"pricing_description,omitempty"`
 	PriceCurrency             string                  `json:"price_currency,omitempty"`
 	PriceSemantics            string                  `json:"price_semantics,omitempty"`
-	ACUCostBasis              string                  `json:"acu_cost_basis,omitempty"`
-	ACUCostExecutionProfileID string                  `json:"acu_cost_execution_profile_id,omitempty"`
-	ACUCostProvider           string                  `json:"acu_cost_provider,omitempty"`
-	ACUCostChannel            string                  `json:"acu_cost_channel,omitempty"`
-	ACUEffectiveCostStatus    string                  `json:"acu_effective_cost_status,omitempty"`
-	ACUCurveProfile           string                  `json:"acu_curve_profile,omitempty"`
-	ACUProfileConfidence      string                  `json:"acu_profile_confidence,omitempty"`
-	ACUCurve                  []ACUPricingCurvePoint  `json:"acu_curve,omitempty"`
+	ACUCostBasis                     string                 `json:"acu_cost_basis,omitempty"`
+	ACUCostBasisLabel                string                 `json:"acu_cost_basis_label,omitempty"`
+	ACUCostExecutionProfileID        string                 `json:"acu_cost_execution_profile_id,omitempty"`
+	ACUCostObservedBillingMultiplier float64                `json:"acu_cost_observed_billing_multiplier,omitempty"`
+	ACUCostProvider                  string                 `json:"acu_cost_provider,omitempty"`
+	ACUCostChannel                   string                 `json:"acu_cost_channel,omitempty"`
+	ACUEffectiveCostStatus           string                 `json:"acu_effective_cost_status,omitempty"`
+	ACUCurveProfile                  string                 `json:"acu_curve_profile,omitempty"`
+	ACUProfileConfidence             string                 `json:"acu_profile_confidence,omitempty"`
+	ACUCurve                         []ACUPricingCurvePoint `json:"acu_curve,omitempty"`
 }
 
 type ACUPricingCurvePoint struct {

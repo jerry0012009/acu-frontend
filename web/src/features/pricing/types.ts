@@ -72,7 +72,9 @@ export type PricingModel = {
   price_currency?: 'CNY' | 'USD'
   price_semantics?: 'estimated_user_cash_cost' | string
   acu_cost_basis?: string
+  acu_cost_basis_label?: string
   acu_cost_execution_profile_id?: string
+  acu_cost_observed_billing_multiplier?: number
   acu_cost_provider?: string
   acu_cost_channel?: string
   acu_effective_cost_status?: 'verified' | 'estimated'

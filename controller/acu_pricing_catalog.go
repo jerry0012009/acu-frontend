@@ -31,7 +31,9 @@ type acuPricingResponse struct {
 	CostCurrency                           string          `json:"costCurrency"`
 	CostSemantics                          string          `json:"costSemantics"`
 	CostBasis                              string          `json:"costBasis"`
+	CostBasisLabel                         string          `json:"costBasisLabel"`
 	CostExecutionProfileID                 string          `json:"costExecutionProfileId"`
+	CostObservedBillingMultiplier          float64         `json:"costObservedBillingMultiplier"`
 	CostProvider                           string          `json:"costProvider"`
 	CostChannel                            string          `json:"costChannel"`
 	EffectiveCostStatus                    string          `json:"effectiveCostStatus"`
@@ -134,7 +136,9 @@ func overlayACUPricing(catalog *acuPricingCatalog, current []model.Pricing) []mo
 		item.PriceCurrency = source.CostCurrency
 		item.PriceSemantics = source.CostSemantics
 		item.ACUCostBasis = source.CostBasis
+		item.ACUCostBasisLabel = source.CostBasisLabel
 		item.ACUCostExecutionProfileID = source.CostExecutionProfileID
+		item.ACUCostObservedBillingMultiplier = source.CostObservedBillingMultiplier
 		item.ACUCostProvider = source.CostProvider
 		item.ACUCostChannel = source.CostChannel
 		item.ACUEffectiveCostStatus = source.EffectiveCostStatus
