@@ -1482,42 +1482,42 @@ export function DetailsDialog(props: DetailsDialogProps) {
               value={other.acu_logical_request_id}
               mono
             />
-            {acuRoute?.nominal_provider_cost_usd != null && (
+            {props.isAdmin && acuRoute?.nominal_provider_cost_usd != null && (
               <DetailRow
                 label={t('Nominal Provider Cost (USD)')}
                 value={`$${Number(acuRoute.nominal_provider_cost_usd).toFixed(10)}`}
                 mono
               />
             )}
-            {acuRoute?.provider_balance_charge != null && (
+            {props.isAdmin && acuRoute?.provider_balance_charge != null && (
               <DetailRow
                 label={t('Provider Credits Deduction')}
                 value={`${Number(acuRoute.provider_balance_charge).toFixed(10)} Credits`}
                 mono
               />
             )}
-            {acuRoute?.provider_credit_cash_cost_cny != null && (
+            {props.isAdmin && acuRoute?.provider_credit_cash_cost_cny != null && (
               <DetailRow
                 label={t('Provider Credit Cash Conversion')}
                 value={`¥${Number(acuRoute.provider_credit_cash_cost_cny).toFixed(10)} / Credit`}
                 mono
               />
             )}
-            {acuRoute?.effective_cash_cost_cny != null && (
+            {props.isAdmin && acuRoute?.effective_cash_cost_cny != null && (
               <DetailRow
                 label={t('Effective Cash Cost (CNY)')}
                 value={`¥${Number(acuRoute.effective_cash_cost_cny).toFixed(8)}`}
                 mono
               />
             )}
-            {acuRoute?.judge_cash_cost_cny != null && (
+            {props.isAdmin && acuRoute?.judge_cash_cost_cny != null && (
               <DetailRow
                 label={judgeCostLabel}
                 value={`¥${Number(acuRoute.judge_cash_cost_cny).toFixed(8)}`}
                 mono
               />
             )}
-            {(acuRoute?.judge_cost_status === 'estimated_blended' ||
+            {props.isAdmin && (acuRoute?.judge_cost_status === 'estimated_blended' ||
               acuRoute?.judge_cost_status === 'mixed') &&
               acuRoute.judge_official_payg_equivalent_cost != null && (
                 <DetailRow
@@ -1533,21 +1533,21 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 mono
               />
             )}
-            {acuRoute?.judge_cost_status && (
+            {props.isAdmin && acuRoute?.judge_cost_status && (
               <DetailRow
                 label={t('Judge Cost Status')}
                 value={acuRoute.judge_cost_status}
                 mono
               />
             )}
-            {acuRoute?.failed_attempt_cash_cost_cny != null && (
+            {props.isAdmin && acuRoute?.failed_attempt_cash_cost_cny != null && (
               <DetailRow
                 label={t('Failed Attempt Cost (CNY)')}
                 value={`¥${Number(acuRoute.failed_attempt_cash_cost_cny).toFixed(8)}`}
                 mono
               />
             )}
-            {acuRoute?.actual_total_cash_cost_cny != null && (
+            {props.isAdmin && acuRoute?.actual_total_cash_cost_cny != null && (
               <DetailRow
                 label={t('Actual Total Cost (CNY)')}
                 value={`¥${Number(acuRoute.actual_total_cash_cost_cny).toFixed(8)}`}
@@ -1561,14 +1561,14 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 mono
               />
             )}
-            {acuRoute?.counterfactual_quality_ceiling_cost_cny != null && (
+            {props.isAdmin && acuRoute?.counterfactual_quality_ceiling_cost_cny != null && (
               <DetailRow
                 label={t('Quality Ceiling Counterfactual Cost (CNY)')}
                 value={`¥${Number(acuRoute.counterfactual_quality_ceiling_cost_cny).toFixed(8)}`}
                 mono
               />
             )}
-            {acuRoute?.counterfactual_quality_ceiling_cost_cny != null &&
+            {props.isAdmin && acuRoute?.counterfactual_quality_ceiling_cost_cny != null &&
               acuRoute.actual_total_cash_cost_cny != null &&
               acuRoute.counterfactual_quality_ceiling_cost_cny > 0 && (
                 <DetailRow
@@ -1577,14 +1577,14 @@ export function DetailsDialog(props: DetailsDialogProps) {
                   mono
                 />
               )}
-            {acuRoute?.reference_provider && (
+            {props.isAdmin && acuRoute?.reference_provider && (
               <DetailRow
                 label={t('Reference Provider')}
                 value={acuRoute.reference_provider}
                 mono
               />
             )}
-            {acuRoute?.effective_savings_vs_reference_cny != null && (
+            {props.isAdmin && acuRoute?.effective_savings_vs_reference_cny != null && (
               <DetailRow
                 label={t('Effective Savings vs Reference (CNY)')}
                 value={`¥${Number(acuRoute.effective_savings_vs_reference_cny).toFixed(8)}`}

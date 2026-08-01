@@ -181,7 +181,7 @@ export function ACUWorkTimeline() {
     ['Judge Calls', summary.judgeCalls, Scale],
     ['Judge Reuse', `${(summary.judgeReuseRate * 100).toFixed(0)}%`, Route],
     ['完成率', `${(summary.completionRate * 100).toFixed(0)}%`, Gauge],
-    ['实际总成本', money(summary.actualTotalCostCny), Coins],
+    ['累计扣费', money(summary.actualTotalCostCny), Coins],
     [
       '首事件 p50 / p95',
       `${ms(summary.p50FirstModelEventLatencyMs)} / ${ms(summary.p95FirstModelEventLatencyMs)}`,

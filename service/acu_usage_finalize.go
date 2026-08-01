@@ -191,9 +191,6 @@ func FinalizeACUUsage(request dto.ACUUsageFinalizeRequest, payloadHash string) (
 		if !effectiveProviderCash.Add(judgeCash).Add(failedAttemptCash).Equal(actualTotalCash) {
 			return dto.ACUUsageFinalizeResponse{}, errors.New("actual_total_cash_cost_cny does not match the cash cost components")
 		}
-		if !userChargeCny.Equal(actualTotalCash) {
-			return dto.ACUUsageFinalizeResponse{}, errors.New("Founder Alpha user_charge_cny must equal actual_total_cash_cost_cny")
-		}
 		if operation_setting.USDExchangeRate <= 0 {
 			return dto.ACUUsageFinalizeResponse{}, errors.New("USD/CNY exchange rate is invalid")
 		}

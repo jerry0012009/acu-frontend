@@ -40,7 +40,7 @@ func setupACUFinalizeTestDB(t *testing.T) {
 	})
 }
 
-func TestFinalizeACUUsageChargesFounderAlphaActualCashAtOneTimes(t *testing.T) {
+func TestFinalizeACUUsageChargesRouterFinalUserChargeExactlyOnce(t *testing.T) {
 	setupACUFinalizeTestDB(t)
 	user := model.User{Username: "acu-actual-cash-user", Password: "test-only-password", Status: common.UserStatusEnabled, Quota: 10_000}
 	require.NoError(t, model.DB.Create(&user).Error)
@@ -60,7 +60,7 @@ func TestFinalizeACUUsageChargesFounderAlphaActualCashAtOneTimes(t *testing.T) {
 		JudgeCostStatus: "estimated_blended",
 		JudgeCostSource: "midpoint_openrouter_payg_and_mimo99_plan_v1",
 		JudgeProvider:   "xiaomi_mimo", JudgeModel: "mimo-v2.5-pro",
-		FailedAttemptCashCostCNY: "0.0000000000", ActualTotalCashCostCNY: "0.0084818400", UserChargeCNY: "0.0084818400",
+		FailedAttemptCashCostCNY: "0.0010000000", ActualTotalCashCostCNY: "0.0094818400", UserChargeCNY: "0.0106023000",
 	}
 
 	result, err := FinalizeACUUsage(request, "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd")
@@ -69,14 +69,16 @@ func TestFinalizeACUUsageChargesFounderAlphaActualCashAtOneTimes(t *testing.T) {
 
 	var updated model.User
 	require.NoError(t, model.DB.First(&updated, user.Id).Error)
-	require.Equal(t, 9_152, updated.Quota)
+	require.Equal(t, 8_940, updated.Quota)
 	var finalized model.ACUUsageFinalize
 	require.NoError(t, model.DB.First(&finalized).Error)
-	require.Equal(t, 848, finalized.FinalQuota)
-	require.True(t, decimal.RequireFromString("0.0084818400").Equal(
+	require.Equal(t, 1060, finalized.FinalQuota)
+	require.True(t, decimal.RequireFromString("0.0094818400").Equal(
 		decimal.RequireFromString(finalized.ActualTotalCashCostCny),
 	))
-	require.Equal(t, finalized.ActualTotalCashCostCny, finalized.UserChargeCny)
+	require.True(t, decimal.RequireFromString("0.0106023000").Equal(
+		decimal.RequireFromString(finalized.UserChargeCny),
+	))
 	require.True(t, decimal.RequireFromString("0.0083618400").Equal(
 		decimal.RequireFromString(finalized.ProviderBalanceCharge),
 	))

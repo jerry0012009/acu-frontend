@@ -49,6 +49,10 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 			status = "completed_with_recovery"
 		}
 		judgeModel := stringValue(breakdown, "judge_model")
+		userCharge := numberValue(breakdown, "user_charge_cny")
+		if _, exists := breakdown["user_charge_cny"]; !exists {
+			userCharge = numberValue(breakdown, "actual_total_cash_cost_cny")
+		}
 		item := dto.ACUWorkTimelineItem{
 			Timestamp: log.CreatedAt, LogicalRequestID: logicalID,
 			SessionID: stringValue(breakdown, "session_id"), TaskID: stringValue(breakdown, "task_id"), SegmentID: stringValue(breakdown, "segment_id"),
@@ -62,9 +66,8 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 			EndToEndLatencyMs:        firstPositiveInt(int(numberValue(breakdown, "end_to_end_latency_ms")), totalLatency+int(numberValue(breakdown, "judge_latency_ms"))),
 			JudgeLatencyMs:           int(numberValue(breakdown, "judge_latency_ms")),
 			ProviderLatencyMs:        firstPositiveInt(int(numberValue(breakdown, "provider_latency_ms")), totalLatency),
-			ActualCostCNY:            numberValue(breakdown, "actual_total_cash_cost_cny"), JudgeCostCNY: numberValue(breakdown, "judge_cash_cost_cny"),
-			ProviderCostCNY: numberValue(breakdown, "effective_provider_cash_cost_cny"), FailedAttemptCostCNY: numberValue(breakdown, "failed_attempt_cash_cost_cny"),
-			ErrorClass: errorClass, CooldownUntil: cooldown,
+			ActualCostCNY:            userCharge,
+			ErrorClass:               errorClass, CooldownUntil: cooldown,
 		}
 		if previous, exists := byRequest[logicalID]; !exists || timelineItemIsMoreFinal(item, previous, log.Type) {
 			byRequest[logicalID] = item
