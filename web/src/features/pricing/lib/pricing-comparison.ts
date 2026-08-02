@@ -75,11 +75,10 @@ export function buildPricingBarSeries(mode: PricingDisplayMode) {
     type: 'bar' as const,
     id: 'reference-price',
     dataIndex: 0,
+    regionIndex: 0,
     direction: 'horizontal' as const,
     xField: 'referenceCost',
     yField: 'modelName',
-    barWidth: 14,
-    barGap: '-100%',
     barMinHeight: 1,
     zIndex: 1,
     opacity: 0.16,
@@ -88,11 +87,10 @@ export function buildPricingBarSeries(mode: PricingDisplayMode) {
     type: 'bar' as const,
     id: 'payable-price',
     dataIndex: 0,
+    regionIndex: 0,
     direction: 'horizontal' as const,
     xField: 'payableCost',
     yField: 'modelName',
-    barWidth: 8,
-    barGap: '-100%',
     barMinHeight: 1,
     zIndex: 2,
     opacity: 1,
@@ -100,4 +98,70 @@ export function buildPricingBarSeries(mode: PricingDisplayMode) {
   if (mode === 'payable_only') return [payable]
   if (mode === 'reference_only') return [reference]
   return [reference, payable]
+}
+
+type PricingCostSpecOptions = {
+  axisColor: string
+  gridColor: string
+  axisTitle: string
+  formatAxisLabel: (value: number | string) => string
+  colorForDatum: (datum: { modelId?: string }) => string
+  tooltip: Record<string, unknown>
+}
+
+export function buildPricingCostSpec(
+  mode: PricingDisplayMode,
+  costData: PricingCostDatum[],
+  options: PricingCostSpecOptions
+) {
+  const series = buildPricingBarSeries(mode).map((item) => ({
+    ...item,
+    bar: {
+      style: {
+        cornerRadius: 3,
+        fillOpacity: item.opacity,
+        fill: options.colorForDatum,
+      },
+    },
+  }))
+  const seriesIndexes = series.map((_, index) => index)
+
+  return {
+    type: 'common' as const,
+    direction: 'horizontal' as const,
+    data: [{ id: 'acu-model-costs', values: costData }],
+    region: [{ id: 'acu-cost-region' }],
+    series,
+    animation: false,
+    legends: { visible: false },
+    tooltip: options.tooltip,
+    axes: [
+      {
+        orient: 'bottom' as const,
+        type: 'linear' as const,
+        min: 0,
+        regionIndex: 0,
+        seriesIndex: seriesIndexes,
+        title: { visible: true, text: options.axisTitle },
+        label: {
+          formatMethod: options.formatAxisLabel,
+          style: { fill: options.axisColor, fontSize: 11 },
+        },
+        grid: {
+          visible: true,
+          style: { stroke: options.gridColor, lineDash: [3, 3] },
+        },
+      },
+      {
+        orient: 'left' as const,
+        type: 'band' as const,
+        regionIndex: 0,
+        seriesIndex: seriesIndexes,
+        label: {
+          style: { fill: options.axisColor, fontSize: 11 },
+          autoLimit: true,
+        },
+      },
+    ],
+  }
 }

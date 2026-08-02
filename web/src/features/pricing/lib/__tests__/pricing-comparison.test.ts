@@ -22,10 +22,20 @@ import { test } from 'node:test'
 import type { PricingModel } from '../../types'
 import {
   buildPricingBarSeries,
+  buildPricingCostSpec,
   compareDisplayedCostsDescending,
   displayedPricingCost,
   estimatedPricingCost,
 } from '../pricing-comparison.ts'
+
+const specOptions = {
+  axisColor: '#111',
+  gridColor: '#ddd',
+  axisTitle: 'Estimated execution cost (CNY)',
+  formatAxisLabel: (value: number | string) => `¥${value}`,
+  colorForDatum: () => '#369',
+  tooltip: { mark: { content: [] } },
+}
 
 const model = {
   id: 1,
@@ -68,8 +78,12 @@ test('comparison overlays reference and payable bars on one shared axis', () => 
   const series = buildPricingBarSeries('comparison')
   assert.equal(series.length, 2)
   assert.deepEqual(
-    series.map((item) => item.barGap),
-    ['-100%', '-100%']
+    series.map((item) => item.dataIndex),
+    [0, 0]
+  )
+  assert.deepEqual(
+    series.map((item) => item.regionIndex),
+    [0, 0]
   )
   assert.deepEqual(
     series.map((item) => item.yField),
@@ -77,20 +91,97 @@ test('comparison overlays reference and payable bars on one shared axis', () => 
   )
   assert.deepEqual(
     {
-      barWidth: series[0].barWidth,
+      xField: series[0].xField,
       opacity: series[0].opacity,
       zIndex: series[0].zIndex,
     },
-    { barWidth: 14, opacity: 0.16, zIndex: 1 }
+    { xField: 'referenceCost', opacity: 0.16, zIndex: 1 }
   )
   assert.deepEqual(
     {
-      barWidth: series[1].barWidth,
+      xField: series[1].xField,
       opacity: series[1].opacity,
       zIndex: series[1].zIndex,
     },
-    { barWidth: 8, opacity: 1, zIndex: 2 }
+    { xField: 'payableCost', opacity: 1, zIndex: 2 }
   )
+  assert.ok(series.every((item) => !('barGap' in item)))
+  assert.ok(series.every((item) => !('barWidth' in item)))
+})
+
+test('comparison spec restores the old horizontal axes and overlays both series', () => {
+  const spec = buildPricingCostSpec('comparison', [], specOptions)
+  assert.equal(spec.direction, 'horizontal')
+  assert.deepEqual(
+    spec.axes.map((axis) => ({
+      orient: axis.orient,
+      type: axis.type,
+      regionIndex: axis.regionIndex,
+      seriesIndex: axis.seriesIndex,
+    })),
+    [
+      { orient: 'bottom', type: 'linear', regionIndex: 0, seriesIndex: [0, 1] },
+      { orient: 'left', type: 'band', regionIndex: 0, seriesIndex: [0, 1] },
+    ]
+  )
+  assert.equal(spec.axes[0].min, 0)
+  assert.deepEqual(
+    spec.series.map((series) => ({
+      xField: series.xField,
+      yField: series.yField,
+      dataIndex: series.dataIndex,
+      regionIndex: series.regionIndex,
+    })),
+    [
+      {
+        xField: 'referenceCost',
+        yField: 'modelName',
+        dataIndex: 0,
+        regionIndex: 0,
+      },
+      {
+        xField: 'payableCost',
+        yField: 'modelName',
+        dataIndex: 0,
+        regionIndex: 0,
+      },
+    ]
+  )
+})
+
+test('single-series modes preserve the old horizontal bar structure', () => {
+  for (const mode of ['payable_only', 'reference_only'] as const) {
+    const spec = buildPricingCostSpec(mode, [], specOptions)
+    assert.equal(spec.direction, 'horizontal')
+    assert.equal(spec.axes[0].type, 'linear')
+    assert.equal(spec.axes[1].type, 'band')
+    assert.equal(spec.series.length, 1)
+    assert.equal(spec.series[0].yField, 'modelName')
+    assert.ok(!('barWidth' in spec.series[0]))
+  }
+  assert.equal(
+    buildPricingCostSpec('payable_only', [], specOptions).series[0].xField,
+    'payableCost'
+  )
+  assert.equal(
+    buildPricingCostSpec('reference_only', [], specOptions).series[0].xField,
+    'referenceCost'
+  )
+})
+
+test('comparison keeps the payable bar when a model has no reference', () => {
+  const datum = {
+    modelId: 'payable-only-model',
+    modelName: 'Payable Only Model',
+    payableCost: 1.25,
+    referenceCost: undefined,
+    displayCost: 1.25,
+    abilityScore: 80,
+  }
+  const spec = buildPricingCostSpec('comparison', [datum], specOptions)
+  assert.equal(spec.data[0].values[0].payableCost, 1.25)
+  assert.equal(spec.data[0].values[0].referenceCost, undefined)
+  assert.equal(spec.series[1].xField, 'payableCost')
 })
 
 test('comparison sorts by payable and reference_only sorts by reference', () => {

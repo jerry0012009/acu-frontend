@@ -54,7 +54,7 @@ import {
   priceRankColor,
 } from '../lib/price-rank-color'
 import {
-  buildPricingBarSeries,
+  buildPricingCostSpec,
   compareDisplayedCostsDescending,
   displayedPricingCost,
   estimatedPricingCost,
@@ -468,77 +468,51 @@ export function ACUModelCurves(props: {
   )
 
   const costSpec = useMemo(
-    () => ({
-      type: 'common' as const,
-      data: [{ id: 'acu-model-costs', values: costData }],
-      series: buildPricingBarSeries(props.displayMode).map((series) => ({
-        ...series,
-        bar: {
-          style: {
-            cornerRadius: 3,
-            fillOpacity: series.opacity,
-            fill: (datum: { modelId?: string }) =>
-              colorByModel.get(datum.modelId ?? '') || priceRankColor(0.5),
+    () =>
+      buildPricingCostSpec(props.displayMode, costData, {
+        axisColor,
+        gridColor,
+        axisTitle: t('Estimated execution cost (CNY)'),
+        formatAxisLabel: (value) => formatACUCNY(Number(value), 4),
+        colorForDatum: (datum) =>
+          colorByModel.get(datum.modelId ?? '') || priceRankColor(0.5),
+        tooltip: {
+          mark: {
+            title: { value: (datum: { modelName: string }) => datum.modelName },
+            content: [
+              {
+                key: t('Current platform estimate'),
+                value: (datum: PricingCostDatum) =>
+                  datum.payableCost === undefined
+                    ? '-'
+                    : formatACUCNY(datum.payableCost),
+              },
+              {
+                key: t('Official or public reference'),
+                value: (datum: PricingCostDatum) =>
+                  datum.referenceCost === undefined
+                    ? t('No comparable public reference price')
+                    : formatACUCNY(datum.referenceCost),
+              },
+              {
+                key: t('Reference source'),
+                value: (datum: PricingCostDatum) =>
+                  datum.referenceSource || '-',
+              },
+              {
+                key: t('Updated'),
+                value: (datum: PricingCostDatum) =>
+                  datum.referenceObservedAt || '-',
+              },
+              {
+                key: t('Price status'),
+                value: (datum: PricingCostDatum) =>
+                  datum.status === 'verified' ? t('Verified') : t('Estimated'),
+              },
+            ],
           },
         },
-      })),
-      animation: false,
-      legends: { visible: false },
-      tooltip: {
-        mark: {
-          title: { value: (datum: { modelName: string }) => datum.modelName },
-          content: [
-            {
-              key: t('Current platform estimate'),
-              value: (datum: PricingCostDatum) =>
-                datum.payableCost === undefined
-                  ? '-'
-                  : formatACUCNY(datum.payableCost),
-            },
-            {
-              key: t('Official or public reference'),
-              value: (datum: PricingCostDatum) =>
-                datum.referenceCost === undefined
-                  ? t('No comparable public reference price')
-                  : formatACUCNY(datum.referenceCost),
-            },
-            {
-              key: t('Reference source'),
-              value: (datum: PricingCostDatum) => datum.referenceSource || '-',
-            },
-            {
-              key: t('Updated'),
-              value: (datum: PricingCostDatum) =>
-                datum.referenceObservedAt || '-',
-            },
-            {
-              key: t('Price status'),
-              value: (datum: PricingCostDatum) =>
-                datum.status === 'verified' ? t('Verified') : t('Estimated'),
-            },
-          ],
-        },
-      },
-      axes: [
-        {
-          orient: 'bottom' as const,
-          title: { visible: true, text: t('Estimated execution cost (CNY)') },
-          label: {
-            formatMethod: (value: number | string) =>
-              formatACUCNY(Number(value), 4),
-            style: { fill: axisColor, fontSize: 11 },
-          },
-          grid: {
-            visible: true,
-            style: { stroke: gridColor, lineDash: [3, 3] },
-          },
-        },
-        {
-          orient: 'left' as const,
-          label: { style: { fill: axisColor, fontSize: 11 }, autoLimit: true },
-        },
-      ],
-    }),
+      }),
     [axisColor, colorByModel, costData, gridColor, props.displayMode, t]
   )
 
