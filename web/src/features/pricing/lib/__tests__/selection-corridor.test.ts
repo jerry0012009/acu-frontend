@@ -20,6 +20,7 @@ test('finds the nearest simulated difficulty point', () => {
     inputTokens: 100,
     expectedOutputTokens: 10,
     assumptions: {},
+    executionPresetSeries: [],
     series: {
       economy: [point(0, 'mini'), point(10, 'luna')],
       balanced: [],

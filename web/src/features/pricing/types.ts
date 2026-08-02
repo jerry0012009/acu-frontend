@@ -162,7 +162,12 @@ export type PricingData = {
 }
 
 export type ACUSelectionCandidate = {
+  candidateId: string
   modelId: string
+  executionPresetId?: string
+  reasoningEffort?: string
+  estimatedQuality?: number
+  estimatedCallCost?: number
   quality: number
   costCny: number
   valueUtility: number
@@ -171,11 +176,28 @@ export type ACUSelectionCandidate = {
 export type ACUSelectionCorridorPoint = {
   difficulty: number
   selectedModelId: string
+  selectedCandidateId?: string
+  selectedExecutionPresetId?: string
+  reasoningEffort?: string
   selectedQuality: number
   selectedCostCny: number
   qualityLower: number
   qualityUpper: number
   candidates: ACUSelectionCandidate[]
+}
+
+export type ACUExecutionPresetSeries = {
+  candidateId: string
+  modelId: string
+  displayName: string
+  executionPresetId: string
+  reasoningEffort: string
+  calibrationStatus: string
+  points: Array<{
+    difficulty: number
+    estimatedQuality: number
+    estimatedCallCost: number
+  }>
 }
 
 export type ACUSelectionCorridor = {
@@ -184,6 +206,7 @@ export type ACUSelectionCorridor = {
   inputTokens: number
   expectedOutputTokens: number
   assumptions: Record<string, unknown>
+  executionPresetSeries: ACUExecutionPresetSeries[]
   series: Record<
     'economy' | 'balanced' | 'quality',
     ACUSelectionCorridorPoint[]

@@ -47,6 +47,10 @@ import {
   qualityAtDifficulty,
   sortTooltipLinesByQuality,
 } from '../lib/curve-ranking'
+import {
+  executionPresetLabels,
+  executionPresetPointAtDifficulty,
+} from '../lib/execution-preset-series'
 import { formatACUCNY, formatPublicReferenceSource } from '../lib/price'
 import {
   PRICE_COLOR_STOPS,
@@ -104,11 +108,7 @@ export function ACUModelCurves(props: {
         ),
     [props.models]
   )
-  const allModelIds = useMemo(
-    () => curveModels.map((model) => model.model_name),
-    [curveModels]
-  )
-  const [selectedModelIds, setSelectedModelIds] = useState<string[]>([])
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([])
   const [inputTokens, setInputTokens] = useState(100_000)
   const [outputTokens, setOutputTokens] = useState(4_000)
   const [sortMode, setSortMode] = useState<CurveSortMode>('price')
@@ -131,15 +131,26 @@ export function ACUModelCurves(props: {
       staleTime: 60 * 1000,
       retry: 1,
     })
+  const executionPresetSeries = useMemo(
+    () => selectionCorridor?.executionPresetSeries ?? [],
+    [selectionCorridor]
+  )
+  const allCandidateIds = useMemo(
+    () => [
+      ...curveModels.map((model) => model.model_name),
+      ...executionPresetSeries.map((preset) => preset.candidateId),
+    ],
+    [curveModels, executionPresetSeries]
+  )
   const abilityDifficulty = hoveredDifficulty ?? 50
 
   useEffect(() => {
-    setSelectedModelIds(allModelIds)
-  }, [allModelIds])
+    setSelectedCandidateIds(allCandidateIds)
+  }, [allCandidateIds])
 
   const selectedSet = useMemo(
-    () => new Set(selectedModelIds),
-    [selectedModelIds]
+    () => new Set(selectedCandidateIds),
+    [selectedCandidateIds]
   )
   const orderedCurveModels = useMemo(
     () =>
@@ -178,19 +189,29 @@ export function ACUModelCurves(props: {
     () => curveModels.filter((model) => selectedSet.has(model.model_name)),
     [curveModels, selectedSet]
   )
+  const selectedPresets = useMemo(
+    () =>
+      executionPresetSeries.filter((preset) =>
+        selectedSet.has(preset.candidateId)
+      ),
+    [executionPresetSeries, selectedSet]
+  )
   const modelNameById = useMemo(
     () =>
-      new Map(
-        curveModels.map((model) => [
-          model.model_name,
-          model.display_name || model.model_name,
-        ])
-      ),
-    [curveModels]
+      new Map([
+        ...curveModels.map(
+          (model) =>
+            [model.model_name, model.display_name || model.model_name] as const
+        ),
+        ...executionPresetSeries.map(
+          (preset) => [preset.candidateId, preset.displayName] as const
+        ),
+      ]),
+    [curveModels, executionPresetSeries]
   )
   const colorByModel = useMemo(
-    () =>
-      buildPriceRankColorMap(
+    () => {
+      const colors = buildPriceRankColorMap(
         curveModels.map((model) => ({
           id: model.model_name,
           cost: displayedPricingCost(
@@ -200,8 +221,13 @@ export function ACUModelCurves(props: {
             outputTokens
           ),
         }))
-      ),
-    [curveModels, inputTokens, outputTokens, props.displayMode]
+      )
+      executionPresetSeries.forEach((preset, index) => {
+        colors.set(preset.candidateId, priceRankColor((index + 1) / (executionPresetSeries.length + 2)))
+      })
+      return colors
+    },
+    [curveModels, executionPresetSeries, inputTokens, outputTokens, props.displayMode]
   )
   const priceRange = useMemo(() => {
     const costs = curveModels
@@ -219,8 +245,8 @@ export function ACUModelCurves(props: {
   }, [curveModels, inputTokens, outputTokens, props.displayMode])
 
   const curveData = useMemo(
-    () =>
-      selectedModels.flatMap((model) => {
+    () => [
+      ...selectedModels.flatMap((model) => {
         const displayName = model.display_name || model.model_name
         const cost = displayedPricingCost(
           model,
@@ -238,13 +264,25 @@ export function ACUModelCurves(props: {
           cost,
         }))
       }),
-    [inputTokens, outputTokens, props.displayMode, selectedModels]
+      ...selectedPresets.flatMap((preset) =>
+        preset.points.map((point) => ({
+          modelId: preset.candidateId,
+          modelName: preset.displayName,
+          difficulty: point.difficulty,
+          quality: point.estimatedQuality,
+          qualityLower: point.estimatedQuality,
+          qualityUpper: point.estimatedQuality,
+          cost: point.estimatedCallCost,
+        }))
+      ),
+    ],
+    [inputTokens, outputTokens, props.displayMode, selectedModels, selectedPresets]
   )
 
   const costData = useMemo(
     () =>
-      selectedModels
-        .map((model): PricingCostDatum => ({
+      [
+        ...selectedModels.map((model): PricingCostDatum => ({
           modelId: model.model_name,
           modelName: model.display_name || model.model_name,
           payableCost: estimatedPricingCost(
@@ -280,7 +318,23 @@ export function ACUModelCurves(props: {
           ),
           abilityScore:
             qualityAtDifficulty(model.acu_curve ?? [], abilityDifficulty) * 100,
-        }))
+        })),
+        ...selectedPresets.flatMap((preset): PricingCostDatum[] => {
+          const point = executionPresetPointAtDifficulty(preset, abilityDifficulty)
+          return point ? [{
+            modelId: preset.candidateId,
+            modelName: preset.displayName,
+            payableCost: point.estimatedCallCost,
+            referenceCost: props.displayMode === 'reference_only'
+              ? point.estimatedCallCost
+              : undefined,
+            referenceSource: 'ACU Router execution estimate',
+            status: 'estimated',
+            displayCost: point.estimatedCallCost,
+            abilityScore: point.estimatedQuality,
+          }] : []
+        }),
+      ]
         .sort((left, right) =>
           sortMode === 'ability'
             ? right.abilityScore - left.abilityScore
@@ -295,7 +349,9 @@ export function ACUModelCurves(props: {
       outputTokens,
       props.displayMode,
       selectedModels,
+      selectedPresets,
       sortMode,
+      t,
     ]
   )
 
@@ -313,8 +369,16 @@ export function ACUModelCurves(props: {
     []
   )
 
-  const chartColors = selectedModels.map(
-    (model) => colorByModel.get(model.model_name) || priceRankColor(0.5)
+  const chartColors = useMemo(
+    () => [
+      ...selectedModels.map(
+        (model) => colorByModel.get(model.model_name) || priceRankColor(0.5)
+      ),
+      ...selectedPresets.map(
+        (preset) => colorByModel.get(preset.candidateId) || priceRankColor(0.5)
+      ),
+    ],
+    [colorByModel, selectedModels, selectedPresets]
   )
   const axisColor =
     resolvedTheme === 'dark' ? 'rgba(255,255,255,0.66)' : 'rgba(15,23,42,0.62)'
@@ -570,14 +634,14 @@ export function ACUModelCurves(props: {
             type="button"
             size="sm"
             variant={
-              selectedModelIds.length === allModelIds.length
+              selectedCandidateIds.length === allCandidateIds.length
                 ? 'default'
                 : 'outline'
             }
             className="h-7 px-2 text-xs"
-            onClick={() => setSelectedModelIds(allModelIds)}
+            onClick={() => setSelectedCandidateIds(allCandidateIds)}
           >
-            {t('All')} {allModelIds.length}
+            {t('All')} {allCandidateIds.length}
           </Button>
           {orderedCurveModels.map((model) => {
             const selected = selectedSet.has(model.model_name)
@@ -586,7 +650,7 @@ export function ACUModelCurves(props: {
                 key={model.model_name}
                 type="button"
                 onClick={() =>
-                  setSelectedModelIds((current) =>
+                  setSelectedCandidateIds((current) =>
                     selected
                       ? current.filter((item) => item !== model.model_name)
                       : [...current, model.model_name]
@@ -625,6 +689,38 @@ export function ACUModelCurves(props: {
               </button>
             )
           })}
+          {executionPresetSeries.map((preset) => {
+            const selected = selectedSet.has(preset.candidateId)
+            return (
+              <button
+                key={preset.candidateId}
+                type="button"
+                onClick={() =>
+                  setSelectedCandidateIds((current) =>
+                    selected
+                      ? current.filter((item) => item !== preset.candidateId)
+                      : [...current, preset.candidateId]
+                  )
+                }
+                className={cn(
+                  'inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs transition-colors',
+                  selected
+                    ? 'bg-muted text-foreground'
+                    : 'text-muted-foreground opacity-60'
+                )}
+              >
+                <span
+                  className="size-2 rounded-full"
+                  style={{ backgroundColor: colorByModel.get(preset.candidateId) }}
+                />
+                <span>{preset.displayName}</span>
+                <span className="text-muted-foreground hidden text-[9px] sm:inline">
+                  {executionPresetLabels(preset).join(' · ')}
+                </span>
+                {selected && <Check className="size-3" />}
+              </button>
+            )
+          })}
         </div>
         <div className="text-muted-foreground mt-3 flex flex-wrap items-center gap-2 text-[11px]">
           <span>
@@ -643,7 +739,7 @@ export function ACUModelCurves(props: {
         </div>
       </div>
 
-      {selectedModels.length === 0 ? (
+      {selectedModels.length + selectedPresets.length === 0 ? (
         <div className="text-muted-foreground flex h-56 items-center justify-center text-sm">
           {t('Select at least one model')}
         </div>
@@ -734,7 +830,9 @@ export function ACUModelCurves(props: {
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
                     <span className="text-sm font-semibold">
-                      {modelNameById.get(corridorAtHover.selectedModelId) ||
+                      {modelNameById.get(
+                        corridorAtHover.selectedCandidateId || corridorAtHover.selectedModelId
+                      ) || corridorAtHover.selectedCandidateId ||
                         corridorAtHover.selectedModelId}
                     </span>
                     <span className="text-muted-foreground ml-2 text-xs">
@@ -745,18 +843,18 @@ export function ACUModelCurves(props: {
                   <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[10px]">
                     {corridorAtHover.candidates.map((candidate) => (
                       <span
-                        key={candidate.modelId}
+                        key={candidate.candidateId || candidate.modelId}
                         className="inline-flex items-center gap-1"
                       >
                         <span
                           className="size-1.5 rounded-full"
                           style={{
                             backgroundColor:
-                              colorByModel.get(candidate.modelId) ||
+                              colorByModel.get(candidate.candidateId || candidate.modelId) ||
                               priceRankColor(0.5),
                           }}
                         />
-                        {modelNameById.get(candidate.modelId) ||
+                        {modelNameById.get(candidate.candidateId || candidate.modelId) ||
                           candidate.modelId}
                       </span>
                     ))}
@@ -798,7 +896,9 @@ export function ACUModelCurves(props: {
             </div>
             <div
               className="min-w-0"
-              style={{ height: Math.max(360, selectedModels.length * 34) }}
+              style={{
+                height: Math.max(360, (selectedModels.length + selectedPresets.length) * 34),
+              }}
             >
               {themeReady && (
                 <VChart
