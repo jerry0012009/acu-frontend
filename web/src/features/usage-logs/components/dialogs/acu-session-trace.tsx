@@ -90,6 +90,15 @@ function Waterfall(props: { trace: ACUSessionTrace }) {
     0
   )
   const totalMs = Math.max(request?.totalLatencyMs ?? judgeMs + providerMs, 1)
+  let completionLabel = t('Error')
+  let completionTone = 'bg-rose-500'
+  if (request?.status === 'success') {
+    completionLabel = t('Complete')
+    completionTone = 'bg-emerald-500'
+  } else if (neutralCancellation) {
+    completionLabel = t('Client ended stream')
+    completionTone = 'bg-slate-500'
+  }
   const stages = [
     {
       label: t('Request'),
@@ -104,19 +113,9 @@ function Waterfall(props: { trace: ACUSessionTrace }) {
       tone: 'bg-amber-500',
     },
     {
-      label:
-        request?.status === 'success'
-          ? t('Complete')
-          : neutralCancellation
-            ? t('Client ended stream')
-            : t('Error'),
+      label: completionLabel,
       value: 1,
-      tone:
-        request?.status === 'success'
-          ? 'bg-emerald-500'
-          : neutralCancellation
-            ? 'bg-slate-500'
-            : 'bg-rose-500',
+      tone: completionTone,
     },
   ]
 
@@ -281,6 +280,9 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
         `${model} × ${judgeModels.filter((item) => item === model).length}`
     )
     .join(' → ') || '—'
+  let requestStatusVariant: 'green' | 'neutral' | 'red' = 'red'
+  if (request?.status === 'success') requestStatusVariant = 'green'
+  else if (isNeutralCancellation(request)) requestStatusVariant = 'neutral'
 
   return (
     <section
@@ -307,13 +309,7 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
         </div>
         <StatusBadge
           label={request?.status || props.trace.session.status}
-          variant={
-            request?.status === 'success'
-              ? 'green'
-              : isNeutralCancellation(request)
-                ? 'neutral'
-                : 'red'
-          }
+          variant={requestStatusVariant}
           size='sm'
           copyable={false}
         />
@@ -491,11 +487,13 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
                       <span>CF-Ray: {logical.errorDiagnosis.cfRay || '—'}</span>
                       <span>
                         {t('First byte')}:{' '}
-                        {logical.errorDiagnosis.firstByteReceived
-                          ? t('Yes')
-                          : logical.errorDiagnosis.visibleBytes > 0
-                            ? t('Not recorded')
-                            : t('No')}
+                        {logical.errorDiagnosis.firstByteReceived && t('Yes')}
+                        {!logical.errorDiagnosis.firstByteReceived &&
+                          logical.errorDiagnosis.visibleBytes > 0 &&
+                          t('Not recorded')}
+                        {!logical.errorDiagnosis.firstByteReceived &&
+                          logical.errorDiagnosis.visibleBytes === 0 &&
+                          t('No')}
                       </span>
                       <span>
                         {t('Visible bytes')}:{' '}

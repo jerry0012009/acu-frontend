@@ -133,7 +133,7 @@ function TimelineStep(props: {
           <div>
             <div className='text-muted-foreground mb-1'>Recovery</div>
             <div>{item.recoveryDecisionReason || item.routeRefreshReason || 'No recovery'}</div>
-            <button className='text-primary mt-1 underline-offset-2 hover:underline' onClick={() => props.onTrace(item.logicalRequestId)}>Open Session Trace</button>
+            <button type='button' className='text-primary mt-1 underline-offset-2 hover:underline' onClick={() => props.onTrace(item.logicalRequestId)}>Open Session Trace</button>
           </div>
           <div className='lg:col-span-2'>
             <div className='text-muted-foreground mb-1'>Top candidates</div>
