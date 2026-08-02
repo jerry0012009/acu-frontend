@@ -81,7 +81,7 @@ export function buildPricingBarSeries(mode: PricingDisplayMode) {
     yField: 'modelName',
     barMinHeight: 1,
     zIndex: 1,
-    opacity: 0.16,
+    opacity: 0.12,
   }
   const payable = {
     type: 'bar' as const,
@@ -91,7 +91,7 @@ export function buildPricingBarSeries(mode: PricingDisplayMode) {
     direction: 'horizontal' as const,
     xField: 'payableCost',
     yField: 'modelName',
-    barMinHeight: 1,
+    barMinHeight: 3,
     zIndex: 2,
     opacity: 1,
   }

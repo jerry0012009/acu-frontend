@@ -358,7 +358,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   return (
     <div
       className={cn(
-        'group relative flex flex-col rounded-xl border p-3 transition-colors sm:p-5',
+        'group relative flex h-full flex-col rounded-xl border p-3 transition-colors sm:p-5',
         'hover:bg-muted/20'
       )}
     >
@@ -412,8 +412,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
         {props.model.description || t('No description available.')}
       </p>
 
-      {/* Footer: left metadata and right performance summary share row alignment */}
-      <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1 sm:mt-4">
+      <div className="mt-auto flex flex-col gap-2 pt-4">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           {primaryGroup && (
             <span className="text-muted-foreground text-sm font-medium">
@@ -421,10 +420,10 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
             </span>
           )}
           <ModelBillingModeBadge model={props.model} />
+          <ModelPerfBadge perf={props.perf} />
         </div>
-        <ModelPerfBadge perf={props.perf} className="row-span-2 self-start" />
 
-        <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5 sm:gap-x-3 sm:gap-y-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
           {bottomTags.map((item) => (
             <span key={item} className="text-muted-foreground/70 text-xs">
               {item}

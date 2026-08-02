@@ -95,7 +95,7 @@ test('comparison overlays reference and payable bars on one shared axis', () => 
       opacity: series[0].opacity,
       zIndex: series[0].zIndex,
     },
-    { xField: 'referenceCost', opacity: 0.16, zIndex: 1 }
+    { xField: 'referenceCost', opacity: 0.12, zIndex: 1 }
   )
   assert.deepEqual(
     {
@@ -105,6 +105,8 @@ test('comparison overlays reference and payable bars on one shared axis', () => 
     },
     { xField: 'payableCost', opacity: 1, zIndex: 2 }
   )
+  assert.equal(series[0].barMinHeight, 1)
+  assert.equal(series[1].barMinHeight, 3)
   assert.ok(series.every((item) => !('barGap' in item)))
   assert.ok(series.every((item) => !('barWidth' in item)))
 })
