@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -33,11 +34,11 @@ func TestOverlayACUPricingUsesDynamicAutoAndCatalogPrices(t *testing.T) {
 			EffectiveCachedInputPriceCNYPerMillion: 0.006,
 			CostCurrency:                           "CNY",
 			CostSemantics:                          "estimated_user_payable_price",
-			Payable: &model.PricingPayable{
+			Payable: &acuCatalogPayable{
 				InputCNYPerMillion: 0.06, OutputCNYPerMillion: 0.36,
 				CachedInputCNYPerMillion: &cachePayable, Status: "estimated", PricingPolicyVersion: "retail-v1",
 			},
-			Reference: &model.PricingReference{
+			Reference: &acuCatalogReference{
 				InputCNYPerMillion: 7.2, OutputCNYPerMillion: 43.2,
 				CachedInputCNYPerMillion: &cacheReference, SourceType: "official",
 				SourceName: "Vendor official pricing", ObservedAt: "2026-08-02", OriginalCurrency: "USD",
@@ -83,14 +84,35 @@ func TestOverlayACUPricingUsesDynamicAutoAndCatalogPrices(t *testing.T) {
 	}
 }
 
+func TestCatalogCamelCasePricesProduceSerializablePublicPricing(t *testing.T) {
+	var catalog acuPricingCatalog
+	require.NoError(t, json.Unmarshal([]byte(`{
+		"displayMode":"comparison",
+		"auto":{"modelId":"acu-auto"},
+		"responses":[{
+			"modelId":"claude-test","protocol":"Messages","costCurrency":"CNY",
+			"payable":{"inputCnyPerMillion":0.12,"outputCnyPerMillion":0.6,"cachedInputCnyPerMillion":0.12,"status":"estimated","pricingPolicyVersion":"retail-v1"},
+			"reference":{"inputCnyPerMillion":21.6,"outputCnyPerMillion":108,"sourceType":"official","sourceName":"Anthropic official pricing","observedAt":"2026-08-02","originalCurrency":"USD","fxCnyPerUsd":7.2}
+		}]
+	}`), &catalog))
+
+	got := overlayACUPricing(&catalog, nil)
+	require.Len(t, got, 2)
+	require.Equal(t, 5.0, got[1].CompletionRatio)
+	require.Equal(t, 0.12, got[1].Payable.InputCNYPerMillion)
+	require.Equal(t, 21.6, got[1].Reference.InputCNYPerMillion)
+	_, err := json.Marshal(got)
+	require.NoError(t, err)
+}
+
 func TestOverlayACUPricingReferenceOnlyUsesReferenceWithoutChangingPayable(t *testing.T) {
 	catalog := &acuPricingCatalog{
 		DisplayMode: "reference_only",
 		Auto:        acuPricingAuto{ModelID: "acu-auto"},
 		Responses: []acuPricingResponse{{
 			ModelID: "gpt-test", Protocol: "Responses", CostCurrency: "CNY",
-			Payable:   &model.PricingPayable{InputCNYPerMillion: 1, OutputCNYPerMillion: 2},
-			Reference: &model.PricingReference{InputCNYPerMillion: 7.2, OutputCNYPerMillion: 14.4},
+			Payable:   &acuCatalogPayable{InputCNYPerMillion: 1, OutputCNYPerMillion: 2},
+			Reference: &acuCatalogReference{InputCNYPerMillion: 7.2, OutputCNYPerMillion: 14.4},
 		}},
 	}
 
@@ -140,8 +162,8 @@ func TestOverlayACUPricingPreservesNativeACUProtocols(t *testing.T) {
 	catalog := &acuPricingCatalog{
 		Auto: acuPricingAuto{ModelID: "acu-auto"},
 		Responses: []acuPricingResponse{
-			{ModelID: "claude-test", Protocol: "Messages", Payable: &model.PricingPayable{InputCNYPerMillion: 1, OutputCNYPerMillion: 2}},
-			{ModelID: "dual-test", Protocol: "Messages + Responses", Payable: &model.PricingPayable{InputCNYPerMillion: 1, OutputCNYPerMillion: 2}},
+			{ModelID: "claude-test", Protocol: "Messages", Payable: &acuCatalogPayable{InputCNYPerMillion: 1, OutputCNYPerMillion: 2}},
+			{ModelID: "dual-test", Protocol: "Messages + Responses", Payable: &acuCatalogPayable{InputCNYPerMillion: 1, OutputCNYPerMillion: 2}},
 		},
 	}
 
