@@ -53,6 +53,7 @@ export function Pricing() {
     isLoading,
     priceRate,
     usdExchangeRate,
+    pricingDisplayMode,
   } = usePricingData()
 
   const {
@@ -132,6 +133,7 @@ export function Pricing() {
           tokenUnit={tokenUnit}
           showRechargePrice={showRechargePrice}
           selectedGroup={groupFilter}
+          pricingDisplayMode={pricingDisplayMode}
         />
       )
     }
@@ -189,7 +191,7 @@ export function Pricing() {
             </p>
             <p className='text-muted-foreground/60 mx-auto mt-2 max-w-2xl text-xs leading-relaxed sm:text-sm'>
               {t(
-                'Discover curated AI models, compare pricing and capabilities, and choose the right model for every scenario.'
+                'Current estimates are calculated from available routes and billing configuration. Actual payment may change with route availability, network status, and upstream price updates. Final billing prevails.'
               )}
             </p>
             <SearchBar
@@ -204,7 +206,10 @@ export function Pricing() {
           </header>
 
           <div className='mb-4 sm:mb-6'>
-            <ACUModelCurves models={models || []} />
+            <ACUModelCurves
+              models={models || []}
+              displayMode={pricingDisplayMode}
+            />
           </div>
 
           <div className='grid gap-4 xl:grid-cols-[330px_minmax(0,1fr)]'>

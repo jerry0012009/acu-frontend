@@ -47,31 +47,28 @@ import {
   qualityAtDifficulty,
   sortTooltipLinesByQuality,
 } from '../lib/curve-ranking'
-import { formatACUCNY } from '../lib/price'
+import { formatACUCNY, formatPublicReferenceSource } from '../lib/price'
 import {
   PRICE_COLOR_STOPS,
   buildPriceRankColorMap,
   priceRankColor,
 } from '../lib/price-rank-color'
 import {
+  buildPricingBarSeries,
+  compareDisplayedCostsDescending,
+  displayedPricingCost,
+  estimatedPricingCost,
+  type PricingCostDatum,
+} from '../lib/pricing-comparison'
+import {
   corridorPointAtDifficulty,
   type CorridorPreference,
 } from '../lib/selection-corridor'
-import type { PricingModel } from '../types'
+import type { PricingDisplayMode, PricingModel } from '../types'
 
 function positiveInteger(value: string, fallback: number): number {
   const parsed = Number.parseInt(value, 10)
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback
-}
-
-function estimatedCallCost(
-  model: PricingModel,
-  inputTokens: number,
-  outputTokens: number
-): number {
-  const inputPrice = model.input_price_per_million ?? 0
-  const outputPrice = model.output_price_per_million ?? 0
-  return (inputTokens * inputPrice + outputTokens * outputPrice) / 1_000_000
 }
 
 type CurveSortMode = 'price' | 'ability'
@@ -85,7 +82,10 @@ const CORRIDOR_PREFERENCES: Array<{
   { id: 'quality', label: '性能' },
 ]
 
-export function ACUModelCurves(props: { models: PricingModel[] }) {
+export function ACUModelCurves(props: {
+  models: PricingModel[]
+  displayMode: PricingDisplayMode
+}) {
   const { t } = useTranslation()
   const { resolvedTheme, themeReady } = useChartTheme()
   const curveModels = useMemo(
@@ -151,12 +151,28 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
             abilityDifficulty
           )
         }
-        return (
-          estimatedCallCost(right, inputTokens, outputTokens) -
-          estimatedCallCost(left, inputTokens, outputTokens)
+        const rightCost = displayedPricingCost(
+          right,
+          props.displayMode,
+          inputTokens,
+          outputTokens
         )
+        const leftCost = displayedPricingCost(
+          left,
+          props.displayMode,
+          inputTokens,
+          outputTokens
+        )
+        return compareDisplayedCostsDescending(leftCost, rightCost)
       }),
-    [abilityDifficulty, curveModels, inputTokens, outputTokens, sortMode]
+    [
+      abilityDifficulty,
+      curveModels,
+      inputTokens,
+      outputTokens,
+      props.displayMode,
+      sortMode,
+    ]
   )
   const selectedModels = useMemo(
     () => curveModels.filter((model) => selectedSet.has(model.model_name)),
@@ -177,23 +193,41 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
       buildPriceRankColorMap(
         curveModels.map((model) => ({
           id: model.model_name,
-          cost: estimatedCallCost(model, inputTokens, outputTokens),
+          cost: displayedPricingCost(
+            model,
+            props.displayMode,
+            inputTokens,
+            outputTokens
+          ),
         }))
       ),
-    [curveModels, inputTokens, outputTokens]
+    [curveModels, inputTokens, outputTokens, props.displayMode]
   )
   const priceRange = useMemo(() => {
     const costs = curveModels
-      .map((model) => estimatedCallCost(model, inputTokens, outputTokens))
+      .map((model) =>
+        displayedPricingCost(
+          model,
+          props.displayMode,
+          inputTokens,
+          outputTokens
+        )
+      )
+      .filter(Number.isFinite)
       .sort((left, right) => left - right)
     return { minimum: costs[0] ?? 0, maximum: costs.at(-1) ?? 0 }
-  }, [curveModels, inputTokens, outputTokens])
+  }, [curveModels, inputTokens, outputTokens, props.displayMode])
 
   const curveData = useMemo(
     () =>
       selectedModels.flatMap((model) => {
         const displayName = model.display_name || model.model_name
-        const cost = estimatedCallCost(model, inputTokens, outputTokens)
+        const cost = displayedPricingCost(
+          model,
+          props.displayMode,
+          inputTokens,
+          outputTokens
+        )
         return (model.acu_curve ?? []).map((point) => ({
           modelId: model.model_name,
           modelName: displayName,
@@ -202,39 +236,67 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
           qualityLower: point.qualityLower * 100,
           qualityUpper: point.qualityUpper * 100,
           cost,
-          provider: model.acu_cost_provider || '-',
-          channel: model.acu_cost_channel || '-',
         }))
       }),
-    [inputTokens, outputTokens, selectedModels]
+    [inputTokens, outputTokens, props.displayMode, selectedModels]
   )
 
   const costData = useMemo(
     () =>
       selectedModels
-        .map((model) => ({
+        .map((model): PricingCostDatum => ({
           modelId: model.model_name,
           modelName: model.display_name || model.model_name,
-          cost: estimatedCallCost(model, inputTokens, outputTokens),
-          inputPrice: model.input_price_per_million ?? 0,
-          outputPrice: model.output_price_per_million ?? 0,
-          provider: model.acu_cost_provider || '-',
-          channel: model.acu_cost_channel || '-',
-          executionProfileId: model.acu_cost_execution_profile_id || '-',
-          multiplier: model.acu_cost_observed_billing_multiplier,
-          costBasisLabel:
-            model.acu_cost_basis_label ||
-            '参考渠道价格，不代表每次请求最终渠道',
-          status: model.acu_effective_cost_status || 'estimated',
+          payableCost: estimatedPricingCost(
+            model.payable?.input_cny_per_million,
+            model.payable?.output_cny_per_million,
+            inputTokens,
+            outputTokens
+          ),
+          referenceCost: estimatedPricingCost(
+            model.reference?.input_cny_per_million,
+            model.reference?.output_cny_per_million,
+            inputTokens,
+            outputTokens
+          ),
+          payableInput: model.payable?.input_cny_per_million,
+          payableOutput: model.payable?.output_cny_per_million,
+          referenceInput: model.reference?.input_cny_per_million,
+          referenceOutput: model.reference?.output_cny_per_million,
+          referenceSource: model.reference
+            ? formatPublicReferenceSource(
+                model.reference,
+                t('Official pricing'),
+                t('OpenRouter public pricing')
+              )
+            : undefined,
+          referenceObservedAt: model.reference?.observed_at,
+          status: model.payable?.status,
+          displayCost: displayedPricingCost(
+            model,
+            props.displayMode,
+            inputTokens,
+            outputTokens
+          ),
           abilityScore:
             qualityAtDifficulty(model.acu_curve ?? [], abilityDifficulty) * 100,
         }))
         .sort((left, right) =>
           sortMode === 'ability'
             ? right.abilityScore - left.abilityScore
-            : right.cost - left.cost
+            : compareDisplayedCostsDescending(
+                left.displayCost,
+                right.displayCost
+              )
         ),
-    [abilityDifficulty, inputTokens, outputTokens, selectedModels, sortMode]
+    [
+      abilityDifficulty,
+      inputTokens,
+      outputTokens,
+      props.displayMode,
+      selectedModels,
+      sortMode,
+    ]
   )
 
   const handleDimensionHover = useCallback(
@@ -407,71 +469,52 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
 
   const costSpec = useMemo(
     () => ({
-      type: 'bar' as const,
-      direction: 'horizontal' as const,
+      type: 'common' as const,
       data: [{ id: 'acu-model-costs', values: costData }],
-      xField: 'cost',
-      yField: 'modelName',
-      seriesField: 'modelName',
-      color: costData.map(
-        (item) => colorByModel.get(item.modelId) || priceRankColor(0.5)
-      ),
+      series: buildPricingBarSeries(props.displayMode).map((series) => ({
+        ...series,
+        bar: {
+          style: {
+            cornerRadius: 3,
+            fillOpacity: series.opacity,
+            fill: (datum: { modelId?: string }) =>
+              colorByModel.get(datum.modelId ?? '') || priceRankColor(0.5),
+          },
+        },
+      })),
       animation: false,
       legends: { visible: false },
-      bar: {
-        style: {
-          cornerRadius: 3,
-          fill: (datum: { modelId?: string }) =>
-            colorByModel.get(datum.modelId ?? '') || priceRankColor(0.5),
-        },
-      },
       tooltip: {
         mark: {
           title: { value: (datum: { modelName: string }) => datum.modelName },
           content: [
             {
-              key: t('Estimated execution cost'),
-              value: (datum: { cost: number }) => formatACUCNY(datum.cost),
+              key: t('Current platform estimate'),
+              value: (datum: PricingCostDatum) =>
+                datum.payableCost === undefined
+                  ? '-'
+                  : formatACUCNY(datum.payableCost),
             },
             {
-              key: t('Average predicted quality'),
-              value: (datum: { abilityScore: number }) =>
-                `${datum.abilityScore.toFixed(1)}%`,
+              key: t('Official or public reference'),
+              value: (datum: PricingCostDatum) =>
+                datum.referenceCost === undefined
+                  ? t('No comparable public reference price')
+                  : formatACUCNY(datum.referenceCost),
             },
             {
-              key: `${t('Input')} / 1M`,
-              value: (datum: { inputPrice: number }) =>
-                formatACUCNY(datum.inputPrice),
+              key: t('Reference source'),
+              value: (datum: PricingCostDatum) => datum.referenceSource || '-',
             },
             {
-              key: `${t('Output')} / 1M`,
-              value: (datum: { outputPrice: number }) =>
-                formatACUCNY(datum.outputPrice),
+              key: t('Updated'),
+              value: (datum: PricingCostDatum) =>
+                datum.referenceObservedAt || '-',
             },
             {
-              key: t('Provider'),
-              value: (datum: { provider: string }) => datum.provider,
-            },
-            {
-              key: t('Channel'),
-              value: (datum: { channel: string }) => datum.channel,
-            },
-            {
-              key: '本次模拟参考渠道',
-              value: (datum: { executionProfileId: string }) =>
-                datum.executionProfileId,
-            },
-            {
-              key: 'Multiplier',
-              value: (datum: { multiplier?: number }) =>
-                Number.isFinite(datum.multiplier)
-                  ? `${datum.multiplier}x`
-                  : '-',
-            },
-            {
-              key: '价格口径',
-              value: (datum: { costBasisLabel: string }) =>
-                datum.costBasisLabel,
+              key: t('Price status'),
+              value: (datum: PricingCostDatum) =>
+                datum.status === 'verified' ? t('Verified') : t('Estimated'),
             },
           ],
         },
@@ -496,34 +539,34 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
         },
       ],
     }),
-    [axisColor, colorByModel, costData, gridColor, t]
+    [axisColor, colorByModel, costData, gridColor, props.displayMode, t]
   )
 
   if (curveModels.length === 0) return null
 
   return (
-    <section className='border-border/70 bg-card/80 overflow-hidden rounded-lg border'>
-      <div className='border-b px-4 py-4 sm:px-5'>
-        <div className='flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between'>
-          <div className='min-w-0'>
-            <div className='flex items-center gap-2'>
-              <Route className='text-primary size-4' />
-              <h2 className='text-base font-semibold'>
+    <section className="border-border/70 bg-card/80 overflow-hidden rounded-lg border">
+      <div className="border-b px-4 py-4 sm:px-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <Route className="text-primary size-4" />
+              <h2 className="text-base font-semibold">
                 {t('ACU model quality curves')}
               </h2>
             </div>
-            <p className='text-muted-foreground mt-1 max-w-3xl text-xs leading-relaxed sm:text-sm'>
+            <p className="text-muted-foreground mt-1 max-w-3xl text-xs leading-relaxed sm:text-sm">
               {t(
-                'Quality is predicted by task difficulty. CNY prices use the current reference execution profile and real provider cash conversion.'
+                'Quality is predicted by task difficulty. Current estimates use available routes and billing configuration.'
               )}
             </p>
           </div>
-          <div className='grid shrink-0 grid-cols-2 gap-2 sm:w-auto'>
-            <label className='text-muted-foreground text-[11px] font-medium'>
+          <div className="grid shrink-0 grid-cols-2 gap-2 sm:w-auto">
+            <label className="text-muted-foreground text-[11px] font-medium">
               {t('Input tokens')}
               <Input
-                className='mt-1 h-8 w-full min-w-0 font-mono sm:w-32'
-                type='number'
+                className="mt-1 h-8 w-full min-w-0 font-mono sm:w-32"
+                type="number"
                 min={0}
                 step={1000}
                 value={inputTokens}
@@ -532,11 +575,11 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
                 }
               />
             </label>
-            <label className='text-muted-foreground text-[11px] font-medium'>
+            <label className="text-muted-foreground text-[11px] font-medium">
               {t('Expected output tokens')}
               <Input
-                className='mt-1 h-8 w-full min-w-0 font-mono sm:w-32'
-                type='number'
+                className="mt-1 h-8 w-full min-w-0 font-mono sm:w-32"
+                type="number"
                 min={0}
                 step={100}
                 value={outputTokens}
@@ -548,16 +591,16 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
           </div>
         </div>
 
-        <div className='mt-4 flex flex-wrap gap-1.5'>
+        <div className="mt-4 flex flex-wrap gap-1.5">
           <Button
-            type='button'
-            size='sm'
+            type="button"
+            size="sm"
             variant={
               selectedModelIds.length === allModelIds.length
                 ? 'default'
                 : 'outline'
             }
-            className='h-7 px-2 text-xs'
+            className="h-7 px-2 text-xs"
             onClick={() => setSelectedModelIds(allModelIds)}
           >
             {t('All')} {allModelIds.length}
@@ -567,7 +610,7 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
             return (
               <button
                 key={model.model_name}
-                type='button'
+                type="button"
                 onClick={() =>
                   setSelectedModelIds((current) =>
                     selected
@@ -583,17 +626,17 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
                 )}
               >
                 <span
-                  className='size-2 rounded-full'
+                  className="size-2 rounded-full"
                   style={{
                     backgroundColor:
                       colorByModel.get(model.model_name) || priceRankColor(0.5),
                   }}
                 />
-                <span className='max-w-44 truncate'>
+                <span className="max-w-44 truncate">
                   {model.display_name || model.model_name}
                 </span>
                 {sortMode === 'ability' && (
-                  <span className='text-muted-foreground font-mono text-[10px]'>
+                  <span className="text-muted-foreground font-mono text-[10px]">
                     D{Math.round(abilityDifficulty)} ·{' '}
                     {(
                       qualityAtDifficulty(
@@ -604,18 +647,18 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
                     %
                   </span>
                 )}
-                {selected && <Check className='size-3' />}
+                {selected && <Check className="size-3" />}
               </button>
             )
           })}
         </div>
-        <div className='text-muted-foreground mt-3 flex flex-wrap items-center gap-2 text-[11px]'>
+        <div className="text-muted-foreground mt-3 flex flex-wrap items-center gap-2 text-[11px]">
           <span>
             {t('Lower estimated cost')} {formatACUCNY(priceRange.minimum)}
           </span>
           <span
-            aria-hidden='true'
-            className='h-2.5 w-40 rounded-full border sm:w-56'
+            aria-hidden="true"
+            className="h-2.5 w-40 rounded-full border sm:w-56"
             style={{
               background: `linear-gradient(90deg, ${PRICE_COLOR_STOPS.join(', ')})`,
             }}
@@ -627,34 +670,34 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
       </div>
 
       {selectedModels.length === 0 ? (
-        <div className='text-muted-foreground flex h-56 items-center justify-center text-sm'>
+        <div className="text-muted-foreground flex h-56 items-center justify-center text-sm">
           {t('Select at least one model')}
         </div>
       ) : (
-        <div className='bg-border/60 grid min-w-0 gap-px xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.85fr)]'>
-          <div className='bg-card min-w-0 p-3 sm:p-5'>
-            <div className='mb-2 flex flex-wrap items-center justify-between gap-2'>
-              <div className='flex items-center gap-2 text-sm font-medium'>
-                <BarChart3 className='text-muted-foreground size-4' />
+        <div className="bg-border/60 grid min-w-0 gap-px xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.85fr)]">
+          <div className="bg-card min-w-0 p-3 sm:p-5">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <BarChart3 className="text-muted-foreground size-4" />
                 {t('Difficulty and estimated quality')}
               </div>
-              <div className='flex flex-wrap items-center justify-end gap-1.5'>
+              <div className="flex flex-wrap items-center justify-end gap-1.5">
                 <div
-                  className='bg-muted/40 inline-flex h-8 items-center rounded-md border p-0.5'
-                  role='group'
-                  aria-label='ACU Auto 选择模式'
+                  className="bg-muted/40 inline-flex h-8 items-center rounded-md border p-0.5"
+                  role="group"
+                  aria-label="ACU Auto 选择模式"
                 >
                   {CORRIDOR_PREFERENCES.map((preference) => (
                     <Button
                       key={preference.id}
-                      type='button'
-                      size='sm'
+                      type="button"
+                      size="sm"
                       variant={
                         corridorPreference === preference.id
                           ? 'secondary'
                           : 'ghost'
                       }
-                      className='h-6 px-2 text-xs shadow-none'
+                      className="h-6 px-2 text-xs shadow-none"
                       onClick={() => setCorridorPreference(preference.id)}
                     >
                       {preference.label}
@@ -662,34 +705,34 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
                   ))}
                 </div>
                 <div
-                  className='bg-muted/40 inline-flex h-8 items-center rounded-md border p-0.5'
-                  role='group'
+                  className="bg-muted/40 inline-flex h-8 items-center rounded-md border p-0.5"
+                  role="group"
                   aria-label={t('Curve ranking')}
                 >
                   <Button
-                    type='button'
-                    size='sm'
+                    type="button"
+                    size="sm"
                     variant={sortMode === 'price' ? 'secondary' : 'ghost'}
-                    className='h-6 gap-1 px-2 text-xs shadow-none'
+                    className="h-6 gap-1 px-2 text-xs shadow-none"
                     onClick={() => setSortMode('price')}
                   >
-                    <CircleDollarSign className='size-3' />
+                    <CircleDollarSign className="size-3" />
                     {t('Price ranking')}
                   </Button>
                   <Button
-                    type='button'
-                    size='sm'
+                    type="button"
+                    size="sm"
                     variant={sortMode === 'ability' ? 'secondary' : 'ghost'}
-                    className='h-6 gap-1 px-2 text-xs shadow-none'
+                    className="h-6 gap-1 px-2 text-xs shadow-none"
                     onClick={() => setSortMode('ability')}
                   >
-                    <ArrowDownUp className='size-3' />
+                    <ArrowDownUp className="size-3" />
                     {t('Ability ranking')} · D{Math.round(abilityDifficulty)}
                   </Button>
                 </div>
               </div>
             </div>
-            <div className='h-[360px] min-w-0 sm:h-[440px]'>
+            <div className="h-[360px] min-w-0 sm:h-[440px]">
               {themeReady && (
                 <VChart
                   key={`acu-curves-${resolvedTheme}`}
@@ -703,36 +746,36 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
                 />
               )}
             </div>
-            <div className='mt-3 border-t pt-3'>
-              <div className='mb-2 flex flex-wrap items-center justify-between gap-2'>
-                <div className='text-xs font-medium'>
+            <div className="mt-3 border-t pt-3">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <div className="text-xs font-medium">
                   ACU Auto · {activeCorridor?.label} · D
                   {Math.round(abilityDifficulty)}
                 </div>
-                <div className='text-muted-foreground text-[10px]'>
+                <div className="text-muted-foreground text-[10px]">
                   {corridorStatusText}
                 </div>
               </div>
               {corridorAtHover ? (
-                <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
-                  <div className='min-w-0'>
-                    <span className='text-sm font-semibold'>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <span className="text-sm font-semibold">
                       {modelNameById.get(corridorAtHover.selectedModelId) ||
                         corridorAtHover.selectedModelId}
                     </span>
-                    <span className='text-muted-foreground ml-2 text-xs'>
+                    <span className="text-muted-foreground ml-2 text-xs">
                       预计质量 {corridorAtHover.selectedQuality.toFixed(1)}% ·{' '}
                       {formatACUCNY(corridorAtHover.selectedCostCny)}
                     </span>
                   </div>
-                  <div className='flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[10px]'>
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[10px]">
                     {corridorAtHover.candidates.map((candidate) => (
                       <span
                         key={candidate.modelId}
-                        className='inline-flex items-center gap-1'
+                        className="inline-flex items-center gap-1"
                       >
                         <span
-                          className='size-1.5 rounded-full'
+                          className="size-1.5 rounded-full"
                           style={{
                             backgroundColor:
                               colorByModel.get(candidate.modelId) ||
@@ -746,11 +789,11 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
                   </div>
                 </div>
               ) : (
-                <div className='text-muted-foreground text-xs'>
+                <div className="text-muted-foreground text-xs">
                   暂无可路由模型
                 </div>
               )}
-              <p className='text-muted-foreground mt-2 text-[10px] leading-4'>
+              <p className="text-muted-foreground mt-2 text-[10px] leading-4">
                 淡色区域表示当前模式下前三个 Pareto
                 前沿候选的质量覆盖范围；模型曲线颜色按实际人民币价格由蓝到紫排列。
                 展示 Responses、无工具、基础质量目标 80 的条件结果。
@@ -758,13 +801,29 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
             </div>
           </div>
 
-          <div className='bg-card min-w-0 p-3 sm:p-5'>
-            <div className='mb-2 flex items-center gap-2 text-sm font-medium'>
-              <CircleDollarSign className='text-muted-foreground size-4' />
-              {t('Estimated execution cost (CNY)')}
+          <div className="bg-card min-w-0 p-3 sm:p-5">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <CircleDollarSign className="text-muted-foreground size-4" />
+                {t('Estimated execution cost (CNY)')}
+              </div>
+              <div className="text-muted-foreground flex items-center gap-3 text-[11px]">
+                {props.displayMode !== 'reference_only' && (
+                  <span className="flex items-center gap-1">
+                    <span className="bg-foreground inline-block h-2 w-3 rounded-[1px]" />
+                    {t('Current platform estimate')}
+                  </span>
+                )}
+                {props.displayMode !== 'payable_only' && (
+                  <span className="flex items-center gap-1">
+                    <span className="bg-foreground inline-block h-3 w-3 rounded-[1px] opacity-[0.16]" />
+                    {t('Official or public reference')}
+                  </span>
+                )}
+              </div>
             </div>
             <div
-              className='min-w-0'
+              className="min-w-0"
               style={{ height: Math.max(360, selectedModels.length * 34) }}
             >
               {themeReady && (
@@ -779,9 +838,9 @@ export function ACUModelCurves(props: { models: PricingModel[] }) {
                 />
               )}
             </div>
-            <div className='text-muted-foreground mt-2 border-t pt-3 text-xs leading-relaxed'>
+            <div className="text-muted-foreground mt-2 border-t pt-3 text-xs leading-relaxed">
               {t(
-                'Marketplace cost is a pre-request estimate. Final historical cost uses the settled user charge in CNY.'
+                'Solid bars show the current platform estimated payment; light bars show official or public market reference costs. Estimates use the input and output tokens above. Actual payment may change with route availability, network status, and price updates. Final billing prevails.'
               )}
             </div>
           </div>

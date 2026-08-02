@@ -19,7 +19,12 @@ For commercial licensing, please contact support@quantumnous.com
 import { formatCurrencyFromUSD } from '@/lib/currency'
 
 import { QUOTA_TYPE_VALUES, TOKEN_UNIT_DIVISORS } from '../constants'
-import type { PricingModel, TokenUnit, PriceType } from '../types'
+import type {
+  PricingModel,
+  PricingReference,
+  TokenUnit,
+  PriceType,
+} from '../types'
 import { getConfiguredGroupRatio, getDisplayGroupRatio } from './model-helpers'
 
 // ----------------------------------------------------------------------------
@@ -108,6 +113,18 @@ export function formatACUCNY(value: number, maximumFractionDigits = 6): string {
     minimumFractionDigits: 0,
     maximumFractionDigits,
   }).format(value)}`
+}
+
+export function formatPublicReferenceSource(
+  reference: PricingReference,
+  officialPricingLabel: string,
+  openRouterPublicPricingLabel: string
+): string {
+  if (reference.source_type === 'openrouter') {
+    return openRouterPublicPricingLabel
+  }
+  const vendor = reference.source_name.replace(/ official pricing$/i, '')
+  return `${vendor} ${officialPricingLabel}`
 }
 
 /**

@@ -74,5 +74,6 @@ export function usePricingData() {
     refetch,
     priceRate,
     usdExchangeRate,
+    pricingDisplayMode: data?.acu_pricing_display_mode ?? 'comparison',
   }
 }

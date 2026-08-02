@@ -79,16 +79,22 @@ func GetPricing(c *gin.Context) {
 		acuCatalogError = "catalog_load_failed"
 	}
 	c.JSON(200, gin.H{
-		"success":                  true,
-		"data":                     pricing,
-		"vendors":                  model.GetVendors(),
-		"group_ratio":              groupRatio,
-		"usable_group":             usableGroup,
-		"supported_endpoint":       model.GetSupportedEndpointMap(),
-		"auto_groups":              service.GetUserAutoGroup(group),
-		"pricing_version":          "a42d372ccf0b5dd13ecf71203521f9d2",
-		"acu_catalog_version":      acuCatalogVersion,
-		"acu_catalog_error":        acuCatalogError,
+		"success":             true,
+		"data":                pricing,
+		"vendors":             model.GetVendors(),
+		"group_ratio":         groupRatio,
+		"usable_group":        usableGroup,
+		"supported_endpoint":  model.GetSupportedEndpointMap(),
+		"auto_groups":         service.GetUserAutoGroup(group),
+		"pricing_version":     "a42d372ccf0b5dd13ecf71203521f9d2",
+		"acu_catalog_version": acuCatalogVersion,
+		"acu_catalog_error":   acuCatalogError,
+		"acu_pricing_display_mode": func() string {
+			if acuCatalog == nil || acuCatalog.DisplayMode == "" {
+				return "comparison"
+			}
+			return acuCatalog.DisplayMode
+		}(),
 		"acu_curve_model_statuses": sortedCurveStatuses(acuCatalog),
 		"acu_curve_status_counts":  acuCurveStatusCounts(acuCatalog),
 	})

@@ -60,23 +60,18 @@ export type PricingModel = {
   input_price_per_million?: number
   output_price_per_million?: number
   cached_input_price_per_million?: number
+  payable?: PricingPayable
+  reference?: PricingReference
   acu_role?: string
   acu_protocol?: string
   acu_tool_call?: boolean
   acu_reasoning?: boolean
   acu_active?: boolean
-  acu_provider?: string
   acu_status?: string
   pricing_label?: string
   pricing_description?: string
   price_currency?: 'CNY' | 'USD'
   price_semantics?: 'estimated_user_cash_cost' | string
-  acu_cost_basis?: string
-  acu_cost_basis_label?: string
-  acu_cost_execution_profile_id?: string
-  acu_cost_observed_billing_multiplier?: number
-  acu_cost_provider?: string
-  acu_cost_channel?: string
   acu_effective_cost_status?: 'verified' | 'estimated'
   acu_curve_profile?: string
   acu_profile_confidence?: string
@@ -93,6 +88,30 @@ export type PricingModel = {
   input_modalities?: Modality[]
   output_modalities?: Modality[]
   capabilities?: ModelCapability[]
+}
+
+export type PricingDisplayMode =
+  | 'payable_only'
+  | 'reference_only'
+  | 'comparison'
+
+export type PricingPayable = {
+  input_cny_per_million: number
+  output_cny_per_million: number
+  cached_input_cny_per_million?: number
+  status: 'verified' | 'estimated'
+  pricing_policy_version: string
+}
+
+export type PricingReference = {
+  input_cny_per_million: number
+  output_cny_per_million: number
+  cached_input_cny_per_million?: number
+  source_type: 'official' | 'openrouter'
+  source_name: string
+  observed_at: string
+  original_currency: 'USD' | 'CNY'
+  fx_cny_per_usd?: number
 }
 
 export type ACUCurvePoint = {
@@ -131,6 +150,7 @@ export type PricingData = {
   auto_groups: string[]
   acu_catalog_version?: string
   acu_catalog_error?: string
+  acu_pricing_display_mode?: PricingDisplayMode
   acu_curve_model_statuses?: Array<{
     modelId: string
     statuses: string[]

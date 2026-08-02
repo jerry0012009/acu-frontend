@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"os"
 	"sort"
 	"strings"
@@ -19,35 +20,30 @@ type acuPricingAuto struct {
 }
 
 type acuPricingResponse struct {
-	ModelID                                string          `json:"modelId"`
-	DisplayName                            string          `json:"displayName"`
-	Role                                   string          `json:"role"`
-	InputPricePerMillion                   float64         `json:"inputPricePerMillion"`
-	OutputPricePerMillion                  float64         `json:"outputPricePerMillion"`
-	CachedInputPricePerMillion             float64         `json:"cachedInputPricePerMillion"`
-	EffectiveInputPriceCNYPerMillion       float64         `json:"effectiveInputPriceCnyPerMillion"`
-	EffectiveOutputPriceCNYPerMillion      float64         `json:"effectiveOutputPriceCnyPerMillion"`
-	EffectiveCachedInputPriceCNYPerMillion float64         `json:"effectiveCachedInputPriceCnyPerMillion"`
-	CostCurrency                           string          `json:"costCurrency"`
-	CostSemantics                          string          `json:"costSemantics"`
-	CostBasis                              string          `json:"costBasis"`
-	CostBasisLabel                         string          `json:"costBasisLabel"`
-	CostExecutionProfileID                 string          `json:"costExecutionProfileId"`
-	CostObservedBillingMultiplier          float64         `json:"costObservedBillingMultiplier"`
-	CostProvider                           string          `json:"costProvider"`
-	CostChannel                            string          `json:"costChannel"`
-	EffectiveCostStatus                    string          `json:"effectiveCostStatus"`
-	CurveProfile                           string          `json:"curveProfile"`
-	ProfileConfidence                      string          `json:"profileConfidence"`
-	Curve                                  []acuCurvePoint `json:"curve"`
-	Protocol                               string          `json:"protocol"`
-	ToolCall                               bool            `json:"toolCall"`
-	Reasoning                              bool            `json:"reasoning"`
-	ActiveInAcuAuto                        bool            `json:"activeInAcuAuto"`
-	Provider                               string          `json:"provider"`
-	Status                                 string          `json:"status"`
-	HealthyChannelCount                    int             `json:"healthyChannelCount"`
-	EffectiveCostStatuses                  []string        `json:"effectiveCostStatuses"`
+	ModelID                                string                  `json:"modelId"`
+	DisplayName                            string                  `json:"displayName"`
+	Role                                   string                  `json:"role"`
+	InputPricePerMillion                   float64                 `json:"inputPricePerMillion"`
+	OutputPricePerMillion                  float64                 `json:"outputPricePerMillion"`
+	CachedInputPricePerMillion             float64                 `json:"cachedInputPricePerMillion"`
+	EffectiveInputPriceCNYPerMillion       float64                 `json:"effectiveInputPriceCnyPerMillion"`
+	EffectiveOutputPriceCNYPerMillion      float64                 `json:"effectiveOutputPriceCnyPerMillion"`
+	EffectiveCachedInputPriceCNYPerMillion float64                 `json:"effectiveCachedInputPriceCnyPerMillion"`
+	Payable                                *model.PricingPayable   `json:"payable"`
+	Reference                              *model.PricingReference `json:"reference"`
+	CostCurrency                           string                  `json:"costCurrency"`
+	CostSemantics                          string                  `json:"costSemantics"`
+	EffectiveCostStatus                    string                  `json:"effectiveCostStatus"`
+	CurveProfile                           string                  `json:"curveProfile"`
+	ProfileConfidence                      string                  `json:"profileConfidence"`
+	Curve                                  []acuCurvePoint         `json:"curve"`
+	Protocol                               string                  `json:"protocol"`
+	ToolCall                               bool                    `json:"toolCall"`
+	Reasoning                              bool                    `json:"reasoning"`
+	ActiveInAcuAuto                        bool                    `json:"activeInAcuAuto"`
+	Status                                 string                  `json:"status"`
+	HealthyChannelCount                    int                     `json:"healthyChannelCount"`
+	EffectiveCostStatuses                  []string                `json:"effectiveCostStatuses"`
 }
 
 type acuCurvePoint = model.ACUPricingCurvePoint
@@ -64,6 +60,7 @@ type acuPricingCatalog struct {
 	SchemaVersion        string                `json:"schemaVersion"`
 	SourceCatalogVersion string                `json:"sourceCatalogVersion"`
 	PricingVersion       string                `json:"pricingVersion"`
+	DisplayMode          string                `json:"displayMode"`
 	Auto                 acuPricingAuto        `json:"auto"`
 	Responses            []acuPricingResponse  `json:"responses"`
 	CurveModelStatuses   []acuCurveModelStatus `json:"curveModelStatuses"`
@@ -81,6 +78,15 @@ func loadACUPricingCatalog() (*acuPricingCatalog, error) {
 	var catalog acuPricingCatalog
 	if err := jsoniter.Unmarshal(body, &catalog); err != nil {
 		return nil, err
+	}
+	if mode := strings.TrimSpace(os.Getenv("ACU_PRICING_DISPLAY_MODE")); mode != "" {
+		if mode != "payable_only" && mode != "reference_only" && mode != "comparison" {
+			return nil, fmt.Errorf("invalid ACU_PRICING_DISPLAY_MODE %q", mode)
+		}
+		catalog.DisplayMode = mode
+	}
+	if catalog.DisplayMode == "" {
+		catalog.DisplayMode = "comparison"
 	}
 	return &catalog, nil
 }
@@ -123,24 +129,37 @@ func overlayACUPricing(catalog *acuPricingCatalog, current []model.Pricing) []mo
 		item := byName[source.ModelID]
 		item.ModelName = source.ModelID
 		item.DisplayName = source.DisplayName
-		item.Description = source.Role + " · " + source.Protocol + " · Tool Call · Reasoning · ACU Auto · " + source.Provider + " · " + source.Status
-		item.Tags = strings.Join([]string{source.Role, source.Protocol, "Tool Call", "Reasoning", "ACU Auto", source.Provider, source.Status}, ",")
+		item.Description = source.Role + " · " + source.Protocol + " · Tool Call · Reasoning · ACU Auto · " + source.Status
+		item.Tags = strings.Join([]string{source.Role, source.Protocol, "Tool Call", "Reasoning", "ACU Auto", source.Status}, ",")
+		displayPrice := source.Payable
+		if catalog.DisplayMode == "reference_only" {
+			if source.Reference != nil {
+				displayPrice = &model.PricingPayable{
+					InputCNYPerMillion:       source.Reference.InputCNYPerMillion,
+					OutputCNYPerMillion:      source.Reference.OutputCNYPerMillion,
+					CachedInputCNYPerMillion: source.Reference.CachedInputCNYPerMillion,
+				}
+			}
+		}
+		if displayPrice == nil {
+			continue
+		}
 		item.QuotaType = 0
-		item.ModelRatio = source.EffectiveInputPriceCNYPerMillion / 2
-		item.CompletionRatio = source.EffectiveOutputPriceCNYPerMillion / source.EffectiveInputPriceCNYPerMillion
-		cacheRatio := source.EffectiveCachedInputPriceCNYPerMillion / source.EffectiveInputPriceCNYPerMillion
+		item.ModelRatio = displayPrice.InputCNYPerMillion / 2
+		item.CompletionRatio = displayPrice.OutputCNYPerMillion / displayPrice.InputCNYPerMillion
+		cachePrice := displayPrice.CachedInputCNYPerMillion
+		if cachePrice == nil {
+			cachePrice = &displayPrice.InputCNYPerMillion
+		}
+		cacheRatio := *cachePrice / displayPrice.InputCNYPerMillion
 		item.CacheRatio = &cacheRatio
-		item.InputPricePerMillion = &source.EffectiveInputPriceCNYPerMillion
-		item.OutputPricePerMillion = &source.EffectiveOutputPriceCNYPerMillion
-		item.CachedPricePerMillion = &source.EffectiveCachedInputPriceCNYPerMillion
+		item.InputPricePerMillion = &displayPrice.InputCNYPerMillion
+		item.OutputPricePerMillion = &displayPrice.OutputCNYPerMillion
+		item.CachedPricePerMillion = cachePrice
+		item.Payable = source.Payable
+		item.Reference = source.Reference
 		item.PriceCurrency = source.CostCurrency
 		item.PriceSemantics = source.CostSemantics
-		item.ACUCostBasis = source.CostBasis
-		item.ACUCostBasisLabel = source.CostBasisLabel
-		item.ACUCostExecutionProfileID = source.CostExecutionProfileID
-		item.ACUCostObservedBillingMultiplier = source.CostObservedBillingMultiplier
-		item.ACUCostProvider = source.CostProvider
-		item.ACUCostChannel = source.CostChannel
 		item.ACUEffectiveCostStatus = source.EffectiveCostStatus
 		item.ACUCurveProfile = source.CurveProfile
 		item.ACUProfileConfidence = source.ProfileConfidence
@@ -150,7 +169,6 @@ func overlayACUPricing(catalog *acuPricingCatalog, current []model.Pricing) []mo
 		item.ACUToolCall = &source.ToolCall
 		item.ACUReasoning = &source.Reasoning
 		item.ACUActive = &source.ActiveInAcuAuto
-		item.ACUProvider = source.Provider
 		item.ACUStatus = source.Status
 		item.PricingVersion = catalog.PricingVersion
 		item.EnableGroup = []string{"default"}
