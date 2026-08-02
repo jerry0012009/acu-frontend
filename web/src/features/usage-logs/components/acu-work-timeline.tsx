@@ -307,7 +307,7 @@ export function ACUWorkTimeline() {
   }
 
   return (
-    <div data-testid='acu-work-timeline-root' className='flex h-full min-h-0 flex-col gap-4 overflow-x-hidden overflow-y-auto overscroll-contain pb-4'>
+    <div data-testid='acu-work-timeline-root' className='flex h-full min-h-0 flex-col gap-4 overflow-x-hidden overflow-y-auto overscroll-contain pb-4 [&>*]:shrink-0'>
       <div className='flex flex-wrap items-center justify-between gap-3'>
         <div>
           <h2 className='text-base font-semibold'>工作路由轨迹</h2>

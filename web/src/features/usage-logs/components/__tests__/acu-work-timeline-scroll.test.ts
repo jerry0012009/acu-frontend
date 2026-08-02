@@ -2,12 +2,21 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { Window } from 'happy-dom'
+import { readFileSync } from 'node:fs'
 
 const viewports = [
   [1366, 768],
   [1440, 900],
   [1920, 1080],
 ] as const
+
+test('timeline flex children cannot shrink away the root overflow', () => {
+  const source = readFileSync(
+    new URL('../acu-work-timeline.tsx', import.meta.url),
+    'utf8'
+  )
+  assert.match(source, /\[&>\*\]:shrink-0/)
+})
 
 for (const [width, height] of viewports) {
   test(`timeline root owns scrolling at ${width}x${height}`, () => {
