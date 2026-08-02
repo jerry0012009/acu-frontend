@@ -20,18 +20,20 @@ type ACUSessionTraceTask struct {
 }
 
 type ACUSessionTraceSegment struct {
-	SegmentID         string                           `json:"segmentId"`
-	PreviousSegmentID string                           `json:"previousSegmentId,omitempty"`
-	CreationReason    string                           `json:"creationReason"`
-	Phase             string                           `json:"phase"`
-	Status            string                           `json:"status"`
-	StartedAt         string                           `json:"startedAt"`
-	CompletedAt       string                           `json:"completedAt,omitempty"`
-	Judge             *ACUSessionTraceJudge            `json:"judge,omitempty"`
-	Route             *ACUSessionTraceRoute            `json:"route,omitempty"`
-	LogicalRequests   []ACUSessionTraceLogicalRequest  `json:"logicalRequests"`
-	ProviderAttempts  []ACUSessionTraceProviderAttempt `json:"providerAttempts"`
-	JudgeStatusReason string                           `json:"judgeStatusReason,omitempty"`
+	SegmentID                    string                           `json:"segmentId"`
+	PreviousSegmentID            string                           `json:"previousSegmentId,omitempty"`
+	CreationReason               string                           `json:"creationReason"`
+	Phase                        string                           `json:"phase"`
+	Status                       string                           `json:"status"`
+	StartedAt                    string                           `json:"startedAt"`
+	CompletedAt                  string                           `json:"completedAt,omitempty"`
+	Judge                        *ACUSessionTraceJudge            `json:"judge,omitempty"`
+	Route                        *ACUSessionTraceRoute            `json:"route,omitempty"`
+	LogicalRequests              []ACUSessionTraceLogicalRequest  `json:"logicalRequests"`
+	ProviderAttempts             []ACUSessionTraceProviderAttempt `json:"providerAttempts"`
+	JudgeStatusReason            string                           `json:"judgeStatusReason,omitempty"`
+	WorkPhase                    string                           `json:"workPhase"`
+	WorkPhaseQualityTargetOffset float64                          `json:"workPhaseQualityTargetOffset"`
 }
 
 type ACUSessionTraceJudge struct {
@@ -44,6 +46,7 @@ type ACUSessionTraceJudge struct {
 	Model                   string                        `json:"model,omitempty"`
 	Provider                string                        `json:"provider,omitempty"`
 	Status                  string                        `json:"status"`
+	ResultSource            string                        `json:"resultSource"`
 	Difficulty              float64                       `json:"difficulty"`
 	Confidence              float64                       `json:"confidence"`
 	Explanation             string                        `json:"explanation"`
@@ -65,15 +68,33 @@ type ACUSessionTraceJudgeAttempt struct {
 }
 
 type ACUSessionTraceRoute struct {
-	RouteDecisionID        string   `json:"routeDecisionId"`
-	RequestedModel         string   `json:"requestedModel"`
-	SelectedCanonicalModel string   `json:"selectedCanonicalModel"`
-	SelectedProvider       string   `json:"selectedProvider"`
-	SelectedChannel        string   `json:"selectedChannel"`
-	ModelSelectionReason   string   `json:"modelSelectionReason"`
-	ChannelSelectionReason string   `json:"channelSelectionReason"`
-	CandidateCount         int      `json:"candidateCount"`
-	ParetoFrontier         []string `json:"paretoFrontier"`
+	RouteDecisionID                string                            `json:"routeDecisionId"`
+	RequestedModel                 string                            `json:"requestedModel"`
+	SelectedCanonicalModel         string                            `json:"selectedCanonicalModel"`
+	SelectedProvider               string                            `json:"selectedProvider"`
+	SelectedChannel                string                            `json:"selectedChannel"`
+	ModelSelectionReason           string                            `json:"modelSelectionReason"`
+	ChannelSelectionReason         string                            `json:"channelSelectionReason"`
+	CandidateCount                 int                               `json:"candidateCount"`
+	ParetoFrontier                 []string                          `json:"paretoFrontier"`
+	SelectedCandidateID            string                            `json:"selectedCandidateId"`
+	SelectedDisplayName            string                            `json:"selectedDisplayName"`
+	SelectedExecutionPresetID      string                            `json:"selectedExecutionPresetId,omitempty"`
+	ClientRequestedReasoningEffort string                            `json:"clientRequestedReasoningEffort,omitempty"`
+	PresetReasoningEffort          string                            `json:"presetReasoningEffort,omitempty"`
+	TargetCanonicalReasoningEffort string                            `json:"targetCanonicalReasoningEffort,omitempty"`
+	ResolvedReasoningEffort        string                            `json:"resolvedReasoningEffort,omitempty"`
+	ReasoningMappingStatus         string                            `json:"reasoningMappingStatus,omitempty"`
+	TopCandidates                  []ACUSessionTraceCandidateSummary `json:"topCandidates"`
+}
+
+type ACUSessionTraceCandidateSummary struct {
+	CandidateID       string  `json:"candidateId"`
+	DisplayName       string  `json:"displayName"`
+	EstimatedQuality  float64 `json:"estimatedQuality"`
+	EstimatedCallCost float64 `json:"estimatedCallCost"`
+	ValueUtility      float64 `json:"valueUtility"`
+	Selected          bool    `json:"selected"`
 }
 
 type ACUSessionTraceLogicalRequest struct {
@@ -91,6 +112,10 @@ type ACUSessionTraceLogicalRequest struct {
 	ActualCostCNY       float64            `json:"actualCostCny"`
 	DeliveryStatus      string             `json:"deliveryStatus,omitempty"`
 	ErrorDiagnosis      *ACUErrorDiagnosis `json:"errorDiagnosis,omitempty"`
+	InputTokens         int64              `json:"inputTokens"`
+	CachedInputTokens   int64              `json:"cachedInputTokens"`
+	OutputTokens        int64              `json:"outputTokens"`
+	ReasoningTokens     int64              `json:"reasoningTokens"`
 }
 
 type ACUErrorDiagnosis struct {

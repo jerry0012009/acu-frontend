@@ -123,6 +123,47 @@ export type ACUWorkTimelineItem = {
   failedAttemptCostCny: number
   errorClass?: string
   cooldownUntil?: string
+  workPhase: string
+  workPhaseQualityTargetOffset: number
+  judgeTrigger: string
+  judgeStatus: string
+  judgeResultSource: string
+  judgeFirstAttemptSucceeded: boolean
+  judgeProfileAttemptCount: number
+  judgeSameModelFailoverUsed: boolean
+  selectedCandidateId: string
+  selectedDisplayName: string
+  selectedExecutionPresetId?: string
+  clientRequestedReasoningEffort?: string
+  presetReasoningEffort?: string
+  resolvedReasoningEffort?: string
+  reasoningMappingStatus?: string
+  inputTokens: number
+  cachedInputTokens: number
+  outputTokens: number
+  reasoningTokens: number
+  cacheHitRatio: number
+  profileAttemptCount: number
+  recoveryDecisionReason?: string
+  routeRefreshReason?: string
+  topCandidates: Array<{
+    candidateId: string
+    displayName: string
+    estimatedQuality: number
+    estimatedCallCost: number
+    valueUtility: number
+    selected: boolean
+  }>
+  providerAttempts: Array<{
+    attemptIndex: number
+    provider: string
+    channel: string
+    executionProfileId: string
+    status: string
+    errorCategory?: string
+    httpStatus?: number
+    latencyMs: number
+  }>
 }
 
 export type ACUWorkTimeline = {
@@ -130,9 +171,10 @@ export type ACUWorkTimeline = {
   to: number
   summary: {
     apiSteps: number
-    judgeCalls: number
-    judgeReuseRate: number
+    judgeFirstAttemptSuccessRate: number
+    judgeRulesFallbackRate: number
     completionRate: number
+    cacheHitRate: number
     actualTotalCostCny: number
     p50FirstModelEventLatencyMs: number
     p95FirstModelEventLatencyMs: number

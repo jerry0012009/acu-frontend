@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -64,6 +65,7 @@ type acuRawJudgeEvaluation struct {
 	InputTokens  int64   `json:"prompt_tokens"`
 	OutputTokens int64   `json:"completion_tokens"`
 	LatencyMs    int     `json:"latency_ms"`
+	ResultSource string  `json:"judge_result_source"`
 }
 
 type acuRawAdmissionTrace struct {
@@ -129,6 +131,10 @@ type acuRawUsageReport struct {
 	LogicalRequestID       string  `json:"logical_request_id"`
 	ActualModel            string  `json:"actual_model"`
 	ActualTotalCashCostCNY float64 `json:"actual_total_cash_cost_cny"`
+	InputTokens            int64   `json:"input_tokens"`
+	CachedInputTokens      int64   `json:"cached_input_tokens"`
+	OutputTokens           int64   `json:"output_tokens"`
+	ReasoningTokens        int64   `json:"reasoning_tokens"`
 }
 
 type acuRawPayload struct {
@@ -232,6 +238,7 @@ func buildACUSessionTrace(raw acuRawTrace) dto.ACUSessionTrace {
 			StartedAt: segment.CreatedAt, CompletedAt: segment.SupersededAt,
 			LogicalRequests:  []dto.ACUSessionTraceLogicalRequest{},
 			ProviderAttempts: []dto.ACUSessionTraceProviderAttempt{},
+			WorkPhase:        segment.Phase,
 		}
 		if segment.JudgeEvaluationID == "" {
 			entry.JudgeStatusReason = judgeStatusReason(requests[segment.SegmentID])
@@ -245,7 +252,7 @@ func buildACUSessionTrace(raw acuRawTrace) dto.ACUSessionTrace {
 				ReusedJudgeEvaluationID: stringField(admission.Metadata, "reusedJudgeEvaluationId"),
 				RouteRefreshReason:      stringField(admission.Metadata, "routeRefreshReason"),
 				EvaluationID:            evaluation.EvaluationID, Model: evaluation.Model, Provider: evaluation.Provider,
-				Status: evaluation.Status, Difficulty: evaluation.Difficulty, Confidence: evaluation.Confidence,
+				Status: evaluation.Status, ResultSource: evaluation.ResultSource, Difficulty: evaluation.Difficulty, Confidence: evaluation.Confidence,
 				Explanation: evaluation.Explanation, InputTokens: evaluation.InputTokens,
 				OutputTokens: evaluation.OutputTokens, LatencyMs: evaluation.LatencyMs,
 				Attempts: judgeAttempts[evaluation.EvaluationID],
@@ -256,6 +263,12 @@ func buildACUSessionTrace(raw acuRawTrace) dto.ACUSessionTrace {
 			selectedProvider := stringField(route.SelectedProfile, "provider")
 			selectedChannel := stringField(route.SelectedProfile, "channel")
 			decision := mapField(route.FormulaInputs, "decisionSnapshot")
+			entry.WorkPhase = firstNonEmpty(stringField(decision, "workPhase"), stringField(route.FormulaInputs, "workPhase"), segment.Phase)
+			entry.WorkPhaseQualityTargetOffset = numberField(decision, "workPhaseQualityTargetOffset")
+			if entry.WorkPhaseQualityTargetOffset == 0 {
+				entry.WorkPhaseQualityTargetOffset = numberField(route.FormulaInputs, "workPhaseQualityTargetOffset")
+			}
+			selectedCandidateID := firstNonEmpty(stringField(decision, "selectedCandidateId"), selectedModel)
 			entry.Route = &dto.ACUSessionTraceRoute{
 				RouteDecisionID: route.RouteDecisionID, RequestedModel: route.Mode,
 				SelectedCanonicalModel: selectedModel, SelectedProvider: selectedProvider,
@@ -263,6 +276,15 @@ func buildACUSessionTrace(raw acuRawTrace) dto.ACUSessionTrace {
 				ModelSelectionReason:   firstNonEmpty(stringField(decision, "modelSelectionReason"), route.Explanation),
 				ChannelSelectionReason: firstNonEmpty(stringField(decision, "channelSelectionReason"), route.Explanation),
 				CandidateCount:         len(route.Candidates), ParetoFrontier: route.ParetoFrontier,
+				SelectedCandidateID:            selectedCandidateID,
+				SelectedDisplayName:            firstNonEmpty(stringField(decision, "selectedDisplayName"), selectedModel),
+				SelectedExecutionPresetID:      stringField(decision, "selectedExecutionPresetId"),
+				ClientRequestedReasoningEffort: stringField(decision, "clientRequestedReasoningEffort"),
+				PresetReasoningEffort:          stringField(decision, "presetReasoningEffort"),
+				TargetCanonicalReasoningEffort: stringField(decision, "targetCanonicalReasoningEffort"),
+				ResolvedReasoningEffort:        stringField(decision, "resolvedReasoningEffort"),
+				ReasoningMappingStatus:         firstNonEmpty(stringField(decision, "reasoningMappingStatus"), stringField(decision, "mappingStatus")),
+				TopCandidates:                  traceTopCandidates(route.Candidates, selectedCandidateID),
 			}
 		}
 		for _, request := range requests[segment.SegmentID] {
@@ -283,6 +305,8 @@ func buildACUSessionTrace(raw acuRawTrace) dto.ACUSessionTrace {
 				ActualModel: usage.ActualModel, Status: request.Status, StartedAt: request.StartedAt,
 				CompletedAt: request.CompletedAt, TotalLatencyMs: durationMs(request.StartedAt, request.CompletedAt),
 				FirstTokenLatencyMs: firstTokenLatencyMs, VisibleOutputBytes: visibleBytes, ActualCostCNY: usage.ActualTotalCashCostCNY,
+				InputTokens: usage.InputTokens, CachedInputTokens: usage.CachedInputTokens,
+				OutputTokens: usage.OutputTokens, ReasoningTokens: usage.ReasoningTokens,
 				DeliveryStatus: stringField(request.Metadata, "deliveryStatus"),
 			}
 			logical.ErrorDiagnosis = errorDiagnosis(requestAttempts, payloadsByRequest[request.LogicalRequestID])
@@ -402,6 +426,36 @@ func intField(value map[string]interface{}, key string) int {
 	}
 	number, _ := value[key].(float64)
 	return int(number)
+}
+
+func numberField(value map[string]interface{}, key string) float64 {
+	if value == nil {
+		return 0
+	}
+	number, _ := value[key].(float64)
+	return number
+}
+
+func traceTopCandidates(values []interface{}, selectedCandidateID string) []dto.ACUSessionTraceCandidateSummary {
+	candidates := make([]dto.ACUSessionTraceCandidateSummary, 0, len(values))
+	for _, value := range values {
+		candidate, _ := value.(map[string]interface{})
+		if candidate == nil {
+			continue
+		}
+		candidateID := firstNonEmpty(stringField(candidate, "candidateId"), stringField(candidate, "modelId"))
+		candidates = append(candidates, dto.ACUSessionTraceCandidateSummary{
+			CandidateID: candidateID, DisplayName: firstNonEmpty(stringField(candidate, "displayName"), stringField(candidate, "modelId")),
+			EstimatedQuality:  numberField(candidate, "estimatedQuality"),
+			EstimatedCallCost: numberField(candidate, "estimatedCallCost"), ValueUtility: numberField(candidate, "valueUtility"),
+			Selected: candidateID == selectedCandidateID,
+		})
+	}
+	sort.SliceStable(candidates, func(i, j int) bool { return candidates[i].ValueUtility > candidates[j].ValueUtility })
+	if len(candidates) > 3 {
+		candidates = candidates[:3]
+	}
+	return candidates
 }
 
 func boolField(value map[string]interface{}, key string) bool {

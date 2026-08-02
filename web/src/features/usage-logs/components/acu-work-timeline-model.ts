@@ -259,8 +259,8 @@ export function buildACUWorkTimelineChartOption({
         start: 0,
         end: 100,
         minValueSpan: minimumWindowSeconds * 1000,
-        zoomOnMouseWheel: true,
-        moveOnMouseMove: true,
+        zoomOnMouseWheel: false,
+        moveOnMouseMove: false,
         moveOnMouseWheel: false,
         preventDefaultMouseMove: true,
       },
@@ -355,7 +355,7 @@ function percentile(values: number[], ratio: number): number {
 }
 
 export function summarizeTimelineItems(items: ACUWorkTimelineItem[]) {
-  const judged = items.filter((item) => item.judgeCalled || item.judgeReused)
+  const judged = items.filter((item) => item.judgeCalled)
   const completed = items.filter((item) =>
     ['completed', 'completed_with_recovery'].includes(item.status)
   )
@@ -364,11 +364,17 @@ export function summarizeTimelineItems(items: ACUWorkTimelineItem[]) {
     .filter((value) => value > 0)
   return {
     apiSteps: items.length,
-    judgeCalls: items.filter((item) => item.judgeCalled).length,
-    judgeReuseRate: judged.length
-      ? items.filter((item) => item.judgeReused).length / judged.length
+    judgeFirstAttemptSuccessRate: judged.length
+      ? judged.filter((item) => item.judgeFirstAttemptSucceeded).length / judged.length
+      : 0,
+    judgeRulesFallbackRate: judged.length
+      ? judged.filter((item) => item.judgeStatus === 'rules_fallback' || item.judgeResultSource === 'rules_strategy').length / judged.length
       : 0,
     completionRate: items.length ? completed.length / items.length : 0,
+    cacheHitRate: items.reduce((sum, item) => sum + item.inputTokens, 0)
+      ? items.reduce((sum, item) => sum + item.cachedInputTokens, 0) /
+        items.reduce((sum, item) => sum + item.inputTokens, 0)
+      : 0,
     actualTotalCostCny: items.reduce(
       (sum, item) => sum + item.actualCostCny,
       0

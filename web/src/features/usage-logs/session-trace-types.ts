@@ -18,6 +18,8 @@ export interface ACUSessionTraceSegment {
   startedAt: string
   completedAt?: string
   judgeStatusReason?: string
+  workPhase?: string
+  workPhaseQualityTargetOffset?: number
   judge?: {
     trigger: string
     judgeCalls: number
@@ -28,6 +30,7 @@ export interface ACUSessionTraceSegment {
     model?: string
     provider?: string
     status: string
+    resultSource?: string
     difficulty: number
     confidence: number
     explanation: string
@@ -55,6 +58,22 @@ export interface ACUSessionTraceSegment {
     channelSelectionReason: string
     candidateCount: number
     paretoFrontier: string[]
+    selectedCandidateId?: string
+    selectedDisplayName?: string
+    selectedExecutionPresetId?: string
+    clientRequestedReasoningEffort?: string
+    presetReasoningEffort?: string
+    targetCanonicalReasoningEffort?: string
+    resolvedReasoningEffort?: string
+    reasoningMappingStatus?: string
+    topCandidates?: Array<{
+      candidateId: string
+      displayName: string
+      estimatedQuality: number
+      estimatedCallCost: number
+      valueUtility: number
+      selected: boolean
+    }>
   }
   logicalRequests: Array<{
     logicalRequestId: string
@@ -80,6 +99,10 @@ export interface ACUSessionTraceSegment {
       recoveryExecuted: boolean
       recoveryReason?: string
     }
+    inputTokens?: number
+    cachedInputTokens?: number
+    outputTokens?: number
+    reasoningTokens?: number
   }>
   providerAttempts: Array<{
     attemptIndex: number

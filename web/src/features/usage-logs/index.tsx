@@ -162,7 +162,7 @@ function UsageLogsContent() {
                 </TabsList>
               </Tabs>
             )}
-            <div className='min-h-0 flex-1'>{sectionContent}</div>
+            <div className='h-full min-h-0 flex-1'>{sectionContent}</div>
           </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>

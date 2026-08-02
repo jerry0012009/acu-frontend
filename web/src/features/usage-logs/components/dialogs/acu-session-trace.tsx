@@ -367,7 +367,10 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
           >
             <div className='flex flex-wrap items-center gap-x-2 gap-y-1 text-xs'>
               <span className='font-semibold'>
-                {index + 1}. {segment.phase}
+                {index + 1}. {segment.workPhase || segment.phase}{' '}
+                {segment.workPhaseQualityTargetOffset
+                  ? `(${segment.workPhaseQualityTargetOffset > 0 ? '+' : ''}${segment.workPhaseQualityTargetOffset})`
+                  : ''}
               </span>
               <span className='text-muted-foreground'>
                 {segment.creationReason}
@@ -379,7 +382,7 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
                 </span>
               )}
               {segment.route && (
-                <span>{segment.route.selectedCanonicalModel}</span>
+                <span>{segment.route.selectedDisplayName || segment.route.selectedCanonicalModel}</span>
               )}
               {segment.judge?.routeRefreshReason && (
                 <span className='text-muted-foreground'>
@@ -399,6 +402,35 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
             <div className='mt-2'>
               <AttemptTimeline segment={segment} />
             </div>
+            {segment.route && (
+              <details className='mt-2 text-xs'>
+                <summary className='cursor-pointer font-medium'>Routing decision</summary>
+                <div className='text-muted-foreground mt-2 grid gap-3 sm:grid-cols-3'>
+                  <div>
+                    <div>Candidate: {segment.route.selectedCandidateId || segment.route.selectedCanonicalModel}</div>
+                    <div>Preset: {segment.route.selectedExecutionPresetId || 'base'}</div>
+                  </div>
+                  <div>
+                    <div>Reasoning: {segment.route.clientRequestedReasoningEffort || 'none'} → {segment.route.presetReasoningEffort || 'base'} → {segment.route.resolvedReasoningEffort || 'default'}</div>
+                    <div>{segment.route.reasoningMappingStatus || 'model_default'}</div>
+                  </div>
+                  <div>
+                    <div>Judge source: {segment.judge?.resultSource || 'n/a'}</div>
+                    <div>Tokens: {segment.logicalRequests.reduce((sum, item) => sum + (item.inputTokens ?? 0), 0).toLocaleString()} in · {segment.logicalRequests.reduce((sum, item) => sum + (item.outputTokens ?? 0), 0).toLocaleString()} out</div>
+                  </div>
+                </div>
+                <div className='mt-2'>
+                  {(segment.route.topCandidates ?? []).map((candidate) => (
+                    <div key={candidate.candidateId} className='grid grid-cols-[minmax(0,1fr)_4rem_5rem_5rem] gap-2 py-0.5'>
+                      <span className='truncate'>{candidate.selected ? 'Selected · ' : ''}{candidate.displayName}</span>
+                      <span>Q {candidate.estimatedQuality.toFixed(1)}</span>
+                      <span>{cashLabel(candidate.estimatedCallCost)}</span>
+                      <span>U {candidate.valueUtility.toFixed(3)}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
             {segment.judge?.explanation && (
               <details className='mt-2 text-xs'>
                 <summary className='cursor-pointer font-medium'>

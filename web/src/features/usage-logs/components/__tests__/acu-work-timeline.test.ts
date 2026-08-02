@@ -40,6 +40,26 @@ function item(overrides: Partial<ACUWorkTimelineItem>): ACUWorkTimelineItem {
     failedAttemptCostCny: 0,
     errorClass: '',
     cooldownUntil: undefined,
+    workPhase: 'implementation',
+    workPhaseQualityTargetOffset: 0,
+    judgeTrigger: 'new_task',
+    judgeStatus: 'live',
+    judgeResultSource: 'upstream_live',
+    judgeFirstAttemptSucceeded: true,
+    judgeProfileAttemptCount: 1,
+    judgeSameModelFailoverUsed: false,
+    selectedCandidateId: 'gpt-5.6-luna',
+    selectedDisplayName: 'GPT-5.6 Luna',
+    resolvedReasoningEffort: 'high',
+    reasoningMappingStatus: 'exact',
+    inputTokens: 1000,
+    cachedInputTokens: 250,
+    outputTokens: 100,
+    reasoningTokens: 50,
+    cacheHitRatio: 0.25,
+    profileAttemptCount: 1,
+    topCandidates: [],
+    providerAttempts: [],
     ...overrides,
   }
 }
@@ -82,8 +102,8 @@ test('uses ECharts financial-style zoom across both chart grids', () => {
   assert.deepEqual(zooms[0].xAxisIndex, [0, 1])
   assert.deepEqual(zooms[1].xAxisIndex, [0, 1])
   assert.equal(zooms[0].minValueSpan, 60 * 60 * 1000)
-  assert.equal(zooms[0].zoomOnMouseWheel, true)
-  assert.equal(zooms[0].moveOnMouseMove, true)
+  assert.equal(zooms[0].zoomOnMouseWheel, false)
+  assert.equal(zooms[0].moveOnMouseMove, false)
   assert.equal(zooms[1].brushSelect, true)
 })
 
@@ -155,9 +175,10 @@ test('visible summary is derived only from items inside the engine viewport', ()
   ])
   assert.deepEqual(summary, {
     apiSteps: 2,
-    judgeCalls: 1,
-    judgeReuseRate: 0.5,
+    judgeFirstAttemptSuccessRate: 1,
+    judgeRulesFallbackRate: 0,
     completionRate: 1,
+    cacheHitRate: 0.25,
     actualTotalCostCny: 0.03,
     p50FirstModelEventLatencyMs: 1000,
     p95FirstModelEventLatencyMs: 3000,
