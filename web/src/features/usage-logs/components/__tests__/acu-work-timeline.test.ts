@@ -8,6 +8,7 @@ import {
   ACU_TIMELINE_SLIDER_ZOOM_ID,
   buildACUWorkTimelineChartOption,
   filterTimelineItems,
+  judgeLabel,
   isCompletedStatus,
   summarizeTimelineItems,
   timelineCashCost,
@@ -29,6 +30,7 @@ function item(overrides: Partial<ACUWorkTimelineItem>): ACUWorkTimelineItem {
     judgeModel: 'mimo-v2.5-pro',
     judgeBackupUsed: false,
     difficulty: 50,
+    difficultyRecorded: true,
     requestedModel: 'acu-auto',
     actualModel: 'gpt-5.6-luna',
     provider: 'lucen',
@@ -72,6 +74,28 @@ function item(overrides: Partial<ACUWorkTimelineItem>): ACUWorkTimelineItem {
     ...overrides,
   }
 }
+
+test('missing difficulty stays absent instead of producing a y=0 point', () => {
+  const missing = item({ difficulty: 0, difficultyRecorded: false })
+  const option = buildACUWorkTimelineChartOption({
+    items: [missing],
+    hours: 1,
+    from: missing.timestamp - 3600,
+    to: missing.timestamp,
+    dark: false,
+  })
+  const series = option.series as Array<{ id?: string; connectNulls?: boolean; data?: Array<{ value: [number, number] }> }>
+  const difficulty = series.find((entry) => entry.id === 'difficulty-segment-1')
+  assert.equal(difficulty?.connectNulls, false)
+  assert.ok(Number.isNaN(difficulty?.data?.[0]?.value[1]))
+})
+
+test('a failed live Judge that reused a recent evaluation is not labeled new', () => {
+  assert.equal(
+    judgeLabel(item({ judgeCalled: true, judgeResultSource: 'recent_evaluation' })),
+    'Judge failed · reused previous'
+  )
+})
 
 test('uses ECharts financial-style zoom across both chart grids', () => {
   const from = Date.parse('2026-07-29T10:00:00Z') / 1000

@@ -106,9 +106,14 @@ function escapeHtml(value: unknown): string {
     .replaceAll("'", '&#039;')
 }
 
-function judgeLabel(item: ACUWorkTimelineItem): string {
-  if (item.judgeCalled) return 'Judge New'
-  if (item.judgeReused) return 'Judge Reused'
+export function judgeLabel(item: ACUWorkTimelineItem): string {
+  if (item.judgeResultSource === 'upstream_live') return 'Judge Fresh'
+  if (item.judgeResultSource === 'disk_cache') return 'Judge Cache'
+  if (item.judgeResultSource === 'recent_evaluation') {
+    return 'Judge failed · reused previous'
+  }
+  if (item.judgeResultSource === 'rules_strategy') return 'Rules fallback'
+  if (item.judgeReused && !item.judgeCalled) return 'Judge Reused'
   return 'Judge unavailable'
 }
 
@@ -116,8 +121,8 @@ function tooltipHtml(item: ACUWorkTimelineItem): string {
   const backup = item.judgeBackupUsed ? ' · Backup' : ''
   return [
     `<div style="font-weight:600;margin-bottom:6px">${escapeHtml(item.actualModel || item.requestedModel)}</div>`,
-    `<div>${escapeHtml(t('Difficulty'))} ${item.difficulty.toFixed(1)} · ${escapeHtml(t('Step'))} ${item.sequence}</div>`,
-    `<div>${judgeLabel(item)}${backup}</div>`,
+    `<div>${escapeHtml(t('Difficulty'))} ${item.difficultyRecorded ? item.difficulty.toFixed(1) : '—'} · ${escapeHtml(t('Step'))} ${item.sequence}</div>`,
+    `<div>${escapeHtml(t(judgeLabel(item)))}${backup}</div>`,
     `<div>${escapeHtml(item.provider)} · ${escapeHtml(item.channel)}</div>`,
     `<div>${escapeHtml(t('End-to-end'))} ${formatLatency(item.endToEndLatencyMs)} · ${escapeHtml(t('First model event'))} ${formatLatency(item.firstModelEventLatencyMs)}</div>`,
     `<div>${escapeHtml(t('Judge'))} ${formatLatency(item.judgeLatencyMs)} · ${escapeHtml(t('Provider'))} ${formatLatency(item.providerLatencyMs)}</div>`,
@@ -142,7 +147,10 @@ function difficultyDatum(
   let fill = dark ? '#0f172a' : '#ffffff'
   if (item.judgeCalled) fill = modelColor(item)
   return {
-    value: [item.timestamp * 1000, item.difficulty],
+    value: [
+      item.timestamp * 1000,
+      item.difficultyRecorded ? item.difficulty : Number.NaN,
+    ],
     timelineItem: item,
     symbolSize: item.judgeBackupUsed ? 13 : 10,
     itemStyle: {
@@ -367,7 +375,7 @@ export function buildACUWorkTimelineChartOption({
         symbol: 'circle',
         symbolSize: 19,
         data: items
-          .filter((item) => item.judgeBackupUsed)
+          .filter((item) => item.judgeBackupUsed && item.difficultyRecorded)
           .map((item) => ({
             value: [item.timestamp * 1000, item.difficulty],
             itemStyle: {

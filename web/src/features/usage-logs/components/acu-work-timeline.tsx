@@ -99,10 +99,18 @@ function visibleTime(value: number) {
 }
 
 function judgeMode(item: ACUWorkTimelineItem) {
-  if (item.judgeResultSource === 'rules_strategy') return 'Rules'
-  if (item.judgeResultSource === 'recent_evaluation') return 'Recent'
-  if (item.judgeReused) return 'Reused'
-  return item.judgeCalled ? 'New' : 'None'
+  if (item.judgeResultSource === 'upstream_live') return 'Judge Fresh'
+  if (item.judgeResultSource === 'disk_cache') return 'Judge Cache'
+  if (item.judgeResultSource === 'recent_evaluation') {
+    return 'Judge failed · reused previous'
+  }
+  if (item.judgeResultSource === 'rules_strategy') return 'Rules fallback'
+  if (item.judgeReused && !item.judgeCalled) return 'Judge Reused'
+  return 'Judge unavailable'
+}
+
+function difficultyText(item: ACUWorkTimelineItem, digits = 0) {
+  return item.difficultyRecorded ? item.difficulty.toFixed(digits) : '—'
 }
 
 function TimelineStep(props: {
@@ -131,7 +139,7 @@ function TimelineStep(props: {
               : ''}
           </span>
           <span className='text-muted-foreground text-xs'>
-            {t(judgeMode(item))} · D{item.difficulty.toFixed(0)}
+            {t(judgeMode(item))} · D{difficultyText(item)}
           </span>
           <span className='truncate text-sm font-medium' title={model}>
             {model}
@@ -169,7 +177,7 @@ function TimelineStep(props: {
           </span>
           <span className='text-muted-foreground mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:grid-cols-4'>
             <span>
-              {t('Difficulty')} {item.difficulty.toFixed(0)}
+              {t('Difficulty')} {difficultyText(item)}
             </span>
             <span
               className='truncate'

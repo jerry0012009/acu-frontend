@@ -37,6 +37,7 @@ type ACUWorkTimelineItem struct {
 	JudgeModel               string   `json:"judgeModel"`
 	JudgeBackupUsed          bool     `json:"judgeBackupUsed"`
 	Difficulty               float64  `json:"difficulty"`
+	DifficultyRecorded       bool     `json:"difficultyRecorded"`
 	RequestedModel           string   `json:"requestedModel"`
 	ActualModel              string   `json:"actualModel"`
 	Provider                 string   `json:"provider"`

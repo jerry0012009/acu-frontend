@@ -5256,6 +5256,11 @@
     "Ability ranking": "Ability ranking",
     "Lower estimated cost": "Lower estimated cost",
     "Higher estimated cost": "Higher estimated cost",
-    "Average predicted quality": "Average predicted quality"
+    "Average predicted quality": "Average predicted quality",
+    "Judge Fresh": "Judge Fresh",
+    "Judge Cache": "Judge Cache",
+    "Judge failed · reused previous": "Judge failed · reused previous",
+    "Rules fallback": "Rules fallback",
+    "Judge Reused": "Judge Reused"
   }
 }

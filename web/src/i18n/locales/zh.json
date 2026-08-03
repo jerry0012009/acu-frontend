@@ -5256,6 +5256,11 @@
     "Ability ranking": "能力排序",
     "Lower estimated cost": "较低预计成本",
     "Higher estimated cost": "较高预计成本",
-    "Average predicted quality": "曲线平均预计质量"
+    "Average predicted quality": "曲线平均预计质量",
+    "Judge Fresh": "Judge 新评估",
+    "Judge Cache": "Judge 缓存",
+    "Judge failed · reused previous": "Judge 尝试失败 · 复用上次结果",
+    "Rules fallback": "规则回退",
+    "Judge Reused": "Judge 已复用"
   }
 }

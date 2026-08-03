@@ -45,6 +45,9 @@ func TestBuildACUWorkTimelineCompactsLogicalRequests(t *testing.T) {
 	assert.Equal(t, 0.0125, result.Summary.TotalUserChargeCNY)
 	assert.Equal(t, 0.06, result.Summary.TotalActualCashCostCNY)
 	assert.Equal(t, 0.0625, result.Summary.ActualTotalCostCNY)
+	assert.True(t, result.Items[0].DifficultyRecorded)
+	assert.False(t, result.Items[3].DifficultyRecorded)
+	assert.Equal(t, 0.0, result.Items[3].Difficulty)
 }
 
 func TestBuildACUWorkTimelineMapsV2DecisionSummary(t *testing.T) {

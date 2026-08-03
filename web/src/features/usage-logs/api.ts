@@ -108,6 +108,7 @@ export type ACUWorkTimelineItem = {
   judgeModel: string
   judgeBackupUsed: boolean
   difficulty: number
+  difficultyRecorded: boolean
   requestedModel: string
   actualModel: string
   provider: string

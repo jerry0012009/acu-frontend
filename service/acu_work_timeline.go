@@ -74,12 +74,13 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 		_, judgeFirstAttemptRecorded := boolValueOf(decision["judge_first_attempt_succeeded"])
 		judgeStatus := stringValue(decision, "judge_status")
 		judgeResultSource := stringValue(decision, "judge_result_source")
+		difficulty, difficultyRecorded := numberValueOf(breakdown["difficulty"])
 		item := dto.ACUWorkTimelineItem{
 			Timestamp: log.CreatedAt, LogicalRequestID: logicalID,
 			SessionID: stringValue(breakdown, "session_id"), TaskID: stringValue(breakdown, "task_id"), SegmentID: stringValue(breakdown, "segment_id"),
 			JudgeCalled: numberValue(breakdown, "judge_calls") > 0, JudgeReused: boolValue(breakdown, "judge_reused"),
 			JudgeModel: judgeModel, JudgeBackupUsed: strings.Contains(strings.ToLower(judgeModel), "deepseek"),
-			Difficulty: numberValue(breakdown, "difficulty"), RequestedModel: stringValue(breakdown, "requested_model"),
+			Difficulty: difficulty, DifficultyRecorded: difficultyRecorded, RequestedModel: stringValue(breakdown, "requested_model"),
 			ActualModel: firstTimelineValue(stringValue(breakdown, "canonical_model"), log.ModelName),
 			Provider:    firstTimelineValue(stringValue(breakdown, "actual_provider"), stringValue(other, "actual_provider")),
 			Channel:     firstTimelineValue(stringValue(breakdown, "channel_id"), stringValue(other, "actual_channel")), Status: status,
