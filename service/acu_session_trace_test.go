@@ -123,6 +123,30 @@ func TestBuildACUSessionTraceTreatsCancellationBeforeOutputAsNeutral(t *testing.
 	assert.Nil(t, trace.Segments[0].LogicalRequests[0].ErrorDiagnosis)
 }
 
+func TestBuildACUSessionTraceKeepsProviderDiagnosisForServerErrorWithCancellationMarker(t *testing.T) {
+	raw := acuRawTrace{
+		Session:  acuRawSession{SessionID: "ses_fixture"},
+		Task:     acuRawTask{TaskID: "task_fixture"},
+		Segments: []acuRawSegment{{SegmentID: "seg_1", CreationReason: "human_message", Phase: "execution"}},
+		LogicalRequests: []acuRawLogicalRequest{{
+			LogicalRequestID: "req_1", SegmentID: "seg_1", Status: "cancelled",
+			Metadata: map[string]interface{}{"deliveryStatus": "client_cancelled_after_output"},
+		}},
+		Attempts: []acuRawProviderAttempt{{
+			AttemptID: "pa_1", LogicalRequestID: "req_1", AttemptIndex: 1, Status: "cancelled",
+			HTTPStatus: 500, Endpoint: "https://provider.example/v1",
+			Metadata: map[string]interface{}{"deliveryStatus": "client_cancelled_after_output"},
+		}},
+	}
+
+	trace := buildACUSessionTrace(raw)
+	require.Len(t, trace.Segments, 1)
+	require.Len(t, trace.Segments[0].LogicalRequests, 1)
+	require.NotNil(t, trace.Segments[0].LogicalRequests[0].ErrorDiagnosis)
+	assert.Equal(t, "execution_provider", trace.Segments[0].LogicalRequests[0].ErrorDiagnosis.ErrorSource)
+	assert.True(t, trace.Segments[0].LogicalRequests[0].ErrorDiagnosis.RecoveryEligible)
+}
+
 func TestBuildACUSessionTraceExplainsMissingJudgePersistence(t *testing.T) {
 	raw := acuRawTrace{
 		Session:  acuRawSession{SessionID: "ses_fixture"},

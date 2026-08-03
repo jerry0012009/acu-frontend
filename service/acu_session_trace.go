@@ -393,7 +393,14 @@ func errorDiagnosis(attempts []acuRawProviderAttempt, payloads []acuRawPayload) 
 }
 
 func isNeutralClientCancellation(attempt acuRawProviderAttempt) bool {
-	return strings.HasPrefix(stringField(attempt.Metadata, "deliveryStatus"), "client_cancelled_")
+	if attempt.Status != "cancelled" {
+		return false
+	}
+	if attempt.HTTPStatus == 499 {
+		return true
+	}
+	return attempt.HTTPStatus == http.StatusOK &&
+		stringField(attempt.Metadata, "deliveryStatus") == "client_cancelled_after_output"
 }
 
 func judgeStatusReason(requests []acuRawLogicalRequest) string {
