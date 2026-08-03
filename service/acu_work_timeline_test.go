@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/QuantumNous/new-api/model"
@@ -54,4 +55,27 @@ func TestBuildACUWorkTimelineMapsV2DecisionSummary(t *testing.T) {
 	require.Len(t, item.ProviderAttempts, 2)
 	assert.Equal(t, 1.0, result.Summary.JudgeRulesFallbackRate)
 	assert.Equal(t, 0.6, result.Summary.CacheHitRate)
+}
+
+func TestBuildACUWorkTimelinePreservesAllDetectedWorkPhases(t *testing.T) {
+	phases := []struct {
+		name   string
+		offset float64
+	}{
+		{"inspection", -4}, {"implementation", 0}, {"verification", 0},
+		{"planning", 4}, {"recovery", 6}, {"general", 0},
+	}
+	for _, phase := range phases {
+		t.Run(phase.name, func(t *testing.T) {
+			other := `{"acu_logical_request_id":"req-` + phase.name + `","acu_cost_breakdown":{"phase":"execution","decision_summary":{"work_phase":"` + phase.name + `","work_phase_quality_target_offset":` + formatTimelineNumber(phase.offset) + `}}}`
+			result := buildACUWorkTimeline([]*model.Log{{CreatedAt: 100, Type: model.LogTypeConsume, Other: other}}, 0, 200)
+			require.Len(t, result.Items, 1)
+			assert.Equal(t, phase.name, result.Items[0].WorkPhase)
+			assert.Equal(t, phase.offset, result.Items[0].WorkPhaseQualityTargetOffset)
+		})
+	}
+}
+
+func formatTimelineNumber(value float64) string {
+	return strconv.FormatFloat(value, 'f', -1, 64)
 }

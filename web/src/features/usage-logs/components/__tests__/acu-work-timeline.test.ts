@@ -193,3 +193,12 @@ test('session trace inspector does not lock timeline wheel interaction', () => {
   assert.match(source, /<Dialog\s+modal=\{false\}/)
   assert.match(source, /<DialogContent\s+showBackdrop=\{false\}/)
 })
+
+test('timeline renders the DTO Work Phase rather than the segment phase', () => {
+  const source = readFileSync(
+    new URL('../acu-work-timeline.tsx', import.meta.url),
+    'utf8'
+  )
+  assert.match(source, /item\.workPhase \|\| 'general'/)
+  assert.match(source, /item\.workPhaseQualityTargetOffset/)
+})
