@@ -1,4 +1,5 @@
 import type { EChartsOption } from 'echarts'
+import { t } from 'i18next'
 
 import type { ACUWorkTimelineItem } from '../api'
 
@@ -39,6 +40,7 @@ function pointStroke(item: ACUWorkTimelineItem): string {
 }
 
 function formatLatency(value: number): string {
+  if (value <= 0) return '—'
   return value < 1000
     ? `${Math.round(value)} ms`
     : `${(value / 1000).toFixed(1)} s`
@@ -46,6 +48,53 @@ function formatLatency(value: number): string {
 
 function formatMoney(value: number): string {
   return `¥${value.toFixed(value < 0.01 ? 6 : 3)}`
+}
+
+function formatOptionalMoney(value: number | undefined): string {
+  return value == null ? '—' : formatMoney(value)
+}
+
+export function timelineUserCharge(
+  item: ACUWorkTimelineItem
+): number | undefined {
+  return item.userChargeCny
+}
+
+export function timelineCashCost(
+  item: ACUWorkTimelineItem
+): number | undefined {
+  return item.actualCashCostCny
+}
+
+export function isCompletedStatus(status: string): boolean {
+  return ['success', 'completed', 'completed_with_recovery'].includes(status)
+}
+
+export function isTimelineError(item: ACUWorkTimelineItem): boolean {
+  return (
+    item.status === 'completed_with_recovery' ||
+    (!isCompletedStatus(item.status) && item.status !== 'cancelled')
+  )
+}
+
+export function filterTimelineItems(
+  items: ACUWorkTimelineItem[],
+  search: string,
+  mode: 'all' | 'errors'
+): ACUWorkTimelineItem[] {
+  const query = search.trim().toLocaleLowerCase()
+  return items.filter((item) => {
+    if (mode === 'errors' && !isTimelineError(item)) return false
+    if (!query) return true
+    return [
+      item.taskId,
+      item.logicalRequestId,
+      item.actualModel,
+      item.requestedModel,
+      item.channel,
+      item.provider,
+    ].some((value) => value.toLocaleLowerCase().includes(query))
+  })
 }
 
 function escapeHtml(value: unknown): string {
@@ -67,12 +116,12 @@ function tooltipHtml(item: ACUWorkTimelineItem): string {
   const backup = item.judgeBackupUsed ? ' · Backup' : ''
   return [
     `<div style="font-weight:600;margin-bottom:6px">${escapeHtml(item.actualModel || item.requestedModel)}</div>`,
-    `<div>Difficulty ${item.difficulty.toFixed(1)} · Step ${item.sequence}</div>`,
+    `<div>${escapeHtml(t('Difficulty'))} ${item.difficulty.toFixed(1)} · ${escapeHtml(t('Step'))} ${item.sequence}</div>`,
     `<div>${judgeLabel(item)}${backup}</div>`,
     `<div>${escapeHtml(item.provider)} · ${escapeHtml(item.channel)}</div>`,
-    `<div>端到端 ${formatLatency(item.endToEndLatencyMs)} · 首模型事件 ${formatLatency(item.firstModelEventLatencyMs)}</div>`,
-    `<div>Judge ${formatLatency(item.judgeLatencyMs)} · Provider ${formatLatency(item.providerLatencyMs)}</div>`,
-    `<div>成本 ${formatMoney(item.actualCostCny)}（Judge ${formatMoney(item.judgeCostCny)} / Provider ${formatMoney(item.providerCostCny)} / 失败 ${formatMoney(item.failedAttemptCostCny)}）</div>`,
+    `<div>${escapeHtml(t('End-to-end'))} ${formatLatency(item.endToEndLatencyMs)} · ${escapeHtml(t('First model event'))} ${formatLatency(item.firstModelEventLatencyMs)}</div>`,
+    `<div>${escapeHtml(t('Judge'))} ${formatLatency(item.judgeLatencyMs)} · ${escapeHtml(t('Provider'))} ${formatLatency(item.providerLatencyMs)}</div>`,
+    `<div>${escapeHtml(t('User charge'))} ${formatOptionalMoney(timelineUserCharge(item))} · ${escapeHtml(t('Cash cost'))} ${formatOptionalMoney(timelineCashCost(item))}</div>`,
     item.errorClass
       ? `<div style="color:#e11d48;margin-top:4px">${escapeHtml(item.errorClass)}</div>`
       : '',
@@ -106,7 +155,7 @@ function difficultyDatum(
 
 function costDatum(item: ACUWorkTimelineItem): TimelineChartDatum {
   return {
-    value: [item.timestamp * 1000, item.actualCostCny],
+    value: [item.timestamp * 1000, timelineCashCost(item) ?? Number.NaN],
     timelineItem: item,
     itemStyle: { color: modelColor(item), opacity: 0.82 },
   }
@@ -223,7 +272,7 @@ export function buildACUWorkTimelineChartOption({
         gridIndex: 0,
         min: 0,
         max: 100,
-        name: 'Difficulty',
+        name: t('Difficulty'),
         nameLocation: 'middle',
         nameGap: 42,
         nameTextStyle: { color: text, fontSize: 11 },
@@ -236,7 +285,7 @@ export function buildACUWorkTimelineChartOption({
         type: 'value',
         gridIndex: 1,
         min: 0,
-        name: 'Cost',
+        name: t('Cash cost'),
         nameLocation: 'middle',
         nameGap: 50,
         nameTextStyle: { color: text, fontSize: 11 },
@@ -356,25 +405,51 @@ function percentile(values: number[], ratio: number): number {
 
 export function summarizeTimelineItems(items: ACUWorkTimelineItem[]) {
   const judged = items.filter((item) => item.judgeCalled)
-  const completed = items.filter((item) =>
-    ['completed', 'completed_with_recovery'].includes(item.status)
+  const firstAttemptSamples = judged.filter(
+    (item) => item.judgeFirstAttemptRecorded
+  )
+  const fallbackSamples = judged.filter((item) => item.judgeFallbackRecorded)
+  const completed = items.filter((item) => isCompletedStatus(item.status))
+  const userChargeSamples = items.filter(
+    (item) => timelineUserCharge(item) != null
+  )
+  const actualCashCostSamples = items.filter(
+    (item) => timelineCashCost(item) != null
   )
   const latencies = items
     .map((item) => item.firstModelEventLatencyMs)
     .filter((value) => value > 0)
   return {
     apiSteps: items.length,
-    judgeFirstAttemptSuccessRate: judged.length
-      ? judged.filter((item) => item.judgeFirstAttemptSucceeded).length / judged.length
+    judgeCalledRequests: judged.length,
+    judgeFirstAttemptSuccessSamples: firstAttemptSamples.length,
+    judgeFirstAttemptSuccessRate: firstAttemptSamples.length
+      ? firstAttemptSamples.filter((item) => item.judgeFirstAttemptSucceeded)
+          .length / firstAttemptSamples.length
       : 0,
-    judgeRulesFallbackRate: judged.length
-      ? judged.filter((item) => item.judgeStatus === 'rules_fallback' || item.judgeResultSource === 'rules_strategy').length / judged.length
+    judgeRulesFallbackSamples: fallbackSamples.length,
+    judgeRulesFallbackRate: fallbackSamples.length
+      ? fallbackSamples.filter(
+          (item) =>
+            item.judgeStatus === 'rules_fallback' ||
+            item.judgeResultSource === 'rules_strategy'
+        ).length / fallbackSamples.length
       : 0,
     completionRate: items.length ? completed.length / items.length : 0,
     cacheHitRate: items.reduce((sum, item) => sum + item.inputTokens, 0)
       ? items.reduce((sum, item) => sum + item.cachedInputTokens, 0) /
         items.reduce((sum, item) => sum + item.inputTokens, 0)
       : 0,
+    userChargeSamples: userChargeSamples.length,
+    actualCashCostSamples: actualCashCostSamples.length,
+    totalUserChargeCny: items.reduce(
+      (sum, item) => sum + (timelineUserCharge(item) ?? 0),
+      0
+    ),
+    totalActualCashCostCny: items.reduce(
+      (sum, item) => sum + (timelineCashCost(item) ?? 0),
+      0
+    ),
     actualTotalCostCny: items.reduce(
       (sum, item) => sum + item.actualCostCny,
       0

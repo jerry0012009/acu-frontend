@@ -14,19 +14,28 @@ import {
   ChevronRight,
   Clock3,
   GitBranch,
+  RefreshCw,
   Route,
   Server,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { StatusBadge } from '@/components/status-badge'
-import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 
 import { getACUSessionTrace } from '../../api'
 import type {
   ACUSessionTrace,
   ACUSessionTraceSegment,
 } from '../../session-trace-types'
+import {
+  aggregateJudgeAttempts,
+  isNeutralTraceCancellation,
+  isSuccessfulTraceStatus,
+  latestTraceRequest,
+  traceTimingSummary,
+} from './acu-session-trace-model'
 
 interface ACUSessionTracePanelProps {
   identifier: string
@@ -38,12 +47,9 @@ function elapsedLabel(value: number | null): string {
   return `${(value / 1000).toFixed(value < 10000 ? 1 : 0)} s`
 }
 
-function cashLabel(value: number): string {
+function cashLabel(value: number | null | undefined): string {
+  if (value == null) return '—'
   return `¥${value.toFixed(value < 0.01 ? 6 : 4)}`
-}
-
-function latestRequest(trace: ACUSessionTrace) {
-  return trace.segments.flatMap((segment) => segment.logicalRequests).at(-1)
 }
 
 function latestRoute(trace: ACUSessionTrace) {
@@ -56,7 +62,7 @@ function uniqueRoute(values: string[]): string {
 
 function segmentRequestSummary(segment: ACUSessionTraceSegment) {
   const completed = segment.logicalRequests.filter((request) =>
-    ['success', 'completed', 'completed_with_recovery'].includes(request.status)
+    isSuccessfulTraceStatus(request.status)
   ).length
   const cancelled = segment.logicalRequests.filter(
     (request) => request.status === 'cancelled'
@@ -67,93 +73,51 @@ function segmentRequestSummary(segment: ACUSessionTraceSegment) {
   return { completed, cancelled, running }
 }
 
-function isNeutralCancellation(request: ReturnType<typeof latestRequest>) {
-  return request?.deliveryStatus === 'client_cancelled_after_output'
+function attemptStatusClass(status: string): string {
+  if (isSuccessfulTraceStatus(status)) return 'text-emerald-600'
+  if (status === 'cancelled') return 'text-muted-foreground'
+  return 'text-rose-600'
 }
 
-function Waterfall(props: { trace: ACUSessionTrace }) {
+function TimingSummary(props: { trace: ACUSessionTrace }) {
   const { t } = useTranslation()
-  const request = latestRequest(props.trace)
-  const neutralCancellation = isNeutralCancellation(request)
-  const judgeMs = props.trace.segments.reduce(
-    (total, segment) =>
-      total + (segment.judge?.judgeCalls ? segment.judge.latencyMs : 0),
-    0
-  )
-  const providerMs = props.trace.segments.reduce(
-    (total, segment) =>
-      total +
-      segment.providerAttempts.reduce(
-        (sum, attempt) => sum + attempt.latencyMs,
-        0
-      ),
-    0
-  )
-  const totalMs = Math.max(request?.totalLatencyMs ?? judgeMs + providerMs, 1)
-  let completionLabel = t('Error')
-  let completionTone = 'bg-rose-500'
-  if (request?.status === 'success') {
-    completionLabel = t('Complete')
-    completionTone = 'bg-emerald-500'
-  } else if (neutralCancellation) {
-    completionLabel = t('Client ended stream')
-    completionTone = 'bg-slate-500'
-  }
-  const stages = [
-    {
-      label: t('Request'),
-      value: Math.max(totalMs - judgeMs - providerMs, 1),
-      tone: 'bg-slate-400',
-    },
-    { label: t('Judge'), value: Math.max(judgeMs, 1), tone: 'bg-cyan-600' },
-    { label: t('Route'), value: 1, tone: 'bg-violet-500' },
-    {
-      label: t('Provider'),
-      value: Math.max(providerMs, 1),
-      tone: 'bg-amber-500',
-    },
-    {
-      label: completionLabel,
-      value: 1,
-      tone: completionTone,
-    },
+  const summary = traceTimingSummary(props.trace)
+  const metrics: Array<[string, number | null]> = [
+    [t('Wall-clock total'), summary.wallClockMs],
+    [t('Judge accumulated attempts'), summary.judgeAttemptMs],
+    [t('Provider accumulated attempts'), summary.providerAttemptMs],
   ]
 
   return (
     <div className='min-w-0'>
       <div className='mb-2 flex items-center gap-2 text-xs font-medium'>
         <Clock3 className='size-3.5' aria-hidden='true' />
-        {t('Request waterfall')}
+        {t('Timing summary')}
       </div>
-      <div
-        className='grid min-w-[520px] gap-1 overflow-hidden rounded border p-1'
-        style={{
-          gridTemplateColumns: stages
-            .map((stage) => `${Math.max(stage.value / totalMs, 0.08)}fr`)
-            .join(' '),
-        }}
-      >
-        {stages.map((stage) => (
-          <div
-            key={stage.label}
-            className={cn(
-              'min-w-0 rounded px-2 py-2 text-center text-[11px] font-medium text-white',
-              stage.tone
-            )}
-          >
-            <div className='truncate'>{stage.label}</div>
-            <div className='truncate opacity-80'>
-              {elapsedLabel(stage.value)}
+      <div className='bg-border grid gap-px overflow-hidden rounded border sm:grid-cols-3'>
+        {metrics.map(([label, value]) => (
+          <div key={label} className='bg-background min-w-0 px-3 py-2'>
+            <div className='text-muted-foreground text-[11px]'>{label}</div>
+            <div className='mt-1 font-medium tabular-nums'>
+              {elapsedLabel(value)}
             </div>
           </div>
         ))}
       </div>
+      <p className='text-muted-foreground mt-1.5 text-[11px]'>
+        {t(
+          'Accumulated attempt time may exceed wall-clock time because retries and segments are counted separately.'
+        )}
+      </p>
     </div>
   )
 }
 
 function AttemptTimeline(props: { segment: ACUSessionTraceSegment }) {
   const { t } = useTranslation()
+  const judgeAttempts = aggregateJudgeAttempts(
+    props.segment.judge?.attempts ?? []
+  )
   return (
     <div className='grid min-w-0 gap-3 lg:grid-cols-2'>
       <div className='min-w-0'>
@@ -161,10 +125,10 @@ function AttemptTimeline(props: { segment: ACUSessionTraceSegment }) {
           <Bot className='size-3.5' aria-hidden='true' /> {t('Judge attempts')}
         </div>
         <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
-          {props.segment.judge?.attempts.length ? (
-            props.segment.judge.attempts.map((attempt, index) => (
+          {judgeAttempts.length ? (
+            judgeAttempts.map((attempt, index) => (
               <div
-                key={`${attempt.role}-${attempt.model}-${attempt.provider}-${attempt.latencyMs}`}
+                key={`${attempt.role}-${attempt.model}-${attempt.provider}-${attempt.status}-${attempt.httpStatus ?? ''}-${attempt.backupReason ?? ''}`}
                 className='flex min-w-0 items-center gap-1.5'
               >
                 {index > 0 && (
@@ -176,14 +140,9 @@ function AttemptTimeline(props: { segment: ACUSessionTraceSegment }) {
                 <div className='bg-muted/40 min-w-0 rounded border px-2 py-1.5 text-[11px]'>
                   <div className='truncate font-medium'>
                     {attempt.model} · {attempt.role}
+                    {attempt.count > 1 ? ` ×${attempt.count}` : ''}
                   </div>
-                  <div
-                    className={
-                      attempt.status === 'success'
-                        ? 'text-emerald-600'
-                        : 'text-rose-600'
-                    }
-                  >
+                  <div className={attemptStatusClass(attempt.status)}>
                     {attempt.status}
                     {attempt.httpStatus ? ` · ${attempt.httpStatus}` : ''} ·{' '}
                     {elapsedLabel(attempt.latencyMs)}
@@ -226,13 +185,7 @@ function AttemptTimeline(props: { segment: ACUSessionTraceSegment }) {
                 <div className='truncate font-medium'>
                   {attempt.model} · {attempt.provider} · {attempt.channel}
                 </div>
-                <div
-                  className={
-                    attempt.status === 'success'
-                      ? 'text-emerald-600'
-                      : 'text-rose-600'
-                  }
-                >
+                <div className={attemptStatusClass(attempt.status)}>
                   {attempt.status}
                   {attempt.httpStatus ? ` · ${attempt.httpStatus}` : ''} ·{' '}
                   {elapsedLabel(attempt.latencyMs)}
@@ -248,17 +201,21 @@ function AttemptTimeline(props: { segment: ACUSessionTraceSegment }) {
 
 export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
   const { t } = useTranslation()
-  const request = latestRequest(props.trace)
+  const request = latestTraceRequest(props.trace)
   const route = latestRoute(props.trace)
   const judges = props.trace.segments
     .map((segment) => segment.judge)
     .filter(Boolean)
-  const judgeLabel = judges.some((judge) => judge?.judgeReused)
-    ? t('Judge reused')
-    : judges
-        .flatMap((judge) => judge?.attempts ?? [])
-        .map((attempt) => attempt.model)
-        .join(' → ') || t('Judge unavailable')
+  const allJudgeAttempts = judges.flatMap((judge) => judge?.attempts ?? [])
+  const groupedJudgeAttempts = aggregateJudgeAttempts(allJudgeAttempts)
+  let judgeLabel = t('Judge unavailable')
+  if (allJudgeAttempts.length) {
+    judgeLabel = t('{{count}} Judge attempts', {
+      count: allJudgeAttempts.length,
+    })
+  } else if (judges.some((judge) => judge?.judgeReused)) {
+    judgeLabel = t('Judge reused')
+  }
   const selectedModel =
     route?.selectedCanonicalModel || request?.actualModel || '—'
   const segmentJudgeLabel = (segment: ACUSessionTraceSegment): string => {
@@ -271,18 +228,16 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
       (segment) => segment.route?.selectedCanonicalModel || ''
     )
   )
-  const judgeModels = props.trace.segments.flatMap(
-    (segment) => segment.judge?.attempts.map((attempt) => attempt.model) ?? []
-  )
-  const judgeRoute = [...new Set(judgeModels)]
-    .map(
-      (model) =>
-        `${model} × ${judgeModels.filter((item) => item === model).length}`
-    )
-    .join(' → ') || '—'
+  const judgeRoute =
+    groupedJudgeAttempts
+      .map(
+        (attempt) =>
+          `${attempt.model}${attempt.count > 1 ? ` ×${attempt.count}` : ''}`
+      )
+      .join(' → ') || '—'
   let requestStatusVariant: 'green' | 'neutral' | 'red' = 'red'
-  if (request?.status === 'success') requestStatusVariant = 'green'
-  else if (isNeutralCancellation(request)) requestStatusVariant = 'neutral'
+  if (isSuccessfulTraceStatus(request?.status)) requestStatusVariant = 'green'
+  else if (isNeutralTraceCancellation(request)) requestStatusVariant = 'neutral'
 
   return (
     <section
@@ -308,14 +263,14 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
           </p>
         </div>
         <StatusBadge
-          label={request?.status || props.trace.session.status}
+          label={t(request?.status || props.trace.session.status)}
           variant={requestStatusVariant}
           size='sm'
           copyable={false}
         />
       </div>
 
-      <div className='grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-5'>
+      <div className='grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-6'>
         <div>
           <div className='text-muted-foreground'>{t('Total')}</div>
           <div className='font-medium tabular-nums'>
@@ -341,16 +296,20 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
           </div>
         </div>
         <div>
-          <div className='text-muted-foreground'>{t('Actual cost')}</div>
+          <div className='text-muted-foreground'>{t('User charge')}</div>
           <div className='font-medium tabular-nums'>
-            {cashLabel(request?.actualCostCny ?? 0)}
+            {cashLabel(request?.userChargeCny)}
+          </div>
+        </div>
+        <div>
+          <div className='text-muted-foreground'>{t('Cash cost')}</div>
+          <div className='font-medium tabular-nums'>
+            {cashLabel(request?.actualCashCostCny)}
           </div>
         </div>
       </div>
 
-      <div className='max-w-full overflow-x-auto pb-1'>
-        <Waterfall trace={props.trace} />
-      </div>
+      <TimingSummary trace={props.trace} />
 
       <div className='space-y-2'>
         <div className='flex items-center gap-1.5 text-xs font-medium'>
@@ -378,7 +337,10 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
                 </span>
               )}
               {segment.route && (
-                <span>{segment.route.selectedDisplayName || segment.route.selectedCanonicalModel}</span>
+                <span>
+                  {segment.route.selectedDisplayName ||
+                    segment.route.selectedCanonicalModel}
+                </span>
               )}
               {segment.judge?.routeRefreshReason && (
                 <span className='text-muted-foreground'>
@@ -391,8 +353,8 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
               <span className='text-muted-foreground'>
                 {segmentRequestSummary(segment).completed} {t('completed')} ·{' '}
                 {segmentRequestSummary(segment).cancelled}{' '}
-                {t('client cancelled')} · {segmentRequestSummary(segment).running}{' '}
-                {t('running')}
+                {t('client cancelled')} ·{' '}
+                {segmentRequestSummary(segment).running} {t('running')}
               </span>
             </div>
             <div className='mt-2'>
@@ -400,25 +362,64 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
             </div>
             {segment.route && (
               <details className='mt-2 text-xs'>
-                <summary className='cursor-pointer font-medium'>Routing decision</summary>
+                <summary className='cursor-pointer font-medium'>
+                  {t('Routing decision')}
+                </summary>
                 <div className='text-muted-foreground mt-2 grid gap-3 sm:grid-cols-3'>
                   <div>
-                    <div>Candidate: {segment.route.selectedCandidateId || segment.route.selectedCanonicalModel}</div>
-                    <div>Preset: {segment.route.selectedExecutionPresetId || 'base'}</div>
+                    <div>
+                      {t('Candidate')}:{' '}
+                      {segment.route.selectedCandidateId ||
+                        segment.route.selectedCanonicalModel}
+                    </div>
+                    <div>
+                      {t('Preset')}:{' '}
+                      {segment.route.selectedExecutionPresetId || t('base')}
+                    </div>
                   </div>
                   <div>
-                    <div>Reasoning: {segment.route.clientRequestedReasoningEffort || 'none'} → {segment.route.presetReasoningEffort || 'base'} → {segment.route.resolvedReasoningEffort || 'default'}</div>
-                    <div>{segment.route.reasoningMappingStatus || 'model_default'}</div>
+                    <div>
+                      {t('Reasoning')}:{' '}
+                      {segment.route.clientRequestedReasoningEffort ||
+                        t('none')}{' '}
+                      → {segment.route.presetReasoningEffort || t('base')} →{' '}
+                      {segment.route.resolvedReasoningEffort || t('default')}
+                    </div>
+                    <div>
+                      {segment.route.reasoningMappingStatus || 'model_default'}
+                    </div>
                   </div>
                   <div>
-                    <div>Judge source: {segment.judge?.resultSource || 'n/a'}</div>
-                    <div>Tokens: {segment.logicalRequests.reduce((sum, item) => sum + (item.inputTokens ?? 0), 0).toLocaleString()} in · {segment.logicalRequests.reduce((sum, item) => sum + (item.outputTokens ?? 0), 0).toLocaleString()} out</div>
+                    <div>
+                      {t('Judge source')}:{' '}
+                      {segment.judge?.resultSource || t('n/a')}
+                    </div>
+                    <div>
+                      {t('Tokens')}:{' '}
+                      {segment.logicalRequests
+                        .reduce((sum, item) => sum + (item.inputTokens ?? 0), 0)
+                        .toLocaleString()}{' '}
+                      {t('in')} ·{' '}
+                      {segment.logicalRequests
+                        .reduce(
+                          (sum, item) => sum + (item.outputTokens ?? 0),
+                          0
+                        )
+                        .toLocaleString()}{' '}
+                      {t('out')}
+                    </div>
                   </div>
                 </div>
                 <div className='mt-2'>
                   {(segment.route.topCandidates ?? []).map((candidate) => (
-                    <div key={candidate.candidateId} className='grid grid-cols-[minmax(0,1fr)_4rem_5rem_5rem] gap-2 py-0.5'>
-                      <span className='truncate'>{candidate.selected ? 'Selected · ' : ''}{candidate.displayName}</span>
+                    <div
+                      key={candidate.candidateId}
+                      className='grid grid-cols-[minmax(0,1fr)_4rem_5rem_5rem] gap-2 py-0.5'
+                    >
+                      <span className='truncate'>
+                        {candidate.selected ? `${t('Selected')} · ` : ''}
+                        {candidate.displayName}
+                      </span>
                       <span>Q {candidate.estimatedQuality.toFixed(1)}</span>
                       <span>{cashLabel(candidate.estimatedCallCost)}</span>
                       <span>U {candidate.valueUtility.toFixed(3)}</span>
@@ -442,13 +443,17 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
                 {t('Request details')}
               </summary>
               {segment.logicalRequests.map((logical) => {
-                if (logical.deliveryStatus === 'client_cancelled_after_output') {
+                if (
+                  logical.deliveryStatus === 'client_cancelled_after_output'
+                ) {
                   return (
                     <div
                       key={logical.logicalRequestId}
                       className='mt-2 rounded border p-2 text-xs'
                     >
-                      <div className='font-medium'>{t('Client ended stream')}</div>
+                      <div className='font-medium'>
+                        {t('Client ended stream')}
+                      </div>
                       <div className='text-muted-foreground mt-1'>
                         {t(
                           'Visible output was produced. Recovery was skipped to avoid duplicate generation.'
@@ -457,7 +462,9 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
                     </div>
                   )
                 }
-                if (logical.deliveryStatus === 'client_cancelled_before_output') {
+                if (
+                  logical.deliveryStatus === 'client_cancelled_before_output'
+                ) {
                   return (
                     <div
                       key={logical.logicalRequestId}
@@ -542,15 +549,44 @@ export function ACUSessionTracePanel(props: ACUSessionTracePanelProps) {
   })
   if (traceQuery.isPending) {
     return (
-      <div className='text-muted-foreground rounded border p-3 text-xs'>
-        {t('Loading ACU Session Trace…')}
+      <div
+        className='space-y-4 rounded border p-4'
+        aria-label={t('Loading ACU Session Trace…')}
+      >
+        <div className='flex items-center justify-between gap-4'>
+          <Skeleton className='h-5 w-56' />
+          <Skeleton className='h-5 w-20' />
+        </div>
+        <div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
+          {Array.from({ length: 4 }, (_, index) => (
+            <Skeleton key={index} className='h-12 w-full' />
+          ))}
+        </div>
+        <Skeleton className='h-24 w-full' />
+        <Skeleton className='h-40 w-full' />
       </div>
     )
   }
-  if (traceQuery.isError || !traceQuery.data?.success || !traceQuery.data.data) {
+  if (
+    traceQuery.isError ||
+    !traceQuery.data?.success ||
+    !traceQuery.data.data
+  ) {
     return (
-      <div className='text-muted-foreground rounded border p-3 text-xs'>
-        {t('ACU Session Trace is unavailable.')}
+      <div className='rounded border p-4 text-sm'>
+        <div className='text-muted-foreground'>
+          {t('ACU Session Trace is unavailable.')}
+        </div>
+        <Button
+          type='button'
+          size='sm'
+          variant='outline'
+          className='mt-3'
+          onClick={() => void traceQuery.refetch()}
+        >
+          <RefreshCw className='mr-1.5 size-3.5' aria-hidden='true' />
+          {t('Retry')}
+        </Button>
       </div>
     )
   }

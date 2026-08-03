@@ -8,37 +8,49 @@ type ACUWorkTimeline struct {
 }
 
 type ACUWorkTimelineSummary struct {
-	APISteps                     int     `json:"apiSteps"`
-	JudgeFirstAttemptSuccessRate float64 `json:"judgeFirstAttemptSuccessRate"`
-	JudgeRulesFallbackRate       float64 `json:"judgeRulesFallbackRate"`
-	CompletionRate               float64 `json:"completionRate"`
-	CacheHitRate                 float64 `json:"cacheHitRate"`
-	ActualTotalCostCNY           float64 `json:"actualTotalCostCny"`
-	P50FirstModelEventLatencyMs  int     `json:"p50FirstModelEventLatencyMs"`
-	P95FirstModelEventLatencyMs  int     `json:"p95FirstModelEventLatencyMs"`
+	APISteps                        int     `json:"apiSteps"`
+	JudgeFirstAttemptSuccessRate    float64 `json:"judgeFirstAttemptSuccessRate"`
+	JudgeFirstAttemptSuccessSamples int     `json:"judgeFirstAttemptSuccessSamples"`
+	JudgeCalledRequests             int     `json:"judgeCalledRequests"`
+	JudgeRulesFallbackRate          float64 `json:"judgeRulesFallbackRate"`
+	JudgeRulesFallbackSamples       int     `json:"judgeRulesFallbackSamples"`
+	CompletionRate                  float64 `json:"completionRate"`
+	CacheHitRate                    float64 `json:"cacheHitRate"`
+	TotalUserChargeCNY              float64 `json:"totalUserChargeCny"`
+	TotalActualCashCostCNY          float64 `json:"totalActualCashCostCny"`
+	// ActualTotalCostCNY is retained for clients that have not migrated yet.
+	// It means total user charge, with actual cash cost as the legacy fallback.
+	ActualTotalCostCNY          float64 `json:"actualTotalCostCny"`
+	P50FirstModelEventLatencyMs int     `json:"p50FirstModelEventLatencyMs"`
+	P95FirstModelEventLatencyMs int     `json:"p95FirstModelEventLatencyMs"`
 }
 
 type ACUWorkTimelineItem struct {
-	Timestamp                      int64                         `json:"timestamp"`
-	Sequence                       int                           `json:"sequence"`
-	LogicalRequestID               string                        `json:"logicalRequestId"`
-	SessionID                      string                        `json:"sessionId"`
-	TaskID                         string                        `json:"taskId"`
-	SegmentID                      string                        `json:"segmentId"`
-	JudgeCalled                    bool                          `json:"judgeCalled"`
-	JudgeReused                    bool                          `json:"judgeReused"`
-	JudgeModel                     string                        `json:"judgeModel"`
-	JudgeBackupUsed                bool                          `json:"judgeBackupUsed"`
-	Difficulty                     float64                       `json:"difficulty"`
-	RequestedModel                 string                        `json:"requestedModel"`
-	ActualModel                    string                        `json:"actualModel"`
-	Provider                       string                        `json:"provider"`
-	Channel                        string                        `json:"channel"`
-	Status                         string                        `json:"status"`
-	FirstModelEventLatencyMs       int                           `json:"firstModelEventLatencyMs"`
-	EndToEndLatencyMs              int                           `json:"endToEndLatencyMs"`
-	JudgeLatencyMs                 int                           `json:"judgeLatencyMs"`
-	ProviderLatencyMs              int                           `json:"providerLatencyMs"`
+	Timestamp                int64    `json:"timestamp"`
+	Sequence                 int      `json:"sequence"`
+	LogicalRequestID         string   `json:"logicalRequestId"`
+	SessionID                string   `json:"sessionId"`
+	TaskID                   string   `json:"taskId"`
+	SegmentID                string   `json:"segmentId"`
+	JudgeCalled              bool     `json:"judgeCalled"`
+	JudgeReused              bool     `json:"judgeReused"`
+	JudgeModel               string   `json:"judgeModel"`
+	JudgeBackupUsed          bool     `json:"judgeBackupUsed"`
+	Difficulty               float64  `json:"difficulty"`
+	RequestedModel           string   `json:"requestedModel"`
+	ActualModel              string   `json:"actualModel"`
+	Provider                 string   `json:"provider"`
+	Channel                  string   `json:"channel"`
+	Status                   string   `json:"status"`
+	FirstModelEventLatencyMs int      `json:"firstModelEventLatencyMs"`
+	EndToEndLatencyMs        int      `json:"endToEndLatencyMs"`
+	LatencySource            string   `json:"latencySource"`
+	JudgeLatencyMs           int      `json:"judgeLatencyMs"`
+	ProviderLatencyMs        int      `json:"providerLatencyMs"`
+	UserChargeCNY            *float64 `json:"userChargeCny,omitempty"`
+	ActualCashCostCNY        *float64 `json:"actualCashCostCny,omitempty"`
+	// ActualCostCNY is retained for compatibility and means user charge,
+	// falling back to actual cash cost for legacy records.
 	ActualCostCNY                  float64                       `json:"actualCostCny"`
 	JudgeCostCNY                   float64                       `json:"judgeCostCny"`
 	ProviderCostCNY                float64                       `json:"providerCostCny"`
@@ -51,6 +63,8 @@ type ACUWorkTimelineItem struct {
 	JudgeStatus                    string                        `json:"judgeStatus"`
 	JudgeResultSource              string                        `json:"judgeResultSource"`
 	JudgeFirstAttemptSucceeded     bool                          `json:"judgeFirstAttemptSucceeded"`
+	JudgeFirstAttemptRecorded      bool                          `json:"judgeFirstAttemptRecorded"`
+	JudgeFallbackRecorded          bool                          `json:"judgeFallbackRecorded"`
 	JudgeProfileAttemptCount       int                           `json:"judgeProfileAttemptCount"`
 	JudgeSameModelFailoverUsed     bool                          `json:"judgeSameModelFailoverUsed"`
 	SelectedCandidateID            string                        `json:"selectedCandidateId"`

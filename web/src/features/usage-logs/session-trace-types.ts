@@ -87,6 +87,8 @@ export interface ACUSessionTraceSegment {
     totalLatencyMs: number
     firstTokenLatencyMs: number | null
     visibleOutputBytes: number
+    userChargeCny?: number
+    actualCashCostCny?: number
     actualCostCny: number
     deliveryStatus?: string
     errorDiagnosis?: {

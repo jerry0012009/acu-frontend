@@ -109,6 +109,8 @@ type ACUSessionTraceLogicalRequest struct {
 	TotalLatencyMs      int64              `json:"totalLatencyMs"`
 	FirstTokenLatencyMs *int               `json:"firstTokenLatencyMs"`
 	VisibleOutputBytes  int64              `json:"visibleOutputBytes"`
+	UserChargeCNY       *float64           `json:"userChargeCny,omitempty"`
+	ActualCashCostCNY   *float64           `json:"actualCashCostCny,omitempty"`
 	ActualCostCNY       float64            `json:"actualCostCny"`
 	DeliveryStatus      string             `json:"deliveryStatus,omitempty"`
 	ErrorDiagnosis      *ACUErrorDiagnosis `json:"errorDiagnosis,omitempty"`

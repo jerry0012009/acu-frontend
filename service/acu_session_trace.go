@@ -128,13 +128,14 @@ type acuRawProviderAttempt struct {
 }
 
 type acuRawUsageReport struct {
-	LogicalRequestID       string  `json:"logical_request_id"`
-	ActualModel            string  `json:"actual_model"`
-	ActualTotalCashCostCNY float64 `json:"actual_total_cash_cost_cny"`
-	InputTokens            int64   `json:"input_tokens"`
-	CachedInputTokens      int64   `json:"cached_input_tokens"`
-	OutputTokens           int64   `json:"output_tokens"`
-	ReasoningTokens        int64   `json:"reasoning_tokens"`
+	LogicalRequestID       string   `json:"logical_request_id"`
+	ActualModel            string   `json:"actual_model"`
+	UserChargeCNY          *float64 `json:"user_charge_cny"`
+	ActualTotalCashCostCNY *float64 `json:"actual_total_cash_cost_cny"`
+	InputTokens            int64    `json:"input_tokens"`
+	CachedInputTokens      int64    `json:"cached_input_tokens"`
+	OutputTokens           int64    `json:"output_tokens"`
+	ReasoningTokens        int64    `json:"reasoning_tokens"`
 }
 
 type acuRawPayload struct {
@@ -299,12 +300,17 @@ func buildACUSessionTrace(raw acuRawTrace) dto.ACUSessionTrace {
 				}
 				entry.ProviderAttempts = append(entry.ProviderAttempts, providerAttemptDTO(attempt))
 			}
+			actualCostCNY := 0.0
+			if usage.ActualTotalCashCostCNY != nil {
+				actualCostCNY = *usage.ActualTotalCashCostCNY
+			}
 			logical := dto.ACUSessionTraceLogicalRequest{
 				LogicalRequestID: request.LogicalRequestID, NewAPILogID: request.NewAPILogID,
 				RequestID: stringField(request.Metadata, "requestId"), RequestedModel: request.RequestedModel,
 				ActualModel: usage.ActualModel, Status: request.Status, StartedAt: request.StartedAt,
 				CompletedAt: request.CompletedAt, TotalLatencyMs: durationMs(request.StartedAt, request.CompletedAt),
-				FirstTokenLatencyMs: firstTokenLatencyMs, VisibleOutputBytes: visibleBytes, ActualCostCNY: usage.ActualTotalCashCostCNY,
+				FirstTokenLatencyMs: firstTokenLatencyMs, VisibleOutputBytes: visibleBytes,
+				UserChargeCNY: usage.UserChargeCNY, ActualCashCostCNY: usage.ActualTotalCashCostCNY, ActualCostCNY: actualCostCNY,
 				InputTokens: usage.InputTokens, CachedInputTokens: usage.CachedInputTokens,
 				OutputTokens: usage.OutputTokens, ReasoningTokens: usage.ReasoningTokens,
 				DeliveryStatus: stringField(request.Metadata, "deliveryStatus"),
@@ -387,7 +393,7 @@ func errorDiagnosis(attempts []acuRawProviderAttempt, payloads []acuRawPayload) 
 }
 
 func isNeutralClientCancellation(attempt acuRawProviderAttempt) bool {
-	return attempt.HTTPStatus == http.StatusOK && stringField(attempt.Metadata, "deliveryStatus") == "client_cancelled_after_output"
+	return strings.HasPrefix(stringField(attempt.Metadata, "deliveryStatus"), "client_cancelled_")
 }
 
 func judgeStatusReason(requests []acuRawLogicalRequest) string {

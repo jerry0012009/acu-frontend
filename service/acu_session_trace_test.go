@@ -8,6 +8,8 @@ import (
 )
 
 func TestBuildACUSessionTracePreservesChainsAndExcludesRawPayload(t *testing.T) {
+	userChargeCNY := 0.22
+	actualCashCostCNY := 0.18
 	raw := acuRawTrace{
 		Session: acuRawSession{SessionID: "ses_fixture", CreatedAt: "2026-07-30T14:00:00Z", LastActivityAt: "2026-07-30T14:03:00Z"},
 		Task:    acuRawTask{TaskID: "task_fixture", RootGoalText: "Inspect the server", Status: "failed"},
@@ -42,7 +44,10 @@ func TestBuildACUSessionTracePreservesChainsAndExcludesRawPayload(t *testing.T) 
 			{AttemptID: "pa_1", LogicalRequestID: "req_3", AttemptIndex: 1, ActualModel: "gpt-5.6-luna", Provider: "lucen", Channel: "luna-a", Endpoint: "https://provider.example/v1", Status: "failed", HTTPStatus: 524, ErrorCategory: "provider_http", LatencyMs: 100000, VisibleOutputBytes: 7710},
 			{AttemptID: "pa_2", LogicalRequestID: "req_3", AttemptIndex: 2, ActualModel: "gpt-5.6-luna", Provider: "closeai", Channel: "luna-b", Endpoint: "https://backup.example/v1", Status: "success", HTTPStatus: 200, LatencyMs: 19000, Metadata: map[string]interface{}{"first_model_event_latency_ms": float64(1200)}},
 		},
-		UsageReports: []acuRawUsageReport{{LogicalRequestID: "req_3", ActualModel: "gpt-5.6-luna", ActualTotalCashCostCNY: .18}},
+		UsageReports: []acuRawUsageReport{{
+			LogicalRequestID: "req_3", ActualModel: "gpt-5.6-luna",
+			UserChargeCNY: &userChargeCNY, ActualTotalCashCostCNY: &actualCashCostCNY,
+		}},
 		Payloads: []acuRawPayload{
 			{PayloadKind: "judge_attempt_error_response", Metadata: map[string]interface{}{"judgeAttemptId": "ja_2", "backupReason": "invalid_json", "secret": "must-not-escape"}},
 			{LogicalRequestID: "req_3", AttemptID: "pa_1", PayloadKind: "provider_response", Headers: map[string]interface{}{"server": "cloudflare", "cf-ray": "fixture-ray", "authorization": "must-not-escape"}},
@@ -61,6 +66,10 @@ func TestBuildACUSessionTracePreservesChainsAndExcludesRawPayload(t *testing.T) 
 	require.NotNil(t, trace.Segments[1].LogicalRequests[0].FirstTokenLatencyMs)
 	assert.Equal(t, 1200, *trace.Segments[1].LogicalRequests[0].FirstTokenLatencyMs)
 	assert.Equal(t, "gpt-5.6-luna", trace.Segments[1].Route.SelectedCanonicalModel)
+	require.NotNil(t, trace.Segments[1].LogicalRequests[0].UserChargeCNY)
+	require.NotNil(t, trace.Segments[1].LogicalRequests[0].ActualCashCostCNY)
+	assert.Equal(t, 0.22, *trace.Segments[1].LogicalRequests[0].UserChargeCNY)
+	assert.Equal(t, 0.18, *trace.Segments[1].LogicalRequests[0].ActualCashCostCNY)
 	assert.Equal(t, "fixture-ray", trace.Segments[1].LogicalRequests[0].ErrorDiagnosis.CFRay)
 	assert.NotContains(t, trace.Task.GoalSummary, "must-not-escape")
 }
@@ -91,6 +100,27 @@ func TestBuildACUSessionTraceTreatsCancellationAfterOutputAsNeutral(t *testing.T
 	assert.Equal(t, "client_cancelled_after_output", request.DeliveryStatus)
 	require.NotNil(t, request.FirstTokenLatencyMs)
 	assert.Equal(t, 850, *request.FirstTokenLatencyMs)
+}
+
+func TestBuildACUSessionTraceTreatsCancellationBeforeOutputAsNeutral(t *testing.T) {
+	raw := acuRawTrace{
+		Session:  acuRawSession{SessionID: "ses_fixture"},
+		Task:     acuRawTask{TaskID: "task_fixture"},
+		Segments: []acuRawSegment{{SegmentID: "seg_1", CreationReason: "human_message", Phase: "execution"}},
+		LogicalRequests: []acuRawLogicalRequest{{
+			LogicalRequestID: "req_1", SegmentID: "seg_1", Status: "cancelled",
+			Metadata: map[string]interface{}{"deliveryStatus": "client_cancelled_before_output"},
+		}},
+		Attempts: []acuRawProviderAttempt{{
+			AttemptID: "pa_1", LogicalRequestID: "req_1", AttemptIndex: 1, Status: "cancelled",
+			HTTPStatus: 499, Metadata: map[string]interface{}{"deliveryStatus": "client_cancelled_before_output"},
+		}},
+	}
+
+	trace := buildACUSessionTrace(raw)
+	require.Len(t, trace.Segments, 1)
+	require.Len(t, trace.Segments[0].LogicalRequests, 1)
+	assert.Nil(t, trace.Segments[0].LogicalRequests[0].ErrorDiagnosis)
 }
 
 func TestBuildACUSessionTraceExplainsMissingJudgePersistence(t *testing.T) {

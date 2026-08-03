@@ -7,9 +7,13 @@ import {
   ACU_TIMELINE_INSIDE_ZOOM_ID,
   ACU_TIMELINE_SLIDER_ZOOM_ID,
   buildACUWorkTimelineChartOption,
+  filterTimelineItems,
+  isCompletedStatus,
   summarizeTimelineItems,
+  timelineCashCost,
   timelineItemFromChartEvent,
   timelineRangeFromZoom,
+  timelineUserCharge,
 } from '../acu-work-timeline-model.ts'
 
 function item(overrides: Partial<ACUWorkTimelineItem>): ACUWorkTimelineItem {
@@ -32,8 +36,11 @@ function item(overrides: Partial<ACUWorkTimelineItem>): ACUWorkTimelineItem {
     status: 'completed',
     firstModelEventLatencyMs: 1000,
     endToEndLatencyMs: 3000,
+    latencySource: 'reported',
     judgeLatencyMs: 500,
     providerLatencyMs: 2500,
+    userChargeCny: 0.01,
+    actualCashCostCny: 0.01,
     actualCostCny: 0.01,
     judgeCostCny: 0.001,
     providerCostCny: 0.009,
@@ -46,6 +53,8 @@ function item(overrides: Partial<ACUWorkTimelineItem>): ACUWorkTimelineItem {
     judgeStatus: 'live',
     judgeResultSource: 'upstream_live',
     judgeFirstAttemptSucceeded: true,
+    judgeFirstAttemptRecorded: true,
+    judgeFallbackRecorded: true,
     judgeProfileAttemptCount: 1,
     judgeSameModelFailoverUsed: false,
     selectedCandidateId: 'gpt-5.6-luna',
@@ -170,19 +179,89 @@ test('visible summary is derived only from items inside the engine viewport', ()
       judgeReused: true,
       status: 'completed_with_recovery',
       firstModelEventLatencyMs: 3000,
+      userChargeCny: 0.02,
+      actualCashCostCny: 0.02,
       actualCostCny: 0.02,
     }),
   ])
   assert.deepEqual(summary, {
     apiSteps: 2,
+    judgeCalledRequests: 1,
+    judgeFirstAttemptSuccessSamples: 1,
     judgeFirstAttemptSuccessRate: 1,
+    judgeRulesFallbackSamples: 1,
     judgeRulesFallbackRate: 0,
     completionRate: 1,
     cacheHitRate: 0.25,
+    userChargeSamples: 2,
+    actualCashCostSamples: 2,
+    totalUserChargeCny: 0.03,
+    totalActualCashCostCny: 0.03,
     actualTotalCostCny: 0.03,
     p50FirstModelEventLatencyMs: 1000,
     p95FirstModelEventLatencyMs: 3000,
   })
+})
+
+test('summary excludes legacy Judge records without explicit metric samples', () => {
+  const summary = summarizeTimelineItems([
+    item({
+      judgeFirstAttemptSucceeded: false,
+      judgeFirstAttemptRecorded: false,
+      judgeFallbackRecorded: false,
+    }),
+  ])
+  assert.equal(summary.judgeCalledRequests, 1)
+  assert.equal(summary.judgeFirstAttemptSuccessSamples, 0)
+  assert.equal(summary.judgeRulesFallbackSamples, 0)
+  assert.equal(summary.judgeFirstAttemptSuccessRate, 0)
+  assert.equal(summary.judgeRulesFallbackRate, 0)
+})
+
+test('separates user charge from actual cash cost without inventing missing values', () => {
+  const current = item({
+    actualCostCny: 0.12,
+    userChargeCny: 0.12,
+    actualCashCostCny: 0.08,
+  })
+  assert.equal(timelineUserCharge(current), 0.12)
+  assert.equal(timelineCashCost(current), 0.08)
+  const legacy = item({
+    userChargeCny: undefined,
+    actualCashCostCny: undefined,
+    actualCostCny: 0.04,
+  })
+  assert.equal(timelineUserCharge(legacy), undefined)
+  assert.equal(timelineCashCost(legacy), undefined)
+})
+
+test('filters route steps across task request model and channel and keeps recovered issues', () => {
+  const recovered = item({
+    logicalRequestId: 'request-recovered',
+    taskId: 'task-inspection',
+    actualModel: 'gpt-5.6-sol',
+    channel: 'lucen-cx008',
+    status: 'completed_with_recovery',
+  })
+  const healthy = item({
+    logicalRequestId: 'request-healthy',
+    taskId: 'task-general',
+    actualModel: 'gpt-5.6-luna',
+    channel: 'lucen-cx014',
+  })
+  assert.deepEqual(
+    filterTimelineItems([recovered, healthy], 'inspection', 'all'),
+    [recovered]
+  )
+  assert.deepEqual(filterTimelineItems([recovered, healthy], 'cx008', 'all'), [
+    recovered,
+  ])
+  assert.deepEqual(filterTimelineItems([recovered, healthy], '', 'errors'), [
+    recovered,
+  ])
+  assert.equal(isCompletedStatus('success'), true)
+  assert.equal(isCompletedStatus('completed_with_recovery'), true)
+  assert.equal(isCompletedStatus('failed'), false)
 })
 
 test('session trace inspector does not lock timeline wheel interaction', () => {
@@ -199,6 +278,20 @@ test('timeline renders the DTO Work Phase rather than the segment phase', () => 
     new URL('../acu-work-timeline.tsx', import.meta.url),
     'utf8'
   )
-  assert.match(source, /item\.workPhase \|\| 'general'/)
+  assert.match(source, /item\.workPhase \|\| t\('general'\)/)
   assert.match(source, /item\.workPhaseQualityTargetOffset/)
+})
+
+test('timeline defaults the trend open and only offers supported time ranges', () => {
+  const source = readFileSync(
+    new URL('../acu-work-timeline.tsx', import.meta.url),
+    'utf8'
+  )
+  assert.match(source, /useState\(true\)/)
+  assert.match(source, /\[1, 6, 24\]\.map/)
+  assert.doesNotMatch(source, /\b168\b/)
+  assert.match(source, /aria-expanded=\{trendOpen\}/)
+  assert.match(source, /role='columnheader'/)
+  assert.match(source, /lg:hidden/)
+  assert.match(source, /Issues only/)
 })

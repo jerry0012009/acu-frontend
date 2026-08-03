@@ -25,8 +25,10 @@ import {
   RotateCcw,
   Route,
   Scale,
+  Search,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -40,6 +42,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { cn } from '@/lib/utils'
 
@@ -47,9 +50,13 @@ import { getACUWorkTimeline, type ACUWorkTimelineItem } from '../api'
 import {
   ACU_TIMELINE_INSIDE_ZOOM_ID,
   buildACUWorkTimelineChartOption,
+  filterTimelineItems,
+  isCompletedStatus,
   summarizeTimelineItems,
+  timelineCashCost,
   timelineItemFromChartEvent,
   timelineRangeFromZoom,
+  timelineUserCharge,
 } from './acu-work-timeline-model'
 import { ACUSessionTracePanel } from './dialogs/acu-session-trace'
 
@@ -64,6 +71,7 @@ echarts.use([
 ])
 
 function ms(value: number) {
+  if (value <= 0) return '—'
   return value < 1000 ? `${value} ms` : `${(value / 1000).toFixed(1)} s`
 }
 
@@ -71,13 +79,23 @@ function money(value: number) {
   return `¥${value.toFixed(value < 0.01 ? 6 : 3)}`
 }
 
+function optionalMoney(value: number | undefined) {
+  return value == null ? '—' : money(value)
+}
+
+function statusTone(status: string) {
+  if (isCompletedStatus(status)) return 'text-emerald-600'
+  if (status === 'cancelled') return 'text-muted-foreground'
+  return 'text-destructive'
+}
+
 function visibleTime(value: number) {
-  return new Date(value * 1000).toLocaleString([], {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  const date = new Date(value * 1000)
+  const offset = -date.getTimezoneOffset()
+  const sign = offset >= 0 ? '+' : '-'
+  const hours = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0')
+  const minutes = String(Math.abs(offset) % 60).padStart(2, '0')
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')} UTC${sign}${hours}:${minutes}`
 }
 
 function judgeMode(item: ACUWorkTimelineItem) {
@@ -91,64 +109,189 @@ function TimelineStep(props: {
   item: ACUWorkTimelineItem
   onTrace: (id: string) => void
 }) {
+  const { t } = useTranslation()
   const { item } = props
+  const model = item.selectedDisplayName || item.actualModel
   return (
     <Collapsible className='border-border/70 border-b last:border-b-0'>
-      <CollapsibleTrigger className='group hover:bg-muted/35 grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-3 py-3 text-left sm:px-4'>
+      <CollapsibleTrigger
+        aria-label={t('Open route step {{sequence}}', {
+          sequence: item.sequence,
+        })}
+        className='group hover:bg-muted/35 grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 px-3 py-3 text-left sm:px-4 lg:items-center'
+      >
         <span className='bg-muted flex size-7 items-center justify-center rounded text-xs font-semibold'>
           {item.sequence}
         </span>
-        <span className='grid min-w-0 gap-1 lg:grid-cols-[8rem_7rem_minmax(9rem,1fr)_6rem_9rem] lg:items-center lg:gap-3'>
-          <span className='font-medium'>{item.workPhase || 'general'} {item.workPhaseQualityTargetOffset ? `${item.workPhaseQualityTargetOffset > 0 ? '+' : ''}${item.workPhaseQualityTargetOffset}` : ''}</span>
-          <span className='text-muted-foreground text-xs'>{judgeMode(item)} · D{item.difficulty.toFixed(0)}</span>
-          <span className='truncate text-sm font-medium'>{item.selectedDisplayName || item.actualModel}</span>
-          <span className='text-muted-foreground text-xs'>{item.resolvedReasoningEffort || 'default'}</span>
-          <span className='text-muted-foreground truncate text-xs'>{item.channel} · {item.profileAttemptCount || 1} attempt</span>
+        <span className='hidden min-w-0 grid-cols-[6.5rem_5.5rem_minmax(0,1.4fr)_minmax(0,1fr)_6.5rem_6.5rem_5.5rem_3.5rem] items-center gap-3 lg:grid'>
+          <span className='font-medium'>
+            {item.workPhase || t('general')}{' '}
+            {item.workPhaseQualityTargetOffset
+              ? `${item.workPhaseQualityTargetOffset > 0 ? '+' : ''}${item.workPhaseQualityTargetOffset}`
+              : ''}
+          </span>
+          <span className='text-muted-foreground text-xs'>
+            {t(judgeMode(item))} · D{item.difficulty.toFixed(0)}
+          </span>
+          <span className='truncate text-sm font-medium' title={model}>
+            {model}
+          </span>
+          <span
+            className='text-muted-foreground truncate text-xs'
+            title={`${item.provider} · ${item.channel}`}
+          >
+            {item.provider} · {item.channel}
+          </span>
+          <span
+            className={cn('truncate text-xs', statusTone(item.status))}
+            title={item.status}
+          >
+            {t(item.status)}
+          </span>
+          <span className='text-xs tabular-nums' title={t('User charge')}>
+            {optionalMoney(timelineUserCharge(item))}
+          </span>
+          <span className='text-xs tabular-nums'>
+            {ms(item.endToEndLatencyMs)}
+          </span>
+          <span className='text-xs tabular-nums'>
+            {(item.cacheHitRatio * 100).toFixed(0)}%
+          </span>
         </span>
-        <span className='flex items-center gap-3 text-xs'>
-          <span className={item.status.includes('completed') ? 'text-emerald-600' : 'text-destructive'}>{item.status}</span>
-          <span>{money(item.actualCostCny)}</span>
-          <span>{ms(item.endToEndLatencyMs)}</span>
-          <span>{(item.cacheHitRatio * 100).toFixed(0)}%</span>
+        <span className='min-w-0 lg:hidden'>
+          <span className='flex min-w-0 items-center justify-between gap-2'>
+            <span className='truncate text-sm font-medium' title={model}>
+              {model}
+            </span>
+            <span className={cn('shrink-0 text-xs', statusTone(item.status))}>
+              {t(item.status)}
+            </span>
+          </span>
+          <span className='text-muted-foreground mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:grid-cols-4'>
+            <span>
+              {t('Difficulty')} {item.difficulty.toFixed(0)}
+            </span>
+            <span
+              className='truncate'
+              title={`${item.provider} · ${item.channel}`}
+            >
+              {item.provider} · {item.channel}
+            </span>
+            <span>
+              {t('User charge')} {optionalMoney(timelineUserCharge(item))}
+            </span>
+            <span>
+              {ms(item.endToEndLatencyMs)} · {t('Cache')}{' '}
+              {(item.cacheHitRatio * 100).toFixed(0)}%
+            </span>
+          </span>
+        </span>
+        <span className='pt-1 lg:pt-0'>
           <ChevronDown className='size-4 transition-transform group-data-[panel-open]:rotate-180' />
         </span>
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className='bg-muted/20 grid gap-4 border-t px-4 py-4 text-xs lg:grid-cols-4'>
           <div>
-            <div className='text-muted-foreground mb-1'>Trigger / Judge</div>
-            <div>{item.judgeTrigger || 'n/a'} · {item.judgeStatus || judgeMode(item)}</div>
-            <div>{item.judgeResultSource || 'n/a'} · {item.judgeProfileAttemptCount} Judge attempts</div>
+            <div className='text-muted-foreground mb-1'>
+              {t('Trigger / Judge')}
+            </div>
+            <div>
+              {item.judgeTrigger || t('n/a')} ·{' '}
+              {item.judgeStatus || t(judgeMode(item))}
+            </div>
+            <div>
+              {item.judgeResultSource || t('n/a')} ·{' '}
+              {item.judgeProfileAttemptCount} {t('Judge attempts')}
+            </div>
           </div>
           <div>
-            <div className='text-muted-foreground mb-1'>Reasoning mapping</div>
-            <div>{item.clientRequestedReasoningEffort || 'none'} → {item.presetReasoningEffort || 'base'} → {item.resolvedReasoningEffort || 'default'}</div>
-            <div>{item.reasoningMappingStatus || 'model_default'}</div>
+            <div className='text-muted-foreground mb-1'>
+              {t('Reasoning mapping')}
+            </div>
+            <div>
+              {item.clientRequestedReasoningEffort || t('none')} →{' '}
+              {item.presetReasoningEffort || t('base')} →{' '}
+              {item.resolvedReasoningEffort || t('default')}
+            </div>
+            <div>{item.reasoningMappingStatus || t('model_default')}</div>
           </div>
           <div>
-            <div className='text-muted-foreground mb-1'>Token usage</div>
-            <div>Input {item.inputTokens.toLocaleString()} · Cached {item.cachedInputTokens.toLocaleString()}</div>
-            <div>Output {item.outputTokens.toLocaleString()} · Reasoning {item.reasoningTokens.toLocaleString()}</div>
+            <div className='text-muted-foreground mb-1'>{t('Token usage')}</div>
+            <div>
+              {t('Input')} {item.inputTokens.toLocaleString()} · {t('Cached')}{' '}
+              {item.cachedInputTokens.toLocaleString()}
+            </div>
+            <div>
+              {t('Output')} {item.outputTokens.toLocaleString()} ·{' '}
+              {t('Reasoning')} {item.reasoningTokens.toLocaleString()}
+            </div>
           </div>
           <div>
-            <div className='text-muted-foreground mb-1'>Recovery</div>
-            <div>{item.recoveryDecisionReason || item.routeRefreshReason || 'No recovery'}</div>
-            <button type='button' className='text-primary mt-1 underline-offset-2 hover:underline' onClick={() => props.onTrace(item.logicalRequestId)}>Open Session Trace</button>
+            <div className='text-muted-foreground mb-1'>{t('Recovery')}</div>
+            <div>
+              {item.recoveryDecisionReason ||
+                item.routeRefreshReason ||
+                t('No recovery')}
+            </div>
+            <button
+              type='button'
+              className='text-primary mt-1 underline-offset-2 hover:underline'
+              onClick={() => props.onTrace(item.logicalRequestId)}
+            >
+              {t('Open Session Trace')}
+            </button>
+          </div>
+          <div>
+            <div className='text-muted-foreground mb-1'>{t('Cost')}</div>
+            <div>
+              {t('User charge')} {optionalMoney(timelineUserCharge(item))}
+            </div>
+            <div>
+              {t('Cash cost')} {optionalMoney(timelineCashCost(item))}
+            </div>
           </div>
           <div className='lg:col-span-2'>
-            <div className='text-muted-foreground mb-1'>Top candidates</div>
-            {item.topCandidates.length ? item.topCandidates.map((candidate) => (
-              <div key={candidate.candidateId} className='grid grid-cols-[minmax(0,1fr)_4rem_5rem_5rem] gap-2 py-0.5'>
-                <span className='truncate'>{candidate.selected ? 'Selected · ' : ''}{candidate.displayName}</span>
-                <span>Q {candidate.estimatedQuality.toFixed(1)}</span><span>{money(candidate.estimatedCallCost)}</span><span>U {candidate.valueUtility.toFixed(3)}</span>
-              </div>
-            )) : <div>No candidate summary for this legacy request.</div>}
+            <div className='text-muted-foreground mb-1'>
+              {t('Top candidates')}
+            </div>
+            {item.topCandidates.length ? (
+              item.topCandidates.map((candidate) => (
+                <div
+                  key={candidate.candidateId}
+                  className='grid grid-cols-[minmax(0,1fr)_4rem_5rem_5rem] gap-2 py-0.5'
+                >
+                  <span className='truncate' title={candidate.displayName}>
+                    {candidate.selected ? `${t('Selected')} · ` : ''}
+                    {candidate.displayName}
+                  </span>
+                  <span>Q {candidate.estimatedQuality.toFixed(1)}</span>
+                  <span>{money(candidate.estimatedCallCost)}</span>
+                  <span>U {candidate.valueUtility.toFixed(3)}</span>
+                </div>
+              ))
+            ) : (
+              <div>{t('No candidate summary for this legacy request.')}</div>
+            )}
           </div>
           <div className='lg:col-span-2'>
-            <div className='text-muted-foreground mb-1'>Provider attempts</div>
+            <div className='text-muted-foreground mb-1'>
+              {t('Provider attempts')}
+            </div>
             {item.providerAttempts.map((attempt) => (
-              <div key={`${attempt.attemptIndex}-${attempt.executionProfileId}`} className='grid grid-cols-[2rem_minmax(0,1fr)_5rem_5rem] gap-2 py-0.5'>
-                <span>{attempt.attemptIndex}</span><span className='truncate'>{attempt.channel} · {attempt.executionProfileId}</span><span>{attempt.status}</span><span>{ms(attempt.latencyMs)}</span>
+              <div
+                key={`${attempt.attemptIndex}-${attempt.executionProfileId}`}
+                className='grid grid-cols-[2rem_minmax(0,1fr)_5rem_5rem] gap-2 py-0.5'
+              >
+                <span>{attempt.attemptIndex}</span>
+                <span
+                  className='truncate'
+                  title={`${attempt.channel} · ${attempt.executionProfileId}`}
+                >
+                  {attempt.channel} · {attempt.executionProfileId}
+                </span>
+                <span>{t(attempt.status)}</span>
+                <span>{ms(attempt.latencyMs)}</span>
               </div>
             ))}
           </div>
@@ -159,8 +302,12 @@ function TimelineStep(props: {
 }
 
 export function ACUWorkTimeline() {
+  const { t } = useTranslation()
   const [hours, setHours] = useState(1)
   const [traceId, setTraceId] = useState('')
+  const [trendOpen, setTrendOpen] = useState(true)
+  const [search, setSearch] = useState('')
+  const [filterMode, setFilterMode] = useState<'all' | 'errors'>('all')
   const chartContainerRef = useRef<HTMLDivElement | null>(null)
   const chartRef = useRef<EChartsType | null>(null)
   const { resolvedTheme, themeReady } = useChartTheme()
@@ -179,7 +326,7 @@ export function ACUWorkTimeline() {
     setVisibleRange({ start: from, end: to })
   }, [from, hours, to])
 
-  const visibleItems = useMemo(
+  const rangeItems = useMemo(
     () =>
       items.filter(
         (item) =>
@@ -187,6 +334,10 @@ export function ACUWorkTimeline() {
           item.timestamp <= visibleRange.end
       ),
     [items, visibleRange]
+  )
+  const visibleItems = useMemo(
+    () => filterTimelineItems(rangeItems, search, filterMode),
+    [filterMode, rangeItems, search]
   )
   const summary = useMemo(
     () => summarizeTimelineItems(visibleItems),
@@ -226,7 +377,7 @@ export function ACUWorkTimeline() {
 
   useEffect(() => {
     const container = chartContainerRef.current
-    if (!container || !themeReady || items.length === 0) return
+    if (!trendOpen || !container || !themeReady || items.length === 0) return
     const chart = echarts.init(
       container,
       resolvedTheme === 'dark' ? 'dark' : undefined,
@@ -268,35 +419,89 @@ export function ACUWorkTimeline() {
     resolvedTheme,
     themeReady,
     to,
+    trendOpen,
   ])
 
   const stats = [
-    ['API Steps', summary.apiSteps, Activity],
-    ['Judge 首次成功率', `${(summary.judgeFirstAttemptSuccessRate * 100).toFixed(0)}%`, Scale],
-    ['Judge Rules Fallback', `${(summary.judgeRulesFallbackRate * 100).toFixed(0)}%`, Route],
-    ['完成率', `${(summary.completionRate * 100).toFixed(0)}%`, Gauge],
-    ['Cache 命中率', `${(summary.cacheHitRate * 100).toFixed(0)}%`, Clock3],
-    ['累计扣费', money(summary.actualTotalCostCny), Coins],
+    [t('API steps'), summary.apiSteps, Activity, ''],
+    [
+      t('Judge first-attempt success'),
+      summary.judgeFirstAttemptSuccessSamples
+        ? `${(summary.judgeFirstAttemptSuccessRate * 100).toFixed(0)}%`
+        : '—',
+      Scale,
+      t('{{count}} recorded samples from {{total}} Judge calls', {
+        count: summary.judgeFirstAttemptSuccessSamples,
+        total: summary.judgeCalledRequests,
+      }),
+    ],
+    [
+      t('Judge rules fallback'),
+      summary.judgeRulesFallbackSamples
+        ? `${(summary.judgeRulesFallbackRate * 100).toFixed(0)}%`
+        : '—',
+      Route,
+      t('{{count}} recorded samples from {{total}} Judge calls', {
+        count: summary.judgeRulesFallbackSamples,
+        total: summary.judgeCalledRequests,
+      }),
+    ],
+    [
+      t('Completion rate'),
+      `${(summary.completionRate * 100).toFixed(0)}%`,
+      Gauge,
+      '',
+    ],
+    [
+      t('Cache hit rate'),
+      `${(summary.cacheHitRate * 100).toFixed(0)}%`,
+      Clock3,
+      '',
+    ],
+    [
+      t('User charge'),
+      summary.userChargeSamples ? money(summary.totalUserChargeCny) : '—',
+      Coins,
+      t('{{count}} recorded cost samples from {{total}} steps', {
+        count: summary.userChargeSamples,
+        total: summary.apiSteps,
+      }),
+    ],
+    [
+      t('Cash cost'),
+      summary.actualCashCostSamples
+        ? money(summary.totalActualCashCostCny)
+        : '—',
+      Coins,
+      t('{{count}} recorded cost samples from {{total}} steps', {
+        count: summary.actualCashCostSamples,
+        total: summary.apiSteps,
+      }),
+    ],
   ] as const
 
   let chartContent = (
     <div className='text-muted-foreground rounded border p-8 text-center text-sm'>
-      当前时间范围没有 ACU 请求。
+      {t('No ACU requests in the current range.')}
     </div>
   )
   if (query.isLoading || !themeReady) {
     chartContent = (
       <div className='text-muted-foreground p-8 text-center text-sm'>
-        加载中…
+        {t('Loading…')}
       </div>
     )
   } else if (items.length > 0) {
     chartContent = (
       <section className='bg-card min-w-0 overflow-hidden rounded border'>
         <div className='border-b px-4 py-3'>
-          <div className='text-sm font-medium'>难度与实际成本</div>
+          <div className='text-sm font-medium'>
+            {t('Difficulty and cash cost')}
+          </div>
           <div className='text-muted-foreground mt-0.5 text-xs'>
-            上方为任务难度轨迹，下方为实际人民币成本；两者共享同一时间窗口。
+            {t(
+              'Difficulty is shown above and actual cash cost below. Both use the same time range.'
+            )}
           </div>
         </div>
         <div className='h-[34rem] min-w-0 touch-pan-y sm:h-[38rem]'>
@@ -307,41 +512,52 @@ export function ACUWorkTimeline() {
   }
 
   return (
-    <div data-testid='acu-work-timeline-root' className='flex h-full min-h-0 flex-col gap-4 overflow-x-hidden overflow-y-auto overscroll-contain pb-4 [&>*]:shrink-0'>
+    <div
+      data-testid='acu-work-timeline-root'
+      className='flex h-full min-h-0 flex-col gap-4 overflow-x-hidden overflow-y-auto overscroll-contain pb-4 [&>*]:shrink-0'
+    >
       <div className='flex flex-wrap items-center justify-between gap-3'>
-        <div>
-          <h2 className='text-base font-semibold'>工作路由轨迹</h2>
-          <p className='text-muted-foreground text-xs'>
-            每个点是一条 Logical Request，点击点或成本柱查看 Session Trace。
-          </p>
-        </div>
+        <p className='text-muted-foreground text-xs'>
+          {t(
+            'Each point is a logical request. Select a point or cost bar to inspect its session trace.'
+          )}
+        </p>
         <div className='flex flex-wrap items-center justify-end gap-1'>
-          {[1, 6, 24, 168].map((value) => (
+          {[1, 6, 24].map((value) => (
             <Button
               key={value}
               size='sm'
               variant={hours === value ? 'default' : 'outline'}
+              aria-pressed={hours === value}
               onClick={() => setHours(value)}
             >
-              {value === 168 ? '7 天' : `${value} 小时`}
+              {value === 1 ? t('1 hour') : `${value} ${t('hours')}`}
             </Button>
           ))}
           <Button size='sm' variant='outline' onClick={resetZoom}>
             <RotateCcw className='mr-1.5 size-3.5' />
-            重置缩放
+            {t('Reset zoom')}
           </Button>
         </div>
       </div>
       <div className='text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs'>
         <span>
-          可见区间 {visibleTime(visibleRange.start)} -{' '}
+          {t('Visible range')} {visibleTime(visibleRange.start)} -{' '}
           {visibleTime(visibleRange.end)}
         </span>
-        <span>页面滚轮滚动 · 底部选区拖动缩放 · 点击数据点查看 Trace</span>
+        <span>
+          {t(
+            'Scroll the page, drag the lower selector to zoom, and select a point to inspect its trace.'
+          )}
+        </span>
       </div>
-      <div className='bg-border grid shrink-0 grid-cols-2 gap-px overflow-hidden rounded border lg:grid-cols-6'>
-        {stats.map(([label, value, Icon]) => (
-          <div key={label} className='bg-background min-w-0 p-3'>
+      <div className='bg-border grid shrink-0 grid-cols-2 gap-px overflow-hidden rounded border lg:grid-cols-7'>
+        {stats.map(([label, value, Icon, description]) => (
+          <div
+            key={label}
+            className='bg-background min-w-0 p-3'
+            title={description || undefined}
+          >
             <div className='text-muted-foreground flex items-center gap-1.5 text-[11px]'>
               <Icon className='size-3.5' />
               {label}
@@ -350,25 +566,101 @@ export function ACUWorkTimeline() {
           </div>
         ))}
       </div>
-      <section className='bg-card min-w-0 overflow-hidden rounded border'>
-        <div className='border-b px-4 py-3'>
-          <div className='text-sm font-medium'>路由步骤</div>
-          <div className='text-muted-foreground mt-0.5 text-xs'>按 Task 分组，Task 内按时间顺序。</div>
-        </div>
-        {taskGroups.length ? taskGroups.map(([taskId, taskItems]) => (
-          <div key={taskId}>
-            <div className='bg-muted/40 border-b px-4 py-2 text-xs font-medium'>Task {taskId}</div>
-            {taskItems.map((item) => <TimelineStep key={item.logicalRequestId} item={item} onTrace={setTraceId} />)}
-          </div>
-        )) : <div className='text-muted-foreground p-8 text-center text-sm'>当前时间范围没有 ACU 请求。</div>}
-      </section>
-      <Collapsible>
-        <CollapsibleTrigger className='bg-card flex w-full items-center justify-between rounded border px-4 py-3 text-left text-sm font-medium'>
-          难度与实际成本趋势
-          <ChevronDown className='size-4' />
+      <Collapsible open={trendOpen} onOpenChange={setTrendOpen}>
+        <CollapsibleTrigger
+          aria-expanded={trendOpen}
+          className='bg-card flex w-full items-center justify-between rounded border px-4 py-3 text-left text-sm font-medium'
+        >
+          {t('Difficulty and cash cost trend')}
+          <ChevronDown
+            className={cn(
+              'size-4 transition-transform',
+              trendOpen && 'rotate-180'
+            )}
+          />
         </CollapsibleTrigger>
         <CollapsibleContent className='pt-3'>{chartContent}</CollapsibleContent>
       </Collapsible>
+      <section className='bg-card min-w-0 overflow-hidden rounded border'>
+        <div className='flex flex-wrap items-end justify-between gap-3 border-b px-4 py-3'>
+          <div>
+            <div className='text-sm font-medium'>{t('Route steps')}</div>
+            <div className='text-muted-foreground mt-0.5 text-xs'>
+              {t('Grouped by task and ordered by time within each task.')}
+            </div>
+          </div>
+          <div className='flex w-full flex-wrap items-center gap-2 sm:w-auto'>
+            <label className='relative min-w-0 flex-1 sm:w-72 sm:flex-none'>
+              <Search
+                className='text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2'
+                aria-hidden='true'
+              />
+              <span className='sr-only'>{t('Search route steps')}</span>
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={t('Search task, request, model, or channel')}
+                className='pl-8'
+              />
+            </label>
+            <div
+              className='flex rounded border p-0.5'
+              aria-label={t('Status filter')}
+            >
+              {(['all', 'errors'] as const).map((mode) => (
+                <Button
+                  key={mode}
+                  type='button'
+                  size='sm'
+                  variant={filterMode === mode ? 'secondary' : 'ghost'}
+                  aria-pressed={filterMode === mode}
+                  onClick={() => setFilterMode(mode)}
+                >
+                  {mode === 'all' ? t('All') : t('Issues only')}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div
+          role='row'
+          className='bg-muted/30 text-muted-foreground hidden grid-cols-[2.5rem_6.5rem_5.5rem_minmax(0,1.4fr)_minmax(0,1fr)_6.5rem_6.5rem_5.5rem_3.5rem_1rem] items-center gap-3 border-b px-4 py-2 text-[11px] font-medium lg:grid'
+        >
+          <span role='columnheader'>#</span>
+          <span role='columnheader'>{t('Phase')}</span>
+          <span role='columnheader'>{t('Judge')}</span>
+          <span role='columnheader'>{t('Model')}</span>
+          <span role='columnheader'>{t('Provider / channel')}</span>
+          <span role='columnheader'>{t('Status')}</span>
+          <span role='columnheader'>{t('User charge')}</span>
+          <span role='columnheader'>{t('Latency')}</span>
+          <span role='columnheader'>{t('Cache')}</span>
+          <span aria-hidden='true' />
+        </div>
+        {taskGroups.length ? (
+          taskGroups.map(([taskId, taskItems]) => (
+            <div key={taskId}>
+              <div className='bg-muted/40 border-b px-4 py-2 text-xs font-medium'>
+                {t('Task')}{' '}
+                <span className='font-mono break-all select-all' title={taskId}>
+                  {taskId}
+                </span>
+              </div>
+              {taskItems.map((item) => (
+                <TimelineStep
+                  key={item.logicalRequestId}
+                  item={item}
+                  onTrace={setTraceId}
+                />
+              ))}
+            </div>
+          ))
+        ) : (
+          <div className='text-muted-foreground p-8 text-center text-sm'>
+            {t('No route steps match the current filters.')}
+          </div>
+        )}
+      </section>
       <Dialog
         modal={false}
         open={Boolean(traceId)}
@@ -379,11 +671,11 @@ export function ACUWorkTimeline() {
         <DialogContent
           showBackdrop={false}
           className={cn(
-            'top-4 right-4 bottom-4 left-auto max-h-none w-[min(48rem,calc(100%-2rem))] max-w-none translate-x-0 translate-y-0 overflow-y-auto'
+            'inset-0 max-h-none w-full max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-none sm:top-4 sm:right-4 sm:bottom-4 sm:left-auto sm:w-[min(68rem,calc(100%-2rem))] sm:rounded-lg'
           )}
         >
           <DialogHeader>
-            <DialogTitle>ACU Session Trace</DialogTitle>
+            <DialogTitle>{t('ACU Session Trace')}</DialogTitle>
           </DialogHeader>
           {traceId && <ACUSessionTracePanel identifier={traceId} />}
         </DialogContent>

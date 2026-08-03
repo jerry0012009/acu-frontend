@@ -123,7 +123,9 @@ function UsageLogsContent() {
 
   const pageMeta = SECTION_META[activeCategory]
   const showTaskSwitcher =
-    activeCategory !== 'common' && visibleSections.length > 1
+    TASK_LOG_SECTIONS.includes(
+      activeCategory as (typeof TASK_LOG_SECTIONS)[number]
+    ) && visibleSections.length > 1
   let sectionContent: ReactNode
   if (activeCategory === 'timeline') {
     sectionContent = <ACUWorkTimeline />

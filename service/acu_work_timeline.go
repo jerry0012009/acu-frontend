@@ -1,7 +1,9 @@
 package service
 
 import (
+	"encoding/json"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -50,10 +52,28 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 			status = "completed_with_recovery"
 		}
 		judgeModel := stringValue(breakdown, "judge_model")
-		userCharge := numberValue(breakdown, "user_charge_cny")
-		if _, exists := breakdown["user_charge_cny"]; !exists {
-			userCharge = numberValue(breakdown, "actual_total_cash_cost_cny")
+		userCharge, userChargeFound := preferredNumber(other, breakdown, "user_charge_cny")
+		actualCashCost, actualCashCostFound := preferredNumber(other, breakdown, "actual_total_cash_cost_cny")
+		judgeCost, _ := preferredNumber(other, breakdown, "judge_cash_cost_cny")
+		providerCost, _ := preferredNumber(other, breakdown, "effective_provider_cash_cost_cny")
+		failedAttemptCost, _ := preferredNumber(other, breakdown, "failed_attempt_cash_cost_cny")
+		legacyCost := 0.0
+		if userChargeFound {
+			legacyCost = userCharge
+		} else if actualCashCostFound {
+			legacyCost = actualCashCost
 		}
+		var userChargeValue, actualCashCostValue *float64
+		if userChargeFound {
+			userChargeValue = &userCharge
+		}
+		if actualCashCostFound {
+			actualCashCostValue = &actualCashCost
+		}
+		endToEndLatency, latencySource := reportedLatency(breakdown)
+		_, judgeFirstAttemptRecorded := boolValueOf(decision["judge_first_attempt_succeeded"])
+		judgeStatus := stringValue(decision, "judge_status")
+		judgeResultSource := stringValue(decision, "judge_result_source")
 		item := dto.ACUWorkTimelineItem{
 			Timestamp: log.CreatedAt, LogicalRequestID: logicalID,
 			SessionID: stringValue(breakdown, "session_id"), TaskID: stringValue(breakdown, "task_id"), SegmentID: stringValue(breakdown, "segment_id"),
@@ -64,16 +84,24 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 			Provider:    firstTimelineValue(stringValue(breakdown, "actual_provider"), stringValue(other, "actual_provider")),
 			Channel:     firstTimelineValue(stringValue(breakdown, "channel_id"), stringValue(other, "actual_channel")), Status: status,
 			FirstModelEventLatencyMs: firstLatency,
-			EndToEndLatencyMs:        firstPositiveInt(int(numberValue(breakdown, "end_to_end_latency_ms")), totalLatency+int(numberValue(breakdown, "judge_latency_ms"))),
+			EndToEndLatencyMs:        endToEndLatency,
+			LatencySource:            latencySource,
 			JudgeLatencyMs:           int(numberValue(breakdown, "judge_latency_ms")),
 			ProviderLatencyMs:        firstPositiveInt(int(numberValue(breakdown, "provider_latency_ms")), totalLatency),
-			ActualCostCNY:            userCharge,
+			UserChargeCNY:            userChargeValue,
+			ActualCashCostCNY:        actualCashCostValue,
+			ActualCostCNY:            legacyCost,
+			JudgeCostCNY:             judgeCost,
+			ProviderCostCNY:          providerCost,
+			FailedAttemptCostCNY:     failedAttemptCost,
 			ErrorClass:               errorClass, CooldownUntil: cooldown,
 			WorkPhase:                    firstTimelineValue(stringValue(decision, "work_phase"), stringValue(breakdown, "phase")),
 			WorkPhaseQualityTargetOffset: numberValue(decision, "work_phase_quality_target_offset"),
 			JudgeTrigger:                 firstTimelineValue(stringValue(decision, "judge_trigger"), stringValue(breakdown, "judge_trigger")),
-			JudgeStatus:                  stringValue(decision, "judge_status"), JudgeResultSource: stringValue(decision, "judge_result_source"),
+			JudgeStatus:                  judgeStatus, JudgeResultSource: judgeResultSource,
 			JudgeFirstAttemptSucceeded:     boolValue(decision, "judge_first_attempt_succeeded"),
+			JudgeFirstAttemptRecorded:      judgeFirstAttemptRecorded,
+			JudgeFallbackRecorded:          judgeResultSource != "" || judgeStatus != "",
 			JudgeProfileAttemptCount:       int(numberValue(decision, "judge_profile_attempt_count")),
 			JudgeSameModelFailoverUsed:     boolValue(decision, "judge_same_model_failover_used"),
 			SelectedCandidateID:            firstTimelineValue(stringValue(decision, "selected_candidate_id"), stringValue(breakdown, "selected_model")),
@@ -101,24 +129,38 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].Timestamp < items[j].Timestamp })
 	latencies := make([]int, 0, len(items))
-	completed, judgeCalls, judgeFirstSuccess, rulesFallback := 0, 0, 0, 0
-	totalCost := 0.0
+	completed, judgeCalls := 0, 0
+	judgeFirstSuccess, judgeFirstSamples := 0, 0
+	rulesFallback, rulesFallbackSamples := 0, 0
+	totalUserCharge, totalActualCashCost, legacyTotalCost := 0.0, 0.0, 0.0
 	totalInput, totalCached := int64(0), int64(0)
 	sequenceByTask := map[string]int{}
 	for i := range items {
 		sequenceByTask[items[i].TaskID]++
 		items[i].Sequence = sequenceByTask[items[i].TaskID]
-		totalCost += items[i].ActualCostCNY
+		legacyTotalCost += items[i].ActualCostCNY
+		if items[i].UserChargeCNY != nil {
+			totalUserCharge += *items[i].UserChargeCNY
+		}
+		if items[i].ActualCashCostCNY != nil {
+			totalActualCashCost += *items[i].ActualCashCostCNY
+		}
 		if items[i].Status == "completed" || items[i].Status == "completed_with_recovery" {
 			completed++
 		}
 		if items[i].JudgeCalled {
 			judgeCalls++
-			if items[i].JudgeFirstAttemptSucceeded {
-				judgeFirstSuccess++
+			if items[i].JudgeFirstAttemptRecorded {
+				judgeFirstSamples++
+				if items[i].JudgeFirstAttemptSucceeded {
+					judgeFirstSuccess++
+				}
 			}
-			if items[i].JudgeResultSource == "rules_strategy" || items[i].JudgeStatus == "rules_fallback" {
-				rulesFallback++
+			if items[i].JudgeFallbackRecorded {
+				rulesFallbackSamples++
+				if items[i].JudgeResultSource == "rules_strategy" || items[i].JudgeStatus == "rules_fallback" {
+					rulesFallback++
+				}
 			}
 		}
 		totalInput += items[i].InputTokens
@@ -129,10 +171,12 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 	}
 	sort.Ints(latencies)
 	return dto.ACUWorkTimeline{From: from, To: to, Items: items, Summary: dto.ACUWorkTimelineSummary{
-		APISteps: len(items), JudgeFirstAttemptSuccessRate: ratio(judgeFirstSuccess, judgeCalls),
-		JudgeRulesFallbackRate: ratio(rulesFallback, judgeCalls), CompletionRate: ratio(completed, len(items)),
-		CacheHitRate:       floatRatio(totalCached, totalInput),
-		ActualTotalCostCNY: totalCost, P50FirstModelEventLatencyMs: percentile(latencies, .5), P95FirstModelEventLatencyMs: percentile(latencies, .95),
+		APISteps: len(items), JudgeFirstAttemptSuccessRate: ratio(judgeFirstSuccess, judgeFirstSamples),
+		JudgeFirstAttemptSuccessSamples: judgeFirstSamples, JudgeCalledRequests: judgeCalls,
+		JudgeRulesFallbackRate: ratio(rulesFallback, rulesFallbackSamples), JudgeRulesFallbackSamples: rulesFallbackSamples,
+		CompletionRate: ratio(completed, len(items)), CacheHitRate: floatRatio(totalCached, totalInput),
+		TotalUserChargeCNY: totalUserCharge, TotalActualCashCostCNY: totalActualCashCost,
+		ActualTotalCostCNY: legacyTotalCost, P50FirstModelEventLatencyMs: percentile(latencies, .5), P95FirstModelEventLatencyMs: percentile(latencies, .95),
 	}}
 }
 
@@ -209,6 +253,49 @@ func firstPositiveInt(values ...int) int {
 	return 0
 }
 
+func preferredNumber(primary, fallback map[string]interface{}, key string) (float64, bool) {
+	if value, exists := primary[key]; exists {
+		if number, valid := numberValueOf(value); valid {
+			return number, true
+		}
+	}
+	if value, exists := fallback[key]; exists {
+		if number, valid := numberValueOf(value); valid {
+			return number, true
+		}
+	}
+	return 0, false
+}
+
+func numberValueOf(value interface{}) (float64, bool) {
+	switch value := value.(type) {
+	case float64:
+		return value, true
+	case float32:
+		return float64(value), true
+	case int:
+		return float64(value), true
+	case int64:
+		return float64(value), true
+	case json.Number:
+		parsed, err := value.Float64()
+		return parsed, err == nil
+	case string:
+		parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+		return parsed, err == nil
+	default:
+		return 0, false
+	}
+}
+
+func reportedLatency(breakdown map[string]interface{}) (int, string) {
+	latency, valid := numberValueOf(breakdown["end_to_end_latency_ms"])
+	if !valid || latency <= 0 {
+		return 0, "unavailable"
+	}
+	return int(latency), "reported"
+}
+
 func attemptFields(values []interface{}) (int, int, string, string) {
 	first, total, errorClass, cooldown := 0, 0, "", ""
 	for _, value := range values {
@@ -237,12 +324,14 @@ func stringValue(value map[string]interface{}, key string) string {
 	return ""
 }
 func numberValue(value map[string]interface{}, key string) float64 {
-	if v, ok := value[key].(float64); ok {
-		return v
-	}
-	return 0
+	v, _ := numberValueOf(value[key])
+	return v
 }
 func boolValue(value map[string]interface{}, key string) bool { v, _ := value[key].(bool); return v }
+func boolValueOf(value interface{}) (bool, bool) {
+	result, valid := value.(bool)
+	return result, valid
+}
 func firstTimelineValue(values ...string) string {
 	for _, value := range values {
 		if value != "" {

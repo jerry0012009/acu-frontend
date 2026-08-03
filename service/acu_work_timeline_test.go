@@ -28,12 +28,23 @@ func TestBuildACUWorkTimelineCompactsLogicalRequests(t *testing.T) {
 	assert.NotEqual(t, result.Items[0].ActualModel, result.Items[2].ActualModel)
 	assert.Equal(t, "completed_with_recovery", result.Items[3].Status)
 	assert.Equal(t, 51000, result.Items[3].EndToEndLatencyMs)
+	assert.Equal(t, "reported", result.Items[3].LatencySource)
 	assert.Equal(t, 1000, result.Items[3].JudgeLatencyMs)
 	assert.Equal(t, 50000, result.Items[3].ProviderLatencyMs)
 	assert.Equal(t, 0.0125, result.Items[0].ActualCostCNY)
-	assert.Equal(t, 0.0, result.Items[0].JudgeCostCNY)
-	assert.Equal(t, 0.0, result.Items[0].ProviderCostCNY)
-	assert.Equal(t, 0.0, result.Items[1].FailedAttemptCostCNY)
+	require.NotNil(t, result.Items[0].UserChargeCNY)
+	require.NotNil(t, result.Items[0].ActualCashCostCNY)
+	assert.Equal(t, 0.0125, *result.Items[0].UserChargeCNY)
+	assert.Equal(t, 0.01, *result.Items[0].ActualCashCostCNY)
+	assert.Equal(t, 0.002, result.Items[0].JudgeCostCNY)
+	assert.Equal(t, 0.008, result.Items[0].ProviderCostCNY)
+	assert.Equal(t, 0.01, result.Items[1].FailedAttemptCostCNY)
+	assert.Equal(t, 2, result.Summary.JudgeCalledRequests)
+	assert.Equal(t, 0, result.Summary.JudgeFirstAttemptSuccessSamples)
+	assert.Equal(t, 0, result.Summary.JudgeRulesFallbackSamples)
+	assert.Equal(t, 0.0125, result.Summary.TotalUserChargeCNY)
+	assert.Equal(t, 0.06, result.Summary.TotalActualCashCostCNY)
+	assert.Equal(t, 0.0625, result.Summary.ActualTotalCostCNY)
 }
 
 func TestBuildACUWorkTimelineMapsV2DecisionSummary(t *testing.T) {
@@ -54,7 +65,76 @@ func TestBuildACUWorkTimelineMapsV2DecisionSummary(t *testing.T) {
 	require.Len(t, item.TopCandidates, 1)
 	require.Len(t, item.ProviderAttempts, 2)
 	assert.Equal(t, 1.0, result.Summary.JudgeRulesFallbackRate)
+	assert.Equal(t, 1, result.Summary.JudgeFirstAttemptSuccessSamples)
+	assert.Equal(t, 1, result.Summary.JudgeRulesFallbackSamples)
 	assert.Equal(t, 0.6, result.Summary.CacheHitRate)
+	assert.Equal(t, 0, item.EndToEndLatencyMs)
+	assert.Equal(t, "unavailable", item.LatencySource)
+}
+
+func TestBuildACUWorkTimelineUsesAuthoritativeSettledCosts(t *testing.T) {
+	logs := []*model.Log{{
+		CreatedAt: 100,
+		Type:      model.LogTypeConsume,
+		ModelName: "gpt-5.6-luna",
+		Other: `{
+			"acu_logical_request_id":"req-cost",
+			"user_charge_cny":"0.125",
+			"actual_total_cash_cost_cny":"0.0875",
+			"judge_cash_cost_cny":"0.0125",
+			"effective_provider_cash_cost_cny":"0.07",
+			"failed_attempt_cash_cost_cny":"0.005",
+			"acu_cost_breakdown":{
+				"session_id":"ses-1",
+				"task_id":"task-1",
+				"segment_id":"seg-1",
+				"user_charge_cny":999,
+				"actual_total_cash_cost_cny":999,
+				"judge_cash_cost_cny":999,
+				"effective_provider_cash_cost_cny":999,
+				"failed_attempt_cash_cost_cny":999
+			}
+		}`,
+	}}
+
+	result := buildACUWorkTimeline(logs, 0, 200)
+	require.Len(t, result.Items, 1)
+	item := result.Items[0]
+	require.NotNil(t, item.UserChargeCNY)
+	require.NotNil(t, item.ActualCashCostCNY)
+	assert.Equal(t, 0.125, *item.UserChargeCNY)
+	assert.Equal(t, 0.0875, *item.ActualCashCostCNY)
+	assert.Equal(t, 0.0125, item.JudgeCostCNY)
+	assert.Equal(t, 0.07, item.ProviderCostCNY)
+	assert.Equal(t, 0.005, item.FailedAttemptCostCNY)
+	assert.Equal(t, 0.125, item.ActualCostCNY)
+	assert.Equal(t, 0.125, result.Summary.TotalUserChargeCNY)
+	assert.Equal(t, 0.0875, result.Summary.TotalActualCashCostCNY)
+}
+
+func TestBuildACUWorkTimelineDoesNotInventMissingCostSemantics(t *testing.T) {
+	logs := []*model.Log{
+		{
+			CreatedAt: 100,
+			Type:      model.LogTypeConsume,
+			Other:     `{"acu_logical_request_id":"req-charge","acu_cost_breakdown":{"task_id":"task-1","user_charge_cny":0.2}}`,
+		},
+		{
+			CreatedAt: 101,
+			Type:      model.LogTypeConsume,
+			Other:     `{"acu_logical_request_id":"req-cash","acu_cost_breakdown":{"task_id":"task-1","actual_total_cash_cost_cny":0.1}}`,
+		},
+	}
+
+	result := buildACUWorkTimeline(logs, 0, 200)
+	require.Len(t, result.Items, 2)
+	require.NotNil(t, result.Items[0].UserChargeCNY)
+	assert.Nil(t, result.Items[0].ActualCashCostCNY)
+	assert.Nil(t, result.Items[1].UserChargeCNY)
+	require.NotNil(t, result.Items[1].ActualCashCostCNY)
+	assert.Equal(t, 0.2, result.Summary.TotalUserChargeCNY)
+	assert.Equal(t, 0.1, result.Summary.TotalActualCashCostCNY)
+	assert.InDelta(t, 0.3, result.Summary.ActualTotalCostCNY, 1e-12)
 }
 
 func TestBuildACUWorkTimelinePreservesAllDetectedWorkPhases(t *testing.T) {

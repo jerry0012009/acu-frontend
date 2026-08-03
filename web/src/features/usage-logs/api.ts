@@ -115,8 +115,11 @@ export type ACUWorkTimelineItem = {
   status: string
   firstModelEventLatencyMs: number
   endToEndLatencyMs: number
+  latencySource: 'reported' | 'unavailable'
   judgeLatencyMs: number
   providerLatencyMs: number
+  userChargeCny?: number
+  actualCashCostCny?: number
   actualCostCny: number
   judgeCostCny: number
   providerCostCny: number
@@ -129,6 +132,8 @@ export type ACUWorkTimelineItem = {
   judgeStatus: string
   judgeResultSource: string
   judgeFirstAttemptSucceeded: boolean
+  judgeFirstAttemptRecorded?: boolean
+  judgeFallbackRecorded?: boolean
   judgeProfileAttemptCount: number
   judgeSameModelFailoverUsed: boolean
   selectedCandidateId: string
@@ -172,9 +177,14 @@ export type ACUWorkTimeline = {
   summary: {
     apiSteps: number
     judgeFirstAttemptSuccessRate: number
+    judgeFirstAttemptSuccessSamples?: number
+    judgeCalledRequests?: number
     judgeRulesFallbackRate: number
+    judgeRulesFallbackSamples?: number
     completionRate: number
     cacheHitRate: number
+    totalUserChargeCny?: number
+    totalActualCashCostCny?: number
     actualTotalCostCny: number
     p50FirstModelEventLatencyMs: number
     p95FirstModelEventLatencyMs: number
@@ -242,7 +252,11 @@ export type ACUModelPoolEntry = {
   modelCategory: 'text_agent' | 'image' | 'audio' | 'realtime' | 'unsupported'
   capabilityTier: 'LUNA' | 'TERRA' | 'SOL' | 'FRONTIER'
   protocols: string[]
-  verificationStatus: 'discovered' | 'verified_provisional' | 'verified' | 'rejected'
+  verificationStatus:
+    | 'discovered'
+    | 'verified_provisional'
+    | 'verified'
+    | 'rejected'
   activeProfileCount: number
   healthyProfileCount: number
   independentProviderCount: number

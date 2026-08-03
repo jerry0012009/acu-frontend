@@ -16,6 +16,12 @@ import { I18nextProvider, initReactI18next } from 'react-i18next'
 
 import type { ACUSessionTrace } from '../../../session-trace-types'
 import { ACUSessionTraceView } from '../acu-session-trace'
+import {
+  aggregateJudgeAttempts,
+  isNeutralTraceCancellation,
+  isSuccessfulTraceStatus,
+  traceTimingSummary,
+} from '../acu-session-trace-model'
 
 Object.defineProperty(globalThis, 'React', { configurable: true, value: React })
 
@@ -169,6 +175,8 @@ const trace: ACUSessionTrace = {
           totalLatencyMs: 119000,
           firstTokenLatencyMs: 110000,
           visibleOutputBytes: 200,
+          userChargeCny: 0.22,
+          actualCashCostCny: 0.18,
           actualCostCny: 0.18,
           errorDiagnosis: {
             errorSource: 'execution_provider_cloudflare',
@@ -238,16 +246,57 @@ test('renders two segments and complete Judge and Provider attempt chains withou
   assert.match(html, /luna-b/)
   assert.match(html, /524/)
   assert.match(html, /fixture-ray/)
-  assert.match(html, /max-w-full overflow-x-auto/)
+  assert.match(html, /Wall-clock total/)
+  assert.match(html, /Judge accumulated attempts/)
+  assert.match(html, /Provider accumulated attempts/)
+  assert.match(html, /¥0\.2200/)
+  assert.match(html, /¥0\.1800/)
   assert.doesNotMatch(html, /Authorization|API Key|raw payload body/)
+})
+
+test('keeps wall-clock and accumulated attempt time as separate metrics', () => {
+  const summary = traceTimingSummary(trace)
+  assert.equal(summary.wallClockMs, 119000)
+  assert.equal(summary.judgeAttemptMs, 2200)
+  assert.equal(summary.providerAttemptMs, 119000)
+})
+
+test('aggregates repeated Judge attempts without hiding their accumulated time', () => {
+  const attempts = trace.segments[0].judge?.attempts
+  assert.ok(attempts)
+  const repeated = aggregateJudgeAttempts([
+    attempts[0],
+    { ...attempts[0], latencyMs: 750 },
+  ])
+  assert.equal(repeated.length, 1)
+  assert.equal(repeated[0].count, 2)
+  assert.equal(repeated[0].latencyMs, 1750)
+})
+
+test('uses the same successful status semantics as the timeline', () => {
+  assert.equal(isSuccessfulTraceStatus('success'), true)
+  assert.equal(isSuccessfulTraceStatus('completed'), true)
+  assert.equal(isSuccessfulTraceStatus('completed_with_recovery'), true)
+  assert.equal(isSuccessfulTraceStatus('failed'), false)
+})
+
+test('treats all explicitly client-cancelled requests as neutral', () => {
+  const cancelled = structuredClone(trace)
+  const request = cancelled.segments.at(-1)?.logicalRequests.at(-1)
+  assert.ok(request)
+  request.status = 'cancelled'
+  request.deliveryStatus = 'client_cancelled_before_output'
+  assert.equal(isNeutralTraceCancellation(request), true)
 })
 
 test('summarizes and neutrally renders cancellation after visible output', async () => {
   const neutral = structuredClone(trace)
-  const latest = neutral.segments.at(-1)!.logicalRequests.at(-1)!
+  const latestSegment = neutral.segments.at(-1)
+  assert.ok(latestSegment)
+  const latest = latestSegment.logicalRequests.at(-1)
+  assert.ok(latest)
   latest.status = 'cancelled'
-  latest.deliveryStatus =
-    'client_cancelled_after_output'
+  latest.deliveryStatus = 'client_cancelled_after_output'
   latest.visibleOutputBytes = 200
   const i18n = createInstance()
   await i18n
@@ -262,5 +311,6 @@ test('summarizes and neutrally renders cancellation after visible output', async
   assert.match(html, /Client ended stream/)
   assert.match(html, /client cancelled/)
   assert.doesNotMatch(html, /Error diagnosis.*Client ended stream/)
-  assert.match(html, /bg-slate-500/)
+  assert.match(html, /text-muted-foreground/)
+  assert.doesNotMatch(html, /text-destructive[^>]*>cancelled/)
 })
