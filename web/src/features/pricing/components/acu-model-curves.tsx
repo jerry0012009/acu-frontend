@@ -49,7 +49,7 @@ import {
 } from '../lib/curve-ranking'
 import {
   executionPresetLabels,
-  executionPresetPointAtDifficulty,
+  executionPresetPricingCosts,
 } from '../lib/execution-preset-series'
 import { formatACUCNY, formatPublicReferenceSource } from '../lib/price'
 import {
@@ -62,6 +62,7 @@ import {
   compareDisplayedCostsDescending,
   displayedPricingCost,
   estimatedPricingCost,
+  pricingCostRange,
   type PricingCostDatum,
 } from '../lib/pricing-comparison'
 import {
@@ -209,40 +210,50 @@ export function ACUModelCurves(props: {
       ]),
     [curveModels, executionPresetSeries]
   )
-  const colorByModel = useMemo(
-    () => {
-      const colors = buildPriceRankColorMap(
-        curveModels.map((model) => ({
-          id: model.model_name,
-          cost: displayedPricingCost(
-            model,
-            props.displayMode,
-            inputTokens,
-            outputTokens
-          ),
-        }))
-      )
-      executionPresetSeries.forEach((preset, index) => {
-        colors.set(preset.candidateId, priceRankColor((index + 1) / (executionPresetSeries.length + 2)))
-      })
-      return colors
-    },
-    [curveModels, executionPresetSeries, inputTokens, outputTokens, props.displayMode]
+  const canonicalModelById = useMemo(
+    () => new Map(curveModels.map((model) => [model.model_name, model])),
+    [curveModels]
   )
-  const priceRange = useMemo(() => {
-    const costs = curveModels
-      .map((model) =>
-        displayedPricingCost(
+  const candidateDisplayCosts = useMemo(
+    () => [
+      ...curveModels.map((model) => ({
+        id: model.model_name,
+        cost: displayedPricingCost(
           model,
           props.displayMode,
           inputTokens,
           outputTokens
-        )
-      )
-      .filter(Number.isFinite)
-      .sort((left, right) => left - right)
-    return { minimum: costs[0] ?? 0, maximum: costs.at(-1) ?? 0 }
-  }, [curveModels, inputTokens, outputTokens, props.displayMode])
+        ),
+      })),
+      ...executionPresetSeries.map((preset) => ({
+        id: preset.candidateId,
+        cost: executionPresetPricingCosts(
+          preset,
+          canonicalModelById.get(preset.modelId),
+          props.displayMode,
+          inputTokens,
+          abilityDifficulty
+        ).displayCost,
+      })),
+    ],
+    [
+      abilityDifficulty,
+      canonicalModelById,
+      curveModels,
+      executionPresetSeries,
+      inputTokens,
+      outputTokens,
+      props.displayMode,
+    ]
+  )
+  const colorByModel = useMemo(
+    () => buildPriceRankColorMap(candidateDisplayCosts),
+    [candidateDisplayCosts]
+  )
+  const priceRange = useMemo(
+    () => pricingCostRange(candidateDisplayCosts.map((item) => item.cost)),
+    [candidateDisplayCosts]
+  )
 
   const curveData = useMemo(
     () => [
@@ -272,11 +283,27 @@ export function ACUModelCurves(props: {
           quality: point.estimatedQuality,
           qualityLower: point.estimatedQuality,
           qualityUpper: point.estimatedQuality,
-          cost: point.estimatedCallCost,
+          cost:
+            props.displayMode === 'reference_only'
+              ? executionPresetPricingCosts(
+                  preset,
+                  canonicalModelById.get(preset.modelId),
+                  props.displayMode,
+                  inputTokens,
+                  point.difficulty
+                ).displayCost
+              : point.estimatedCallCost,
         }))
       ),
     ],
-    [inputTokens, outputTokens, props.displayMode, selectedModels, selectedPresets]
+    [
+      canonicalModelById,
+      inputTokens,
+      outputTokens,
+      props.displayMode,
+      selectedModels,
+      selectedPresets,
+    ]
   )
 
   const costData = useMemo(
@@ -320,17 +347,32 @@ export function ACUModelCurves(props: {
             qualityAtDifficulty(model.acu_curve ?? [], abilityDifficulty) * 100,
         })),
         ...selectedPresets.flatMap((preset): PricingCostDatum[] => {
-          const point = executionPresetPointAtDifficulty(preset, abilityDifficulty)
+          const baseModel = canonicalModelById.get(preset.modelId)
+          const costs = executionPresetPricingCosts(
+            preset,
+            baseModel,
+            props.displayMode,
+            inputTokens,
+            abilityDifficulty
+          )
+          const point = costs.point
           return point ? [{
             modelId: preset.candidateId,
             modelName: preset.displayName,
-            payableCost: point.estimatedCallCost,
-            referenceCost: props.displayMode === 'reference_only'
-              ? point.estimatedCallCost
+            payableCost: costs.payableCost,
+            referenceCost: costs.referenceCost,
+            referenceInput: baseModel?.reference?.input_cny_per_million,
+            referenceOutput: baseModel?.reference?.output_cny_per_million,
+            referenceSource: baseModel?.reference
+              ? formatPublicReferenceSource(
+                  baseModel.reference,
+                  t('Official pricing'),
+                  t('OpenRouter public pricing')
+                )
               : undefined,
-            referenceSource: 'ACU Router execution estimate',
+            referenceObservedAt: baseModel?.reference?.observed_at,
             status: 'estimated',
-            displayCost: point.estimatedCallCost,
+            displayCost: costs.displayCost,
             abilityScore: point.estimatedQuality,
           }] : []
         }),
@@ -345,6 +387,7 @@ export function ACUModelCurves(props: {
         ),
     [
       abilityDifficulty,
+      canonicalModelById,
       inputTokens,
       outputTokens,
       props.displayMode,

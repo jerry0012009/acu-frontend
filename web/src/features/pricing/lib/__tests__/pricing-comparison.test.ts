@@ -26,6 +26,7 @@ import {
   compareDisplayedCostsDescending,
   displayedPricingCost,
   estimatedPricingCost,
+  pricingCostRange,
 } from '../pricing-comparison.ts'
 
 const specOptions = {
@@ -212,4 +213,11 @@ test('both costs recalculate from the same input and output token values', () =>
     estimatedPricingCost(undefined, undefined, 1_000_000, 100_000),
     undefined
   )
+})
+
+test('includes execution preset display costs in the shared price range', () => {
+  assert.deepEqual(pricingCostRange([0.1, 0.2, 0.8, 0.4]), {
+    minimum: 0.1,
+    maximum: 0.8,
+  })
 })

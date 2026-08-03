@@ -31,3 +31,16 @@ test('ranks the complete price set and gives tied costs the same color', () => {
   assert.equal(colors.get('middle-a'), colors.get('middle-b'))
   assert.equal(colors.get('expensive'), priceRankColor(1))
 })
+
+test('ranks canonical models and Luna Max in one shared price scale', () => {
+  const colors = buildPriceRankColorMap([
+    { id: 'gpt-5.6-luna', cost: 1 },
+    { id: 'gpt-5.6-terra', cost: 2 },
+    { id: 'gpt-5.6-luna@max', cost: 3 },
+    { id: 'gpt-5.6-sol', cost: 4 },
+  ])
+  assert.equal(colors.get('gpt-5.6-luna'), priceRankColor(0))
+  assert.equal(colors.get('gpt-5.6-terra'), priceRankColor(1 / 3))
+  assert.equal(colors.get('gpt-5.6-luna@max'), priceRankColor(2 / 3))
+  assert.equal(colors.get('gpt-5.6-sol'), priceRankColor(1))
+})

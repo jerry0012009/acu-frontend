@@ -193,6 +193,8 @@ export type ACUExecutionPresetSeries = {
   executionPresetId: string
   reasoningEffort: string
   calibrationStatus: string
+  expectedOutputTokenMultiplier: number
+  estimatedOutputTokens: number
   points: Array<{
     difficulty: number
     estimatedQuality: number

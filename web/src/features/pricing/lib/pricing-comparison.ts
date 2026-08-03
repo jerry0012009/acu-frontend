@@ -70,6 +70,11 @@ export function compareDisplayedCostsDescending(
   return right - left
 }
 
+export function pricingCostRange(costs: number[]) {
+  const finite = costs.filter(Number.isFinite).sort((left, right) => left - right)
+  return { minimum: finite[0] ?? 0, maximum: finite.at(-1) ?? 0 }
+}
+
 export function buildPricingBarSeries(mode: PricingDisplayMode) {
   const reference = {
     type: 'bar' as const,
