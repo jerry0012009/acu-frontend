@@ -3,7 +3,6 @@ import { after, test } from 'node:test'
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Window } from 'happy-dom'
-import React from 'react'
 
 const domWindow = new Window()
 for (const key of [
