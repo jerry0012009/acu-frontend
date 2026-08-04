@@ -186,11 +186,14 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	if rawLimits, exists := c.Get("token_model_limit"); exists {
 		if limits, ok := rawLimits.(map[string]bool); ok {
 			for modelID, allowed := range limits {
-				if allowed && modelID != "acu-auto" && modelID != "acu-high" {
+				if allowed {
 					token.ModelLimits += modelID + ","
 				}
 			}
 		}
+	}
+	if token.ModelLimitsEnabled {
+		token.ModelLimits = strings.Join(service.ACUCanonicalAllowedModelIDs(token.ModelLimits), ",")
 	}
 	if rawProfiles, exists := c.Get("acu_profile_limits"); exists {
 		if profiles, ok := rawProfiles.([]string); ok {

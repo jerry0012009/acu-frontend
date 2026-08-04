@@ -31,6 +31,7 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -69,6 +70,7 @@ import {
 } from '../lib/pricing-comparison'
 import {
   corridorPointAtDifficulty,
+  syncCorridorPreviewPreference,
   type CorridorPreference,
 } from '../lib/selection-corridor'
 import type { PricingDisplayMode, PricingModel } from '../types'
@@ -119,6 +121,7 @@ export function ACUModelCurves(props: {
   const [corridorPreference, setCorridorPreference] =
     useState<CorridorPreference>('balanced')
   const [previewTokenId, setPreviewTokenId] = useState<number | undefined>()
+  const preferenceSyncKey = useRef<string | undefined>(undefined)
   const { data: apiKeys } = useQuery({
     queryKey: ['pricing-preview-api-keys', currentUser?.id],
     queryFn: () => getApiKeys({ p: 1, size: 100 }),
@@ -143,6 +146,20 @@ export function ACUModelCurves(props: {
       staleTime: 60 * 1000,
       retry: 1,
     })
+  useEffect(() => {
+    if (!selectionCorridor) return
+    const key = `${previewTokenId ?? 'global'}`
+    const synced = syncCorridorPreviewPreference(
+      corridorPreference,
+      preferenceSyncKey.current,
+      key,
+      selectionCorridor.defaultPreference ?? 'balanced'
+    )
+    preferenceSyncKey.current = synced.previewKey
+    if (synced.preference !== corridorPreference) {
+      setCorridorPreference(synced.preference)
+    }
+  }, [corridorPreference, previewTokenId, selectionCorridor])
   const executionPresetSeries = useMemo(
     () => selectionCorridor?.executionPresetSeries ?? [],
     [selectionCorridor]

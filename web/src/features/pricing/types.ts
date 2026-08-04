@@ -203,6 +203,7 @@ export type ACUExecutionPresetSeries = {
 }
 
 export type ACUSelectionCorridor = {
+  defaultPreference: 'economy' | 'balanced' | 'quality'
   formulaVersion: string
   generatedAt: string
   inputTokens: number

@@ -103,7 +103,12 @@ func GetPricing(c *gin.Context) {
 func GetACUSelectionCorridor(c *gin.Context) {
 	inputTokens, _ := strconv.Atoi(c.DefaultQuery("input_tokens", "100000"))
 	expectedOutputTokens, _ := strconv.Atoi(c.DefaultQuery("output_tokens", "4000"))
-	result, err := service.GetACUSelectionCorridor(c.Request.Context(), inputTokens, expectedOutputTokens, nil)
+	policy, err := service.ResolveACUEffectiveRoutingPolicy(nil)
+	if err != nil {
+		c.JSON(400, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	result, err := service.GetACUSelectionCorridor(c.Request.Context(), inputTokens, expectedOutputTokens, &policy)
 	if err != nil {
 		common.ApiError(c, err)
 		return

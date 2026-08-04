@@ -108,6 +108,7 @@ export function ApiKeysMutateDrawer({
     vendor: '',
     protocol: '',
     tier: '',
+    reasoningEffort: '',
   })
   const [acuProfileFilters, setAcuProfileFilters] = useState({
     model: '',
@@ -131,6 +132,26 @@ export function ApiKeysMutateDrawer({
     staleTime: 0,
   })
 
+  const schema = getApiKeyFormSchema(t)
+
+  const form = useForm<ApiKeyFormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: getApiKeyFormDefaultValues(defaultUseAutoGroup),
+  })
+  const selectedProfileIds = form.watch('acu_profile_limits')
+  const selectedModelScopeCustom = form.watch('acu_model_scope_custom')
+  const selectedModelIds = form.watch('model_limits')
+  const acuReasoningEffort = acuModelFilters.reasoningEffort
+  const groupsRaw = groupsData?.data || {}
+  const groups: ApiKeyGroupOption[] = Object.entries(groupsRaw).map(
+    ([key, info]) => ({
+      value: key,
+      label: key,
+      desc: info.desc || key,
+      ratio: info.ratio,
+    })
+  )
+  const backendHasAuto = groups.some((g) => g.value === 'auto')
   const routingModels = (modelPoolData?.data?.modelPool ?? []).filter(
     (model) =>
       model.modelCategory === 'text_agent' &&
@@ -139,7 +160,10 @@ export function ApiKeysMutateDrawer({
       (!acuModelFilters.vendor || model.vendor === acuModelFilters.vendor) &&
       (!acuModelFilters.protocol ||
         model.protocols.includes(acuModelFilters.protocol)) &&
-      (!acuModelFilters.tier || model.capabilityTier === acuModelFilters.tier)
+      (!acuModelFilters.tier || model.capabilityTier === acuModelFilters.tier) &&
+      (!acuReasoningEffort || model.profiles.some((profile) =>
+        profile.supportedReasoningEfforts?.includes(acuReasoningEffort)
+      ))
   )
   const routingProfileGroups = (modelPoolData?.data?.modelPool ?? [])
     .filter(
@@ -157,29 +181,11 @@ export function ApiKeysMutateDrawer({
           profile.administratorAllowed &&
           (!acuProfileFilters.model || model.modelId === acuProfileFilters.model) &&
           (!acuProfileFilters.provider || profile.provider === acuProfileFilters.provider) &&
-          (!acuProfileFilters.protocol || profile.protocol.includes(acuProfileFilters.protocol))
+          (!acuProfileFilters.protocol || profile.protocol.includes(acuProfileFilters.protocol)) &&
+          (!acuReasoningEffort || profile.supportedReasoningEfforts?.includes(acuReasoningEffort))
       ),
     }))
     .filter((group) => group.profiles.length > 0)
-  const groupsRaw = groupsData?.data || {}
-  const groups: ApiKeyGroupOption[] = Object.entries(groupsRaw).map(
-    ([key, info]) => ({
-      value: key,
-      label: key,
-      desc: info.desc || key,
-      ratio: info.ratio,
-    })
-  )
-  const backendHasAuto = groups.some((g) => g.value === 'auto')
-  const schema = getApiKeyFormSchema(t)
-
-  const form = useForm<ApiKeyFormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: getApiKeyFormDefaultValues(defaultUseAutoGroup),
-  })
-  const selectedProfileIds = form.watch('acu_profile_limits')
-  const selectedModelScopeCustom = form.watch('acu_model_scope_custom')
-  const selectedModelIds = form.watch('model_limits')
   useEffect(() => {
     if (!selectedModelScopeCustom || !form.getValues('acu_profile_scope_custom')) return
     const allowed = new Set(selectedModelIds)
@@ -652,6 +658,7 @@ export function ApiKeysMutateDrawer({
                               ['vendor', [...new Set((modelPoolData?.data?.modelPool ?? []).map((item) => item.vendor))]],
                               ['protocol', [...new Set((modelPoolData?.data?.modelPool ?? []).flatMap((item) => item.protocols))]],
                               ['tier', [...new Set((modelPoolData?.data?.modelPool ?? []).map((item) => item.capabilityTier))]],
+                              ['reasoningEffort', [...new Set((modelPoolData?.data?.profiles ?? []).flatMap((item) => item.supportedReasoningEfforts ?? []))]],
                             ] as const
                           ).map(([key, values]) => (
                             <select

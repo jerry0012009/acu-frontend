@@ -71,6 +71,21 @@ func NormalizeACURoutingScope(scope ACURoutingScope) (ACURoutingScope, error) {
 	return normalizeACUScope(scope)
 }
 
+// ACUCanonicalAllowedModelIDs removes New API's virtual compatibility entries
+// before a model limit is sent to the Router policy layer.
+func ACUCanonicalAllowedModelIDs(modelLimits string) []string {
+	values := strings.Split(modelLimits, ",")
+	filtered := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" || value == "acu-auto" || value == "acu-high" {
+			continue
+		}
+		filtered = append(filtered, value)
+	}
+	return normalizeACUIDs(filtered)
+}
+
 func GetACUGlobalRoutingScope() (ACURoutingScope, error) {
 	return globalACURoutingScope()
 }
@@ -186,8 +201,10 @@ func ResolveACUEffectiveRoutingPolicy(token *model.Token) (ACUEffectiveRoutingPo
 	tokenScope := ACURoutingScope{Policy: ACURoutingPolicyAll, ProfilePolicy: ACURoutingPolicyAll}
 	if token != nil {
 		if token.ModelLimitsEnabled {
-			tokenScope.Policy = ACURoutingPolicyCustom
-			tokenScope.AllowedModelIDs = strings.Split(token.ModelLimits, ",")
+			tokenScope.AllowedModelIDs = ACUCanonicalAllowedModelIDs(token.ModelLimits)
+			if len(tokenScope.AllowedModelIDs) > 0 {
+				tokenScope.Policy = ACURoutingPolicyCustom
+			}
 		}
 		if token.ACUProfileLimitsEnabled {
 			tokenScope.ProfilePolicy = ACURoutingPolicyCustom

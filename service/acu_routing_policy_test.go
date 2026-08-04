@@ -35,3 +35,17 @@ func TestNormalizeACURoutingPreferenceDefaultsAndRejectsInvalid(t *testing.T) {
 	_, err = NormalizeACURoutingPreference("xhigh")
 	require.Error(t, err)
 }
+
+func TestACUCanonicalAllowedModelIDsFiltersVirtualModels(t *testing.T) {
+	require.Equal(t, []string{"gpt-5.6-sol"}, ACUCanonicalAllowedModelIDs("acu-auto, acu-high, gpt-5.6-sol, gpt-5.6-sol"))
+}
+
+func TestResolveACUEffectiveRoutingPolicyTreatsOnlyVirtualLimitsAsAll(t *testing.T) {
+	previous := common.OptionMap
+	t.Cleanup(func() { common.OptionMap = previous })
+	common.OptionMap = map[string]string{}
+	policy, err := ResolveACUEffectiveRoutingPolicy(&model.Token{ModelLimitsEnabled: true, ModelLimits: "acu-auto,acu-high"})
+	require.NoError(t, err)
+	require.Equal(t, ACURoutingPolicyAll, policy.RoutingPolicy)
+	require.Empty(t, policy.AllowedModelIDs)
+}

@@ -239,8 +239,10 @@ func AddToken(c *gin.Context) {
 	if token.ModelLimitsEnabled || token.ACUProfileLimitsEnabled {
 		scope := service.ACURoutingScope{Policy: service.ACURoutingPolicyAll, ProfilePolicy: service.ACURoutingPolicyAll}
 		if token.ModelLimitsEnabled {
-			scope.Policy = service.ACURoutingPolicyCustom
-			scope.AllowedModelIDs = strings.Split(token.ModelLimits, ",")
+			scope.AllowedModelIDs = service.ACUCanonicalAllowedModelIDs(token.ModelLimits)
+			if len(scope.AllowedModelIDs) > 0 {
+				scope.Policy = service.ACURoutingPolicyCustom
+			}
 		}
 		if token.ACUProfileLimitsEnabled {
 			scope.ProfilePolicy = service.ACURoutingPolicyCustom
@@ -359,8 +361,10 @@ func UpdateToken(c *gin.Context) {
 		if token.ModelLimitsEnabled || token.ACUProfileLimitsEnabled {
 			scope := service.ACURoutingScope{Policy: service.ACURoutingPolicyAll, ProfilePolicy: service.ACURoutingPolicyAll}
 			if token.ModelLimitsEnabled {
-				scope.Policy = service.ACURoutingPolicyCustom
-				scope.AllowedModelIDs = strings.Split(token.ModelLimits, ",")
+				scope.AllowedModelIDs = service.ACUCanonicalAllowedModelIDs(token.ModelLimits)
+				if len(scope.AllowedModelIDs) > 0 {
+					scope.Policy = service.ACURoutingPolicyCustom
+				}
 			}
 			if token.ACUProfileLimitsEnabled {
 				scope.ProfilePolicy = service.ACURoutingPolicyCustom
