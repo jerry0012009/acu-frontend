@@ -8,13 +8,15 @@ import {
   ACU_TIMELINE_SLIDER_ZOOM_ID,
   buildACUWorkTimelineChartOption,
   filterTimelineItems,
+  formatTimelineTimestamp,
   judgeLabel,
   isCompletedStatus,
   summarizeTimelineItems,
   timelineCashCost,
   timelineItemFromChartEvent,
-  timelineRangeFromZoom,
+  timelineOrderRangeFromZoom,
   timelineUserCharge,
+  thinkingEffort,
 } from '../acu-work-timeline-model.ts'
 
 function item(overrides: Partial<ACUWorkTimelineItem>): ACUWorkTimelineItem {
@@ -79,12 +81,13 @@ test('missing difficulty stays absent instead of producing a y=0 point', () => {
   const missing = item({ difficulty: 0, difficultyRecorded: false })
   const option = buildACUWorkTimelineChartOption({
     items: [missing],
-    hours: 1,
-    from: missing.timestamp - 3600,
-    to: missing.timestamp,
     dark: false,
   })
-  const series = option.series as Array<{ id?: string; connectNulls?: boolean; data?: Array<{ value: [number, number] }> }>
+  const series = option.series as Array<{
+    id?: string
+    connectNulls?: boolean
+    data?: Array<{ value: [number, number] }>
+  }>
   const difficulty = series.find((entry) => entry.id === 'difficulty-segment-1')
   assert.equal(difficulty?.connectNulls, false)
   assert.ok(Number.isNaN(difficulty?.data?.[0]?.value[1]))
@@ -92,30 +95,27 @@ test('missing difficulty stays absent instead of producing a y=0 point', () => {
 
 test('a failed live Judge that reused a recent evaluation is not labeled new', () => {
   assert.equal(
-    judgeLabel(item({ judgeCalled: true, judgeResultSource: 'recent_evaluation' })),
+    judgeLabel(
+      item({ judgeCalled: true, judgeResultSource: 'recent_evaluation' })
+    ),
     'Judge failed · reused previous'
   )
 })
 
 test('uses ECharts financial-style zoom across both chart grids', () => {
-  const from = Date.parse('2026-07-29T10:00:00Z') / 1000
-  const to = from + 24 * 60 * 60
   const option = buildACUWorkTimelineChartOption({
     items: [item({})],
-    hours: 24,
-    from,
-    to,
     dark: false,
   })
   assert.equal(Array.isArray(option.grid) ? option.grid.length : 0, 2)
   const axes = option.xAxis as Array<{ min?: number; max?: number }>
   assert.equal(axes.length, 2)
   assert.equal(
-    axes.every((axis) => axis.min === from * 1000),
+    axes.every((axis) => axis.min === 1),
     true
   )
   assert.equal(
-    axes.every((axis) => axis.max === to * 1000),
+    axes.every((axis) => axis.max === 1.01),
     true
   )
 
@@ -134,19 +134,156 @@ test('uses ECharts financial-style zoom across both chart grids', () => {
   )
   assert.deepEqual(zooms[0].xAxisIndex, [0, 1])
   assert.deepEqual(zooms[1].xAxisIndex, [0, 1])
-  assert.equal(zooms[0].minValueSpan, 60 * 60 * 1000)
+  assert.equal(zooms[0].minValueSpan, undefined)
   assert.equal(zooms[0].zoomOnMouseWheel, false)
   assert.equal(zooms[0].moveOnMouseMove, false)
   assert.equal(zooms[1].brushSelect, true)
+})
+
+test('uses one-based request order for points and bars regardless of timestamps or task sequences', () => {
+  const items = [
+    item({
+      timestamp: Date.parse('2026-07-30T10:00:00Z') / 1000,
+      sequence: 1,
+      taskId: 'task-1',
+      logicalRequestId: 'logical-1',
+    }),
+    item({
+      timestamp: Date.parse('2026-07-30T12:00:00Z') / 1000,
+      sequence: 1,
+      taskId: 'task-2',
+      logicalRequestId: 'logical-2',
+    }),
+    item({
+      timestamp: Date.parse('2026-07-30T16:00:00Z') / 1000,
+      sequence: 2,
+      taskId: 'task-2',
+      logicalRequestId: 'logical-3',
+    }),
+  ]
+  const option = buildACUWorkTimelineChartOption({ items, dark: false })
+  const series = option.series as Array<{
+    id?: string
+    data?: Array<{ value: [number, number]; chartOrder?: number }>
+  }>
+  const difficulty = series.find((entry) => entry.id === 'difficulty-segment-1')
+  const cost = series.find((entry) => entry.id === 'cost-series')
+  const rings = series.find((entry) => entry.id === 'judge-backup-rings')
+  assert.deepEqual(
+    difficulty?.data?.map((datum) => datum.value[0]),
+    [1, 2, 3]
+  )
+  assert.deepEqual(
+    cost?.data?.map((datum) => datum.value[0]),
+    [1, 2, 3]
+  )
+  assert.deepEqual(
+    rings?.data?.map((datum) => datum.value[0]),
+    []
+  )
+  assert.deepEqual(
+    difficulty?.data?.map((datum) => datum.chartOrder),
+    [1, 2, 3]
+  )
+  assert.equal(
+    timelineItemFromChartEvent({ data: cost?.data?.[1] })?.logicalRequestId,
+    'logical-2'
+  )
+})
+
+test('uses the same chart order for Judge backup rings', () => {
+  const items = [
+    item({ judgeBackupUsed: true, sequence: 1 }),
+    item({
+      logicalRequestId: 'logical-2',
+      timestamp: Date.parse('2026-07-30T11:00:00Z') / 1000,
+      judgeBackupUsed: true,
+      sequence: 1,
+    }),
+  ]
+  const option = buildACUWorkTimelineChartOption({ items, dark: false })
+  const rings = (
+    option.series as Array<{
+      id?: string
+      data?: Array<{ value: [number, number]; chartOrder?: number }>
+    }>
+  ).find((entry) => entry.id === 'judge-backup-rings')
+  assert.deepEqual(
+    rings?.data?.map((datum) => datum.value[0]),
+    [1, 2]
+  )
+  assert.deepEqual(
+    rings?.data?.map((datum) => datum.chartOrder),
+    [1, 2]
+  )
+})
+
+test('tooltip exposes request order, task step, exact time, and thinking effort', () => {
+  const timelineItem = item({
+    timestamp: Date.parse('2026-08-04T04:18:37Z') / 1000,
+    sequence: 8,
+    resolvedReasoningEffort: 'medium',
+  })
+  const option = buildACUWorkTimelineChartOption({
+    items: [timelineItem],
+    dark: false,
+  })
+  const formatter = (
+    option.tooltip as { formatter?: (params: unknown) => string }
+  ).formatter
+  const html = formatter?.({
+    data: {
+      value: [1, 50],
+      timelineItem,
+      chartOrder: 1,
+    },
+  })
+  assert.ok(html?.includes('#1'))
+  assert.ok(html?.includes('8'))
+  assert.ok(html?.includes(formatTimelineTimestamp(timelineItem.timestamp)))
+  assert.ok(html?.includes('medium'))
+})
+
+test('thinking effort falls back from resolved to preset, client, and default', () => {
+  assert.equal(
+    thinkingEffort(item({ resolvedReasoningEffort: 'high' })),
+    'high'
+  )
+  assert.equal(
+    thinkingEffort(
+      item({
+        resolvedReasoningEffort: undefined,
+        presetReasoningEffort: 'medium',
+      })
+    ),
+    'medium'
+  )
+  assert.equal(
+    thinkingEffort(
+      item({
+        resolvedReasoningEffort: undefined,
+        presetReasoningEffort: undefined,
+        clientRequestedReasoningEffort: 'low',
+      })
+    ),
+    'low'
+  )
+  assert.equal(
+    thinkingEffort(
+      item({
+        resolvedReasoningEffort: undefined,
+        presetReasoningEffort: undefined,
+        clientRequestedReasoningEffort: undefined,
+      })
+    ),
+    'default'
+  )
 })
 
 test('keeps backup rings silent and points and bars traceable', () => {
   const timelineItem = item({ judgeBackupUsed: true })
   const option = buildACUWorkTimelineChartOption({
     items: [timelineItem],
-    hours: 1,
-    from: timelineItem.timestamp - 3600,
-    to: timelineItem.timestamp,
     dark: true,
   })
   const series = option.series as Array<{
@@ -179,19 +316,25 @@ test('keeps backup rings silent and points and bars traceable', () => {
   )
 })
 
-test('derives visible range from native ECharts zoom events', () => {
-  assert.deepEqual(timelineRangeFromZoom({ start: 25, end: 75 }, 1000, 2000), {
-    start: 1250,
-    end: 1750,
+test('derives visible request order range from native ECharts zoom events', () => {
+  assert.deepEqual(timelineOrderRangeFromZoom({ start: 25, end: 75 }, 10), {
+    start: 3,
+    end: 8,
   })
   assert.deepEqual(
-    timelineRangeFromZoom(
-      { batch: [{ startValue: 1_400_000, endValue: 1_800_000 }] },
-      1000,
-      2000
+    timelineOrderRangeFromZoom(
+      { batch: [{ startValue: 1.2, endValue: 3.1 }] },
+      4
     ),
-    { start: 1400, end: 1800 }
+    { start: 1, end: 4 }
   )
+})
+
+test('full request-order zoom restores the complete one-based range', () => {
+  assert.deepEqual(timelineOrderRangeFromZoom({ start: 0, end: 100 }, 90), {
+    start: 1,
+    end: 90,
+  })
 })
 
 test('visible summary is derived only from items inside the engine viewport', () => {

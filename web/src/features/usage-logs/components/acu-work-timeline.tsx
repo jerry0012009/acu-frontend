@@ -51,12 +51,14 @@ import {
   ACU_TIMELINE_INSIDE_ZOOM_ID,
   buildACUWorkTimelineChartOption,
   filterTimelineItems,
+  formatTimelineTimestamp,
   isCompletedStatus,
   summarizeTimelineItems,
   timelineCashCost,
   timelineItemFromChartEvent,
-  timelineRangeFromZoom,
+  timelineOrderRangeFromZoom,
   timelineUserCharge,
+  thinkingEffort,
 } from './acu-work-timeline-model'
 import { ACUSessionTracePanel } from './dialogs/acu-session-trace'
 
@@ -87,15 +89,6 @@ function statusTone(status: string) {
   if (isCompletedStatus(status)) return 'text-emerald-600'
   if (status === 'cancelled') return 'text-muted-foreground'
   return 'text-destructive'
-}
-
-function visibleTime(value: number) {
-  const date = new Date(value * 1000)
-  const offset = -date.getTimezoneOffset()
-  const sign = offset >= 0 ? '+' : '-'
-  const hours = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0')
-  const minutes = String(Math.abs(offset) % 60).padStart(2, '0')
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')} UTC${sign}${hours}:${minutes}`
 }
 
 function judgeMode(item: ACUWorkTimelineItem) {
@@ -212,10 +205,13 @@ function TimelineStep(props: {
               {item.judgeResultSource || t('n/a')} ·{' '}
               {item.judgeProfileAttemptCount} {t('Judge attempts')}
             </div>
+            <div>
+              {t('Time')} {formatTimelineTimestamp(item.timestamp)}
+            </div>
           </div>
           <div>
             <div className='text-muted-foreground mb-1'>
-              {t('Reasoning mapping')}
+              {t('Thinking effort')} {thinkingEffort(item)}
             </div>
             <div>
               {item.clientRequestedReasoningEffort || t('none')} →{' '}
@@ -321,7 +317,10 @@ export function ACUWorkTimeline() {
   const { resolvedTheme, themeReady } = useChartTheme()
   const to = Math.floor(Date.now() / 60_000) * 60
   const from = to - hours * 3600
-  const [visibleRange, setVisibleRange] = useState({ start: from, end: to })
+  const [visibleOrderRange, setVisibleOrderRange] = useState({
+    start: 1,
+    end: 1,
+  })
   const query = useQuery({
     queryKey: ['acu-work-timeline', hours, to],
     queryFn: () => getACUWorkTimeline(from, to),
@@ -331,17 +330,12 @@ export function ACUWorkTimeline() {
   const items = useMemo(() => data?.items ?? [], [data])
 
   useEffect(() => {
-    setVisibleRange({ start: from, end: to })
-  }, [from, hours, to])
+    setVisibleOrderRange({ start: 1, end: Math.max(1, items.length) })
+  }, [from, hours, items.length, to])
 
   const rangeItems = useMemo(
-    () =>
-      items.filter(
-        (item) =>
-          item.timestamp >= visibleRange.start &&
-          item.timestamp <= visibleRange.end
-      ),
-    [items, visibleRange]
+    () => items.slice(visibleOrderRange.start - 1, visibleOrderRange.end),
+    [items, visibleOrderRange]
   )
   const visibleItems = useMemo(
     () => filterTimelineItems(rangeItems, search, filterMode),
@@ -365,12 +359,9 @@ export function ACUWorkTimeline() {
     () =>
       buildACUWorkTimelineChartOption({
         items,
-        hours,
-        from,
-        to,
         dark: resolvedTheme === 'dark',
       }),
-    [from, hours, items, resolvedTheme, to]
+    [items, resolvedTheme]
   )
 
   const resetZoom = useCallback(() => {
@@ -380,8 +371,8 @@ export function ACUWorkTimeline() {
       start: 0,
       end: 100,
     })
-    setVisibleRange({ start: from, end: to })
-  }, [from, to])
+    setVisibleOrderRange({ start: 1, end: Math.max(1, items.length) })
+  }, [items.length])
 
   useEffect(() => {
     const container = chartContainerRef.current
@@ -395,8 +386,8 @@ export function ACUWorkTimeline() {
     chart.setOption(chartOption, { notMerge: true })
 
     const handleZoom = (event: unknown) => {
-      const range = timelineRangeFromZoom(event, from, to)
-      if (range) setVisibleRange(range)
+      const range = timelineOrderRangeFromZoom(event, items.length)
+      if (range) setVisibleOrderRange(range)
     }
     const handleClick = (event: unknown) => {
       const item = timelineItemFromChartEvent(event)
@@ -421,12 +412,10 @@ export function ACUWorkTimeline() {
     }
   }, [
     chartOption,
-    from,
     items.length,
     resetZoom,
     resolvedTheme,
     themeReady,
-    to,
     trendOpen,
   ])
 
@@ -504,11 +493,11 @@ export function ACUWorkTimeline() {
       <section className='bg-card min-w-0 overflow-hidden rounded border'>
         <div className='border-b px-4 py-3'>
           <div className='text-sm font-medium'>
-            {t('Difficulty and cash cost')}
+            {t('Difficulty and cash cost by request order')}
           </div>
           <div className='text-muted-foreground mt-0.5 text-xs'>
             {t(
-              'Difficulty is shown above and actual cash cost below. Both use the same time range.'
+              'Difficulty is shown above and actual cash cost below. Both use the same request-order axis.'
             )}
           </div>
         </div>
@@ -550,8 +539,11 @@ export function ACUWorkTimeline() {
       </div>
       <div className='text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs'>
         <span>
-          {t('Visible range')} {visibleTime(visibleRange.start)} -{' '}
-          {visibleTime(visibleRange.end)}
+          {t('Visible requests #{{start}}–#{{end}} of {{total}}', {
+            start: visibleOrderRange.start,
+            end: Math.min(visibleOrderRange.end, Math.max(1, items.length)),
+            total: items.length,
+          })}
         </span>
         <span>
           {t(

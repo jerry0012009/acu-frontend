@@ -17,15 +17,13 @@ const MODEL_COLORS: Record<string, string> = {
 export type TimelineChartDatum = {
   value: [number, number]
   timelineItem: ACUWorkTimelineItem
+  chartOrder: number
   symbolSize?: number
   itemStyle?: Record<string, unknown>
 }
 
 type TimelineChartOptions = {
   items: ACUWorkTimelineItem[]
-  hours: number
-  from: number
-  to: number
   dark: boolean
 }
 
@@ -64,6 +62,24 @@ export function timelineCashCost(
   item: ACUWorkTimelineItem
 ): number | undefined {
   return item.actualCashCostCny
+}
+
+export function thinkingEffort(item: ACUWorkTimelineItem): string {
+  return (
+    item.resolvedReasoningEffort ||
+    item.presetReasoningEffort ||
+    item.clientRequestedReasoningEffort ||
+    'default'
+  )
+}
+
+export function formatTimelineTimestamp(timestamp: number): string {
+  const date = new Date(timestamp * 1000)
+  const offset = -date.getTimezoneOffset()
+  const sign = offset >= 0 ? '+' : '-'
+  const hours = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0')
+  const minutes = String(Math.abs(offset) % 60).padStart(2, '0')
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')} UTC${sign}${hours}:${minutes}`
 }
 
 export function isCompletedStatus(status: string): boolean {
@@ -117,11 +133,14 @@ export function judgeLabel(item: ACUWorkTimelineItem): string {
   return 'Judge unavailable'
 }
 
-function tooltipHtml(item: ACUWorkTimelineItem): string {
+function tooltipHtml(item: ACUWorkTimelineItem, chartOrder: number): string {
   const backup = item.judgeBackupUsed ? ' · Backup' : ''
   return [
     `<div style="font-weight:600;margin-bottom:6px">${escapeHtml(item.actualModel || item.requestedModel)}</div>`,
-    `<div>${escapeHtml(t('Difficulty'))} ${item.difficultyRecorded ? item.difficulty.toFixed(1) : '—'} · ${escapeHtml(t('Step'))} ${item.sequence}</div>`,
+    `<div>${escapeHtml(t('Request'))} #${chartOrder} · ${escapeHtml(t('Task step'))} ${item.sequence}</div>`,
+    `<div>${escapeHtml(t('Time'))} ${escapeHtml(formatTimelineTimestamp(item.timestamp))}</div>`,
+    `<div>${escapeHtml(t('Thinking effort'))} ${escapeHtml(thinkingEffort(item))}</div>`,
+    `<div>${escapeHtml(t('Difficulty'))} ${item.difficultyRecorded ? item.difficulty.toFixed(1) : '—'}</div>`,
     `<div>${escapeHtml(t(judgeLabel(item)))}${backup}</div>`,
     `<div>${escapeHtml(item.provider)} · ${escapeHtml(item.channel)}</div>`,
     `<div>${escapeHtml(t('End-to-end'))} ${formatLatency(item.endToEndLatencyMs)} · ${escapeHtml(t('First model event'))} ${formatLatency(item.firstModelEventLatencyMs)}</div>`,
@@ -133,25 +152,26 @@ function tooltipHtml(item: ACUWorkTimelineItem): string {
   ].join('')
 }
 
-function timelineItemFromTooltip(
+function timelineDatumFromTooltip(
   params: unknown
-): ACUWorkTimelineItem | undefined {
+): TimelineChartDatum | undefined {
   const data = (params as { data?: Partial<TimelineChartDatum> })?.data
-  return data?.timelineItem
+  return data?.timelineItem && data.chartOrder != null
+    ? (data as TimelineChartDatum)
+    : undefined
 }
 
 function difficultyDatum(
   item: ACUWorkTimelineItem,
+  chartOrder: number,
   dark: boolean
 ): TimelineChartDatum {
   let fill = dark ? '#0f172a' : '#ffffff'
   if (item.judgeCalled) fill = modelColor(item)
   return {
-    value: [
-      item.timestamp * 1000,
-      item.difficultyRecorded ? item.difficulty : Number.NaN,
-    ],
+    value: [chartOrder, item.difficultyRecorded ? item.difficulty : Number.NaN],
     timelineItem: item,
+    chartOrder,
     symbolSize: item.judgeBackupUsed ? 13 : 10,
     itemStyle: {
       color: fill,
@@ -161,19 +181,27 @@ function difficultyDatum(
   }
 }
 
-function costDatum(item: ACUWorkTimelineItem): TimelineChartDatum {
+function costDatum(
+  item: ACUWorkTimelineItem,
+  chartOrder: number
+): TimelineChartDatum {
   return {
-    value: [item.timestamp * 1000, timelineCashCost(item) ?? Number.NaN],
+    value: [chartOrder, timelineCashCost(item) ?? Number.NaN],
     timelineItem: item,
+    chartOrder,
     itemStyle: { color: modelColor(item), opacity: 0.82 },
   }
 }
 
-export function timelineRangeFromZoom(
+function clampOrder(value: number, itemCount: number): number {
+  return Math.min(itemCount, Math.max(1, value))
+}
+
+export function timelineOrderRangeFromZoom(
   event: unknown,
-  from: number,
-  to: number
+  itemCount: number
 ): { start: number; end: number } | undefined {
+  if (itemCount < 1) return
   const payload = event as {
     start?: number
     end?: number
@@ -188,17 +216,20 @@ export function timelineRangeFromZoom(
   }
   const zoom = payload.batch?.[0] ?? payload
   if (Number.isFinite(zoom.startValue) && Number.isFinite(zoom.endValue)) {
-    return {
-      start: Number(zoom.startValue) / 1000,
-      end: Number(zoom.endValue) / 1000,
-    }
+    const start = clampOrder(Math.floor(Number(zoom.startValue)), itemCount)
+    const end = clampOrder(Math.ceil(Number(zoom.endValue)), itemCount)
+    return { start: Math.min(start, end), end: Math.max(start, end) }
   }
   if (!Number.isFinite(zoom.start) || !Number.isFinite(zoom.end)) return
-  const duration = to - from
-  return {
-    start: from + (duration * Number(zoom.start)) / 100,
-    end: from + (duration * Number(zoom.end)) / 100,
-  }
+  const start = clampOrder(
+    Math.floor(1 + ((itemCount - 1) * Number(zoom.start)) / 100),
+    itemCount
+  )
+  const end = clampOrder(
+    Math.ceil(1 + ((itemCount - 1) * Number(zoom.end)) / 100),
+    itemCount
+  )
+  return { start: Math.min(start, end), end: Math.max(start, end) }
 }
 
 export function timelineItemFromChartEvent(
@@ -210,18 +241,18 @@ export function timelineItemFromChartEvent(
 
 export function buildACUWorkTimelineChartOption({
   items,
-  hours,
-  from,
-  to,
   dark,
 }: TimelineChartOptions): EChartsOption {
   const text = dark ? '#cbd5e1' : '#475569'
   const grid = dark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(100, 116, 139, 0.18)'
   const slider = dark ? '#1e293b' : '#f1f5f9'
   const handle = dark ? '#93c5fd' : '#2563eb'
-  let minimumWindowSeconds = 5 * 60
-  if (hours >= 24) minimumWindowSeconds = 60 * 60
-  else if (hours >= 6) minimumWindowSeconds = 15 * 60
+  const orderedItems = items.map((item, index) => ({
+    item,
+    chartOrder: index + 1,
+  }))
+  const axisMax = items.length === 1 ? 1.01 : Math.max(1, items.length)
+  const minimumOrderSpan = items.length > 5 ? 4 : undefined
 
   const segments = [...new Set(items.map((item) => item.segmentId))]
   const difficultySeries = segments.map((segmentId) => ({
@@ -230,9 +261,9 @@ export function buildACUWorkTimelineChartOption({
     type: 'line' as const,
     xAxisIndex: 0,
     yAxisIndex: 0,
-    data: items
-      .filter((item) => item.segmentId === segmentId)
-      .map((item) => difficultyDatum(item, dark)),
+    data: orderedItems
+      .filter(({ item }) => item.segmentId === segmentId)
+      .map(({ item, chartOrder }) => difficultyDatum(item, chartOrder, dark)),
     showSymbol: true,
     connectNulls: false,
     symbol: 'circle',
@@ -254,21 +285,35 @@ export function buildACUWorkTimelineChartOption({
     },
     xAxis: [
       {
-        type: 'time',
+        type: 'value',
         gridIndex: 0,
-        min: from * 1000,
-        max: to * 1000,
+        min: 1,
+        max: axisMax,
+        minInterval: 1,
+        name: t('Request order'),
+        nameLocation: 'middle',
+        nameGap: 28,
         axisLabel: { show: false },
         axisLine: { show: false },
         axisTick: { show: false },
         splitLine: { show: false },
       },
       {
-        type: 'time',
+        type: 'value',
         gridIndex: 1,
-        min: from * 1000,
-        max: to * 1000,
-        axisLabel: { color: text, fontSize: 10, hideOverlap: true },
+        min: 1,
+        max: axisMax,
+        minInterval: 1,
+        name: t('Request order'),
+        nameLocation: 'middle',
+        nameGap: 28,
+        axisLabel: {
+          color: text,
+          fontSize: 10,
+          hideOverlap: true,
+          formatter: (value: number) =>
+            Number.isInteger(value) ? String(value) : '',
+        },
         axisLine: { lineStyle: { color: grid } },
         axisTick: { show: false },
         splitLine: { show: false },
@@ -315,7 +360,7 @@ export function buildACUWorkTimelineChartOption({
         filterMode: 'filter',
         start: 0,
         end: 100,
-        minValueSpan: minimumWindowSeconds * 1000,
+        minValueSpan: minimumOrderSpan,
         zoomOnMouseWheel: false,
         moveOnMouseMove: false,
         moveOnMouseWheel: false,
@@ -328,10 +373,11 @@ export function buildACUWorkTimelineChartOption({
         filterMode: 'filter',
         start: 0,
         end: 100,
-        minValueSpan: minimumWindowSeconds * 1000,
+        minValueSpan: minimumOrderSpan,
         bottom: 14,
         height: 30,
         showDetail: true,
+        labelFormatter: (value: number) => `#${Math.round(value)}`,
         realtime: true,
         brushSelect: true,
         backgroundColor: slider,
@@ -360,8 +406,8 @@ export function buildACUWorkTimelineChartOption({
       borderColor: grid,
       textStyle: { color: dark ? '#e2e8f0' : '#0f172a', fontSize: 12 },
       formatter: (params: unknown) => {
-        const item = timelineItemFromTooltip(params)
-        return item ? tooltipHtml(item) : ''
+        const datum = timelineDatumFromTooltip(params)
+        return datum ? tooltipHtml(datum.timelineItem, datum.chartOrder) : ''
       },
     },
     series: [
@@ -374,10 +420,12 @@ export function buildACUWorkTimelineChartOption({
         silent: true,
         symbol: 'circle',
         symbolSize: 19,
-        data: items
-          .filter((item) => item.judgeBackupUsed && item.difficultyRecorded)
-          .map((item) => ({
-            value: [item.timestamp * 1000, item.difficulty],
+        data: orderedItems
+          .filter(({ item }) => item.judgeBackupUsed && item.difficultyRecorded)
+          .map(({ item, chartOrder }) => ({
+            value: [chartOrder, item.difficulty],
+            chartOrder,
+            timelineItem: item,
             itemStyle: {
               color: 'transparent',
               borderColor: modelColor(item),
@@ -392,7 +440,9 @@ export function buildACUWorkTimelineChartOption({
         type: 'bar',
         xAxisIndex: 1,
         yAxisIndex: 1,
-        data: items.map(costDatum),
+        data: orderedItems.map(({ item, chartOrder }) =>
+          costDatum(item, chartOrder)
+        ),
         barMinWidth: 3,
         barMaxWidth: 22,
         itemStyle: { borderRadius: [3, 3, 0, 0] },
