@@ -31,7 +31,6 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -69,8 +68,10 @@ import {
   type PricingCostDatum,
 } from '../lib/pricing-comparison'
 import {
+  PRICING_PREVIEW_CONTROL_GRID_CLASS,
+  corridorEligibleModelIds,
   corridorPointAtDifficulty,
-  syncCorridorPreviewPreference,
+  resolveEffectiveCorridorPreference,
   type CorridorPreference,
 } from '../lib/selection-corridor'
 import type { PricingDisplayMode, PricingModel } from '../types'
@@ -98,7 +99,7 @@ export function ACUModelCurves(props: {
   const { t } = useTranslation()
   const { resolvedTheme, themeReady } = useChartTheme()
   const currentUser = useAuthStore((state) => state.auth.user)
-  const curveModels = useMemo(
+  const allCurveModels = useMemo(
     () =>
       props.models
         .filter(
@@ -121,7 +122,6 @@ export function ACUModelCurves(props: {
   const [corridorPreference, setCorridorPreference] =
     useState<CorridorPreference>('balanced')
   const [previewTokenId, setPreviewTokenId] = useState<number | undefined>()
-  const preferenceSyncKey = useRef<string | undefined>(undefined)
   const { data: apiKeys } = useQuery({
     queryKey: ['pricing-preview-api-keys', currentUser?.id],
     queryFn: () => getApiKeys({ p: 1, size: 100 }),
@@ -146,24 +146,22 @@ export function ACUModelCurves(props: {
       staleTime: 60 * 1000,
       retry: 1,
     })
-  useEffect(() => {
-    if (!selectionCorridor) return
-    const key = `${previewTokenId ?? 'global'}`
-    const synced = syncCorridorPreviewPreference(
-      corridorPreference,
-      preferenceSyncKey.current,
-      key,
-      selectionCorridor.defaultPreference ?? 'balanced'
-    )
-    preferenceSyncKey.current = synced.previewKey
-    if (synced.preference !== corridorPreference) {
-      setCorridorPreference(synced.preference)
-    }
-  }, [corridorPreference, previewTokenId, selectionCorridor])
   const executionPresetSeries = useMemo(
     () => selectionCorridor?.executionPresetSeries ?? [],
     [selectionCorridor]
   )
+  const curveModels = useMemo(() => {
+    if (previewTokenId == null) return allCurveModels
+    if (!selectionCorridor) return []
+    const eligibleModelIds = corridorEligibleModelIds(selectionCorridor)
+    return allCurveModels.filter((model) => eligibleModelIds.has(model.model_name))
+  }, [allCurveModels, previewTokenId, selectionCorridor])
+  const effectiveCorridorPreference = resolveEffectiveCorridorPreference(
+    previewTokenId,
+    selectionCorridor,
+    corridorPreference
+  )
+  const isPreviewLoading = previewTokenId != null && !selectionCorridor && !selectionCorridorUnavailable
   const allCandidateIds = useMemo(
     () => [
       ...curveModels.map((model) => model.model_name),
@@ -468,18 +466,18 @@ export function ACUModelCurves(props: {
   )
   const activeCorridor = useMemo(
     () =>
-      corridorData.find((corridor) => corridor.id === corridorPreference) ??
+      corridorData.find((corridor) => corridor.id === effectiveCorridorPreference) ??
       corridorData[1],
-    [corridorData, corridorPreference]
+    [corridorData, effectiveCorridorPreference]
   )
   const corridorAtHover = useMemo(
     () =>
       corridorPointAtDifficulty(
         selectionCorridor,
-        corridorPreference,
+        effectiveCorridorPreference,
         abilityDifficulty
       ),
-    [abilityDifficulty, corridorPreference, selectionCorridor]
+    [abilityDifficulty, effectiveCorridorPreference, selectionCorridor]
   )
   let corridorStatusText = '正在读取当前路由快照'
   if (selectionCorridor) {
@@ -499,7 +497,7 @@ export function ACUModelCurves(props: {
       type: 'common' as const,
       data: [
         {
-          id: `acu-corridor-${corridorPreference}`,
+          id: `acu-corridor-${effectiveCorridorPreference}`,
           values: activeCorridor?.values ?? [],
         },
         { id: 'acu-model-curves', values: curveData },
@@ -594,7 +592,7 @@ export function ACUModelCurves(props: {
       axisColor,
       chartColors,
       colorByModel,
-      corridorPreference,
+      effectiveCorridorPreference,
       curveData,
       gridColor,
       resolvedTheme,
@@ -651,7 +649,7 @@ export function ACUModelCurves(props: {
     [axisColor, colorByModel, costData, gridColor, props.displayMode, t]
   )
 
-  if (curveModels.length === 0) return null
+  if (curveModels.length === 0 && previewTokenId == null) return null
 
   return (
     <section className="border-border/70 bg-card/80 overflow-hidden rounded-lg border">
@@ -670,12 +668,12 @@ export function ACUModelCurves(props: {
               )}
             </p>
           </div>
-          <div className="grid shrink-0 grid-cols-2 gap-2 sm:w-auto">
+          <div className={PRICING_PREVIEW_CONTROL_GRID_CLASS}>
             {currentUser && (
-              <label className="text-muted-foreground col-span-2 text-[11px] font-medium">
+              <label className="text-muted-foreground col-span-1 text-[11px] font-medium sm:col-span-2 xl:col-span-1">
                 {t('Preview API Key')}
                 <select
-                  className="bg-background mt-1 h-8 w-full rounded border px-2 text-sm sm:w-64"
+                  className="bg-background mt-1 h-8 w-full rounded-md border px-2 text-sm"
                   value={previewTokenId ?? ''}
                   onChange={(event) =>
                     setPreviewTokenId(event.target.value ? Number(event.target.value) : undefined)
@@ -693,7 +691,7 @@ export function ACUModelCurves(props: {
             <label className="text-muted-foreground text-[11px] font-medium">
               {t('Input tokens')}
               <Input
-                className="mt-1 h-8 w-full min-w-0 font-mono sm:w-32"
+                className="mt-1 h-8 w-full min-w-0 rounded-md font-mono"
                 type="number"
                 min={0}
                 step={1000}
@@ -706,7 +704,7 @@ export function ACUModelCurves(props: {
             <label className="text-muted-foreground text-[11px] font-medium">
               {t('Expected output tokens')}
               <Input
-                className="mt-1 h-8 w-full min-w-0 font-mono sm:w-32"
+                className="mt-1 h-8 w-full min-w-0 rounded-md font-mono"
                 type="number"
                 min={0}
                 step={100}
@@ -829,7 +827,12 @@ export function ACUModelCurves(props: {
         </div>
       </div>
 
-      {selectedModels.length + selectedPresets.length === 0 ? (
+      {/* eslint-disable-next-line no-nested-ternary */}
+      {isPreviewLoading ? (
+        <div className="text-muted-foreground flex h-56 items-center justify-center text-sm">
+          {t('Loading routing corridor')}
+        </div>
+      ) : selectedModels.length + selectedPresets.length === 0 ? (
         <div className="text-muted-foreground flex h-56 items-center justify-center text-sm">
           {t('Select at least one model')}
         </div>
@@ -853,11 +856,13 @@ export function ACUModelCurves(props: {
                       type="button"
                       size="sm"
                       variant={
-                        corridorPreference === preference.id
+                        effectiveCorridorPreference === preference.id
                           ? 'secondary'
                           : 'ghost'
                       }
                       className="h-6 px-2 text-xs shadow-none"
+                      disabled={previewTokenId != null}
+                      title={previewTokenId != null ? t('Determined by selected API Key') : undefined}
                       onClick={() => setCorridorPreference(preference.id)}
                     >
                       {preference.label}

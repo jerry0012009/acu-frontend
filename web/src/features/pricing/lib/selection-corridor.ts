@@ -2,16 +2,36 @@ import type { ACUSelectionCorridorPoint, ACUSelectionCorridor } from '../types'
 
 export type CorridorPreference = 'economy' | 'balanced' | 'quality'
 
-export function syncCorridorPreviewPreference(
-  current: CorridorPreference,
-  previousPreviewKey: string | undefined,
-  previewKey: string,
-  defaultPreference: CorridorPreference
-): { preference: CorridorPreference; previewKey: string } {
-  if (previousPreviewKey === previewKey) {
-    return { preference: current, previewKey }
+export const PRICING_PREVIEW_CONTROL_GRID_CLASS =
+  'grid shrink-0 grid-cols-1 items-end gap-2 sm:w-auto sm:grid-cols-2 xl:grid-cols-[minmax(240px,280px)_112px_112px]'
+
+export function resolveEffectiveCorridorPreference(
+  previewTokenId: number | undefined,
+  corridor: ACUSelectionCorridor | null | undefined,
+  manualPreference: CorridorPreference
+): CorridorPreference {
+  return previewTokenId != null && corridor
+    ? corridor.defaultPreference
+    : manualPreference
+}
+
+export function corridorEligibleModelIds(
+  corridor: ACUSelectionCorridor | null | undefined
+): Set<string> {
+  const modelIds = new Set<string>()
+  if (!corridor) return modelIds
+  for (const points of Object.values(corridor.series)) {
+    for (const point of points) {
+      if (point.selectedModelId) modelIds.add(point.selectedModelId)
+      for (const candidate of point.candidates) {
+        if (candidate.modelId) modelIds.add(candidate.modelId)
+      }
+    }
   }
-  return { preference: defaultPreference, previewKey }
+  for (const preset of corridor.executionPresetSeries) {
+    if (preset.modelId) modelIds.add(preset.modelId)
+  }
+  return modelIds
 }
 
 export function corridorPointAtDifficulty(

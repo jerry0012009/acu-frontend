@@ -2,8 +2,10 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  PRICING_PREVIEW_CONTROL_GRID_CLASS,
+  corridorEligibleModelIds,
   corridorPointAtDifficulty,
-  syncCorridorPreviewPreference,
+  resolveEffectiveCorridorPreference,
 } from '../selection-corridor'
 
 const point = (difficulty: number, selectedModelId: string) => ({
@@ -37,13 +39,51 @@ test('finds the nearest simulated difficulty point', () => {
   )
 })
 
-test('syncs Token preference once without overriding a manual selection', () => {
-  const economy = syncCorridorPreviewPreference('balanced', undefined, '12', 'economy')
-  assert.equal(economy.preference, 'economy')
-  const manual = syncCorridorPreviewPreference('quality', economy.previewKey, '12', 'economy')
-  assert.equal(manual.preference, 'quality')
-  const quality = syncCorridorPreviewPreference('balanced', manual.previewKey, '13', 'quality')
-  assert.equal(quality.preference, 'quality')
-  const global = syncCorridorPreviewPreference('quality', quality.previewKey, 'global', 'balanced')
-  assert.equal(global.preference, 'balanced')
+test('aggregates eligible models from corridor points and presets', () => {
+  const corridor = {
+    defaultPreference: 'economy' as const,
+    formulaVersion: 'test',
+    generatedAt: '2026-07-31T00:00:00Z',
+    inputTokens: 100,
+    expectedOutputTokens: 10,
+    assumptions: {},
+    executionPresetSeries: [{ modelId: 'preset-model', candidateId: 'preset@high', displayName: 'Preset', executionPresetId: 'high', reasoningEffort: 'high', calibrationStatus: 'verified', expectedOutputTokenMultiplier: 1, estimatedOutputTokens: 10, points: [] }],
+    series: {
+      economy: [{ ...point(0, 'selected-model'), candidates: [{ candidateId: 'candidate', modelId: 'candidate-model', quality: 1, costCny: 1, valueUtility: 1 }] }],
+      balanced: [],
+      quality: [],
+    },
+  }
+  assert.deepEqual([...corridorEligibleModelIds(corridor)].sort(), [
+    'candidate-model',
+    'preset-model',
+    'selected-model',
+  ])
+})
+
+test('uses the selected Token preference and keeps global mode interactive', () => {
+  const corridor = {
+    defaultPreference: 'economy' as const,
+    formulaVersion: 'test',
+    generatedAt: '2026-07-31T00:00:00Z',
+    inputTokens: 100,
+    expectedOutputTokens: 10,
+    assumptions: {},
+    executionPresetSeries: [],
+    series: { economy: [], balanced: [], quality: [] },
+  }
+  assert.equal(resolveEffectiveCorridorPreference(3, corridor, 'quality'), 'economy')
+  assert.equal(
+    resolveEffectiveCorridorPreference(4, { ...corridor, defaultPreference: 'quality' }, 'balanced'),
+    'quality'
+  )
+  assert.equal(resolveEffectiveCorridorPreference(undefined, corridor, 'balanced'), 'balanced')
+  assert.equal(resolveEffectiveCorridorPreference(undefined, corridor, 'quality'), 'quality')
+})
+
+test('uses a three-column aligned desktop control grid', () => {
+  assert.match(
+    PRICING_PREVIEW_CONTROL_GRID_CLASS,
+    /items-end.*xl:grid-cols-\[minmax\(240px,280px\)_112px_112px\]/
+  )
 })
