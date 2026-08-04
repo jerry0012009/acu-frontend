@@ -25,6 +25,9 @@ func buildMaskedTokenResponse(token *model.Token) *model.Token {
 	if strings.TrimSpace(maskedToken.ACURoutingPreference) == "" {
 		maskedToken.ACURoutingPreference = "balanced"
 	}
+	if strings.TrimSpace(maskedToken.ACUSupplyStrategy) == "" {
+		maskedToken.ACUSupplyStrategy = "balanced"
+	}
 	if maskedToken.ACUProfileLimits == nil {
 		maskedToken.ACUProfileLimits = make([]string, 0)
 	}
@@ -194,6 +197,15 @@ func AddToken(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	supplyStrategy, err := service.NormalizeACUSupplyStrategy(token.ACUSupplyStrategy)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if token.ACUQualityBias != nil && (*token.ACUQualityBias < -100 || *token.ACUQualityBias > 100) {
+		common.ApiError(c, fmt.Errorf("invalid ACU quality bias"))
+		return
+	}
 	// 非无限额度时，检查额度值是否超出有效范围
 	if !token.UnlimitedQuota {
 		if token.RemainQuota < 0 {
@@ -272,6 +284,8 @@ func AddToken(c *gin.Context) {
 		ACUProfileLimitsEnabled: token.ACUProfileLimitsEnabled,
 		ACUProfileLimits:        normalizeACUProfileLimits(token.ACUProfileLimits),
 		ACURoutingPreference:    preference,
+		ACUQualityBias:          token.ACUQualityBias,
+		ACUSupplyStrategy:       supplyStrategy,
 		AllowIps:                token.AllowIps,
 		Group:                   token.Group,
 		CrossGroupRetry:         token.CrossGroupRetry,
@@ -317,6 +331,15 @@ func UpdateToken(c *gin.Context) {
 	preference, err := service.NormalizeACURoutingPreference(token.ACURoutingPreference)
 	if err != nil {
 		common.ApiError(c, err)
+		return
+	}
+	supplyStrategy, err := service.NormalizeACUSupplyStrategy(token.ACUSupplyStrategy)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if token.ACUQualityBias != nil && (*token.ACUQualityBias < -100 || *token.ACUQualityBias > 100) {
+		common.ApiError(c, fmt.Errorf("invalid ACU quality bias"))
 		return
 	}
 	if !token.UnlimitedQuota {
@@ -390,6 +413,8 @@ func UpdateToken(c *gin.Context) {
 		cleanToken.ACUProfileLimitsEnabled = token.ACUProfileLimitsEnabled
 		cleanToken.ACUProfileLimits = normalizeACUProfileLimits(token.ACUProfileLimits)
 		cleanToken.ACURoutingPreference = preference
+		cleanToken.ACUQualityBias = token.ACUQualityBias
+		cleanToken.ACUSupplyStrategy = supplyStrategy
 		cleanToken.AllowIps = token.AllowIps
 		cleanToken.Group = token.Group
 		cleanToken.CrossGroupRetry = token.CrossGroupRetry

@@ -351,8 +351,57 @@ export async function getACUGlobalRoutingPolicy(): Promise<ACUGlobalRoutingPolic
   return res.data.data
 }
 
-export async function updateACUGlobalRoutingPolicy(policy: ACUGlobalRoutingPolicy) {
+export async function updateACUGlobalRoutingPolicy(
+  policy: ACUGlobalRoutingPolicy
+) {
   const res = await api.put('/api/option/acu-routing-policy', policy)
+  return res.data
+}
+
+export type ACURoutingUtilityConfig = {
+  schemaVersion: 'acu-routing-utility-config-v1'
+  formulaMode: 'legacy' | 'shadow' | 'active'
+  qualityPresets: Record<'economy' | 'balanced' | 'quality', number>
+  acuHighBiasOffset: number
+  modelCostLogScale: number
+  supplyPresets: Record<
+    'lowest_cost' | 'balanced' | 'low_latency' | 'high_reliability',
+    { cost: number; speed: number; reliability: number }
+  >
+  profileCostLogScale: number
+  profileSpeedLogScale: number
+  latency: {
+    windowHours: number
+    longContextThresholdTokens: number
+    minimumSamples: number
+    unknownLatencyMultiplier: number
+  }
+  reliability: {
+    windowHours: number
+    minimumSamples: number
+    unknownDefault: number
+    degradedMultiplier: number
+  }
+  workPhaseBiasOffsets: Record<
+    | 'inspection'
+    | 'general'
+    | 'implementation'
+    | 'verification'
+    | 'planning'
+    | 'recovery',
+    number
+  >
+}
+
+export async function getACURoutingUtilityConfig(): Promise<ACURoutingUtilityConfig> {
+  const res = await api.get('/api/option/acu-routing-utility-config')
+  return res.data.data
+}
+
+export async function updateACURoutingUtilityConfig(
+  config: ACURoutingUtilityConfig
+) {
+  const res = await api.put('/api/option/acu-routing-utility-config', config)
   return res.data
 }
 

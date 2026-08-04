@@ -37,11 +37,11 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { getApiKeys } from '@/features/keys/api'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { cn } from '@/lib/utils'
 import { VCHART_OPTION } from '@/lib/vchart'
 import { useAuthStore } from '@/stores/auth-store'
-import { getApiKeys } from '@/features/keys/api'
 
 import { getACUSelectionCorridor } from '../api'
 import {
@@ -70,6 +70,7 @@ import {
 import {
   PRICING_PREVIEW_CONTROL_GRID_CLASS,
   corridorEligibleModelIds,
+  corridorEffectivePointAtDifficulty,
   corridorPointAtDifficulty,
   resolveEffectiveCorridorPreference,
   type CorridorPreference,
@@ -142,7 +143,11 @@ export function ACUModelCurves(props: {
         previewTokenId,
       ],
       queryFn: () =>
-        getACUSelectionCorridor(deferredInputTokens, deferredOutputTokens, previewTokenId),
+        getACUSelectionCorridor(
+          deferredInputTokens,
+          deferredOutputTokens,
+          previewTokenId
+        ),
       staleTime: 60 * 1000,
       retry: 1,
     })
@@ -154,14 +159,19 @@ export function ACUModelCurves(props: {
     if (previewTokenId == null) return allCurveModels
     if (!selectionCorridor) return []
     const eligibleModelIds = corridorEligibleModelIds(selectionCorridor)
-    return allCurveModels.filter((model) => eligibleModelIds.has(model.model_name))
+    return allCurveModels.filter((model) =>
+      eligibleModelIds.has(model.model_name)
+    )
   }, [allCurveModels, previewTokenId, selectionCorridor])
   const effectiveCorridorPreference = resolveEffectiveCorridorPreference(
     previewTokenId,
     selectionCorridor,
     corridorPreference
   )
-  const isPreviewLoading = previewTokenId != null && !selectionCorridor && !selectionCorridorUnavailable
+  const isPreviewLoading =
+    previewTokenId != null &&
+    !selectionCorridor &&
+    !selectionCorridorUnavailable
   const allCandidateIds = useMemo(
     () => [
       ...curveModels.map((model) => model.model_name),
@@ -335,43 +345,46 @@ export function ACUModelCurves(props: {
   const costData = useMemo(
     () =>
       [
-        ...selectedModels.map((model): PricingCostDatum => ({
-          modelId: model.model_name,
-          modelName: model.display_name || model.model_name,
-          payableCost: estimatedPricingCost(
-            model.payable?.input_cny_per_million,
-            model.payable?.output_cny_per_million,
-            inputTokens,
-            outputTokens
-          ),
-          referenceCost: estimatedPricingCost(
-            model.reference?.input_cny_per_million,
-            model.reference?.output_cny_per_million,
-            inputTokens,
-            outputTokens
-          ),
-          payableInput: model.payable?.input_cny_per_million,
-          payableOutput: model.payable?.output_cny_per_million,
-          referenceInput: model.reference?.input_cny_per_million,
-          referenceOutput: model.reference?.output_cny_per_million,
-          referenceSource: model.reference
-            ? formatPublicReferenceSource(
-                model.reference,
-                t('Official pricing'),
-                t('OpenRouter public pricing')
-              )
-            : undefined,
-          referenceObservedAt: model.reference?.observed_at,
-          status: model.payable?.status,
-          displayCost: displayedPricingCost(
-            model,
-            props.displayMode,
-            inputTokens,
-            outputTokens
-          ),
-          abilityScore:
-            qualityAtDifficulty(model.acu_curve ?? [], abilityDifficulty) * 100,
-        })),
+        ...selectedModels.map(
+          (model): PricingCostDatum => ({
+            modelId: model.model_name,
+            modelName: model.display_name || model.model_name,
+            payableCost: estimatedPricingCost(
+              model.payable?.input_cny_per_million,
+              model.payable?.output_cny_per_million,
+              inputTokens,
+              outputTokens
+            ),
+            referenceCost: estimatedPricingCost(
+              model.reference?.input_cny_per_million,
+              model.reference?.output_cny_per_million,
+              inputTokens,
+              outputTokens
+            ),
+            payableInput: model.payable?.input_cny_per_million,
+            payableOutput: model.payable?.output_cny_per_million,
+            referenceInput: model.reference?.input_cny_per_million,
+            referenceOutput: model.reference?.output_cny_per_million,
+            referenceSource: model.reference
+              ? formatPublicReferenceSource(
+                  model.reference,
+                  t('Official pricing'),
+                  t('OpenRouter public pricing')
+                )
+              : undefined,
+            referenceObservedAt: model.reference?.observed_at,
+            status: model.payable?.status,
+            displayCost: displayedPricingCost(
+              model,
+              props.displayMode,
+              inputTokens,
+              outputTokens
+            ),
+            abilityScore:
+              qualityAtDifficulty(model.acu_curve ?? [], abilityDifficulty) *
+              100,
+          })
+        ),
         ...selectedPresets.flatMap((preset): PricingCostDatum[] => {
           const baseModel = canonicalModelById.get(preset.modelId)
           const costs = executionPresetPricingCosts(
@@ -382,35 +395,35 @@ export function ACUModelCurves(props: {
             abilityDifficulty
           )
           const point = costs.point
-          return point ? [{
-            modelId: preset.candidateId,
-            modelName: preset.displayName,
-            payableCost: costs.payableCost,
-            referenceCost: costs.referenceCost,
-            referenceInput: baseModel?.reference?.input_cny_per_million,
-            referenceOutput: baseModel?.reference?.output_cny_per_million,
-            referenceSource: baseModel?.reference
-              ? formatPublicReferenceSource(
-                  baseModel.reference,
-                  t('Official pricing'),
-                  t('OpenRouter public pricing')
-                )
-              : undefined,
-            referenceObservedAt: baseModel?.reference?.observed_at,
-            status: 'estimated',
-            displayCost: costs.displayCost,
-            abilityScore: point.estimatedQuality,
-          }] : []
+          return point
+            ? [
+                {
+                  modelId: preset.candidateId,
+                  modelName: preset.displayName,
+                  payableCost: costs.payableCost,
+                  referenceCost: costs.referenceCost,
+                  referenceInput: baseModel?.reference?.input_cny_per_million,
+                  referenceOutput: baseModel?.reference?.output_cny_per_million,
+                  referenceSource: baseModel?.reference
+                    ? formatPublicReferenceSource(
+                        baseModel.reference,
+                        t('Official pricing'),
+                        t('OpenRouter public pricing')
+                      )
+                    : undefined,
+                  referenceObservedAt: baseModel?.reference?.observed_at,
+                  status: 'estimated',
+                  displayCost: costs.displayCost,
+                  abilityScore: point.estimatedQuality,
+                },
+              ]
+            : []
         }),
-      ]
-        .sort((left, right) =>
-          sortMode === 'ability'
-            ? right.abilityScore - left.abilityScore
-            : compareDisplayedCostsDescending(
-                left.displayCost,
-                right.displayCost
-              )
-        ),
+      ].sort((left, right) =>
+        sortMode === 'ability'
+          ? right.abilityScore - left.abilityScore
+          : compareDisplayedCostsDescending(left.displayCost, right.displayCost)
+      ),
     [
       abilityDifficulty,
       canonicalModelById,
@@ -464,21 +477,53 @@ export function ACUModelCurves(props: {
       })),
     [selectionCorridor]
   )
-  const activeCorridor = useMemo(
-    () =>
-      corridorData.find((corridor) => corridor.id === effectiveCorridorPreference) ??
-      corridorData[1],
-    [corridorData, effectiveCorridorPreference]
-  )
+  const activeCorridor = useMemo(() => {
+    if (previewTokenId != null && selectionCorridor?.effective) {
+      return {
+        id: effectiveCorridorPreference,
+        label:
+          selectionCorridor.resolvedQualityBias == null
+            ? effectiveCorridorPreference
+            : `Custom ${selectionCorridor.resolvedQualityBias >= 0 ? '+' : ''}${selectionCorridor.resolvedQualityBias}`,
+        values: selectionCorridor.effective,
+      }
+    }
+    return (
+      corridorData.find(
+        (corridor) => corridor.id === effectiveCorridorPreference
+      ) ?? corridorData[1]
+    )
+  }, [
+    corridorData,
+    effectiveCorridorPreference,
+    previewTokenId,
+    selectionCorridor,
+  ])
   const corridorAtHover = useMemo(
     () =>
-      corridorPointAtDifficulty(
-        selectionCorridor,
-        effectiveCorridorPreference,
-        abilityDifficulty
-      ),
-    [abilityDifficulty, effectiveCorridorPreference, selectionCorridor]
+      previewTokenId != null
+        ? corridorEffectivePointAtDifficulty(
+            selectionCorridor,
+            abilityDifficulty
+          )
+        : corridorPointAtDifficulty(
+            selectionCorridor,
+            effectiveCorridorPreference,
+            abilityDifficulty
+          ),
+    [
+      abilityDifficulty,
+      effectiveCorridorPreference,
+      previewTokenId,
+      selectionCorridor,
+    ]
   )
+  const selectedProfileUtilityAtHover =
+    corridorAtHover?.profileCandidateUtilities?.find(
+      (utility) =>
+        utility.executionProfileId ===
+        corridorAtHover.selectedExecutionProfileId
+    )
   let corridorStatusText = '正在读取当前路由快照'
   if (selectionCorridor) {
     corridorStatusText = `${selectionCorridor.formulaVersion} · 零调用模拟 · ${new Date(
@@ -652,17 +697,17 @@ export function ACUModelCurves(props: {
   if (curveModels.length === 0 && previewTokenId == null) return null
 
   return (
-    <section className="border-border/70 bg-card/80 overflow-hidden rounded-lg border">
-      <div className="border-b px-4 py-4 sm:px-5">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <Route className="text-primary size-4" />
-              <h2 className="text-base font-semibold">
+    <section className='border-border/70 bg-card/80 overflow-hidden rounded-lg border'>
+      <div className='border-b px-4 py-4 sm:px-5'>
+        <div className='flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between'>
+          <div className='min-w-0'>
+            <div className='flex items-center gap-2'>
+              <Route className='text-primary size-4' />
+              <h2 className='text-base font-semibold'>
                 {t('ACU model quality curves')}
               </h2>
             </div>
-            <p className="text-muted-foreground mt-1 max-w-3xl text-xs leading-relaxed sm:text-sm">
+            <p className='text-muted-foreground mt-1 max-w-3xl text-xs leading-relaxed sm:text-sm'>
               {t(
                 'Quality is predicted by task difficulty. Current estimates use available routes and billing configuration.'
               )}
@@ -670,16 +715,20 @@ export function ACUModelCurves(props: {
           </div>
           <div className={PRICING_PREVIEW_CONTROL_GRID_CLASS}>
             {currentUser && (
-              <label className="text-muted-foreground col-span-1 text-[11px] font-medium sm:col-span-2 xl:col-span-1">
+              <label className='text-muted-foreground col-span-1 text-[11px] font-medium sm:col-span-2 xl:col-span-1'>
                 {t('Preview API Key')}
                 <select
-                  className="bg-background mt-1 h-8 w-full rounded-md border px-2 text-sm"
+                  className='bg-background mt-1 h-8 w-full rounded-md border px-2 text-sm'
                   value={previewTokenId ?? ''}
                   onChange={(event) =>
-                    setPreviewTokenId(event.target.value ? Number(event.target.value) : undefined)
+                    setPreviewTokenId(
+                      event.target.value
+                        ? Number(event.target.value)
+                        : undefined
+                    )
                   }
                 >
-                  <option value="">{t('Default global routing')}</option>
+                  <option value=''>{t('Default global routing')}</option>
                   {(apiKeys?.data?.items ?? []).map((key) => (
                     <option key={key.id} value={key.id}>
                       {key.name} · {key.acu_routing_preference || 'balanced'}
@@ -688,11 +737,11 @@ export function ACUModelCurves(props: {
                 </select>
               </label>
             )}
-            <label className="text-muted-foreground text-[11px] font-medium">
+            <label className='text-muted-foreground text-[11px] font-medium'>
               {t('Input tokens')}
               <Input
-                className="mt-1 h-8 w-full min-w-0 rounded-md font-mono"
-                type="number"
+                className='mt-1 h-8 w-full min-w-0 rounded-md font-mono'
+                type='number'
                 min={0}
                 step={1000}
                 value={inputTokens}
@@ -701,11 +750,11 @@ export function ACUModelCurves(props: {
                 }
               />
             </label>
-            <label className="text-muted-foreground text-[11px] font-medium">
+            <label className='text-muted-foreground text-[11px] font-medium'>
               {t('Expected output tokens')}
               <Input
-                className="mt-1 h-8 w-full min-w-0 rounded-md font-mono"
-                type="number"
+                className='mt-1 h-8 w-full min-w-0 rounded-md font-mono'
+                type='number'
                 min={0}
                 step={100}
                 value={outputTokens}
@@ -717,16 +766,16 @@ export function ACUModelCurves(props: {
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-1.5">
+        <div className='mt-4 flex flex-wrap gap-1.5'>
           <Button
-            type="button"
-            size="sm"
+            type='button'
+            size='sm'
             variant={
               selectedCandidateIds.length === allCandidateIds.length
                 ? 'default'
                 : 'outline'
             }
-            className="h-7 px-2 text-xs"
+            className='h-7 px-2 text-xs'
             onClick={() => setSelectedCandidateIds(allCandidateIds)}
           >
             {t('All')} {allCandidateIds.length}
@@ -736,7 +785,7 @@ export function ACUModelCurves(props: {
             return (
               <button
                 key={model.model_name}
-                type="button"
+                type='button'
                 onClick={() =>
                   setSelectedCandidateIds((current) =>
                     selected
@@ -752,17 +801,17 @@ export function ACUModelCurves(props: {
                 )}
               >
                 <span
-                  className="size-2 rounded-full"
+                  className='size-2 rounded-full'
                   style={{
                     backgroundColor:
                       colorByModel.get(model.model_name) || priceRankColor(0.5),
                   }}
                 />
-                <span className="max-w-44 truncate">
+                <span className='max-w-44 truncate'>
                   {model.display_name || model.model_name}
                 </span>
                 {sortMode === 'ability' && (
-                  <span className="text-muted-foreground font-mono text-[10px]">
+                  <span className='text-muted-foreground font-mono text-[10px]'>
                     D{Math.round(abilityDifficulty)} ·{' '}
                     {(
                       qualityAtDifficulty(
@@ -773,7 +822,7 @@ export function ACUModelCurves(props: {
                     %
                   </span>
                 )}
-                {selected && <Check className="size-3" />}
+                {selected && <Check className='size-3' />}
               </button>
             )
           })}
@@ -782,7 +831,7 @@ export function ACUModelCurves(props: {
             return (
               <button
                 key={preset.candidateId}
-                type="button"
+                type='button'
                 onClick={() =>
                   setSelectedCandidateIds((current) =>
                     selected
@@ -798,25 +847,27 @@ export function ACUModelCurves(props: {
                 )}
               >
                 <span
-                  className="size-2 rounded-full"
-                  style={{ backgroundColor: colorByModel.get(preset.candidateId) }}
+                  className='size-2 rounded-full'
+                  style={{
+                    backgroundColor: colorByModel.get(preset.candidateId),
+                  }}
                 />
                 <span>{preset.displayName}</span>
-                <span className="text-muted-foreground hidden text-[9px] sm:inline">
+                <span className='text-muted-foreground hidden text-[9px] sm:inline'>
                   {executionPresetLabels(preset).join(' · ')}
                 </span>
-                {selected && <Check className="size-3" />}
+                {selected && <Check className='size-3' />}
               </button>
             )
           })}
         </div>
-        <div className="text-muted-foreground mt-3 flex flex-wrap items-center gap-2 text-[11px]">
+        <div className='text-muted-foreground mt-3 flex flex-wrap items-center gap-2 text-[11px]'>
           <span>
             {t('Lower estimated cost')} {formatACUCNY(priceRange.minimum)}
           </span>
           <span
-            aria-hidden="true"
-            className="h-2.5 w-40 rounded-full border sm:w-56"
+            aria-hidden='true'
+            className='h-2.5 w-40 rounded-full border sm:w-56'
             style={{
               background: `linear-gradient(90deg, ${PRICE_COLOR_STOPS.join(', ')})`,
             }}
@@ -829,40 +880,44 @@ export function ACUModelCurves(props: {
 
       {/* eslint-disable-next-line no-nested-ternary */}
       {isPreviewLoading ? (
-        <div className="text-muted-foreground flex h-56 items-center justify-center text-sm">
+        <div className='text-muted-foreground flex h-56 items-center justify-center text-sm'>
           {t('Loading routing corridor')}
         </div>
       ) : selectedModels.length + selectedPresets.length === 0 ? (
-        <div className="text-muted-foreground flex h-56 items-center justify-center text-sm">
+        <div className='text-muted-foreground flex h-56 items-center justify-center text-sm'>
           {t('Select at least one model')}
         </div>
       ) : (
-        <div className="bg-border/60 grid min-w-0 gap-px xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.85fr)]">
-          <div className="bg-card min-w-0 p-3 sm:p-5">
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <BarChart3 className="text-muted-foreground size-4" />
+        <div className='bg-border/60 grid min-w-0 gap-px xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.85fr)]'>
+          <div className='bg-card min-w-0 p-3 sm:p-5'>
+            <div className='mb-2 flex flex-wrap items-center justify-between gap-2'>
+              <div className='flex items-center gap-2 text-sm font-medium'>
+                <BarChart3 className='text-muted-foreground size-4' />
                 {t('Difficulty and estimated quality')}
               </div>
-              <div className="flex flex-wrap items-center justify-end gap-1.5">
+              <div className='flex flex-wrap items-center justify-end gap-1.5'>
                 <div
-                  className="bg-muted/40 inline-flex h-8 items-center rounded-md border p-0.5"
-                  role="group"
-                  aria-label="ACU Auto 选择模式"
+                  className='bg-muted/40 inline-flex h-8 items-center rounded-md border p-0.5'
+                  role='group'
+                  aria-label='ACU Auto 选择模式'
                 >
                   {CORRIDOR_PREFERENCES.map((preference) => (
                     <Button
                       key={preference.id}
-                      type="button"
-                      size="sm"
+                      type='button'
+                      size='sm'
                       variant={
                         effectiveCorridorPreference === preference.id
                           ? 'secondary'
                           : 'ghost'
                       }
-                      className="h-6 px-2 text-xs shadow-none"
+                      className='h-6 px-2 text-xs shadow-none'
                       disabled={previewTokenId != null}
-                      title={previewTokenId != null ? t('Determined by selected API Key') : undefined}
+                      title={
+                        previewTokenId != null
+                          ? t('Determined by selected API Key')
+                          : undefined
+                      }
                       onClick={() => setCorridorPreference(preference.id)}
                     >
                       {preference.label}
@@ -870,34 +925,34 @@ export function ACUModelCurves(props: {
                   ))}
                 </div>
                 <div
-                  className="bg-muted/40 inline-flex h-8 items-center rounded-md border p-0.5"
-                  role="group"
+                  className='bg-muted/40 inline-flex h-8 items-center rounded-md border p-0.5'
+                  role='group'
                   aria-label={t('Curve ranking')}
                 >
                   <Button
-                    type="button"
-                    size="sm"
+                    type='button'
+                    size='sm'
                     variant={sortMode === 'price' ? 'secondary' : 'ghost'}
-                    className="h-6 gap-1 px-2 text-xs shadow-none"
+                    className='h-6 gap-1 px-2 text-xs shadow-none'
                     onClick={() => setSortMode('price')}
                   >
-                    <CircleDollarSign className="size-3" />
+                    <CircleDollarSign className='size-3' />
                     {t('Price ranking')}
                   </Button>
                   <Button
-                    type="button"
-                    size="sm"
+                    type='button'
+                    size='sm'
                     variant={sortMode === 'ability' ? 'secondary' : 'ghost'}
-                    className="h-6 gap-1 px-2 text-xs shadow-none"
+                    className='h-6 gap-1 px-2 text-xs shadow-none'
                     onClick={() => setSortMode('ability')}
                   >
-                    <ArrowDownUp className="size-3" />
+                    <ArrowDownUp className='size-3' />
                     {t('Ability ranking')} · D{Math.round(abilityDifficulty)}
                   </Button>
                 </div>
               </div>
             </div>
-            <div className="h-[360px] min-w-0 sm:h-[440px]">
+            <div className='h-[360px] min-w-0 sm:h-[440px]'>
               {themeReady && (
                 <VChart
                   key={`acu-curves-${resolvedTheme}`}
@@ -911,88 +966,140 @@ export function ACUModelCurves(props: {
                 />
               )}
             </div>
-            <div className="mt-3 border-t pt-3">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <div className="text-xs font-medium">
+            <div className='mt-3 border-t pt-3'>
+              <div className='mb-2 flex flex-wrap items-center justify-between gap-2'>
+                <div className='text-xs font-medium'>
                   ACU Auto · {activeCorridor?.label} · D
                   {Math.round(abilityDifficulty)}
                 </div>
-                <div className="text-muted-foreground text-[10px]">
+                <div className='text-muted-foreground text-[10px]'>
                   {corridorStatusText}
                 </div>
               </div>
               {corridorAtHover ? (
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0">
-                    <span className="text-sm font-semibold">
+                <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
+                  <div className='min-w-0'>
+                    <span className='text-sm font-semibold'>
                       {modelNameById.get(
-                        corridorAtHover.selectedCandidateId || corridorAtHover.selectedModelId
-                      ) || corridorAtHover.selectedCandidateId ||
+                        corridorAtHover.selectedCandidateId ||
+                          corridorAtHover.selectedModelId
+                      ) ||
+                        corridorAtHover.selectedCandidateId ||
                         corridorAtHover.selectedModelId}
                     </span>
-                    <span className="text-muted-foreground ml-2 text-xs">
+                    <span className='text-muted-foreground ml-2 text-xs'>
                       预计质量 {corridorAtHover.selectedQuality.toFixed(1)}% ·{' '}
                       {formatACUCNY(corridorAtHover.selectedCostCny)}
                     </span>
+                    {corridorAtHover.qualityWeight != null && (
+                      <div className='text-muted-foreground mt-1 text-[10px]'>
+                        {t('Quality')}{' '}
+                        {(corridorAtHover.qualityWeight * 100).toFixed(0)}% ·{' '}
+                        {t('Cost')}{' '}
+                        {((corridorAtHover.costWeight ?? 0) * 100).toFixed(0)}%
+                        · {t('Supply strategy')}{' '}
+                        {selectionCorridor?.supplyStrategy ?? 'balanced'}
+                      </div>
+                    )}
+                    {corridorAtHover.selectedExecutionProfileId && (
+                      <div className='text-muted-foreground mt-1 text-[10px]'>
+                        {corridorAtHover.selectedExecutionProfileId} ·{' '}
+                        {corridorAtHover.selectedProvider} ·{' '}
+                        {t('Profile utility')}{' '}
+                        {corridorAtHover.selectedProfileUtility?.toFixed(4) ??
+                          'n/a'}
+                        {selectedProfileUtilityAtHover && (
+                          <>
+                            {' '}
+                            · C{' '}
+                            {selectedProfileUtilityAtHover.costUtility.toFixed(
+                              4
+                            )}{' '}
+                            · S{' '}
+                            {selectedProfileUtilityAtHover.speedUtility.toFixed(
+                              4
+                            )}{' '}
+                            · R{' '}
+                            {selectedProfileUtilityAtHover.reliabilityUtility.toFixed(
+                              4
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[10px]">
+                  <div className='flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[10px]'>
                     {corridorAtHover.candidates.map((candidate) => (
                       <span
                         key={candidate.candidateId || candidate.modelId}
-                        className="inline-flex items-center gap-1"
+                        className='inline-flex items-center gap-1'
                       >
                         <span
-                          className="size-1.5 rounded-full"
+                          className='size-1.5 rounded-full'
                           style={{
                             backgroundColor:
-                              colorByModel.get(candidate.candidateId || candidate.modelId) ||
-                              priceRankColor(0.5),
+                              colorByModel.get(
+                                candidate.candidateId || candidate.modelId
+                              ) || priceRankColor(0.5),
                           }}
                         />
-                        {modelNameById.get(candidate.candidateId || candidate.modelId) ||
-                          candidate.modelId}
+                        <span>
+                          {modelNameById.get(
+                            candidate.candidateId || candidate.modelId
+                          ) || candidate.modelId}
+                          {candidate.qualityUtility != null &&
+                            candidate.costUtility != null && (
+                              <span className='text-muted-foreground ml-1'>
+                                U {candidate.valueUtility.toFixed(4)} · Q{' '}
+                                {candidate.qualityUtility.toFixed(4)} · C{' '}
+                                {candidate.costUtility.toFixed(4)}
+                              </span>
+                            )}
+                        </span>
                       </span>
                     ))}
                   </div>
                 </div>
               ) : (
-                <div className="text-muted-foreground text-xs">
+                <div className='text-muted-foreground text-xs'>
                   暂无可路由模型
                 </div>
               )}
-              <p className="text-muted-foreground mt-2 text-[10px] leading-4">
-                淡色区域表示当前模式下前三个 Pareto
-                前沿候选的质量覆盖范围；模型曲线颜色按实际人民币价格由蓝到紫排列。
+              <p className='text-muted-foreground mt-2 text-[10px] leading-4'>
+                淡色区域表示当前模式下全部合法候选的质量覆盖范围；模型曲线颜色按实际人民币价格由蓝到紫排列。
                 展示 Responses、无工具、基础质量目标 80 的条件结果。
               </p>
             </div>
           </div>
 
-          <div className="bg-card min-w-0 p-3 sm:p-5">
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <CircleDollarSign className="text-muted-foreground size-4" />
+          <div className='bg-card min-w-0 p-3 sm:p-5'>
+            <div className='mb-2 flex flex-wrap items-center justify-between gap-2'>
+              <div className='flex items-center gap-2 text-sm font-medium'>
+                <CircleDollarSign className='text-muted-foreground size-4' />
                 {t('Estimated execution cost (CNY)')}
               </div>
-              <div className="text-muted-foreground flex items-center gap-3 text-[11px]">
+              <div className='text-muted-foreground flex items-center gap-3 text-[11px]'>
                 {props.displayMode !== 'reference_only' && (
-                  <span className="flex items-center gap-1">
-                    <span className="bg-foreground inline-block h-2 w-3 rounded-[1px]" />
+                  <span className='flex items-center gap-1'>
+                    <span className='bg-foreground inline-block h-2 w-3 rounded-[1px]' />
                     {t('Current platform estimate')}
                   </span>
                 )}
                 {props.displayMode !== 'payable_only' && (
-                  <span className="flex items-center gap-1">
-                    <span className="bg-foreground inline-block h-3 w-3 rounded-[1px] opacity-[0.16]" />
+                  <span className='flex items-center gap-1'>
+                    <span className='bg-foreground inline-block h-3 w-3 rounded-[1px] opacity-[0.16]' />
                     {t('Official or public reference')}
                   </span>
                 )}
               </div>
             </div>
             <div
-              className="min-w-0"
+              className='min-w-0'
               style={{
-                height: Math.max(360, (selectedModels.length + selectedPresets.length) * 34),
+                height: Math.max(
+                  360,
+                  (selectedModels.length + selectedPresets.length) * 34
+                ),
               }}
             >
               {themeReady && (
@@ -1007,7 +1114,7 @@ export function ACUModelCurves(props: {
                 />
               )}
             </div>
-            <div className="text-muted-foreground mt-2 border-t pt-3 text-xs leading-relaxed">
+            <div className='text-muted-foreground mt-2 border-t pt-3 text-xs leading-relaxed'>
               {t(
                 'Solid bars show the current platform estimated payment; light bars show official or public market reference costs. Estimates use the input and output tokens above. Actual payment may change with route availability, network status, and price updates. Final billing prevails.'
               )}

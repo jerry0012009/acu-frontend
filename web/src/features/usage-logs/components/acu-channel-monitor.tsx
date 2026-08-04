@@ -19,18 +19,21 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useIsAdmin } from '@/hooks/use-admin'
-import { useAuthStore } from '@/stores/auth-store'
 import { ROLE } from '@/lib/roles'
+import { useAuthStore } from '@/stores/auth-store'
 
 import {
   getACUChannelMonitor,
   getACUGlobalRoutingPolicy,
+  getACURoutingUtilityConfig,
   updateACUGlobalRoutingPolicy,
+  updateACURoutingUtilityConfig,
   pauseACUChannel,
   type ACUChannelMonitorProfile,
   type ACUModelPoolEntry,
   type ACUProbeHistoryRow,
   type ACUMonitorRange,
+  type ACURoutingUtilityConfig,
 } from '../api'
 import { ACUChannelHistory } from './acu-channel-history'
 
@@ -64,7 +67,9 @@ function profileFilterValues(
 export function ACUChannelMonitor() {
   const { t } = useTranslation()
   const isAdmin = useIsAdmin()
-  const isRoot = useAuthStore((state) => state.auth.user?.role === ROLE.SUPER_ADMIN)
+  const isRoot = useAuthStore(
+    (state) => state.auth.user?.role === ROLE.SUPER_ADMIN
+  )
   const queryClient = useQueryClient()
   const [range, setRange] = useState<ACUMonitorRange>('24h')
   const [filters, setFilters] = useState({
@@ -90,9 +95,29 @@ export function ACUChannelMonitor() {
     onSuccess: () => {
       toast.success(t('ACU routing policy updated'))
       setPolicyDraft(undefined)
-      void queryClient.invalidateQueries({ queryKey: ['acu-global-routing-policy'] })
+      void queryClient.invalidateQueries({
+        queryKey: ['acu-global-routing-policy'],
+      })
     },
     onError: () => toast.error(t('ACU routing policy update failed')),
+  })
+  const utilityQuery = useQuery({
+    queryKey: ['acu-routing-utility-config'],
+    queryFn: getACURoutingUtilityConfig,
+    enabled: isRoot,
+  })
+  const [utilityDraft, setUtilityDraft] = useState<ACURoutingUtilityConfig>()
+  const utilityConfig = utilityDraft ?? utilityQuery.data
+  const utilityMutation = useMutation({
+    mutationFn: updateACURoutingUtilityConfig,
+    onSuccess: () => {
+      toast.success(t('ACU routing utility updated'))
+      setUtilityDraft(undefined)
+      void queryClient.invalidateQueries({
+        queryKey: ['acu-routing-utility-config'],
+      })
+    },
+    onError: () => toast.error(t('ACU routing utility update failed')),
   })
   const pause = useMutation({
     mutationFn: ({
@@ -148,7 +173,7 @@ export function ACUChannelMonitor() {
     [t('Canonical models'), summary.models, Table2],
   ] as const
   return (
-    <div className='flex h-full min-h-0 flex-col gap-4 overflow-y-auto overflow-x-hidden pb-4'>
+    <div className='flex h-full min-h-0 flex-col gap-4 overflow-x-hidden overflow-y-auto pb-4'>
       <div className='flex flex-wrap items-center justify-between gap-3'>
         <div>
           <h2 className='text-base font-semibold'>{t('Channel Monitor')}</h2>
@@ -166,11 +191,17 @@ export function ACUChannelMonitor() {
         </Button>
       </div>
       {query.isError && (
-        <div className='text-destructive flex items-start gap-2 rounded border border-destructive/30 bg-destructive/5 p-3 text-xs'>
+        <div className='text-destructive border-destructive/30 bg-destructive/5 flex items-start gap-2 rounded border p-3 text-xs'>
           <AlertCircle className='mt-0.5 size-4 shrink-0' />
           <div>
-            <div className='font-medium'>{t('Channel monitor data could not be loaded')}</div>
-            <div className='mt-1'>{query.error instanceof Error ? query.error.message : t('Please refresh and try again')}</div>
+            <div className='font-medium'>
+              {t('Channel monitor data could not be loaded')}
+            </div>
+            <div className='mt-1'>
+              {query.error instanceof Error
+                ? query.error.message
+                : t('Please refresh and try again')}
+            </div>
           </div>
         </div>
       )}
@@ -183,7 +214,11 @@ export function ACUChannelMonitor() {
         <section className='space-y-3 rounded border p-3'>
           <div>
             <h3 className='text-sm font-semibold'>{t('ACU Routing Policy')}</h3>
-            <p className='text-muted-foreground text-xs'>{t('Global policy only narrows verified routing-eligible candidates.')}</p>
+            <p className='text-muted-foreground text-xs'>
+              {t(
+                'Global policy only narrows verified routing-eligible candidates.'
+              )}
+            </p>
           </div>
           <div className='grid gap-3 lg:grid-cols-2'>
             <PolicyScopeEditor
@@ -191,24 +226,70 @@ export function ACUChannelMonitor() {
               allLabel={t('All routing-eligible models')}
               custom={policy.modelPolicy === 'custom_allowlist'}
               values={policy.allowedModelIds}
-              options={[...new Set((query.data?.data?.modelPool ?? []).filter((item) => item.autoRouteEnabled).map((item) => item.modelId))].sort()}
-              onCustom={(custom) => setPolicyDraft({ ...policy, modelPolicy: custom ? 'custom_allowlist' : 'all_routing_eligible' })}
-              onChange={(values) => setPolicyDraft({ ...policy, allowedModelIds: values })}
+              options={[
+                ...new Set(
+                  (query.data?.data?.modelPool ?? [])
+                    .filter((item) => item.autoRouteEnabled)
+                    .map((item) => item.modelId)
+                ),
+              ].sort()}
+              onCustom={(custom) =>
+                setPolicyDraft({
+                  ...policy,
+                  modelPolicy: custom
+                    ? 'custom_allowlist'
+                    : 'all_routing_eligible',
+                })
+              }
+              onChange={(values) =>
+                setPolicyDraft({ ...policy, allowedModelIds: values })
+              }
             />
             <PolicyScopeEditor
               title={t('Allowed Profiles')}
               allLabel={t('All routing-eligible profiles')}
               custom={policy.profilePolicy === 'custom_allowlist'}
               values={policy.allowedProfileIds}
-              options={(query.data?.data?.profiles ?? []).filter((item) => item.enabled && item.administratorAllowed && item.autoRouteEnabled).map((item) => item.executionProfileId).sort()}
-              onCustom={(custom) => setPolicyDraft({ ...policy, profilePolicy: custom ? 'custom_allowlist' : 'all_routing_eligible' })}
-              onChange={(values) => setPolicyDraft({ ...policy, allowedProfileIds: values })}
+              options={(query.data?.data?.profiles ?? [])
+                .filter(
+                  (item) =>
+                    item.enabled &&
+                    item.administratorAllowed &&
+                    item.autoRouteEnabled
+                )
+                .map((item) => item.executionProfileId)
+                .sort()}
+              onCustom={(custom) =>
+                setPolicyDraft({
+                  ...policy,
+                  profilePolicy: custom
+                    ? 'custom_allowlist'
+                    : 'all_routing_eligible',
+                })
+              }
+              onChange={(values) =>
+                setPolicyDraft({ ...policy, allowedProfileIds: values })
+              }
             />
           </div>
-          <Button size='sm' disabled={policyMutation.isPending} onClick={() => policyMutation.mutate(policy)}>{t('Save policy')}</Button>
+          <Button
+            size='sm'
+            disabled={policyMutation.isPending}
+            onClick={() => policyMutation.mutate(policy)}
+          >
+            {t('Save policy')}
+          </Button>
         </section>
       )}
-      <div className='grid grid-cols-2 gap-px overflow-hidden rounded border bg-border lg:grid-cols-6'>
+      {isRoot && utilityConfig && (
+        <RoutingUtilityEditor
+          value={utilityConfig}
+          pending={utilityMutation.isPending}
+          onChange={setUtilityDraft}
+          onSave={() => utilityMutation.mutate(utilityConfig)}
+        />
+      )}
+      <div className='bg-border grid grid-cols-2 gap-px overflow-hidden rounded border lg:grid-cols-6'>
         {statItems.map(([label, value, Icon]) => (
           <div key={label} className='bg-background min-w-0 p-3'>
             <div className='text-muted-foreground flex items-center gap-1.5 text-[11px]'>
@@ -231,7 +312,9 @@ export function ACUChannelMonitor() {
         <TabsContent value='overview' className='min-w-0 space-y-3'>
           <CoverageTable rows={query.data?.data?.modelPool ?? []} />
           <div className='text-muted-foreground text-xs'>
-            {t('Route eligible means the profile is configured, trusted, enabled and not in channel/profile cooldown. Probe status is independent and shows the latest recorded probe.')}
+            {t(
+              'Route eligible means the profile is configured, trusted, enabled and not in channel/profile cooldown. Probe status is independent and shows the latest recorded probe.'
+            )}
           </div>
         </TabsContent>
         <TabsContent value='current' className='min-w-0 space-y-3'>
@@ -294,6 +377,267 @@ export function ACUChannelMonitor() {
   )
 }
 
+function RoutingUtilityEditor(props: {
+  value: ACURoutingUtilityConfig
+  pending: boolean
+  onChange: (value: ACURoutingUtilityConfig) => void
+  onSave: () => void
+}) {
+  const { t } = useTranslation()
+  const numberField = (
+    label: string,
+    value: number,
+    onChange: (value: number) => void,
+    min: number,
+    max: number,
+    step = 1
+  ) => (
+    <label className='space-y-1 text-xs'>
+      <span className='text-muted-foreground'>{t(label)}</span>
+      <input
+        className='bg-background h-8 w-full rounded-md border px-2'
+        type='number'
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+    </label>
+  )
+  return (
+    <details className='rounded border p-3'>
+      <summary className='cursor-pointer text-sm font-semibold'>
+        {t('ACU Routing Utility')}
+      </summary>
+      <div className='mt-3 space-y-4'>
+        <div className='grid gap-3 sm:grid-cols-2 lg:grid-cols-4'>
+          <label className='space-y-1 text-xs'>
+            <span className='text-muted-foreground'>{t('Formula mode')}</span>
+            <select
+              className='bg-background h-8 w-full rounded-md border px-2'
+              value={props.value.formulaMode}
+              onChange={(event) =>
+                props.onChange({
+                  ...props.value,
+                  formulaMode: event.target
+                    .value as ACURoutingUtilityConfig['formulaMode'],
+                })
+              }
+            >
+              <option value='legacy'>legacy</option>
+              <option value='shadow'>shadow</option>
+              <option value='active'>active</option>
+            </select>
+          </label>
+          {(['economy', 'balanced', 'quality'] as const).map((preset) =>
+            numberField(
+              `${preset} quality bias`,
+              props.value.qualityPresets[preset],
+              (value) =>
+                props.onChange({
+                  ...props.value,
+                  qualityPresets: {
+                    ...props.value.qualityPresets,
+                    [preset]: value,
+                  },
+                }),
+              -100,
+              100
+            )
+          )}
+          {numberField(
+            'acu-high bias offset',
+            props.value.acuHighBiasOffset,
+            (value) =>
+              props.onChange({ ...props.value, acuHighBiasOffset: value }),
+            0,
+            100
+          )}
+          {numberField(
+            'Model cost log scale',
+            props.value.modelCostLogScale,
+            (value) =>
+              props.onChange({ ...props.value, modelCostLogScale: value }),
+            0.1,
+            20,
+            0.1
+          )}
+          {numberField(
+            'Profile cost log scale',
+            props.value.profileCostLogScale,
+            (value) =>
+              props.onChange({ ...props.value, profileCostLogScale: value }),
+            0.1,
+            20,
+            0.1
+          )}
+          {numberField(
+            'Profile speed log scale',
+            props.value.profileSpeedLogScale,
+            (value) =>
+              props.onChange({ ...props.value, profileSpeedLogScale: value }),
+            0.1,
+            20,
+            0.1
+          )}
+        </div>
+        <div className='grid gap-3 lg:grid-cols-2'>
+          {(
+            Object.keys(props.value.supplyPresets) as Array<
+              keyof typeof props.value.supplyPresets
+            >
+          ).map((preset) => (
+            <div key={preset} className='rounded border p-2'>
+              <div className='mb-2 text-xs font-medium'>{t(preset)}</div>
+              <div className='grid grid-cols-3 gap-2'>
+                {(['cost', 'speed', 'reliability'] as const).map((dimension) =>
+                  numberField(
+                    dimension,
+                    props.value.supplyPresets[preset][dimension],
+                    (value) =>
+                      props.onChange({
+                        ...props.value,
+                        supplyPresets: {
+                          ...props.value.supplyPresets,
+                          [preset]: {
+                            ...props.value.supplyPresets[preset],
+                            [dimension]: value,
+                          },
+                        },
+                      }),
+                    0,
+                    100
+                  )
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        <details className='rounded border p-2'>
+          <summary className='cursor-pointer text-xs font-medium'>
+            {t('Latency and reliability')}
+          </summary>
+          <div className='mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4'>
+            {numberField(
+              'Latency window hours',
+              props.value.latency.windowHours,
+              (value) =>
+                props.onChange({
+                  ...props.value,
+                  latency: { ...props.value.latency, windowHours: value },
+                }),
+              1,
+              168
+            )}
+            {numberField(
+              'Long context threshold',
+              props.value.latency.longContextThresholdTokens,
+              (value) =>
+                props.onChange({
+                  ...props.value,
+                  latency: {
+                    ...props.value.latency,
+                    longContextThresholdTokens: value,
+                  },
+                }),
+              1,
+              1000000
+            )}
+            {numberField(
+              'Latency minimum samples',
+              props.value.latency.minimumSamples,
+              (value) =>
+                props.onChange({
+                  ...props.value,
+                  latency: { ...props.value.latency, minimumSamples: value },
+                }),
+              3,
+              1000
+            )}
+            {numberField(
+              'Unknown latency multiplier',
+              props.value.latency.unknownLatencyMultiplier,
+              (value) =>
+                props.onChange({
+                  ...props.value,
+                  latency: {
+                    ...props.value.latency,
+                    unknownLatencyMultiplier: value,
+                  },
+                }),
+              1,
+              5,
+              0.1
+            )}
+            {numberField(
+              'Reliability window hours',
+              props.value.reliability.windowHours,
+              (value) =>
+                props.onChange({
+                  ...props.value,
+                  reliability: {
+                    ...props.value.reliability,
+                    windowHours: value,
+                  },
+                }),
+              1,
+              168
+            )}
+            {numberField(
+              'Reliability minimum samples',
+              props.value.reliability.minimumSamples,
+              (value) =>
+                props.onChange({
+                  ...props.value,
+                  reliability: {
+                    ...props.value.reliability,
+                    minimumSamples: value,
+                  },
+                }),
+              3,
+              1000
+            )}
+            {numberField(
+              'Unknown reliability default',
+              props.value.reliability.unknownDefault,
+              (value) =>
+                props.onChange({
+                  ...props.value,
+                  reliability: {
+                    ...props.value.reliability,
+                    unknownDefault: value,
+                  },
+                }),
+              0.5,
+              0.95,
+              0.01
+            )}
+            {numberField(
+              'Degraded reliability multiplier',
+              props.value.reliability.degradedMultiplier,
+              (value) =>
+                props.onChange({
+                  ...props.value,
+                  reliability: {
+                    ...props.value.reliability,
+                    degradedMultiplier: value,
+                  },
+                }),
+              0.5,
+              1,
+              0.01
+            )}
+          </div>
+        </details>
+        <Button size='sm' disabled={props.pending} onClick={props.onSave}>
+          {t('Save utility')}
+        </Button>
+      </div>
+    </details>
+  )
+}
+
 function PolicyScopeEditor(props: {
   title: string
   allLabel: string
@@ -306,14 +650,28 @@ function PolicyScopeEditor(props: {
   return (
     <div className='space-y-2 rounded border p-2'>
       <label className='flex items-center gap-2 text-xs font-medium'>
-        <input type='checkbox' checked={props.custom} onChange={(event) => props.onCustom(event.target.checked)} />
+        <input
+          type='checkbox'
+          checked={props.custom}
+          onChange={(event) => props.onCustom(event.target.checked)}
+        />
         {props.custom ? props.title : props.allLabel}
       </label>
       {props.custom && (
         <div className='max-h-40 space-y-1 overflow-y-auto'>
           {props.options.map((option) => (
             <label key={option} className='flex items-center gap-2 text-xs'>
-              <input type='checkbox' checked={props.values.includes(option)} onChange={(event) => props.onChange(event.target.checked ? [...new Set([...props.values, option])].sort() : props.values.filter((value) => value !== option))} />
+              <input
+                type='checkbox'
+                checked={props.values.includes(option)}
+                onChange={(event) =>
+                  props.onChange(
+                    event.target.checked
+                      ? [...new Set([...props.values, option])].sort()
+                      : props.values.filter((value) => value !== option)
+                  )
+                }
+              />
               <span className='font-mono'>{option}</span>
             </label>
           ))}
@@ -330,8 +688,19 @@ function CoverageTable({ rows }: { rows: ACUModelPoolEntry[] }) {
       <table className='w-full min-w-[980px] text-left text-xs'>
         <thead className='bg-muted/50'>
           <tr>
-            {['Model', 'Tier', 'Protocols', 'Configured profiles', 'Route eligible', 'Providers', 'Best channel', 'Latest probe'].map((label) => (
-              <th key={label} className='px-3 py-2 font-medium'>{t(label)}</th>
+            {[
+              'Model',
+              'Tier',
+              'Protocols',
+              'Configured profiles',
+              'Route eligible',
+              'Providers',
+              'Best channel',
+              'Latest probe',
+            ].map((label) => (
+              <th key={label} className='px-3 py-2 font-medium'>
+                {t(label)}
+              </th>
             ))}
           </tr>
         </thead>
@@ -339,24 +708,49 @@ function CoverageTable({ rows }: { rows: ACUModelPoolEntry[] }) {
           {rows.map((model) => {
             const latest = model.profiles
               .filter((profile) => profile.lastProbeAt)
-              .sort((a, b) => new Date(b.lastProbeAt).getTime() - new Date(a.lastProbeAt).getTime())[0]
-            const probePassed = model.profiles.filter((profile) => profile.probeStatus === 'success').length
+              .sort(
+                (a, b) =>
+                  new Date(b.lastProbeAt).getTime() -
+                  new Date(a.lastProbeAt).getTime()
+              )[0]
+            const probePassed = model.profiles.filter(
+              (profile) => profile.probeStatus === 'success'
+            ).length
             return (
               <tr key={model.modelId} className='border-t align-top'>
                 <td className='px-3 py-2.5 font-medium'>{model.modelId}</td>
                 <td className='px-3 py-2.5'>{model.capabilityTier}</td>
-                <td className='px-3 py-2.5'>{model.protocols.join(', ') || 'n/a'}</td>
-                <td className='px-3 py-2.5'>{model.activeProfileCount} active / {model.profiles.length} configured</td>
                 <td className='px-3 py-2.5'>
-                  <Badge variant={model.healthyProfileCount > 0 ? 'secondary' : 'outline'}>
+                  {model.protocols.join(', ') || 'n/a'}
+                </td>
+                <td className='px-3 py-2.5'>
+                  {model.activeProfileCount} active / {model.profiles.length}{' '}
+                  configured
+                </td>
+                <td className='px-3 py-2.5'>
+                  <Badge
+                    variant={
+                      model.healthyProfileCount > 0 ? 'secondary' : 'outline'
+                    }
+                  >
                     {model.healthyProfileCount} / {model.activeProfileCount}
                   </Badge>
                 </td>
-                <td className='px-3 py-2.5'>{model.independentProviderCount}</td>
-                <td className='px-3 py-2.5'>{model.currentBestChannel || t('none')}</td>
                 <td className='px-3 py-2.5'>
-                  <div>{probePassed} / {model.profiles.length} passed</div>
-                  <div className='text-muted-foreground'>{latest ? `${latest.probeStatus} · ${time(latest.lastProbeAt)}` : t('never')}</div>
+                  {model.independentProviderCount}
+                </td>
+                <td className='px-3 py-2.5'>
+                  {model.currentBestChannel || t('none')}
+                </td>
+                <td className='px-3 py-2.5'>
+                  <div>
+                    {probePassed} / {model.profiles.length} passed
+                  </div>
+                  <div className='text-muted-foreground'>
+                    {latest
+                      ? `${latest.probeStatus} · ${time(latest.lastProbeAt)}`
+                      : t('never')}
+                  </div>
                 </td>
               </tr>
             )
@@ -374,28 +768,76 @@ function ProbeTable({ rows }: { rows: ACUProbeHistoryRow[] }) {
       <table className='w-full min-w-[1100px] text-left text-xs'>
         <thead className='bg-muted/50'>
           <tr>
-            {['Started', 'Model', 'Protocol', 'Provider / Channel', 'Result', 'HTTP', 'Actual model', 'Usage', 'Latency', 'Cost', 'Error'].map((label) => (
-              <th key={label} className='px-3 py-2 font-medium'>{t(label)}</th>
+            {[
+              'Started',
+              'Model',
+              'Protocol',
+              'Provider / Channel',
+              'Result',
+              'HTTP',
+              'Actual model',
+              'Usage',
+              'Latency',
+              'Cost',
+              'Error',
+            ].map((label) => (
+              <th key={label} className='px-3 py-2 font-medium'>
+                {t(label)}
+              </th>
             ))}
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={`${row.execution_profile_id}:${row.started_at}:${row.channel_id}:${row.status}`} className='border-t align-top'>
+            <tr
+              key={`${row.execution_profile_id}:${row.started_at}:${row.channel_id}:${row.status}`}
+              className='border-t align-top'
+            >
               <td className='px-3 py-2'>{time(row.started_at)}</td>
-              <td className='px-3 py-2 font-medium'>{row.canonical_model_id}</td>
+              <td className='px-3 py-2 font-medium'>
+                {row.canonical_model_id}
+              </td>
               <td className='px-3 py-2'>{row.protocol}</td>
-              <td className='px-3 py-2'><div>{row.provider_id}</div><div className='text-muted-foreground'>{row.channel_id}</div></td>
-              <td className='px-3 py-2'><Badge variant={row.status === 'success' ? 'secondary' : 'destructive'}>{row.status}</Badge></td>
+              <td className='px-3 py-2'>
+                <div>{row.provider_id}</div>
+                <div className='text-muted-foreground'>{row.channel_id}</div>
+              </td>
+              <td className='px-3 py-2'>
+                <Badge
+                  variant={
+                    row.status === 'success' ? 'secondary' : 'destructive'
+                  }
+                >
+                  {row.status}
+                </Badge>
+              </td>
               <td className='px-3 py-2'>{row.http_status ?? 'n/a'}</td>
               <td className='px-3 py-2'>{row.actual_model || 'n/a'}</td>
-              <td className='px-3 py-2'>{row.usage_trusted ? t('trusted') : t('untrusted')}</td>
+              <td className='px-3 py-2'>
+                {row.usage_trusted ? t('trusted') : t('untrusted')}
+              </td>
               <td className='px-3 py-2'>{ms(row.latency_ms ?? undefined)}</td>
-              <td className='px-3 py-2'>¥{Number(row.cost_cny || 0).toFixed(4)}</td>
-              <td className='max-w-56 truncate px-3 py-2' title={row.error_class || ''}>{row.error_class || t('none')}</td>
+              <td className='px-3 py-2'>
+                ¥{Number(row.cost_cny || 0).toFixed(4)}
+              </td>
+              <td
+                className='max-w-56 truncate px-3 py-2'
+                title={row.error_class || ''}
+              >
+                {row.error_class || t('none')}
+              </td>
             </tr>
           ))}
-          {rows.length === 0 && <tr><td colSpan={11} className='text-muted-foreground px-3 py-8 text-center'>{t('No probe records in this range')}</td></tr>}
+          {rows.length === 0 && (
+            <tr>
+              <td
+                colSpan={11}
+                className='text-muted-foreground px-3 py-8 text-center'
+              >
+                {t('No probe records in this range')}
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
@@ -421,7 +863,9 @@ function ModelPoolTable({ rows }: { rows: ACUModelPoolEntry[] }) {
               'Auto Route',
               'Exclusion Reason',
             ].map((label) => (
-              <th key={label} className='px-3 py-2 font-medium'>{t(label)}</th>
+              <th key={label} className='px-3 py-2 font-medium'>
+                {t(label)}
+              </th>
             ))}
           </tr>
         </thead>
@@ -430,33 +874,51 @@ function ModelPoolTable({ rows }: { rows: ACUModelPoolEntry[] }) {
             <tr key={model.modelId} className='border-t align-top'>
               <td className='px-3 py-2.5'>
                 <details>
-                  <summary className='cursor-pointer font-medium'>{model.modelId}</summary>
+                  <summary className='cursor-pointer font-medium'>
+                    {model.modelId}
+                  </summary>
                   <div className='text-muted-foreground mt-2 space-y-1 pl-3'>
                     {model.profiles.map((profile) => (
                       <div key={profile.executionProfileId}>
-                        {profile.provider} · {profile.channel} · {profile.routingEligibility}
+                        {profile.provider} · {profile.channel} ·{' '}
+                        {profile.routingEligibility}
                         {profile.requiresFreshProbe && (
-                          <> · Probe {profile.probeFreshness} / {profile.probeStatus || 'never'}</>
+                          <>
+                            {' '}
+                            · Probe {profile.probeFreshness} /{' '}
+                            {profile.probeStatus || 'never'}
+                          </>
                         )}
                       </div>
                     ))}
                   </div>
                 </details>
               </td>
-              <td className='px-3 py-2.5'>{model.vendor} · {model.capabilityTier}</td>
+              <td className='px-3 py-2.5'>
+                {model.vendor} · {model.capabilityTier}
+              </td>
               <td className='px-3 py-2.5'>{model.protocols.join(', ')}</td>
               <td className='px-3 py-2.5'>{model.verificationStatus}</td>
               <td className='px-3 py-2.5'>
-                {model.activeProfileCount} active / {model.healthyProfileCount} healthy
+                {model.activeProfileCount} active / {model.healthyProfileCount}{' '}
+                healthy
               </td>
               <td className='px-3 py-2.5'>{model.independentProviderCount}</td>
               <td className='px-3 py-2.5'>
                 {model.currentBestChannel || 'n/a'}
-                <div className='text-muted-foreground'>{model.backupChannel || 'n/a'}</div>
+                <div className='text-muted-foreground'>
+                  {model.backupChannel || 'n/a'}
+                </div>
               </td>
-              <td className='px-3 py-2.5'>{model.currentMultiplier ?? 'n/a'}</td>
-              <td className='px-3 py-2.5'>{model.autoRouteEnabled ? t('Enabled') : t('Disabled')}</td>
-              <td className='px-3 py-2.5'>{model.exclusionReason || t('None')}</td>
+              <td className='px-3 py-2.5'>
+                {model.currentMultiplier ?? 'n/a'}
+              </td>
+              <td className='px-3 py-2.5'>
+                {model.autoRouteEnabled ? t('Enabled') : t('Disabled')}
+              </td>
+              <td className='px-3 py-2.5'>
+                {model.exclusionReason || t('None')}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -515,10 +977,12 @@ function MonitorTable(props: {
                   {profile.state}
                 </Badge>
                 <div className='text-muted-foreground mt-1 whitespace-nowrap'>
-                  P {profile.profileStateRaw || profile.profileState} · C {profile.channelStateRaw || profile.channelState}
+                  P {profile.profileStateRaw || profile.profileState} · C{' '}
+                  {profile.channelStateRaw || profile.channelState}
                 </div>
                 <div className='text-muted-foreground whitespace-nowrap'>
-                  Provider {profile.providerStateRaw || 'unknown'} · Probe {profile.probeStateRaw || profile.probeFreshness}
+                  Provider {profile.providerStateRaw || 'unknown'} · Probe{' '}
+                  {profile.probeStateRaw || profile.probeFreshness}
                 </div>
               </td>
               <td className='px-3 py-2'>
@@ -548,12 +1012,14 @@ function MonitorTable(props: {
               <td className='px-3 py-2'>
                 <div>{profile.probeStatus || t('never')}</div>
                 <div className='text-muted-foreground'>
-                  {profile.probeFreshness} · {ms(profile.probeLatencyMs)} · ¥{Number(profile.probeCostCny || 0).toFixed(4)}
+                  {profile.probeFreshness} · {ms(profile.probeLatencyMs)} · ¥
+                  {Number(profile.probeCostCny || 0).toFixed(4)}
                 </div>
                 <div className='text-muted-foreground'>
                   {profile.lastProbeAt
                     ? new Date(profile.lastProbeAt).toLocaleString()
-                    : t('n/a')} · today ¥{Number(profile.probeDailySpendCny || 0).toFixed(4)}
+                    : t('n/a')}{' '}
+                  · today ¥{Number(profile.probeDailySpendCny || 0).toFixed(4)}
                 </div>
               </td>
               <td className='px-3 py-2'>

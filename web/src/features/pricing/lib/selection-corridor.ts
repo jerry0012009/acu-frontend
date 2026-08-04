@@ -28,10 +28,34 @@ export function corridorEligibleModelIds(
       }
     }
   }
+  for (const point of corridor.effective ?? []) {
+    if (point.selectedModelId) modelIds.add(point.selectedModelId)
+    for (const candidate of point.candidates) {
+      if (candidate.modelId) modelIds.add(candidate.modelId)
+    }
+  }
   for (const preset of corridor.executionPresetSeries) {
     if (preset.modelId) modelIds.add(preset.modelId)
   }
   return modelIds
+}
+
+export function corridorEffectivePointAtDifficulty(
+  corridor: ACUSelectionCorridor | null | undefined,
+  difficulty: number
+): ACUSelectionCorridorPoint | null {
+  return (
+    (corridor?.effective ?? []).reduce<ACUSelectionCorridorPoint | null>(
+      (nearest, point) => {
+        if (!nearest) return point
+        return Math.abs(point.difficulty - difficulty) <
+          Math.abs(nearest.difficulty - difficulty)
+          ? point
+          : nearest
+      },
+      null
+    ) ?? null
+  )
 }
 
 export function corridorPointAtDifficulty(

@@ -495,6 +495,12 @@ func SetupContextForToken(c *gin.Context, token *model.Token, parts ...string) e
 		preference = "balanced"
 	}
 	c.Set("acu_routing_preference", preference)
+	c.Set("acu_quality_bias", token.ACUQualityBias)
+	supplyStrategy := strings.TrimSpace(token.ACUSupplyStrategy)
+	if supplyStrategy == "" {
+		supplyStrategy = "balanced"
+	}
+	c.Set("acu_supply_strategy", supplyStrategy)
 	if _, policyErr := service.ResolveACUEffectiveRoutingPolicy(token); policyErr != nil {
 		c.Set("acu_routing_policy_error", policyErr)
 	}

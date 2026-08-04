@@ -19,6 +19,8 @@ const (
 	ContextKeyTokenModelLimitEnabled ContextKey = "token_model_limit_enabled"
 	ContextKeyTokenModelLimit        ContextKey = "token_model_limit"
 	ContextKeyACURoutingPreference   ContextKey = "acu_routing_preference"
+	ContextKeyACUQualityBias         ContextKey = "acu_quality_bias"
+	ContextKeyACUSupplyStrategy      ContextKey = "acu_supply_strategy"
 	ContextKeyTokenCrossGroupRetry   ContextKey = "token_cross_group_retry"
 
 	/* channel related keys */

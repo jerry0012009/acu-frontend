@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
+import { apiKeySchema, type ApiKey } from '../../types.ts'
 import {
   getApiKeyFormSchema,
   transformApiKeyToFormDefaults,
   transformFormDataToPayload,
 } from '../api-key-form.ts'
-import { apiKeySchema, type ApiKey } from '../../types.ts'
 
 test('legacy null Profile limits normalize to an empty array', () => {
   const result = apiKeySchema.parse({
@@ -42,6 +42,9 @@ test('all verified mode disables existing Token ModelLimits', () => {
     group: 'default',
     cross_group_retry: false,
     acu_routing_preference: 'balanced',
+    acu_quality_mode: 'balanced',
+    acu_quality_bias: 0,
+    acu_supply_strategy: 'balanced',
   })
   assert.equal(payload.model_limits_enabled, false)
   assert.equal(payload.model_limits, '')
@@ -60,13 +63,15 @@ test('custom mode persists virtual ACU entry models without showing them as choi
     group: 'default',
     cross_group_retry: false,
     acu_routing_preference: 'quality',
+    acu_quality_mode: 'quality',
+    acu_quality_bias: 0,
+    acu_supply_strategy: 'balanced',
   })
   assert.equal(payload.model_limits_enabled, true)
-  assert.deepEqual(new Set(payload.model_limits.split(',')), new Set([
-    'gpt-5.6-luna',
-    'acu-auto',
-    'acu-high',
-  ]))
+  assert.deepEqual(
+    new Set(payload.model_limits.split(',')),
+    new Set(['gpt-5.6-luna', 'acu-auto', 'acu-high'])
+  )
 
   const defaults = transformApiKeyToFormDefaults({
     id: 1,
@@ -88,6 +93,8 @@ test('custom mode persists virtual ACU entry models without showing them as choi
     group: 'default',
     cross_group_retry: false,
     acu_routing_preference: 'balanced',
+    acu_quality_bias: null,
+    acu_supply_strategy: 'balanced',
   } as ApiKey)
   assert.deepEqual(defaults.model_limits, ['gpt-5.6-luna'])
   assert.equal(defaults.acu_model_scope_custom, true)
@@ -107,6 +114,9 @@ test('custom mode requires at least one real routing model', () => {
     group: 'default',
     cross_group_retry: false,
     acu_routing_preference: 'economy',
+    acu_quality_mode: 'economy',
+    acu_quality_bias: 0,
+    acu_supply_strategy: 'balanced',
   })
   assert.equal(result.success, false)
 })
@@ -124,10 +134,83 @@ test('custom Profile mode persists exact execution Profile IDs', () => {
     group: 'default',
     cross_group_retry: false,
     acu_routing_preference: 'balanced',
+    acu_quality_mode: 'balanced',
+    acu_quality_bias: 0,
+    acu_supply_strategy: 'balanced',
   })
   assert.equal(payload.acu_profile_limits_enabled, true)
   assert.deepEqual(payload.acu_profile_limits, [
     'closeai:luna:responses',
     'lucen:luna:responses',
   ])
+})
+
+test('custom quality bias and supply strategy survive payload and clone defaults', () => {
+  const payload = transformFormDataToPayload({
+    name: 'custom-utility',
+    remain_quota_dollars: 0,
+    unlimited_quota: true,
+    model_limits: [],
+    acu_model_scope_custom: false,
+    acu_profile_scope_custom: false,
+    acu_profile_limits: [],
+    allow_ips: '',
+    group: 'default',
+    cross_group_retry: false,
+    acu_routing_preference: 'balanced',
+    acu_quality_mode: 'custom',
+    acu_quality_bias: -37,
+    acu_supply_strategy: 'high_reliability',
+  })
+  assert.equal(payload.acu_routing_preference, 'balanced')
+  assert.equal(payload.acu_quality_bias, -37)
+  assert.equal(payload.acu_supply_strategy, 'high_reliability')
+
+  const defaults = transformApiKeyToFormDefaults({
+    id: 7,
+    name: 'custom-utility',
+    key: 'masked',
+    status: 1,
+    remain_quota: 123,
+    used_quota: 456,
+    unlimited_quota: false,
+    expired_time: -1,
+    created_time: 1,
+    accessed_time: 2,
+    group: 'default',
+    cross_group_retry: false,
+    model_limits_enabled: false,
+    model_limits: '',
+    acu_profile_limits_enabled: false,
+    acu_profile_limits: [],
+    acu_routing_preference: 'balanced',
+    acu_quality_bias: -37,
+    acu_supply_strategy: 'high_reliability',
+    allow_ips: '',
+  })
+  assert.equal(defaults.acu_quality_mode, 'custom')
+  assert.equal(defaults.acu_quality_bias, -37)
+  assert.equal(defaults.acu_supply_strategy, 'high_reliability')
+})
+
+test('preset quality mode clears custom bias', () => {
+  const payload = transformFormDataToPayload({
+    name: 'preset-utility',
+    remain_quota_dollars: 0,
+    unlimited_quota: true,
+    model_limits: [],
+    acu_model_scope_custom: false,
+    acu_profile_scope_custom: false,
+    acu_profile_limits: [],
+    allow_ips: '',
+    group: 'default',
+    cross_group_retry: false,
+    acu_routing_preference: 'balanced',
+    acu_quality_mode: 'quality',
+    acu_quality_bias: -37,
+    acu_supply_strategy: 'lowest_cost',
+  })
+  assert.equal(payload.acu_routing_preference, 'quality')
+  assert.equal(payload.acu_quality_bias, null)
+  assert.equal(payload.acu_supply_strategy, 'lowest_cost')
 })

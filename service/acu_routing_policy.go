@@ -25,11 +25,146 @@ type ACURoutingScope struct {
 }
 
 type ACUEffectiveRoutingPolicy struct {
-	RoutingPolicy        string
-	AllowedModelIDs      []string
-	AllowedProfileIDs    []string
-	RoutingPreference    string
-	RoutingPolicyVersion string
+	RoutingPolicy           string
+	AllowedModelIDs         []string
+	AllowedProfileIDs       []string
+	RoutingPreference       string
+	RoutingPolicyVersion    string
+	QualityBias             int
+	QualityPresets          map[string]int
+	SupplyStrategy          string
+	SupplyCostWeight        int
+	SupplySpeedWeight       int
+	SupplyReliabilityWeight int
+	ACUHighBiasOffset       int
+	ModelCostLogScale       float64
+	ProfileCostLogScale     float64
+	ProfileSpeedLogScale    float64
+	LatencyPolicy           ACULatencyPolicy
+	ReliabilityPolicy       ACUReliabilityPolicy
+	WorkPhaseBiasOffsets    map[string]int
+	RoutingUtilityVersion   string
+	FormulaMode             string
+}
+
+type ACUSupplyWeights struct {
+	Cost        int `json:"cost"`
+	Speed       int `json:"speed"`
+	Reliability int `json:"reliability"`
+}
+
+type ACULatencyPolicy struct {
+	WindowHours                int     `json:"windowHours"`
+	LongContextThresholdTokens int     `json:"longContextThresholdTokens"`
+	MinimumSamples             int     `json:"minimumSamples"`
+	UnknownLatencyMultiplier   float64 `json:"unknownLatencyMultiplier"`
+}
+
+type ACUReliabilityPolicy struct {
+	WindowHours        int     `json:"windowHours"`
+	MinimumSamples     int     `json:"minimumSamples"`
+	UnknownDefault     float64 `json:"unknownDefault"`
+	DegradedMultiplier float64 `json:"degradedMultiplier"`
+}
+
+type ACURoutingUtilityConfig struct {
+	SchemaVersion        string                      `json:"schemaVersion"`
+	FormulaMode          string                      `json:"formulaMode"`
+	QualityPresets       map[string]int              `json:"qualityPresets"`
+	ACUHighBiasOffset    int                         `json:"acuHighBiasOffset"`
+	ModelCostLogScale    float64                     `json:"modelCostLogScale"`
+	SupplyPresets        map[string]ACUSupplyWeights `json:"supplyPresets"`
+	ProfileCostLogScale  float64                     `json:"profileCostLogScale"`
+	ProfileSpeedLogScale float64                     `json:"profileSpeedLogScale"`
+	Latency              ACULatencyPolicy            `json:"latency"`
+	Reliability          ACUReliabilityPolicy        `json:"reliability"`
+	WorkPhaseBiasOffsets map[string]int              `json:"workPhaseBiasOffsets"`
+}
+
+func defaultACURoutingUtilityConfig() ACURoutingUtilityConfig {
+	return ACURoutingUtilityConfig{
+		SchemaVersion: "acu-routing-utility-config-v1", FormulaMode: "legacy",
+		QualityPresets:    map[string]int{"economy": -60, "balanced": 0, "quality": 60},
+		ACUHighBiasOffset: 40, ModelCostLogScale: 2.5,
+		SupplyPresets: map[string]ACUSupplyWeights{
+			"lowest_cost":      {Cost: 100},
+			"balanced":         {Cost: 40, Speed: 25, Reliability: 35},
+			"low_latency":      {Cost: 10, Speed: 80, Reliability: 10},
+			"high_reliability": {Cost: 10, Speed: 10, Reliability: 80},
+		},
+		ProfileCostLogScale: 2.5, ProfileSpeedLogScale: 2.5,
+		Latency:              ACULatencyPolicy{WindowHours: 24, LongContextThresholdTokens: 100000, MinimumSamples: 5, UnknownLatencyMultiplier: 1.2},
+		Reliability:          ACUReliabilityPolicy{WindowHours: 24, MinimumSamples: 5, UnknownDefault: 0.75, DegradedMultiplier: 0.85},
+		WorkPhaseBiasOffsets: map[string]int{"inspection": -10, "general": 0, "implementation": 0, "verification": 0, "planning": 10, "recovery": 20},
+	}
+}
+
+func NormalizeACUSupplyStrategy(value string) (string, error) {
+	value = strings.TrimSpace(strings.ToLower(value))
+	if value == "" {
+		return "balanced", nil
+	}
+	if value != "lowest_cost" && value != "balanced" && value != "low_latency" && value != "high_reliability" {
+		return "", fmt.Errorf("invalid ACU supply strategy")
+	}
+	return value, nil
+}
+
+func NormalizeACURoutingUtilityConfig(config ACURoutingUtilityConfig) (ACURoutingUtilityConfig, error) {
+	if config.SchemaVersion == "" {
+		config.SchemaVersion = "acu-routing-utility-config-v1"
+	}
+	if config.SchemaVersion != "acu-routing-utility-config-v1" {
+		return config, fmt.Errorf("invalid ACU routing utility schema version")
+	}
+	if config.FormulaMode != "legacy" && config.FormulaMode != "shadow" && config.FormulaMode != "active" {
+		return config, fmt.Errorf("invalid ACU routing formula mode")
+	}
+	for _, name := range []string{"economy", "balanced", "quality"} {
+		value, ok := config.QualityPresets[name]
+		if !ok || value < -100 || value > 100 {
+			return config, fmt.Errorf("invalid ACU quality preset %s", name)
+		}
+	}
+	if config.ACUHighBiasOffset < 0 || config.ACUHighBiasOffset > 100 {
+		return config, fmt.Errorf("invalid ACU high bias offset")
+	}
+	if config.ModelCostLogScale < 0.1 || config.ModelCostLogScale > 20 || config.ProfileCostLogScale < 0.1 || config.ProfileCostLogScale > 20 || config.ProfileSpeedLogScale < 0.1 || config.ProfileSpeedLogScale > 20 {
+		return config, fmt.Errorf("invalid ACU routing log scale")
+	}
+	for _, name := range []string{"lowest_cost", "balanced", "low_latency", "high_reliability"} {
+		weights, ok := config.SupplyPresets[name]
+		if !ok || weights.Cost < 0 || weights.Cost > 100 || weights.Speed < 0 || weights.Speed > 100 || weights.Reliability < 0 || weights.Reliability > 100 || weights.Cost+weights.Speed+weights.Reliability != 100 {
+			return config, fmt.Errorf("invalid ACU supply preset %s", name)
+		}
+	}
+	if config.Latency.WindowHours < 1 || config.Latency.WindowHours > 168 || config.Latency.MinimumSamples < 3 || config.Latency.MinimumSamples > 1000 || config.Latency.LongContextThresholdTokens < 1 || config.Latency.UnknownLatencyMultiplier < 1 || config.Latency.UnknownLatencyMultiplier > 5 {
+		return config, fmt.Errorf("invalid ACU latency policy")
+	}
+	if config.Reliability.WindowHours < 1 || config.Reliability.WindowHours > 168 || config.Reliability.MinimumSamples < 3 || config.Reliability.MinimumSamples > 1000 || config.Reliability.UnknownDefault < 0.5 || config.Reliability.UnknownDefault > 0.95 || config.Reliability.DegradedMultiplier < 0.5 || config.Reliability.DegradedMultiplier > 1 {
+		return config, fmt.Errorf("invalid ACU reliability policy")
+	}
+	for _, phase := range []string{"inspection", "general", "implementation", "verification", "planning", "recovery"} {
+		value, ok := config.WorkPhaseBiasOffsets[phase]
+		if !ok || value < -100 || value > 100 {
+			return config, fmt.Errorf("invalid ACU work phase bias offset %s", phase)
+		}
+	}
+	return config, nil
+}
+
+func GetACURoutingUtilityConfig() (ACURoutingUtilityConfig, error) {
+	common.OptionMapRWMutex.RLock()
+	raw := common.OptionMap["ACURoutingUtilityConfig"]
+	common.OptionMapRWMutex.RUnlock()
+	if strings.TrimSpace(raw) == "" {
+		return defaultACURoutingUtilityConfig(), nil
+	}
+	var config ACURoutingUtilityConfig
+	if err := common.UnmarshalJsonStr(raw, &config); err != nil {
+		return config, fmt.Errorf("invalid ACU routing utility config: %w", err)
+	}
+	return NormalizeACURoutingUtilityConfig(config)
 }
 
 func NormalizeACURoutingPreference(value string) (string, error) {
@@ -198,6 +333,26 @@ func ResolveACUEffectiveRoutingPolicy(token *model.Token) (ACUEffectiveRoutingPo
 	if err != nil {
 		return ACUEffectiveRoutingPolicy{}, err
 	}
+	utilityConfig, err := GetACURoutingUtilityConfig()
+	if err != nil {
+		return ACUEffectiveRoutingPolicy{}, err
+	}
+	supplyStrategy := "balanced"
+	if token != nil {
+		supplyStrategy = token.ACUSupplyStrategy
+	}
+	supplyStrategy, err = NormalizeACUSupplyStrategy(supplyStrategy)
+	if err != nil {
+		return ACUEffectiveRoutingPolicy{}, err
+	}
+	qualityBias := utilityConfig.QualityPresets[preference]
+	if token != nil && token.ACUQualityBias != nil {
+		if *token.ACUQualityBias < -100 || *token.ACUQualityBias > 100 {
+			return ACUEffectiveRoutingPolicy{}, fmt.Errorf("invalid ACU quality bias")
+		}
+		qualityBias = *token.ACUQualityBias
+	}
+	supplyWeights := utilityConfig.SupplyPresets[supplyStrategy]
 	tokenScope := ACURoutingScope{Policy: ACURoutingPolicyAll, ProfilePolicy: ACURoutingPolicyAll}
 	if token != nil {
 		if token.ModelLimitsEnabled {
@@ -215,7 +370,19 @@ func ResolveACUEffectiveRoutingPolicy(token *model.Token) (ACUEffectiveRoutingPo
 	if err != nil {
 		return ACUEffectiveRoutingPolicy{}, err
 	}
-	result := ACUEffectiveRoutingPolicy{RoutingPolicy: ACURoutingPolicyAll, AllowedModelIDs: []string{}, AllowedProfileIDs: []string{}, RoutingPreference: preference}
+	result := ACUEffectiveRoutingPolicy{
+		RoutingPolicy: ACURoutingPolicyAll, AllowedModelIDs: []string{}, AllowedProfileIDs: []string{}, RoutingPreference: preference,
+		QualityBias: qualityBias, QualityPresets: map[string]int{
+			"economy":  utilityConfig.QualityPresets["economy"],
+			"balanced": utilityConfig.QualityPresets["balanced"],
+			"quality":  utilityConfig.QualityPresets["quality"],
+		}, SupplyStrategy: supplyStrategy,
+		SupplyCostWeight: supplyWeights.Cost, SupplySpeedWeight: supplyWeights.Speed, SupplyReliabilityWeight: supplyWeights.Reliability,
+		ACUHighBiasOffset: utilityConfig.ACUHighBiasOffset, ModelCostLogScale: utilityConfig.ModelCostLogScale,
+		ProfileCostLogScale: utilityConfig.ProfileCostLogScale, ProfileSpeedLogScale: utilityConfig.ProfileSpeedLogScale,
+		LatencyPolicy: utilityConfig.Latency, ReliabilityPolicy: utilityConfig.Reliability,
+		WorkPhaseBiasOffsets: utilityConfig.WorkPhaseBiasOffsets, FormulaMode: utilityConfig.FormulaMode,
+	}
 	if global.Policy == ACURoutingPolicyCustom && tokenScope.Policy == ACURoutingPolicyCustom {
 		result.AllowedModelIDs = intersectACUIDs(global.AllowedModelIDs, tokenScope.AllowedModelIDs)
 	} else if global.Policy == ACURoutingPolicyCustom {
@@ -240,5 +407,18 @@ func ResolveACUEffectiveRoutingPolicy(token *model.Token) (ACUEffectiveRoutingPo
 	}
 	digest := sha256.Sum256([]byte(result.RoutingPolicy + "\n" + strings.Join(result.AllowedModelIDs, ",") + "\n" + strings.Join(result.AllowedProfileIDs, ",") + "\n" + result.RoutingPreference))
 	result.RoutingPolicyVersion = "acu-user-policy-v2-" + hex.EncodeToString(digest[:8])
+	utilityRaw, err := common.Marshal(map[string]interface{}{
+		"schemaVersion": utilityConfig.SchemaVersion, "qualityBias": result.QualityBias,
+		"supplyStrategy": result.SupplyStrategy, "supplyWeights": supplyWeights,
+		"acuHighBiasOffset": result.ACUHighBiasOffset, "modelCostLogScale": result.ModelCostLogScale,
+		"profileCostLogScale": result.ProfileCostLogScale, "profileSpeedLogScale": result.ProfileSpeedLogScale,
+		"latency": result.LatencyPolicy, "reliability": result.ReliabilityPolicy,
+		"workPhaseBiasOffsets": result.WorkPhaseBiasOffsets, "formulaMode": result.FormulaMode,
+	})
+	if err != nil {
+		return result, err
+	}
+	utilityDigest := sha256.Sum256(utilityRaw)
+	result.RoutingUtilityVersion = "acu-routing-utility-v1-" + hex.EncodeToString(utilityDigest[:8])
 	return result, nil
 }

@@ -6,7 +6,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -182,7 +181,17 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	tokenID := strconv.Itoa(info.TokenId)
 	logID := requestID
 	clientVersion := acuClientVersion(c)
-	token := &model.Token{ModelLimitsEnabled: c.GetBool("token_model_limit_enabled"), ACUProfileLimitsEnabled: c.GetBool("acu_profile_limit_enabled"), ACURoutingPreference: c.GetString("acu_routing_preference")}
+	token := &model.Token{
+		ModelLimitsEnabled:      c.GetBool("token_model_limit_enabled"),
+		ACUProfileLimitsEnabled: c.GetBool("acu_profile_limit_enabled"),
+		ACURoutingPreference:    c.GetString("acu_routing_preference"),
+		ACUSupplyStrategy:       c.GetString("acu_supply_strategy"),
+	}
+	if value, exists := c.Get("acu_quality_bias"); exists {
+		if bias, ok := value.(*int); ok {
+			token.ACUQualityBias = bias
+		}
+	}
 	if rawLimits, exists := c.Get("token_model_limit"); exists {
 		if limits, ok := rawLimits.(map[string]bool); ok {
 			for modelID, allowed := range limits {
@@ -207,19 +216,44 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	routingPolicy := policy.RoutingPolicy
 	allowedModelIDs := policy.AllowedModelIDs
 	routingPreference := policy.RoutingPreference
-	allowedModelIDsJSON, err := json.Marshal(allowedModelIDs)
+	allowedModelIDsJSON, err := common2.Marshal(allowedModelIDs)
 	if err != nil {
 		return fmt.Errorf("marshal ACU routing allowlist: %w", err)
 	}
 	allowedProfileIDs := policy.AllowedProfileIDs
-	allowedProfileIDsJSON, err := json.Marshal(allowedProfileIDs)
+	allowedProfileIDsJSON, err := common2.Marshal(allowedProfileIDs)
 	if err != nil {
 		return fmt.Errorf("marshal ACU execution Profile allowlist: %w", err)
 	}
 	routingPolicyVersion := policy.RoutingPolicyVersion
+	supplyWeightsJSON, err := common2.Marshal(service.ACUSupplyWeights{Cost: policy.SupplyCostWeight, Speed: policy.SupplySpeedWeight, Reliability: policy.SupplyReliabilityWeight})
+	if err != nil {
+		return fmt.Errorf("marshal ACU supply weights: %w", err)
+	}
+	latencyPolicyJSON, err := common2.Marshal(policy.LatencyPolicy)
+	if err != nil {
+		return fmt.Errorf("marshal ACU latency policy: %w", err)
+	}
+	reliabilityPolicyJSON, err := common2.Marshal(policy.ReliabilityPolicy)
+	if err != nil {
+		return fmt.Errorf("marshal ACU reliability policy: %w", err)
+	}
+	workPhaseBiasOffsetsJSON, err := common2.Marshal(policy.WorkPhaseBiasOffsets)
+	if err != nil {
+		return fmt.Errorf("marshal ACU work phase bias offsets: %w", err)
+	}
+	qualityBias := strconv.Itoa(policy.QualityBias)
+	highBiasOffset := strconv.Itoa(policy.ACUHighBiasOffset)
+	modelCostLogScale := strconv.FormatFloat(policy.ModelCostLogScale, 'g', -1, 64)
+	profileCostLogScale := strconv.FormatFloat(policy.ProfileCostLogScale, 'g', -1, 64)
+	profileSpeedLogScale := strconv.FormatFloat(policy.ProfileSpeedLogScale, 'g', -1, 64)
 	payload := strings.Join([]string{
 		userID, tokenID, logID, requestID, clientVersion, routingPolicy,
-		string(allowedModelIDsJSON), string(allowedProfileIDsJSON), routingPolicyVersion, routingPreference, timestamp, bodySHA,
+		string(allowedModelIDsJSON), string(allowedProfileIDsJSON), routingPolicyVersion, routingPreference,
+		qualityBias, policy.SupplyStrategy, string(supplyWeightsJSON), highBiasOffset,
+		modelCostLogScale, profileCostLogScale, profileSpeedLogScale,
+		string(latencyPolicyJSON), string(reliabilityPolicyJSON), string(workPhaseBiasOffsetsJSON),
+		policy.RoutingUtilityVersion, policy.FormulaMode, "v3", timestamp, bodySHA,
 	}, "\n")
 	mac := hmac.New(sha256.New, []byte(secret))
 	_, _ = mac.Write([]byte(payload))
@@ -233,6 +267,19 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	req.Header.Set("X-ACU-Allowed-Profile-Ids", string(allowedProfileIDsJSON))
 	req.Header.Set("X-ACU-Routing-Policy-Version", routingPolicyVersion)
 	req.Header.Set("X-ACU-Routing-Preference", routingPreference)
+	req.Header.Set("X-ACU-Quality-Bias", qualityBias)
+	req.Header.Set("X-ACU-Supply-Strategy", policy.SupplyStrategy)
+	req.Header.Set("X-ACU-Supply-Weights", string(supplyWeightsJSON))
+	req.Header.Set("X-ACU-High-Bias-Offset", highBiasOffset)
+	req.Header.Set("X-ACU-Model-Cost-Log-Scale", modelCostLogScale)
+	req.Header.Set("X-ACU-Profile-Cost-Log-Scale", profileCostLogScale)
+	req.Header.Set("X-ACU-Profile-Speed-Log-Scale", profileSpeedLogScale)
+	req.Header.Set("X-ACU-Latency-Policy", string(latencyPolicyJSON))
+	req.Header.Set("X-ACU-Reliability-Policy", string(reliabilityPolicyJSON))
+	req.Header.Set("X-ACU-Work-Phase-Bias-Offsets", string(workPhaseBiasOffsetsJSON))
+	req.Header.Set("X-ACU-Routing-Utility-Version", policy.RoutingUtilityVersion)
+	req.Header.Set("X-ACU-Formula-Mode", policy.FormulaMode)
+	req.Header.Set("X-ACU-Identity-Version", "v3")
 	req.Header.Set("X-ACU-Timestamp", timestamp)
 	req.Header.Set("X-ACU-Body-SHA256", bodySHA)
 	req.Header.Set("X-ACU-Signature", hex.EncodeToString(mac.Sum(nil)))

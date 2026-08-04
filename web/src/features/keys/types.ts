@@ -49,7 +49,13 @@ export const apiKeySchema = z.object({
     .array(z.string())
     .nullish()
     .transform((value) => value ?? []),
-  acu_routing_preference: z.enum(['economy', 'balanced', 'quality']).catch('balanced'),
+  acu_routing_preference: z
+    .enum(['economy', 'balanced', 'quality'])
+    .catch('balanced'),
+  acu_quality_bias: z.number().int().min(-100).max(100).nullable().optional(),
+  acu_supply_strategy: z
+    .enum(['lowest_cost', 'balanced', 'low_latency', 'high_reliability'])
+    .catch('balanced'),
   allow_ips: z.string().nullish().default(''),
 })
 
@@ -98,6 +104,12 @@ export interface ApiKeyFormData {
   acu_profile_limits_enabled: boolean
   acu_profile_limits: string[]
   acu_routing_preference: 'economy' | 'balanced' | 'quality'
+  acu_quality_bias: number | null
+  acu_supply_strategy:
+    | 'lowest_cost'
+    | 'balanced'
+    | 'low_latency'
+    | 'high_reliability'
   allow_ips: string
   group: string
   cross_group_retry: boolean

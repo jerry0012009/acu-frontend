@@ -3,6 +3,7 @@ import { after, test } from 'node:test'
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Window } from 'happy-dom'
+import React from 'react'
 
 const domWindow = new Window()
 for (const key of [
@@ -25,7 +26,9 @@ for (const key of [
   })
 }
 
-const { act } = await import('react')
+const React = await import('react')
+const { act } = React
+;(globalThis as typeof globalThis & { React?: unknown }).React = React.default ?? React
 const { createRoot } = await import('react-dom/client')
 const i18next = (await import('i18next')).default
 const { initReactI18next } = await import('react-i18next')

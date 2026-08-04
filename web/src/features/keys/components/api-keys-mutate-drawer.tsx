@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, KeyRound, Settings2, WalletCards } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useForm, type SubmitErrorHandler } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -60,13 +60,14 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { getACUChannelMonitor } from '@/features/usage-logs/api'
 import { useStatus } from '@/hooks/use-status'
 import { getUserGroups } from '@/lib/api'
 import { getCurrencyDisplay, getCurrencyLabel } from '@/lib/currency'
 import { cn } from '@/lib/utils'
-import { getACUChannelMonitor } from '@/features/usage-logs/api'
 
 import { createApiKey, updateApiKey, getApiKey } from '../api'
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
@@ -160,17 +161,21 @@ export function ApiKeysMutateDrawer({
       (!acuModelFilters.vendor || model.vendor === acuModelFilters.vendor) &&
       (!acuModelFilters.protocol ||
         model.protocols.includes(acuModelFilters.protocol)) &&
-      (!acuModelFilters.tier || model.capabilityTier === acuModelFilters.tier) &&
-      (!acuReasoningEffort || model.profiles.some((profile) =>
-        profile.supportedReasoningEfforts?.includes(acuReasoningEffort)
-      ))
+      (!acuModelFilters.tier ||
+        model.capabilityTier === acuModelFilters.tier) &&
+      (!acuReasoningEffort ||
+        model.profiles.some((profile) =>
+          profile.supportedReasoningEfforts?.includes(acuReasoningEffort)
+        ))
   )
   const routingProfileGroups = (modelPoolData?.data?.modelPool ?? [])
     .filter(
       (model) =>
         model.modelCategory === 'text_agent' &&
         model.autoRouteEnabled &&
-        ['verified', 'verified_provisional'].includes(model.verificationStatus) &&
+        ['verified', 'verified_provisional'].includes(
+          model.verificationStatus
+        ) &&
         (!selectedModelScopeCustom || selectedModelIds.includes(model.modelId))
     )
     .map((model) => ({
@@ -179,33 +184,66 @@ export function ApiKeysMutateDrawer({
         (profile) =>
           profile.enabled &&
           profile.administratorAllowed &&
-          (!acuProfileFilters.model || model.modelId === acuProfileFilters.model) &&
-          (!acuProfileFilters.provider || profile.provider === acuProfileFilters.provider) &&
-          (!acuProfileFilters.protocol || profile.protocol.includes(acuProfileFilters.protocol)) &&
-          (!acuReasoningEffort || profile.supportedReasoningEfforts?.includes(acuReasoningEffort))
+          (!acuProfileFilters.model ||
+            model.modelId === acuProfileFilters.model) &&
+          (!acuProfileFilters.provider ||
+            profile.provider === acuProfileFilters.provider) &&
+          (!acuProfileFilters.protocol ||
+            profile.protocol.includes(acuProfileFilters.protocol)) &&
+          (!acuReasoningEffort ||
+            profile.supportedReasoningEfforts?.includes(acuReasoningEffort))
       ),
     }))
     .filter((group) => group.profiles.length > 0)
   useEffect(() => {
-    if (!selectedModelScopeCustom || !form.getValues('acu_profile_scope_custom')) return
+    if (
+      !selectedModelScopeCustom ||
+      !form.getValues('acu_profile_scope_custom')
+    ) {
+      return
+    }
     const allowed = new Set(selectedModelIds)
     const next = selectedProfileIds.filter((profileId) => {
       const model = (modelPoolData?.data?.modelPool ?? []).find((item) =>
-        item.profiles.some((profile) => profile.executionProfileId === profileId)
+        item.profiles.some(
+          (profile) => profile.executionProfileId === profileId
+        )
       )
       return model ? allowed.has(model.modelId) : false
     })
     if (next.length !== selectedProfileIds.length) {
-      form.setValue('acu_profile_limits', next, { shouldDirty: true, shouldValidate: true })
+      form.setValue('acu_profile_limits', next, {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
     }
-  }, [form, modelPoolData, selectedModelIds, selectedModelScopeCustom, selectedProfileIds])
+  }, [
+    form,
+    modelPoolData,
+    selectedModelIds,
+    selectedModelScopeCustom,
+    selectedProfileIds,
+  ])
   const selectedProfiles = (modelPoolData?.data?.modelPool ?? [])
-    .flatMap((model) => model.profiles.map((profile) => ({ ...profile, modelId: model.modelId })))
-    .filter((profile) => selectedProfileIds.includes(profile.executionProfileId))
-  const selectedModelCount = new Set(selectedProfiles.map((profile) => profile.modelId)).size
-  const selectedProviderCount = new Set(selectedProfiles.map((profile) => profile.provider)).size
-  const singleProfileModelCount = [...new Set(selectedProfiles.map((profile) => profile.modelId))]
-    .filter((modelId) => selectedProfiles.filter((profile) => profile.modelId === modelId).length === 1).length
+    .flatMap((model) =>
+      model.profiles.map((profile) => ({ ...profile, modelId: model.modelId }))
+    )
+    .filter((profile) =>
+      selectedProfileIds.includes(profile.executionProfileId)
+    )
+  const selectedModelCount = new Set(
+    selectedProfiles.map((profile) => profile.modelId)
+  ).size
+  const selectedProviderCount = new Set(
+    selectedProfiles.map((profile) => profile.provider)
+  ).size
+  const singleProfileModelCount = [
+    ...new Set(selectedProfiles.map((profile) => profile.modelId)),
+  ].filter(
+    (modelId) =>
+      selectedProfiles.filter((profile) => profile.modelId === modelId)
+        .length === 1
+  ).length
 
   // Load existing data when updating
   useEffect(() => {
@@ -225,7 +263,15 @@ export function ApiKeysMutateDrawer({
         getApiKeyFormDefaultValues(defaultUseAutoGroup && backendHasAuto)
       )
     }
-  }, [open, isUpdate, isClone, currentRow, form, defaultUseAutoGroup, backendHasAuto])
+  }, [
+    open,
+    isUpdate,
+    isClone,
+    currentRow,
+    form,
+    defaultUseAutoGroup,
+    backendHasAuto,
+  ])
 
   // Correct group after groups load: if the form value is not in available groups, fall back
   useEffect(() => {
@@ -343,9 +389,7 @@ export function ApiKeysMutateDrawer({
         className={sideDrawerContentClassName('max-w-none sm:!max-w-[620px]')}
       >
         <SheetHeader className={sideDrawerHeaderClassName()}>
-          <SheetTitle>
-            {drawerTitle}
-          </SheetTitle>
+          <SheetTitle>{drawerTitle}</SheetTitle>
           <SheetDescription>
             {isUpdate
               ? t('Update the API key by providing necessary info.')
@@ -607,10 +651,10 @@ export function ApiKeysMutateDrawer({
                   <div className='flex flex-col gap-4 pt-2'>
                     <FormField
                       control={form.control}
-                      name='acu_routing_preference'
+                      name='acu_quality_mode'
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>{t('ACU routing preference')}</FormLabel>
+                          <FormLabel>{t('Quality preference')}</FormLabel>
                           <FormControl>
                             <select
                               className='bg-background h-9 w-full rounded border px-2 text-sm'
@@ -620,8 +664,92 @@ export function ApiKeysMutateDrawer({
                               <option value='economy'>{t('Economy')}</option>
                               <option value='balanced'>{t('Balanced')}</option>
                               <option value='quality'>{t('Quality')}</option>
+                              <option value='custom'>{t('Custom')}</option>
                             </select>
                           </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    {form.watch('acu_quality_mode') === 'custom' && (
+                      <FormField
+                        control={form.control}
+                        name='acu_quality_bias'
+                        render={({ field }) => (
+                          <FormItem>
+                            <div className='flex items-center justify-between gap-3'>
+                              <FormLabel>{t('Custom quality bias')}</FormLabel>
+                              <Input
+                                aria-label={t('Custom quality bias')}
+                                type='number'
+                                min={-100}
+                                max={100}
+                                step={1}
+                                className='h-8 w-24 rounded-md'
+                                value={field.value}
+                                onChange={(event) =>
+                                  field.onChange(
+                                    Math.max(
+                                      -100,
+                                      Math.min(100, Number(event.target.value))
+                                    )
+                                  )
+                                }
+                              />
+                            </div>
+                            <FormControl>
+                              <Slider
+                                min={-100}
+                                max={100}
+                                step={1}
+                                value={[field.value]}
+                                onValueChange={(value) =>
+                                  field.onChange(
+                                    Array.isArray(value)
+                                      ? (value[0] ?? 0)
+                                      : value
+                                  )
+                                }
+                              />
+                            </FormControl>
+                            <FormDescription className='text-xs'>
+                              {t(
+                                '-100 compares only model cost; 0 weighs quality and cost equally; +100 compares only conservative model quality.'
+                              )}
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                    <FormField
+                      control={form.control}
+                      name='acu_supply_strategy'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('Supply strategy')}</FormLabel>
+                          <FormControl>
+                            <select
+                              className='bg-background h-9 w-full rounded-md border px-2 text-sm'
+                              value={field.value}
+                              onChange={field.onChange}
+                            >
+                              <option value='lowest_cost'>
+                                {t('Lowest cost')}
+                              </option>
+                              <option value='balanced'>{t('Balanced')}</option>
+                              <option value='low_latency'>
+                                {t('Low latency')}
+                              </option>
+                              <option value='high_reliability'>
+                                {t('High reliability')}
+                              </option>
+                            </select>
+                          </FormControl>
+                          <FormDescription className='text-xs'>
+                            {t(
+                              'Chooses the execution Profile for the selected canonical model.'
+                            )}
+                          </FormDescription>
                         </FormItem>
                       )}
                     />
@@ -655,10 +783,49 @@ export function ApiKeysMutateDrawer({
                         <div className='grid grid-cols-3 gap-2'>
                           {(
                             [
-                              ['vendor', [...new Set((modelPoolData?.data?.modelPool ?? []).map((item) => item.vendor))]],
-                              ['protocol', [...new Set((modelPoolData?.data?.modelPool ?? []).flatMap((item) => item.protocols))]],
-                              ['tier', [...new Set((modelPoolData?.data?.modelPool ?? []).map((item) => item.capabilityTier))]],
-                              ['reasoningEffort', [...new Set((modelPoolData?.data?.profiles ?? []).flatMap((item) => item.supportedReasoningEfforts ?? []))]],
+                              [
+                                'vendor',
+                                [
+                                  ...new Set(
+                                    (modelPoolData?.data?.modelPool ?? []).map(
+                                      (item) => item.vendor
+                                    )
+                                  ),
+                                ],
+                              ],
+                              [
+                                'protocol',
+                                [
+                                  ...new Set(
+                                    (
+                                      modelPoolData?.data?.modelPool ?? []
+                                    ).flatMap((item) => item.protocols)
+                                  ),
+                                ],
+                              ],
+                              [
+                                'tier',
+                                [
+                                  ...new Set(
+                                    (modelPoolData?.data?.modelPool ?? []).map(
+                                      (item) => item.capabilityTier
+                                    )
+                                  ),
+                                ],
+                              ],
+                              [
+                                'reasoningEffort',
+                                [
+                                  ...new Set(
+                                    (
+                                      modelPoolData?.data?.profiles ?? []
+                                    ).flatMap(
+                                      (item) =>
+                                        item.supportedReasoningEfforts ?? []
+                                    )
+                                  ),
+                                ],
+                              ],
                             ] as const
                           ).map(([key, values]) => (
                             <select
@@ -689,7 +856,9 @@ export function ApiKeysMutateDrawer({
                           name='model_limits'
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>{t('Custom allowed models')}</FormLabel>
+                              <FormLabel>
+                                {t('Custom allowed models')}
+                              </FormLabel>
                               <FormControl>
                                 <MultiSelect
                                   options={routingModels.map((model) => ({
@@ -702,7 +871,9 @@ export function ApiKeysMutateDrawer({
                                 />
                               </FormControl>
                               <FormDescription>
-                                {t('Virtual ACU entry models are allowed automatically')}
+                                {t(
+                                  'Virtual ACU entry models are allowed automatically'
+                                )}
                               </FormDescription>
                               <FormMessage />
                             </FormItem>
@@ -742,9 +913,36 @@ export function ApiKeysMutateDrawer({
                         <div className='grid grid-cols-3 gap-2'>
                           {(
                             [
-                              ['model', [...new Set((modelPoolData?.data?.modelPool ?? []).map((item) => item.modelId))]],
-                              ['provider', [...new Set((modelPoolData?.data?.profiles ?? []).map((item) => item.provider))]],
-                              ['protocol', [...new Set((modelPoolData?.data?.profiles ?? []).flatMap((item) => item.protocol))]],
+                              [
+                                'model',
+                                [
+                                  ...new Set(
+                                    (modelPoolData?.data?.modelPool ?? []).map(
+                                      (item) => item.modelId
+                                    )
+                                  ),
+                                ],
+                              ],
+                              [
+                                'provider',
+                                [
+                                  ...new Set(
+                                    (modelPoolData?.data?.profiles ?? []).map(
+                                      (item) => item.provider
+                                    )
+                                  ),
+                                ],
+                              ],
+                              [
+                                'protocol',
+                                [
+                                  ...new Set(
+                                    (
+                                      modelPoolData?.data?.profiles ?? []
+                                    ).flatMap((item) => item.protocol)
+                                  ),
+                                ],
+                              ],
                             ] as const
                           ).map(([key, values]) => (
                             <select
@@ -759,52 +957,105 @@ export function ApiKeysMutateDrawer({
                                 }))
                               }
                             >
-                              <option value=''>{t('All')} {t(key)}</option>
+                              <option value=''>
+                                {t('All')} {t(key)}
+                              </option>
                               {[...values].sort().map((value: string) => (
-                                <option key={value} value={value}>{value}</option>
+                                <option key={value} value={value}>
+                                  {value}
+                                </option>
                               ))}
                             </select>
                           ))}
                         </div>
                         <div className='max-h-72 space-y-2 overflow-y-auto rounded border p-2'>
                           {routingProfileGroups.map((group) => {
-                            const groupIds = group.profiles.map((profile) => profile.executionProfileId)
-                            const selectedCount = groupIds.filter((profileId) => selectedProfileIds.includes(profileId)).length
+                            const groupIds = group.profiles.map(
+                              (profile) => profile.executionProfileId
+                            )
+                            const selectedCount = groupIds.filter((profileId) =>
+                              selectedProfileIds.includes(profileId)
+                            ).length
                             return (
                               <div key={group.modelId} className='space-y-1.5'>
                                 <label className='flex items-center gap-2 text-xs font-medium'>
                                   <TriStateCheckbox
                                     checked={selectedCount === groupIds.length}
-                                    indeterminate={selectedCount > 0 && selectedCount < groupIds.length}
+                                    indeterminate={
+                                      selectedCount > 0 &&
+                                      selectedCount < groupIds.length
+                                    }
                                     onChange={(checked) => {
                                       const next = checked
-                                        ? [...new Set([...selectedProfileIds, ...groupIds])]
-                                        : selectedProfileIds.filter((profileId) => !groupIds.includes(profileId))
-                                      form.setValue('acu_profile_limits', next, { shouldDirty: true, shouldValidate: true })
+                                        ? [
+                                            ...new Set([
+                                              ...selectedProfileIds,
+                                              ...groupIds,
+                                            ]),
+                                          ]
+                                        : selectedProfileIds.filter(
+                                            (profileId) =>
+                                              !groupIds.includes(profileId)
+                                          )
+                                      form.setValue(
+                                        'acu_profile_limits',
+                                        next,
+                                        {
+                                          shouldDirty: true,
+                                          shouldValidate: true,
+                                        }
+                                      )
                                     }}
                                   />
                                   {group.modelId}
                                 </label>
                                 <div className='space-y-1 pl-6'>
                                   {group.profiles.map((profile) => (
-                                    <label key={profile.executionProfileId} className='flex items-start gap-2 text-xs'>
+                                    <label
+                                      key={profile.executionProfileId}
+                                      className='flex items-start gap-2 text-xs'
+                                    >
                                       <input
                                         type='checkbox'
                                         className='mt-0.5 size-4'
-                                        checked={selectedProfileIds.includes(profile.executionProfileId)}
+                                        checked={selectedProfileIds.includes(
+                                          profile.executionProfileId
+                                        )}
                                         onChange={(event) => {
                                           const next = event.target.checked
-                                            ? [...new Set([...selectedProfileIds, profile.executionProfileId])]
-                                            : selectedProfileIds.filter((profileId) => profileId !== profile.executionProfileId)
-                                          form.setValue('acu_profile_limits', next, { shouldDirty: true, shouldValidate: true })
+                                            ? [
+                                                ...new Set([
+                                                  ...selectedProfileIds,
+                                                  profile.executionProfileId,
+                                                ]),
+                                              ]
+                                            : selectedProfileIds.filter(
+                                                (profileId) =>
+                                                  profileId !==
+                                                  profile.executionProfileId
+                                              )
+                                          form.setValue(
+                                            'acu_profile_limits',
+                                            next,
+                                            {
+                                              shouldDirty: true,
+                                              shouldValidate: true,
+                                            }
+                                          )
                                         }}
                                       />
                                       <span>
-                                        {profile.provider} / {profile.channel} / {profile.protocol.join(', ')} / {profile.multiplier ?? 'n/a'}x / {profile.routingEligibility}
-                                        {profile.supportedReasoningEfforts?.length
+                                        {profile.provider} / {profile.channel} /{' '}
+                                        {profile.protocol.join(', ')} /{' '}
+                                        {profile.multiplier ?? 'n/a'}x /{' '}
+                                        {profile.routingEligibility}
+                                        {profile.supportedReasoningEfforts
+                                          ?.length
                                           ? ` / ${profile.supportedReasoningEfforts.join(', ')}`
                                           : ' / default'}
-                                        <span className='text-muted-foreground block break-all'>{profile.executionProfileId}</span>
+                                        <span className='text-muted-foreground block break-all'>
+                                          {profile.executionProfileId}
+                                        </span>
                                       </span>
                                     </label>
                                   ))}
@@ -814,10 +1065,19 @@ export function ApiKeysMutateDrawer({
                           })}
                         </div>
                         <div className='bg-muted/40 grid grid-cols-2 gap-2 rounded p-2 text-xs sm:grid-cols-4'>
-                          <span>{selectedProfileIds.length} {t('Profiles')}</span>
-                          <span>{selectedModelCount} {t('Models')}</span>
-                          <span>{selectedProviderCount} {t('Providers')}</span>
-                          <span>{singleProfileModelCount} {t('Single-profile models')}</span>
+                          <span>
+                            {selectedProfileIds.length} {t('Profiles')}
+                          </span>
+                          <span>
+                            {selectedModelCount} {t('Models')}
+                          </span>
+                          <span>
+                            {selectedProviderCount} {t('Providers')}
+                          </span>
+                          <span>
+                            {singleProfileModelCount}{' '}
+                            {t('Single-profile models')}
+                          </span>
                         </div>
                         {form.formState.errors.acu_profile_limits?.message && (
                           <p className='text-destructive text-xs'>

@@ -36,6 +36,10 @@ func TestApplyACUTrustedIdentityReplacesForgedHeadersAndBindsBody(t *testing.T) 
 	require.Equal(t, "0.145.0", req.Header.Get("X-ACU-Client-Version"))
 	require.Equal(t, "all_routing_eligible", req.Header.Get("X-ACU-Routing-Policy"))
 	require.Equal(t, "balanced", req.Header.Get("X-ACU-Routing-Preference"))
+	require.Equal(t, "v3", req.Header.Get("X-ACU-Identity-Version"))
+	require.Equal(t, "0", req.Header.Get("X-ACU-Quality-Bias"))
+	require.Equal(t, "balanced", req.Header.Get("X-ACU-Supply-Strategy"))
+	require.Equal(t, `{"cost":40,"speed":25,"reliability":35}`, req.Header.Get("X-ACU-Supply-Weights"))
 	require.Equal(t, "[]", req.Header.Get("X-ACU-Allowed-Model-Ids"))
 	require.Equal(t, "[]", req.Header.Get("X-ACU-Allowed-Profile-Ids"))
 	require.NotEmpty(t, req.Header.Get("X-ACU-Routing-Policy-Version"))
@@ -47,7 +51,13 @@ func TestApplyACUTrustedIdentityReplacesForgedHeadersAndBindsBody(t *testing.T) 
 	payload := strings.Join([]string{
 		"17", "29", "req_alpha_1", "req_alpha_1", "0.145.0",
 		"all_routing_eligible", "[]", "[]", req.Header.Get("X-ACU-Routing-Policy-Version"),
-		"balanced", req.Header.Get("X-ACU-Timestamp"), bodyHash,
+		"balanced", req.Header.Get("X-ACU-Quality-Bias"), req.Header.Get("X-ACU-Supply-Strategy"),
+		req.Header.Get("X-ACU-Supply-Weights"), req.Header.Get("X-ACU-High-Bias-Offset"),
+		req.Header.Get("X-ACU-Model-Cost-Log-Scale"), req.Header.Get("X-ACU-Profile-Cost-Log-Scale"),
+		req.Header.Get("X-ACU-Profile-Speed-Log-Scale"), req.Header.Get("X-ACU-Latency-Policy"),
+		req.Header.Get("X-ACU-Reliability-Policy"), req.Header.Get("X-ACU-Work-Phase-Bias-Offsets"),
+		req.Header.Get("X-ACU-Routing-Utility-Version"), req.Header.Get("X-ACU-Formula-Mode"),
+		"v3", req.Header.Get("X-ACU-Timestamp"), bodyHash,
 	}, "\n")
 	mac := hmac.New(sha256.New, []byte("test-only-shared-secret"))
 	_, _ = mac.Write([]byte(payload))

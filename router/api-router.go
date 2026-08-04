@@ -197,6 +197,8 @@ func SetApiRouter(router *gin.Engine) {
 			optionRoute.PUT("/", controller.UpdateOption)
 			optionRoute.GET("/acu-routing-policy", controller.GetACUGlobalRoutingPolicy)
 			optionRoute.PUT("/acu-routing-policy", controller.UpdateACUGlobalRoutingPolicy)
+			optionRoute.GET("/acu-routing-utility-config", controller.GetACURoutingUtilityConfig)
+			optionRoute.PUT("/acu-routing-utility-config", controller.UpdateACURoutingUtilityConfig)
 			optionRoute.POST("/payment_compliance", controller.ConfirmPaymentCompliance)
 			optionRoute.GET("/channel_affinity_cache", controller.GetChannelAffinityCacheStats)
 			optionRoute.DELETE("/channel_affinity_cache", controller.ClearChannelAffinityCache)

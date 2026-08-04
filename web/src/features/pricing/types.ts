@@ -171,6 +171,11 @@ export type ACUSelectionCandidate = {
   quality: number
   costCny: number
   valueUtility: number
+  qualityUtility?: number
+  costUtility?: number
+  qualityWeight?: number
+  costWeight?: number
+  rank?: number
 }
 
 export type ACUSelectionCorridorPoint = {
@@ -181,6 +186,23 @@ export type ACUSelectionCorridorPoint = {
   reasoningEffort?: string
   selectedQuality: number
   selectedCostCny: number
+  effectiveQualityBias?: number
+  qualityWeight?: number
+  costWeight?: number
+  selectedExecutionProfileId?: string
+  selectedProvider?: string
+  selectedProfileUtility?: number
+  profileCandidateUtilities?: Array<{
+    executionProfileId: string
+    profileCost: number
+    profileLatencyMs?: number
+    costUtility: number
+    speedUtility: number
+    reliabilityUtility: number
+    profileUtility: number
+    rank: number
+    selected: boolean
+  }>
   qualityLower: number
   qualityUpper: number
   candidates: ACUSelectionCandidate[]
@@ -205,6 +227,14 @@ export type ACUExecutionPresetSeries = {
 export type ACUSelectionCorridor = {
   defaultPreference: 'economy' | 'balanced' | 'quality'
   formulaVersion: string
+  routingUtilityVersion?: string
+  resolvedQualityBias?: number
+  supplyStrategy?:
+    | 'lowest_cost'
+    | 'balanced'
+    | 'low_latency'
+    | 'high_reliability'
+  supplyWeights?: { cost: number; speed: number; reliability: number }
   generatedAt: string
   inputTokens: number
   expectedOutputTokens: number
@@ -214,6 +244,7 @@ export type ACUSelectionCorridor = {
     'economy' | 'balanced' | 'quality',
     ACUSelectionCorridorPoint[]
   >
+  effective?: ACUSelectionCorridorPoint[]
 }
 
 export type TokenUnit = 'M' | 'K'
