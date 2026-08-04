@@ -94,6 +94,7 @@ export function isCompletedStatus(status: string): boolean {
 
 export function isTimelineError(item: ACUWorkTimelineItem): boolean {
   return (
+    item.billingStatus === 'unsettled' ||
     item.status === 'completed_with_recovery' ||
     (!isCompletedStatus(item.status) && item.status !== 'cancelled')
   )
@@ -526,7 +527,15 @@ export function summarizeTimelineItems(items: ACUWorkTimelineItem[]) {
       0
     ),
     actualTotalCostCny: items.reduce(
-      (sum, item) => sum + item.actualCostCny,
+      (sum, item) => {
+        if (item.billingStatus !== 'finalized') return sum
+        return (
+          sum +
+          (timelineUserCharge(item) ??
+            timelineCashCost(item) ??
+            0)
+        )
+      },
       0
     ),
     p50FirstModelEventLatencyMs: percentile(latencies, 0.5),

@@ -11,6 +11,7 @@ import {
   formatTimelineTimestamp,
   judgeLabel,
   isCompletedStatus,
+  isTimelineError,
   summarizeTimelineItems,
   timelineCashCost,
   timelineItemFromChartEvent,
@@ -115,6 +116,12 @@ test('a failed live Judge that reused a recent evaluation is not labeled new', (
     ),
     'Judge failed · reused previous'
   )
+})
+
+test('issues-only includes requests whose billing is unsettled', () => {
+  const unsettled = item({ billingStatus: 'unsettled' })
+  assert.equal(isTimelineError(unsettled), true)
+  assert.deepEqual(filterTimelineItems([unsettled], '', 'errors'), [unsettled])
 })
 
 test('uses ECharts financial-style zoom across both chart grids', () => {
@@ -384,6 +391,34 @@ test('visible summary is derived only from items inside the engine viewport', ()
     p50FirstModelEventLatencyMs: 1000,
     p95FirstModelEventLatencyMs: 3000,
   })
+})
+
+test('compatibility user-cost total excludes unsettled estimated charges', () => {
+  const summary = summarizeTimelineItems([
+    item({
+      userChargeCny: 0.01,
+      actualCashCostCny: 0.008,
+      actualCostCny: 0.01,
+      billingStatus: 'finalized',
+    }),
+    item({
+      logicalRequestId: 'logical-unsettled',
+      userChargeCny: 0.02,
+      actualCashCostCny: 0.015,
+      actualCostCny: 0.02,
+      billingStatus: 'unsettled',
+    }),
+    item({
+      logicalRequestId: 'logical-legacy',
+      userChargeCny: undefined,
+      actualCashCostCny: 0.003,
+      actualCostCny: 0.003,
+      billingStatus: 'finalized',
+    }),
+  ])
+  assert.ok(Math.abs(summary.actualTotalCostCny - 0.013) < 1e-12)
+  assert.ok(Math.abs(summary.totalUserChargeCny - 0.01) < 1e-12)
+  assert.ok(Math.abs(summary.totalActualCashCostCny - 0.026) < 1e-12)
 })
 
 test('summary excludes legacy Judge records without explicit metric samples', () => {
