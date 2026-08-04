@@ -603,7 +603,6 @@ export function ACUModelCurves(props: {
           xField: 'difficulty',
           yField: 'quality',
           seriesField: 'modelName',
-          smooth: true,
           color: chartColors,
           animation: false,
           line: {
@@ -1102,12 +1101,18 @@ export function ACUModelCurves(props: {
                           {candidate.qualityUtility != null &&
                             candidate.costUtility != null && (
                               <span className='text-muted-foreground ml-1'>
-                                U {candidate.valueUtility.toFixed(4)} · Q{' '}
+                                {t('Conservative quality')}{' '}
                                 {candidate.rawQualityUtility?.toFixed(4) ??
                                   'n/a'}{' '}
-                                → {candidate.qualityUtility.toFixed(4)} · C{' '}
-                                {candidate.rawCostUtility?.toFixed(4) ?? 'n/a'}{' '}
-                                → {candidate.costUtility.toFixed(4)}
+                                → {t('Quality satisfaction')}{' '}
+                                {(
+                                  candidate.qualitySatisfactionUtility ??
+                                  candidate.qualityUtility
+                                ).toFixed(4)}{' '}
+                                · {t('Relative cost utility')}{' '}
+                                {candidate.costUtility.toFixed(4)} ·{' '}
+                                {t('Combined utility')}{' '}
+                                {candidate.valueUtility.toFixed(4)}
                               </span>
                             )}
                         </span>

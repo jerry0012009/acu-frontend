@@ -2,13 +2,13 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
+import type { PricingModel } from '../../types'
 import {
   executionPresetLabels,
   executionPresetPointAtDifficulty,
   executionPresetPricingCosts,
 } from '../execution-preset-series'
 import { buildPricingBarSeries } from '../pricing-comparison'
-import type { PricingModel } from '../../types'
 
 const lunaMax = {
   candidateId: 'gpt-5.6-luna@max',
@@ -85,6 +85,21 @@ test('does not hard-code the Luna Max output multiplier in Pricing code', () => 
     '../execution-preset-series.ts',
     '../../components/acu-model-curves.tsx',
   ].map((path) => readFileSync(new URL(path, import.meta.url), 'utf8'))
-  assert.equal(sources.some((source) => /\b1\.6\b/.test(source)), false)
+  assert.equal(
+    sources.some((source) => /\b1\.6\b/.test(source)),
+    false
+  )
   assert.match(sources[1], /buildPriceRankColorMap\(candidateDisplayCosts\)/)
+  assert.doesNotMatch(
+    sources[1],
+    /seriesField: 'modelName',[\s\S]{0,80}smooth: true/
+  )
+  assert.match(
+    sources[1],
+    /yField: 'selectedQuality',[\s\S]{0,120}smooth: true/
+  )
+  assert.match(
+    sources[1],
+    /yField: 'selectedQuality',[\s\S]{0,400}curveType: 'monotone'/
+  )
 })

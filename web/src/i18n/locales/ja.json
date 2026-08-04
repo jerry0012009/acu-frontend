@@ -5225,6 +5225,10 @@
     "Web Profile Verified": "Web プロファイル検証済み",
     "Web Fallback Chain": "Web フォールバックチェーン",
     "Web Tool Pruned": "Web ツールを除外",
-    "Prune Reason": "除外理由"
+    "Prune Reason": "除外理由",
+    "Conservative quality": "保守的な品質",
+    "Quality satisfaction": "品質満足度",
+    "Relative cost utility": "相対コスト効用",
+    "Combined utility": "総合効用"
   }
 }

@@ -5225,6 +5225,10 @@
     "Web Profile Verified": "Web Profile 已驗證",
     "Web Fallback Chain": "Web 回退鏈",
     "Web Tool Pruned": "已裁剪 Web 工具",
-    "Prune Reason": "裁剪原因"
+    "Prune Reason": "裁剪原因",
+    "Conservative quality": "保守品質",
+    "Quality satisfaction": "品質滿意度",
+    "Relative cost utility": "相對成本效用",
+    "Combined utility": "綜合效用"
   }
 }

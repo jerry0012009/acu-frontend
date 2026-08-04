@@ -103,6 +103,22 @@ func TestLegacyTokenDefaultsToBalancedUtility(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "balanced", policy.RoutingPreference)
 	require.Equal(t, "balanced", policy.SupplyStrategy)
-	require.Equal(t, 0, policy.QualityBias)
+	require.Equal(t, 20, policy.QualityBias)
 	require.Equal(t, "legacy", policy.FormulaMode)
+	require.NotEmpty(t, policy.RoutingUtilityVersion)
+}
+
+func TestQualitySatisfactionVersionInvalidatesRoutingUtilityVersion(t *testing.T) {
+	previous := common.OptionMap
+	t.Cleanup(func() { common.OptionMap = previous })
+	config := defaultACURoutingUtilityConfig()
+	config.FormulaMode = "active"
+	config.QualityPresets = map[string]int{"economy": 0, "balanced": 40, "quality": 70}
+	raw, err := common.Marshal(config)
+	require.NoError(t, err)
+	common.OptionMap = map[string]string{"ACURoutingUtilityConfig": string(raw)}
+
+	policy, err := ResolveACUEffectiveRoutingPolicy(&model.Token{})
+	require.NoError(t, err)
+	require.NotEqual(t, "acu-routing-utility-v1-94cb7f76d42bd7cb", policy.RoutingUtilityVersion)
 }

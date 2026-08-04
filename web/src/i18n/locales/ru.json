@@ -5225,6 +5225,10 @@
     "Web Profile Verified": "Web-профиль проверен",
     "Web Fallback Chain": "Цепочка резервирования Web",
     "Web Tool Pruned": "Web-инструмент удален",
-    "Prune Reason": "Причина удаления"
+    "Prune Reason": "Причина удаления",
+    "Conservative quality": "Консервативное качество",
+    "Quality satisfaction": "Удовлетворенность качеством",
+    "Relative cost utility": "Относительная полезность стоимости",
+    "Combined utility": "Итоговая полезность"
   }
 }

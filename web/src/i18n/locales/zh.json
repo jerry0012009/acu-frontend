@@ -5318,6 +5318,10 @@
     "high_reliability": "高可靠性",
     "cost": "成本",
     "speed": "速度",
-    "reliability": "可靠性"
+    "reliability": "可靠性",
+    "Conservative quality": "保守质量",
+    "Quality satisfaction": "质量满意度",
+    "Relative cost utility": "相对成本效用",
+    "Combined utility": "综合效用"
   }
 }

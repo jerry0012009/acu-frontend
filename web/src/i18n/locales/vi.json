@@ -5225,6 +5225,10 @@
     "Web Profile Verified": "Hồ sơ Web đã xác minh",
     "Web Fallback Chain": "Chuỗi dự phòng Web",
     "Web Tool Pruned": "Công cụ Web đã bị loại bỏ",
-    "Prune Reason": "Lý do loại bỏ"
+    "Prune Reason": "Lý do loại bỏ",
+    "Conservative quality": "Chất lượng thận trọng",
+    "Quality satisfaction": "Mức hài lòng chất lượng",
+    "Relative cost utility": "Lợi ích chi phí tương đối",
+    "Combined utility": "Lợi ích tổng hợp"
   }
 }

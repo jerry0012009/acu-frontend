@@ -48,9 +48,36 @@ test('aggregates eligible models from corridor points and presets', () => {
     inputTokens: 100,
     expectedOutputTokens: 10,
     assumptions: {},
-    executionPresetSeries: [{ modelId: 'preset-model', candidateId: 'preset@high', displayName: 'Preset', executionPresetId: 'high', reasoningEffort: 'high', calibrationStatus: 'verified', expectedOutputTokenMultiplier: 1, estimatedOutputTokens: 10, points: [] }],
+    executionPresetSeries: [
+      {
+        modelId: 'preset-model',
+        candidateId: 'preset@high',
+        displayName: 'Preset',
+        executionPresetId: 'high',
+        reasoningEffort: 'high',
+        calibrationStatus: 'verified',
+        expectedOutputTokenMultiplier: 1,
+        estimatedOutputTokens: 10,
+        points: [
+          { difficulty: 0, estimatedQuality: 80, estimatedCallCost: 0.1 },
+        ],
+      },
+    ],
     series: {
-      economy: [{ ...point(0, 'selected-model'), candidates: [{ candidateId: 'candidate', modelId: 'candidate-model', quality: 1, costCny: 1, valueUtility: 1 }] }],
+      economy: [
+        {
+          ...point(0, 'selected-model'),
+          candidates: [
+            {
+              candidateId: 'candidate',
+              modelId: 'candidate-model',
+              quality: 1,
+              costCny: 1,
+              valueUtility: 1,
+            },
+          ],
+        },
+      ],
       balanced: [],
       quality: [],
     },
@@ -73,13 +100,26 @@ test('uses the selected Token preference and keeps global mode interactive', () 
     executionPresetSeries: [],
     series: { economy: [], balanced: [], quality: [] },
   }
-  assert.equal(resolveEffectiveCorridorPreference(3, corridor, 'quality'), 'economy')
   assert.equal(
-    resolveEffectiveCorridorPreference(4, { ...corridor, defaultPreference: 'quality' }, 'balanced'),
+    resolveEffectiveCorridorPreference(3, corridor, 'quality'),
+    'economy'
+  )
+  assert.equal(
+    resolveEffectiveCorridorPreference(
+      4,
+      { ...corridor, defaultPreference: 'quality' },
+      'balanced'
+    ),
     'quality'
   )
-  assert.equal(resolveEffectiveCorridorPreference(undefined, corridor, 'balanced'), 'balanced')
-  assert.equal(resolveEffectiveCorridorPreference(undefined, corridor, 'quality'), 'quality')
+  assert.equal(
+    resolveEffectiveCorridorPreference(undefined, corridor, 'balanced'),
+    'balanced'
+  )
+  assert.equal(
+    resolveEffectiveCorridorPreference(undefined, corridor, 'quality'),
+    'quality'
+  )
 })
 
 test('uses a three-column aligned desktop control grid', () => {

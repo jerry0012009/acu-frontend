@@ -173,6 +173,8 @@ export type ACUSelectionCandidate = {
   valueUtility: number
   rawQualityUtility?: number
   rawCostUtility?: number
+  qualitySatisfactionUtility?: number
+  qualitySatisfactionVersion?: string
   normalizedQualityUtility?: number
   normalizedCostUtility?: number
   qualityContribution?: number
@@ -187,6 +189,7 @@ export type ACUSelectionCandidate = {
   qualityWeight?: number
   costWeight?: number
   rank?: number
+  formulaVersion?: string
 }
 
 export type ACUSelectionCorridorPoint = {

@@ -5225,6 +5225,10 @@
     "Web Profile Verified": "Profil Web vérifié",
     "Web Fallback Chain": "Chaine de repli Web",
     "Web Tool Pruned": "Outil Web retiré",
-    "Prune Reason": "Motif du retrait"
+    "Prune Reason": "Motif du retrait",
+    "Conservative quality": "Qualité prudente",
+    "Quality satisfaction": "Satisfaction de qualité",
+    "Relative cost utility": "Utilité relative du coût",
+    "Combined utility": "Utilité globale"
   }
 }
