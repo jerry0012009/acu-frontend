@@ -602,6 +602,10 @@ func detectImageMimeType(filename string) string {
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
+	// ACU virtual entry models are routing modes, not reasoning-effort suffixes.
+	if request.Model == "acu-auto" || request.Model == "acu-high" {
+		return request, nil
+	}
 	//  转换模型推理力度后缀
 	effort, originModel := reasoning.ParseOpenAIReasoningEffortFromModelSuffix(request.Model)
 	if effort != "" {
