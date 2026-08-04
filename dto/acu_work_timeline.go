@@ -18,6 +18,7 @@ type ACUWorkTimelineSummary struct {
 	CacheHitRate                    float64 `json:"cacheHitRate"`
 	TotalUserChargeCNY              float64 `json:"totalUserChargeCny"`
 	TotalActualCashCostCNY          float64 `json:"totalActualCashCostCny"`
+	UnsettledRequests               int     `json:"unsettledRequests"`
 	// ActualTotalCostCNY is retained for clients that have not migrated yet.
 	// It means total user charge, with actual cash cost as the legacy fallback.
 	ActualTotalCostCNY          float64 `json:"actualTotalCostCny"`
@@ -43,6 +44,8 @@ type ACUWorkTimelineItem struct {
 	Provider                 string   `json:"provider"`
 	Channel                  string   `json:"channel"`
 	Status                   string   `json:"status"`
+	BillingStatus            string   `json:"billingStatus"`
+	BillingErrorCode         string   `json:"billingErrorCode,omitempty"`
 	FirstModelEventLatencyMs int      `json:"firstModelEventLatencyMs"`
 	EndToEndLatencyMs        int      `json:"endToEndLatencyMs"`
 	LatencySource            string   `json:"latencySource"`

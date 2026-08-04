@@ -15,6 +15,11 @@ const (
 	ACUFinalizeStatusFinalized = "finalized"
 )
 
+var (
+	ErrACUInsufficientWallet = errors.New("ACU wallet balance is insufficient")
+	ErrACUInsufficientToken  = errors.New("ACU token quota is insufficient")
+)
+
 type ACUUsageFinalize struct {
 	Id                                  int    `json:"id"`
 	ReportIdempotencyKey                string `json:"report_idempotency_key" gorm:"type:varchar(128);uniqueIndex;not null"`
@@ -192,6 +197,16 @@ func ApplyACUUsageCharge(input ACUUsageChargeInput) (*ACUUsageFinalize, bool, er
 			return errors.New("ACU finalize idempotency claim failed")
 		}
 
+		var user User
+		if err := lockForUpdate(tx).Where("id = ?", input.UserId).First(&user).Error; err != nil {
+			return err
+		}
+		if user.Status != common.UserStatusEnabled {
+			return errors.New("ACU user is disabled")
+		}
+		if user.Quota < input.FinalQuota {
+			return ErrACUInsufficientWallet
+		}
 		userUpdate := tx.Model(&User{}).
 			Where("id = ? AND status = ? AND quota >= ?", input.UserId, common.UserStatusEnabled, input.FinalQuota).
 			Updates(map[string]interface{}{
@@ -203,7 +218,7 @@ func ApplyACUUsageCharge(input ACUUsageChargeInput) (*ACUUsageFinalize, bool, er
 			return userUpdate.Error
 		}
 		if userUpdate.RowsAffected != 1 {
-			return errors.New("ACU wallet balance is insufficient or user is disabled")
+			return errors.New("ACU wallet charge lost its locked user row")
 		}
 
 		var token Token
@@ -227,7 +242,7 @@ func ApplyACUUsageCharge(input ACUUsageChargeInput) (*ACUUsageFinalize, bool, er
 			return tokenUpdate.Error
 		}
 		if tokenUpdate.RowsAffected != 1 {
-			return errors.New("ACU token quota is insufficient")
+			return ErrACUInsufficientToken
 		}
 		result = record
 		return nil
@@ -269,6 +284,7 @@ func FinalizeACUConsumeLog(record *ACUUsageFinalize) error {
 	}
 	other := map[string]interface{}{
 		"acu_pending_finalize":                    false,
+		"acu_billing_status":                      "finalized",
 		"acu_logical_request_id":                  record.LogicalRequestId,
 		"acu_report_idempotency_key":              record.ReportIdempotencyKey,
 		"actual_provider":                         record.Provider,
@@ -333,4 +349,81 @@ func FinalizeACUConsumeLog(record *ACUUsageFinalize) error {
 		"completion_tokens": updates.CompletionTokens,
 		"other":             updates.Other,
 	}).Error
+}
+
+func RecordACUUnsettledUsage(input ACUUsageChargeInput) error {
+	var existing Log
+	if err := LOG_DB.Where(
+		"user_id = ? AND token_id = ? AND request_id = ? AND type = ?",
+		input.UserId, input.TokenId, input.LogId, LogTypeConsume,
+	).First(&existing).Error; err != nil {
+		return err
+	}
+	other := map[string]interface{}{}
+	if existing.Other != "" {
+		_ = common.UnmarshalJsonStr(existing.Other, &other)
+	}
+	for key, value := range acuUsageLogOther(input, true, "unsettled", "insufficient_quota") {
+		other[key] = value
+	}
+	return updateACUUsageLog(existing.Id, input, "ACU usage pending settlement", 0, other)
+}
+
+func acuUsageLogOther(input ACUUsageChargeInput, pending bool, status, errorCode string) map[string]interface{} {
+	other := map[string]interface{}{
+		"acu_pending_finalize":                    pending,
+		"acu_billing_status":                      status,
+		"acu_logical_request_id":                  input.LogicalRequestId,
+		"acu_report_idempotency_key":              input.ReportIdempotencyKey,
+		"actual_provider":                         input.Provider,
+		"actual_channel":                          input.Channel,
+		"cached_input_tokens":                     input.CachedInputTokens,
+		"reasoning_tokens":                        input.ReasoningTokens,
+		"judge_cost_usd":                          input.JudgeCostUsd,
+		"provider_cost_usd":                       input.ProviderCostUsd,
+		"failed_billed_cost_usd":                  input.FailedBilledCostUsd,
+		"final_user_cost_usd":                     input.FinalUserCostUsd,
+		"nominal_provider_cost_usd":               input.NominalProviderCostUsd,
+		"provider_balance_charge":                 input.ProviderBalanceCharge,
+		"provider_balance_currency":               input.ProviderBalanceCurrency,
+		"provider_credit_cash_cost_cny":           input.ProviderCreditCashCostCny,
+		"effective_provider_cash_cost_cny":        input.EffectiveProviderCashCostCny,
+		"judge_cash_cost_cny":                     input.JudgeCashCostCny,
+		"judge_input_tokens":                      input.JudgeInputTokens,
+		"judge_output_tokens":                     input.JudgeOutputTokens,
+		"judge_official_payg_equivalent_cost":     input.JudgeOfficialPaygEquivalentCost,
+		"judge_cost_currency":                     input.JudgeCostCurrency,
+		"judge_cost_status":                       input.JudgeCostStatus,
+		"judge_cost_source":                       input.JudgeCostSource,
+		"judge_provider":                          input.JudgeProvider,
+		"judge_model":                             input.JudgeModel,
+		"failed_attempt_cash_cost_cny":            input.FailedAttemptCashCostCny,
+		"actual_total_cash_cost_cny":              input.ActualTotalCashCostCny,
+		"user_charge_cny":                         input.UserChargeCny,
+		"counterfactual_quality_ceiling_cost_cny": input.CounterfactualQualityCeilingCostCny,
+	}
+	if errorCode != "" {
+		other["acu_finalize_error_code"] = errorCode
+	}
+	var breakdown interface{}
+	if common.UnmarshalJsonStr(input.CostBreakdownJson, &breakdown) == nil {
+		other["acu_cost_breakdown"] = breakdown
+	}
+	return other
+}
+
+func updateACUUsageLog(logID int, input ACUUsageChargeInput, content string, quota int, other map[string]interface{}) error {
+	updates := map[string]interface{}{
+		"content": content, "model_name": input.ActualModel, "quota": quota,
+		"prompt_tokens": int(input.InputTokens), "completion_tokens": int(input.OutputTokens),
+		"other": common.MapToJsonStr(other),
+	}
+	result := LOG_DB.Model(&Log{}).Where("id = ?", logID).Updates(updates)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("ACU pending usage log was not found")
+	}
+	return nil
 }

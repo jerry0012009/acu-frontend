@@ -5267,6 +5267,21 @@
     "Judge Cache": "Judge 缓存",
     "Judge failed · reused previous": "Judge 尝试失败 · 复用上次结果",
     "Rules fallback": "规则回退",
-    "Judge Reused": "Judge 已复用"
+    "Judge Reused": "Judge 已复用",
+    "Billing unsettled · insufficient quota": "费用待结算 · 余额不足",
+    "Estimated user charge (unsettled)": "预计应收金额（待结算）",
+    "Billing status": "结算状态",
+    "Collected user charges": "已收用户费用",
+    "Unsettled requests": "待结算请求",
+    "Start time": "开始时间",
+    "End time": "结束时间",
+    "Apply": "应用",
+    "Enter valid start and end times.": "请输入有效的开始和结束时间。",
+    "End time must be after start time.": "结束时间必须晚于开始时间。",
+    "Custom range cannot exceed 7 days.": "自定义范围不能超过 7 天。",
+    "End time cannot be in the future.": "结束时间不能晚于当前时间。",
+    "finalized": "已结算",
+    "unsettled": "待结算",
+    "pending": "等待用量上报"
   }
 }

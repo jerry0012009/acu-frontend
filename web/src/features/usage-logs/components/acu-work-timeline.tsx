@@ -53,6 +53,7 @@ import {
   filterTimelineItems,
   formatTimelineTimestamp,
   isCompletedStatus,
+  rollingTimelineRange,
   summarizeTimelineItems,
   timelineCashCost,
   timelineItemFromChartEvent,
@@ -83,6 +84,11 @@ function money(value: number) {
 
 function optionalMoney(value: number | undefined) {
   return value == null ? '—' : money(value)
+}
+
+function datetimeLocalValue(timestampMs: number) {
+  const date = new Date(timestampMs - new Date(timestampMs).getTimezoneOffset() * 60_000)
+  return date.toISOString().slice(0, 16)
 }
 
 function statusTone(status: string) {
@@ -249,10 +255,19 @@ function TimelineStep(props: {
           <div>
             <div className='text-muted-foreground mb-1'>{t('Cost')}</div>
             <div>
-              {t('User charge')} {optionalMoney(timelineUserCharge(item))}
+              {item.billingStatus === 'unsettled'
+                ? t('Estimated user charge (unsettled)')
+                : t('User charge')}{' '}
+              {optionalMoney(timelineUserCharge(item))}
             </div>
             <div>
               {t('Cash cost')} {optionalMoney(timelineCashCost(item))}
+            </div>
+            <div className={cn(item.billingStatus === 'unsettled' && 'text-orange-600')}>
+              {t('Billing status')} ·{' '}
+              {item.billingStatus === 'unsettled'
+                ? t('Billing unsettled · insufficient quota')
+                : t(item.billingStatus)}
             </div>
           </div>
           <div className='lg:col-span-2'>
@@ -308,6 +323,18 @@ function TimelineStep(props: {
 export function ACUWorkTimeline() {
   const { t } = useTranslation()
   const [hours, setHours] = useState(1)
+  const [rangeMode, setRangeMode] = useState<'rolling' | 'custom'>('rolling')
+  const initialNow = useRef(Date.now())
+  const [customStart, setCustomStart] = useState(() =>
+    datetimeLocalValue(initialNow.current - 3600_000)
+  )
+  const [customEnd, setCustomEnd] = useState(() =>
+    datetimeLocalValue(initialNow.current)
+  )
+  const [customRange, setCustomRange] = useState(() =>
+    rollingTimelineRange(1, initialNow.current)
+  )
+  const [rangeError, setRangeError] = useState('')
   const [traceId, setTraceId] = useState('')
   const [trendOpen, setTrendOpen] = useState(true)
   const [search, setSearch] = useState('')
@@ -315,15 +342,25 @@ export function ACUWorkTimeline() {
   const chartContainerRef = useRef<HTMLDivElement | null>(null)
   const chartRef = useRef<EChartsType | null>(null)
   const { resolvedTheme, themeReady } = useChartTheme()
-  const to = Math.floor(Date.now() / 60_000) * 60
-  const from = to - hours * 3600
   const [visibleOrderRange, setVisibleOrderRange] = useState({
     start: 1,
     end: 1,
   })
   const query = useQuery({
-    queryKey: ['acu-work-timeline', hours, to],
-    queryFn: () => getACUWorkTimeline(from, to),
+    queryKey:
+      rangeMode === 'rolling'
+        ? ['acu-work-timeline', 'rolling', hours]
+        : [
+            'acu-work-timeline',
+            'custom',
+            customRange.from,
+            customRange.to,
+          ],
+    queryFn: () => {
+      const range =
+        rangeMode === 'rolling' ? rollingTimelineRange(hours) : customRange
+      return getACUWorkTimeline(range.from, range.to)
+    },
     refetchInterval: 60_000,
   })
   const data = query.data?.data
@@ -331,7 +368,32 @@ export function ACUWorkTimeline() {
 
   useEffect(() => {
     setVisibleOrderRange({ start: 1, end: Math.max(1, items.length) })
-  }, [from, hours, items.length, to])
+  }, [customRange.from, customRange.to, hours, items.length, rangeMode])
+
+  const applyCustomRange = () => {
+    const from = Math.floor(new Date(customStart).getTime() / 1000)
+    const to = Math.floor(new Date(customEnd).getTime() / 1000)
+    const now = Math.floor(Date.now() / 1000)
+    if (!Number.isFinite(from) || !Number.isFinite(to)) {
+      setRangeError(t('Enter valid start and end times.'))
+      return
+    }
+    if (to <= from) {
+      setRangeError(t('End time must be after start time.'))
+      return
+    }
+    if (to - from > 7 * 24 * 3600) {
+      setRangeError(t('Custom range cannot exceed 7 days.'))
+      return
+    }
+    if (to > now) {
+      setRangeError(t('End time cannot be in the future.'))
+      return
+    }
+    setRangeError('')
+    setCustomRange({ from, to })
+    setRangeMode('custom')
+  }
 
   const rangeItems = useMemo(
     () => items.slice(visibleOrderRange.start - 1, visibleOrderRange.end),
@@ -456,7 +518,7 @@ export function ACUWorkTimeline() {
       '',
     ],
     [
-      t('User charge'),
+      t('Collected user charges'),
       summary.userChargeSamples ? money(summary.totalUserChargeCny) : '—',
       Coins,
       t('{{count}} recorded cost samples from {{total}} steps', {
@@ -464,6 +526,7 @@ export function ACUWorkTimeline() {
         total: summary.apiSteps,
       }),
     ],
+    [t('Unsettled requests'), summary.unsettledRequests, Coins, ''],
     [
       t('Cash cost'),
       summary.actualCashCostSamples
@@ -524,9 +587,13 @@ export function ACUWorkTimeline() {
             <Button
               key={value}
               size='sm'
-              variant={hours === value ? 'default' : 'outline'}
-              aria-pressed={hours === value}
-              onClick={() => setHours(value)}
+              variant={rangeMode === 'rolling' && hours === value ? 'default' : 'outline'}
+              aria-pressed={rangeMode === 'rolling' && hours === value}
+              onClick={() => {
+                setHours(value)
+                setRangeMode('rolling')
+                setRangeError('')
+              }}
             >
               {value === 1 ? t('1 hour') : `${value} ${t('hours')}`}
             </Button>
@@ -536,6 +603,30 @@ export function ACUWorkTimeline() {
             {t('Reset zoom')}
           </Button>
         </div>
+      </div>
+      <div className='flex flex-wrap items-end gap-2 rounded border p-3'>
+        <label className='grid gap-1 text-xs'>
+          <span className='text-muted-foreground'>{t('Start time')}</span>
+          <Input
+            type='datetime-local'
+            value={customStart}
+            onChange={(event) => setCustomStart(event.target.value)}
+            className='h-8 w-[13rem]'
+          />
+        </label>
+        <label className='grid gap-1 text-xs'>
+          <span className='text-muted-foreground'>{t('End time')}</span>
+          <Input
+            type='datetime-local'
+            value={customEnd}
+            onChange={(event) => setCustomEnd(event.target.value)}
+            className='h-8 w-[13rem]'
+          />
+        </label>
+        <Button size='sm' variant={rangeMode === 'custom' ? 'default' : 'outline'} onClick={applyCustomRange}>
+          {t('Apply')}
+        </Button>
+        {rangeError ? <span className='text-destructive text-xs'>{rangeError}</span> : null}
       </div>
       <div className='text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs'>
         <span>
@@ -551,7 +642,7 @@ export function ACUWorkTimeline() {
           )}
         </span>
       </div>
-      <div className='bg-border grid shrink-0 grid-cols-2 gap-px overflow-hidden rounded border lg:grid-cols-7'>
+      <div className='bg-border grid shrink-0 grid-cols-2 gap-px overflow-hidden rounded border lg:grid-cols-8'>
         {stats.map(([label, value, Icon, description]) => (
           <div
             key={label}

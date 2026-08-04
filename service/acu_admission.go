@@ -23,7 +23,8 @@ func CheckACUAdmission(_ *gin.Context, info *relaycommon.RelayInfo) *types.NewAP
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeQueryDataError, types.ErrOptionWithSkipRetry())
 	}
-	if user.Status != common.UserStatusEnabled || user.Quota <= 0 {
+	requiredQuota := max(1, common.PreConsumedQuota)
+	if user.Status != common.UserStatusEnabled || user.Quota < requiredQuota {
 		return types.NewErrorWithStatusCode(
 			fmt.Errorf("ACU wallet balance is insufficient"),
 			types.ErrorCodeInsufficientUserQuota,
@@ -36,7 +37,7 @@ func CheckACUAdmission(_ *gin.Context, info *relaycommon.RelayInfo) *types.NewAP
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeQueryDataError, types.ErrOptionWithSkipRetry())
 	}
-	if token.Status != common.TokenStatusEnabled || (!token.UnlimitedQuota && token.RemainQuota <= 0) {
+	if token.Status != common.TokenStatusEnabled || (!token.UnlimitedQuota && token.RemainQuota < requiredQuota) {
 		return types.NewErrorWithStatusCode(
 			fmt.Errorf("ACU token quota is insufficient"),
 			types.ErrorCodePreConsumeTokenQuotaFailed,

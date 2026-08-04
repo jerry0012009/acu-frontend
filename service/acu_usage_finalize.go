@@ -216,7 +216,7 @@ func FinalizeACUUsage(request dto.ACUUsageFinalizeRequest, payloadHash string) (
 	if err != nil {
 		return dto.ACUUsageFinalizeResponse{}, err
 	}
-	record, alreadyProcessed, err := model.ApplyACUUsageCharge(model.ACUUsageChargeInput{
+	chargeInput := model.ACUUsageChargeInput{
 		ReportIdempotencyKey:                strings.TrimSpace(request.ReportIdempotencyKey),
 		LogicalRequestId:                    strings.TrimSpace(request.LogicalRequestID),
 		PayloadHash:                         payloadHash,
@@ -255,8 +255,14 @@ func FinalizeACUUsage(request dto.ACUUsageFinalizeRequest, payloadHash string) (
 		CounterfactualQualityCeilingCostCny: counterfactualCost.StringFixed(10),
 		FinalQuota:                          finalQuota,
 		CostBreakdownJson:                   string(costBreakdown),
-	})
+	}
+	record, alreadyProcessed, err := model.ApplyACUUsageCharge(chargeInput)
 	if err != nil {
+		if errors.Is(err, model.ErrACUInsufficientWallet) || errors.Is(err, model.ErrACUInsufficientToken) {
+			if logErr := model.RecordACUUnsettledUsage(chargeInput); logErr != nil {
+				return dto.ACUUsageFinalizeResponse{}, fmt.Errorf("%w; failed to record validated usage snapshot: %v", err, logErr)
+			}
+		}
 		return dto.ACUUsageFinalizeResponse{}, err
 	}
 	if record.Status != model.ACUFinalizeStatusFinalized {

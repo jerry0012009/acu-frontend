@@ -114,6 +114,8 @@ export type ACUWorkTimelineItem = {
   provider: string
   channel: string
   status: string
+  billingStatus: 'finalized' | 'unsettled' | 'pending'
+  billingErrorCode?: string
   firstModelEventLatencyMs: number
   endToEndLatencyMs: number
   latencySource: 'reported' | 'unavailable'
@@ -186,6 +188,7 @@ export type ACUWorkTimeline = {
     cacheHitRate: number
     totalUserChargeCny?: number
     totalActualCashCostCny?: number
+    unsettledRequests: number
     actualTotalCostCny: number
     p50FirstModelEventLatencyMs: number
     p95FirstModelEventLatencyMs: number

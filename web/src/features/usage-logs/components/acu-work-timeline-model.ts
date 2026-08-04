@@ -6,6 +6,11 @@ import type { ACUWorkTimelineItem } from '../api'
 export const ACU_TIMELINE_INSIDE_ZOOM_ID = 'acu-timeline-inside-zoom'
 export const ACU_TIMELINE_SLIDER_ZOOM_ID = 'acu-timeline-slider-zoom'
 
+export function rollingTimelineRange(hours: number, nowMs = Date.now()) {
+  const to = Math.floor(nowMs / 1000)
+  return { from: to - hours * 3600, to }
+}
+
 const MODEL_COLORS: Record<string, string> = {
   'gpt-5.4-mini': '#0f766e',
   'gpt-5.6-luna': '#2563eb',
@@ -32,6 +37,7 @@ function modelColor(item: ACUWorkTimelineItem): string {
 }
 
 function pointStroke(item: ACUWorkTimelineItem): string {
+  if (item.billingStatus === 'unsettled') return '#f97316'
   if (item.status === 'failed') return '#e11d48'
   if (item.status === 'completed_with_recovery') return '#f97316'
   return modelColor(item)
@@ -146,6 +152,9 @@ function tooltipHtml(item: ACUWorkTimelineItem, chartOrder: number): string {
     `<div>${escapeHtml(t('End-to-end'))} ${formatLatency(item.endToEndLatencyMs)} · ${escapeHtml(t('First model event'))} ${formatLatency(item.firstModelEventLatencyMs)}</div>`,
     `<div>${escapeHtml(t('Judge'))} ${formatLatency(item.judgeLatencyMs)} · ${escapeHtml(t('Provider'))} ${formatLatency(item.providerLatencyMs)}</div>`,
     `<div>${escapeHtml(t('User charge'))} ${formatOptionalMoney(timelineUserCharge(item))} · ${escapeHtml(t('Cash cost'))} ${formatOptionalMoney(timelineCashCost(item))}</div>`,
+    item.billingStatus === 'unsettled'
+      ? `<div style="color:#f97316;margin-top:4px">${escapeHtml(t('Billing unsettled · insufficient quota'))}</div>`
+      : '',
     item.errorClass
       ? `<div style="color:#e11d48;margin-top:4px">${escapeHtml(item.errorClass)}</div>`
       : '',
@@ -469,7 +478,8 @@ export function summarizeTimelineItems(items: ACUWorkTimelineItem[]) {
   const fallbackSamples = judged.filter((item) => item.judgeFallbackRecorded)
   const completed = items.filter((item) => isCompletedStatus(item.status))
   const userChargeSamples = items.filter(
-    (item) => timelineUserCharge(item) != null
+    (item) =>
+      item.billingStatus === 'finalized' && timelineUserCharge(item) != null
   )
   const actualCashCostSamples = items.filter(
     (item) => timelineCashCost(item) != null
@@ -501,9 +511,16 @@ export function summarizeTimelineItems(items: ACUWorkTimelineItem[]) {
     userChargeSamples: userChargeSamples.length,
     actualCashCostSamples: actualCashCostSamples.length,
     totalUserChargeCny: items.reduce(
-      (sum, item) => sum + (timelineUserCharge(item) ?? 0),
+      (sum, item) =>
+        sum +
+        (item.billingStatus === 'finalized'
+          ? (timelineUserCharge(item) ?? 0)
+          : 0),
       0
     ),
+    unsettledRequests: items.filter(
+      (item) => item.billingStatus === 'unsettled'
+    ).length,
     totalActualCashCostCny: items.reduce(
       (sum, item) => sum + (timelineCashCost(item) ?? 0),
       0

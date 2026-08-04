@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/glebarez/sqlite"
 	"github.com/shopspring/decimal"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
@@ -170,4 +171,56 @@ func TestFinalizeACUUsageRejectsIdempotencyPayloadMismatchWithoutSecondCharge(t 
 	var updated model.User
 	require.NoError(t, model.DB.First(&updated, user.Id).Error)
 	require.Equal(t, 9_500, updated.Quota)
+}
+
+func TestFinalizeACUUsageRecordsUnsettledSnapshotThenFinalizesSameLog(t *testing.T) {
+	setupACUFinalizeTestDB(t)
+	user := model.User{Username: "acu-unsettled", Password: "test-password", Status: common.UserStatusEnabled, Quota: 499}
+	require.NoError(t, model.DB.Create(&user).Error)
+	token := model.Token{UserId: user.Id, Key: "unsettled-token", Name: "acu-unsettled", Status: common.TokenStatusEnabled, RemainQuota: 10_000}
+	require.NoError(t, model.DB.Create(&token).Error)
+	require.NoError(t, model.LOG_DB.Create(&model.Log{
+		UserId: user.Id, TokenId: token.Id, RequestId: "req-unsettled", Type: model.LogTypeConsume,
+		ModelName: "acu-auto", Other: `{"acu_pending_finalize":true,"preserved":"value"}`,
+	}).Error)
+	request := dto.ACUUsageFinalizeRequest{
+		ReportIdempotencyKey: "report-unsettled", NewAPIUserID: fmt.Sprint(user.Id), NewAPITokenID: fmt.Sprint(token.Id),
+		NewAPILogID: "req-unsettled", LogicalRequestID: "logical-unsettled", ActualModel: "gpt-5.6-luna",
+		Provider: "lucen", Channel: "cx006", Usage: dto.ACUUsage{InputTokens: 100, CachedInputTokens: 20, OutputTokens: 30, ReasoningTokens: 5},
+		JudgeCostUSD: "0.0002", ProviderCostUSD: "0.0008", FailedBilledCostUSD: "0", FinalUserCostUSD: "0.001",
+		CostBreakdown: map[string]interface{}{"logical_request_status": "success", "decision_summary": map[string]interface{}{"selected_model": "gpt-5.6-luna"}},
+	}
+	payloadHash := "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+
+	_, err := FinalizeACUUsage(request, payloadHash)
+	require.ErrorIs(t, err, model.ErrACUInsufficientWallet)
+	var logEntry model.Log
+	require.NoError(t, model.LOG_DB.Where("request_id = ?", "req-unsettled").First(&logEntry).Error)
+	assert.Contains(t, logEntry.Other, `"acu_billing_status":"unsettled"`)
+	assert.Contains(t, logEntry.Other, `"acu_finalize_error_code":"insufficient_quota"`)
+	assert.Contains(t, logEntry.Other, `"acu_logical_request_id":"logical-unsettled"`)
+	assert.Contains(t, logEntry.Other, `"acu_cost_breakdown"`)
+	assert.Contains(t, logEntry.Other, `"preserved":"value"`)
+	assert.Equal(t, 100, logEntry.PromptTokens)
+	var finalizeCount int64
+	require.NoError(t, model.DB.Model(&model.ACUUsageFinalize{}).Count(&finalizeCount).Error)
+	assert.Zero(t, finalizeCount)
+
+	require.NoError(t, model.DB.Model(&model.User{}).Where("id = ?", user.Id).Update("quota", 2_000).Error)
+	result, err := FinalizeACUUsage(request, payloadHash)
+	require.NoError(t, err)
+	assert.False(t, result.AlreadyProcessed)
+	result, err = FinalizeACUUsage(request, payloadHash)
+	require.NoError(t, err)
+	assert.True(t, result.AlreadyProcessed)
+	require.NoError(t, model.LOG_DB.Where("request_id = ?", "req-unsettled").First(&logEntry).Error)
+	assert.Contains(t, logEntry.Other, `"acu_billing_status":"finalized"`)
+	assert.NotContains(t, logEntry.Other, "acu_finalize_error_code")
+	require.NoError(t, model.DB.Model(&model.ACUUsageFinalize{}).Count(&finalizeCount).Error)
+	assert.EqualValues(t, 1, finalizeCount)
+	var logCount int64
+	require.NoError(t, model.LOG_DB.Model(&model.Log{}).Where("request_id = ?", "req-unsettled").Count(&logCount).Error)
+	assert.EqualValues(t, 1, logCount)
+	require.NoError(t, model.DB.First(&user, user.Id).Error)
+	assert.Equal(t, 1_500, user.Quota)
 }

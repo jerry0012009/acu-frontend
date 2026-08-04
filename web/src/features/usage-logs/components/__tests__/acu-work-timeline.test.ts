@@ -15,9 +15,23 @@ import {
   timelineCashCost,
   timelineItemFromChartEvent,
   timelineOrderRangeFromZoom,
+  rollingTimelineRange,
   timelineUserCharge,
   thinkingEffort,
 } from '../acu-work-timeline-model.ts'
+
+test('rolling timeline range advances on each calculation while custom bounds stay fixed', () => {
+  assert.deepEqual(rollingTimelineRange(1, 10_000_000), {
+    from: 6400,
+    to: 10000,
+  })
+  assert.deepEqual(rollingTimelineRange(1, 10_060_000), {
+    from: 6460,
+    to: 10060,
+  })
+  const custom = { from: 1000, to: 2000 }
+  assert.deepEqual(custom, { from: 1000, to: 2000 })
+})
 
 function item(overrides: Partial<ACUWorkTimelineItem>): ACUWorkTimelineItem {
   return {
@@ -38,6 +52,7 @@ function item(overrides: Partial<ACUWorkTimelineItem>): ACUWorkTimelineItem {
     provider: 'lucen',
     channel: 'cx014',
     status: 'completed',
+    billingStatus: 'finalized',
     firstModelEventLatencyMs: 1000,
     endToEndLatencyMs: 3000,
     latencySource: 'reported',
@@ -363,6 +378,7 @@ test('visible summary is derived only from items inside the engine viewport', ()
     userChargeSamples: 2,
     actualCashCostSamples: 2,
     totalUserChargeCny: 0.03,
+    unsettledRequests: 0,
     totalActualCashCostCny: 0.03,
     actualTotalCostCny: 0.03,
     p50FirstModelEventLatencyMs: 1000,

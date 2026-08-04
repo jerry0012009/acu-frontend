@@ -140,6 +140,22 @@ func TestBuildACUWorkTimelineDoesNotInventMissingCostSemantics(t *testing.T) {
 	assert.InDelta(t, 0.3, result.Summary.ActualTotalCostCNY, 1e-12)
 }
 
+func TestBuildACUWorkTimelineShowsUnsettledWithoutCountingCollectedCharge(t *testing.T) {
+	logs := []*model.Log{{
+		CreatedAt: 100, Type: model.LogTypeConsume, ModelName: "gpt-5.6-luna", PromptTokens: 100, CompletionTokens: 20,
+		Other: `{"acu_billing_status":"unsettled","acu_finalize_error_code":"insufficient_quota","acu_logical_request_id":"req-unsettled","user_charge_cny":"0.12","actual_total_cash_cost_cny":"0.08","acu_cost_breakdown":{"logical_request_status":"success","task_id":"task-1","canonical_model":"gpt-5.6-luna"}}`,
+	}}
+
+	result := buildACUWorkTimeline(logs, 0, 200)
+	require.Len(t, result.Items, 1)
+	assert.Equal(t, "completed", result.Items[0].Status)
+	assert.Equal(t, "unsettled", result.Items[0].BillingStatus)
+	assert.Equal(t, "insufficient_quota", result.Items[0].BillingErrorCode)
+	assert.Equal(t, 0.0, result.Summary.TotalUserChargeCNY)
+	assert.Equal(t, 0.08, result.Summary.TotalActualCashCostCNY)
+	assert.Equal(t, 1, result.Summary.UnsettledRequests)
+}
+
 func TestBuildACUWorkTimelinePreservesAllDetectedWorkPhases(t *testing.T) {
 	phases := []struct {
 		name   string

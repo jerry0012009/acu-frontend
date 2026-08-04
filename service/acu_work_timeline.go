@@ -31,6 +31,10 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 		if logicalID == "" || breakdown == nil {
 			continue
 		}
+		billingStatus := stringValue(other, "acu_billing_status")
+		if billingStatus == "" {
+			billingStatus = "finalized"
+		}
 		attempts, _ := breakdown["channel_attempts"].([]interface{})
 		decision := mapValue(breakdown, "decision_summary")
 		firstLatency, totalLatency, errorClass, cooldown := attemptFields(attempts)
@@ -84,6 +88,7 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 			ActualModel: firstTimelineValue(stringValue(breakdown, "canonical_model"), log.ModelName),
 			Provider:    firstTimelineValue(stringValue(breakdown, "actual_provider"), stringValue(other, "actual_provider")),
 			Channel:     firstTimelineValue(stringValue(breakdown, "channel_id"), stringValue(other, "actual_channel")), Status: status,
+			BillingStatus: billingStatus, BillingErrorCode: stringValue(other, "acu_finalize_error_code"),
 			FirstModelEventLatencyMs: firstLatency,
 			EndToEndLatencyMs:        endToEndLatency,
 			LatencySource:            latencySource,
@@ -134,14 +139,18 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 	judgeFirstSuccess, judgeFirstSamples := 0, 0
 	rulesFallback, rulesFallbackSamples := 0, 0
 	totalUserCharge, totalActualCashCost, legacyTotalCost := 0.0, 0.0, 0.0
+	unsettledRequests := 0
 	totalInput, totalCached := int64(0), int64(0)
 	sequenceByTask := map[string]int{}
 	for i := range items {
 		sequenceByTask[items[i].TaskID]++
 		items[i].Sequence = sequenceByTask[items[i].TaskID]
 		legacyTotalCost += items[i].ActualCostCNY
-		if items[i].UserChargeCNY != nil {
+		if items[i].BillingStatus == "finalized" && items[i].UserChargeCNY != nil {
 			totalUserCharge += *items[i].UserChargeCNY
+		}
+		if items[i].BillingStatus == "unsettled" {
+			unsettledRequests++
 		}
 		if items[i].ActualCashCostCNY != nil {
 			totalActualCashCost += *items[i].ActualCashCostCNY
@@ -176,7 +185,7 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 		JudgeFirstAttemptSuccessSamples: judgeFirstSamples, JudgeCalledRequests: judgeCalls,
 		JudgeRulesFallbackRate: ratio(rulesFallback, rulesFallbackSamples), JudgeRulesFallbackSamples: rulesFallbackSamples,
 		CompletionRate: ratio(completed, len(items)), CacheHitRate: floatRatio(totalCached, totalInput),
-		TotalUserChargeCNY: totalUserCharge, TotalActualCashCostCNY: totalActualCashCost,
+		TotalUserChargeCNY: totalUserCharge, TotalActualCashCostCNY: totalActualCashCost, UnsettledRequests: unsettledRequests,
 		ActualTotalCostCNY: legacyTotalCost, P50FirstModelEventLatencyMs: percentile(latencies, .5), P95FirstModelEventLatencyMs: percentile(latencies, .95),
 	}}
 }
