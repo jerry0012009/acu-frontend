@@ -5229,6 +5229,8 @@
     "Conservative quality": "Консервативное качество",
     "Quality satisfaction": "Удовлетворенность качеством",
     "Relative cost utility": "Относительная полезность стоимости",
-    "Combined utility": "Итоговая полезность"
+    "Combined utility": "Итоговая полезность",
+    "The light area represents the route's estimated quality range, while the dashed gray line represents decision quality.": "Светлая область показывает ожидаемый диапазон качества маршрута, а серая пунктирная линия — качество решения.",
+    "Model curve colors range from blue to purple by estimated price.": "Цвета кривых моделей меняются от синего к фиолетовому по мере роста ожидаемой цены."
   }
 }

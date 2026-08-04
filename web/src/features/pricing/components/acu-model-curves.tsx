@@ -69,6 +69,7 @@ import {
 } from '../lib/pricing-comparison'
 import {
   PRICING_PREVIEW_CONTROL_GRID_CLASS,
+  buildSmoothedCorridorDisplayValues,
   corridorEligibleModelIds,
   corridorEffectivePointAtDifficulty,
   corridorPointAtDifficulty,
@@ -505,6 +506,10 @@ export function ACUModelCurves(props: {
     previewTokenId,
     selectionCorridor,
   ])
+  const smoothedActiveCorridorValues = useMemo(
+    () => buildSmoothedCorridorDisplayValues(activeCorridor?.values ?? []),
+    [activeCorridor]
+  )
   const corridorAtHover = useMemo(
     () =>
       previewTokenId != null
@@ -524,24 +529,11 @@ export function ACUModelCurves(props: {
       selectionCorridor,
     ]
   )
-  const selectedProfileUtilityAtHover =
-    corridorAtHover?.profileCandidateUtilities?.find(
-      (utility) =>
-        utility.executionProfileId ===
-        corridorAtHover.selectedExecutionProfileId
-    )
-  let corridorStatusText = '正在读取当前路由快照'
-  if (selectionCorridor) {
-    corridorStatusText = `${selectionCorridor.formulaVersion} · 零调用模拟 · ${new Date(
-      selectionCorridor.generatedAt
-    ).toLocaleTimeString()}`
-    if (selectionCorridor.assumptions.workload === 'Codex Agent') {
-      corridorStatusText +=
-        ' · Codex Agent · Responses API · Function / Custom / Local tools · 无 Provider 托管 Web 要求'
-    }
-  } else if (selectionCorridorUnavailable) {
-    corridorStatusText = '当前路由快照暂不可用'
-  }
+  const selectedCandidateAtHover = corridorAtHover?.candidates.find(
+    (candidate) =>
+      (candidate.candidateId || candidate.modelId) ===
+      corridorAtHover.selectedCandidateId
+  )
 
   const curveSpec = useMemo(
     () => ({
@@ -549,11 +541,11 @@ export function ACUModelCurves(props: {
       data: [
         {
           id: `acu-corridor-${effectiveCorridorPreference}`,
-          values: activeCorridor?.values ?? [],
+          values: smoothedActiveCorridorValues,
         },
         {
           id: 'acu-corridor-centerline',
-          values: activeCorridor?.values ?? [],
+          values: smoothedActiveCorridorValues,
         },
         { id: 'acu-model-curves', values: curveData },
       ],
@@ -583,7 +575,6 @@ export function ACUModelCurves(props: {
           interactive: false,
           xField: 'difficulty',
           yField: 'selectedQuality',
-          smooth: true,
           animation: false,
           line: {
             style: {
@@ -672,7 +663,6 @@ export function ACUModelCurves(props: {
       ],
     }),
     [
-      activeCorridor,
       axisColor,
       chartColors,
       colorByModel,
@@ -680,6 +670,7 @@ export function ACUModelCurves(props: {
       curveData,
       gridColor,
       resolvedTheme,
+      smoothedActiveCorridorValues,
       t,
     ]
   )
@@ -1006,119 +997,28 @@ export function ACUModelCurves(props: {
               )}
             </div>
             <div className='mt-3 border-t pt-3'>
-              <div className='mb-2 flex flex-wrap items-center justify-between gap-2'>
-                <div className='text-xs font-medium'>
-                  ACU Auto · {activeCorridor?.label} · D
-                  {Math.round(abilityDifficulty)}
-                </div>
-                <div className='text-muted-foreground text-[10px]'>
-                  {corridorStatusText}
-                </div>
+              <div className='mb-2 text-xs font-medium'>
+                ACU Auto · {activeCorridor?.label} · D
+                {Math.round(abilityDifficulty)}
               </div>
               {corridorAtHover ? (
-                <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
-                  <div className='min-w-0'>
-                    <span className='text-sm font-semibold'>
-                      {modelNameById.get(
-                        corridorAtHover.selectedCandidateId ||
-                          corridorAtHover.selectedModelId
-                      ) ||
-                        corridorAtHover.selectedCandidateId ||
-                        corridorAtHover.selectedModelId}
-                    </span>
-                    <span className='text-muted-foreground ml-2 text-xs'>
-                      预计质量 {corridorAtHover.selectedQuality.toFixed(1)}% ·{' '}
-                      {formatACUCNY(corridorAtHover.selectedCostCny)}
-                    </span>
-                    {corridorAtHover.qualityWeight != null && (
-                      <div className='text-muted-foreground mt-1 text-[10px]'>
-                        {t('Quality')}{' '}
-                        {(corridorAtHover.qualityWeight * 100).toFixed(0)}% ·{' '}
-                        {t('Cost')}{' '}
-                        {((corridorAtHover.costWeight ?? 0) * 100).toFixed(0)}%
-                        · {t('Supply strategy')}{' '}
-                        {selectionCorridor?.supplyStrategy ?? 'balanced'}
-                      </div>
-                    )}
-                    {corridorAtHover.selectedExecutionProfileId && (
-                      <div className='text-muted-foreground mt-1 text-[10px]'>
-                        {corridorAtHover.selectedExecutionProfileId} ·{' '}
-                        {corridorAtHover.selectedProvider} ·{' '}
-                        {t('Profile utility')}{' '}
-                        {corridorAtHover.selectedProfileUtility?.toFixed(4) ??
-                          'n/a'}
-                        {selectedProfileUtilityAtHover && (
-                          <>
-                            {' '}
-                            · C raw{' '}
-                            {selectedProfileUtilityAtHover.rawCostUtility?.toFixed(
-                              4
-                            ) ?? 'n/a'}{' '}
-                            →{' '}
-                            {selectedProfileUtilityAtHover.costUtility.toFixed(
-                              4
-                            )}{' '}
-                            · S raw{' '}
-                            {selectedProfileUtilityAtHover.rawSpeedUtility?.toFixed(
-                              4
-                            ) ?? 'n/a'}{' '}
-                            →{' '}
-                            {selectedProfileUtilityAtHover.speedUtility.toFixed(
-                              4
-                            )}{' '}
-                            · R raw{' '}
-                            {selectedProfileUtilityAtHover.rawReliabilityUtility?.toFixed(
-                              4
-                            ) ?? 'n/a'}{' '}
-                            →{' '}
-                            {selectedProfileUtilityAtHover.reliabilityUtility.toFixed(
-                              4
-                            )}
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div className='flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[10px]'>
-                    {corridorAtHover.candidates.map((candidate) => (
-                      <span
-                        key={candidate.candidateId || candidate.modelId}
-                        className='inline-flex items-center gap-1'
-                      >
-                        <span
-                          className='size-1.5 rounded-full'
-                          style={{
-                            backgroundColor:
-                              colorByModel.get(
-                                candidate.candidateId || candidate.modelId
-                              ) || priceRankColor(0.5),
-                          }}
-                        />
-                        <span>
-                          {modelNameById.get(
-                            candidate.candidateId || candidate.modelId
-                          ) || candidate.modelId}
-                          {candidate.qualityUtility != null &&
-                            candidate.costUtility != null && (
-                              <span className='text-muted-foreground ml-1'>
-                                {t('Conservative quality')}{' '}
-                                {candidate.rawQualityUtility?.toFixed(4) ??
-                                  'n/a'}{' '}
-                                → {t('Quality satisfaction')}{' '}
-                                {(
-                                  candidate.qualitySatisfactionUtility ??
-                                  candidate.qualityUtility
-                                ).toFixed(4)}{' '}
-                                · {t('Relative cost utility')}{' '}
-                                {candidate.costUtility.toFixed(4)} ·{' '}
-                                {t('Combined utility')}{' '}
-                                {candidate.valueUtility.toFixed(4)}
-                              </span>
-                            )}
-                        </span>
-                      </span>
-                    ))}
-                  </div>
+                <div className='flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4'>
+                  <span className='min-w-0 truncate text-sm font-semibold'>
+                    {modelNameById.get(
+                      corridorAtHover.selectedCandidateId ||
+                        corridorAtHover.selectedModelId
+                    ) ||
+                      corridorAtHover.selectedCandidateId ||
+                      corridorAtHover.selectedModelId}
+                  </span>
+                  <span className='text-muted-foreground shrink-0 text-xs'>
+                    {t('Estimated quality')}{' '}
+                    {corridorAtHover.selectedQuality.toFixed(1)}% ·{' '}
+                    {t('Combined utility')}{' '}
+                    {selectedCandidateAtHover
+                      ? selectedCandidateAtHover.valueUtility.toFixed(4)
+                      : '—'}
+                  </span>
                 </div>
               ) : (
                 <div className='text-muted-foreground text-xs'>
@@ -1126,8 +1026,12 @@ export function ACUModelCurves(props: {
                 </div>
               )}
               <p className='text-muted-foreground mt-2 text-[10px] leading-4'>
-                淡色区域表示当前模式所选候选的质量不确定区间，灰色虚线表示实际决策质量；模型曲线颜色按实际人民币价格由蓝到紫排列。
-                展示 Responses、无工具、基础质量目标 80 的条件结果。
+                {t(
+                  "The light area represents the route's estimated quality range, while the dashed gray line represents decision quality."
+                )}{' '}
+                {t(
+                  'Model curve colors range from blue to purple by estimated price.'
+                )}
               </p>
             </div>
           </div>

@@ -5229,6 +5229,8 @@
     "Conservative quality": "Qualité prudente",
     "Quality satisfaction": "Satisfaction de qualité",
     "Relative cost utility": "Utilité relative du coût",
-    "Combined utility": "Utilité globale"
+    "Combined utility": "Utilité globale",
+    "The light area represents the route's estimated quality range, while the dashed gray line represents decision quality.": "La zone claire représente la plage de qualité estimée du routage, tandis que la ligne grise en pointillés représente la qualité de décision.",
+    "Model curve colors range from blue to purple by estimated price.": "Les couleurs des courbes de modèle vont du bleu au violet selon le prix estimé."
   }
 }

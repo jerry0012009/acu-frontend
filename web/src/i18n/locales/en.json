@@ -5307,6 +5307,8 @@
     "Conservative quality": "Conservative quality",
     "Quality satisfaction": "Quality satisfaction",
     "Relative cost utility": "Relative cost utility",
-    "Combined utility": "Combined utility"
+    "Combined utility": "Combined utility",
+    "The light area represents the route's estimated quality range, while the dashed gray line represents decision quality.": "The light area represents the route's estimated quality range, while the dashed gray line represents decision quality.",
+    "Model curve colors range from blue to purple by estimated price.": "Model curve colors range from blue to purple by estimated price."
   }
 }

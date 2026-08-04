@@ -94,12 +94,36 @@ test('does not hard-code the Luna Max output multiplier in Pricing code', () => 
     sources[1],
     /seriesField: 'modelName',[\s\S]{0,80}smooth: true/
   )
-  assert.match(
+  assert.doesNotMatch(
     sources[1],
     /yField: 'selectedQuality',[\s\S]{0,120}smooth: true/
   )
   assert.match(
     sources[1],
     /yField: 'selectedQuality',[\s\S]{0,400}curveType: 'monotone'/
+  )
+})
+
+test('keeps smoothed chart data isolated from raw routing details', () => {
+  const source = readFileSync(
+    new URL('../../components/acu-model-curves.tsx', import.meta.url),
+    'utf8'
+  )
+
+  assert.match(
+    source,
+    /buildSmoothedCorridorDisplayValues\(activeCorridor\?\.values \?\? \[\]\)/
+  )
+  assert.equal(source.match(/values: smoothedActiveCorridorValues/g)?.length, 2)
+  assert.match(
+    source,
+    /corridorPointAtDifficulty\(\s*selectionCorridor,[\s\S]{0,120}abilityDifficulty/
+  )
+  assert.match(source, /isCorridorModelTooltipDatum\(datum\)/)
+  assert.match(source, /t\('Estimated quality'\)/)
+  assert.match(source, /t\('Combined utility'\)/)
+  assert.doesNotMatch(
+    source,
+    /C raw|S raw|R raw|Profile utility|Conservative quality|Quality satisfaction|Relative cost utility/
   )
 })

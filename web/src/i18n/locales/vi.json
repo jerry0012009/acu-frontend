@@ -5229,6 +5229,8 @@
     "Conservative quality": "Chất lượng thận trọng",
     "Quality satisfaction": "Mức hài lòng chất lượng",
     "Relative cost utility": "Lợi ích chi phí tương đối",
-    "Combined utility": "Lợi ích tổng hợp"
+    "Combined utility": "Lợi ích tổng hợp",
+    "The light area represents the route's estimated quality range, while the dashed gray line represents decision quality.": "Vùng màu nhạt biểu thị khoảng chất lượng ước tính của tuyến, còn đường đứt nét màu xám biểu thị chất lượng quyết định.",
+    "Model curve colors range from blue to purple by estimated price.": "Màu đường cong mô hình chuyển từ xanh lam sang tím theo mức giá ước tính."
   }
 }
