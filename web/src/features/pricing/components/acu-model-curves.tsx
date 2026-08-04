@@ -72,6 +72,7 @@ import {
   corridorEligibleModelIds,
   corridorEffectivePointAtDifficulty,
   corridorPointAtDifficulty,
+  isCorridorModelTooltipDatum,
   resolveEffectiveCorridorPreference,
   type CorridorPreference,
 } from '../lib/selection-corridor'
@@ -151,10 +152,15 @@ export function ACUModelCurves(props: {
       staleTime: 60 * 1000,
       retry: 1,
     })
-  const executionPresetSeries = useMemo(
-    () => selectionCorridor?.executionPresetSeries ?? [],
-    [selectionCorridor]
-  )
+  const executionPresetSeries = useMemo(() => {
+    const presets = selectionCorridor?.executionPresetSeries ?? []
+    if (previewTokenId == null || !selectionCorridor) return presets
+    const eligibleModelIds = corridorEligibleModelIds(selectionCorridor)
+    return presets.filter(
+      (preset) =>
+        preset.points.length > 0 && eligibleModelIds.has(preset.modelId)
+    )
+  }, [previewTokenId, selectionCorridor])
   const curveModels = useMemo(() => {
     if (previewTokenId == null) return allCurveModels
     if (!selectionCorridor) return []
@@ -545,6 +551,10 @@ export function ACUModelCurves(props: {
           id: `acu-corridor-${effectiveCorridorPreference}`,
           values: activeCorridor?.values ?? [],
         },
+        {
+          id: 'acu-corridor-centerline',
+          values: activeCorridor?.values ?? [],
+        },
         { id: 'acu-model-curves', values: curveData },
       ],
       series: [
@@ -552,6 +562,7 @@ export function ACUModelCurves(props: {
           type: 'rangeArea' as const,
           zIndex: 0,
           dataIndex: 0,
+          interactive: false,
           xField: 'difficulty',
           yField: ['qualityLower', 'qualityUpper'],
           animation: false,
@@ -559,18 +570,40 @@ export function ACUModelCurves(props: {
             style: {
               fill: resolvedTheme === 'dark' ? '#94a3b8' : '#64748b',
               fillOpacity: resolvedTheme === 'dark' ? 0.14 : 0.09,
+              curveType: 'monotone',
             },
           },
-          line: { visible: false },
+          line: { visible: false, style: { curveType: 'monotone' } },
+          tooltip: { visible: false },
+        },
+        {
+          type: 'line' as const,
+          zIndex: 1,
+          dataIndex: 1,
+          interactive: false,
+          xField: 'difficulty',
+          yField: 'selectedQuality',
+          smooth: true,
+          animation: false,
+          line: {
+            style: {
+              lineWidth: 1,
+              lineDash: [4, 3],
+              stroke: resolvedTheme === 'dark' ? '#cbd5e1' : '#64748b',
+              curveType: 'monotone',
+            },
+          },
+          point: { visible: false },
           tooltip: { visible: false },
         },
         {
           type: 'line' as const,
           zIndex: 10,
-          dataIndex: 1,
+          dataIndex: 2,
           xField: 'difficulty',
           yField: 'quality',
           seriesField: 'modelName',
+          smooth: true,
           color: chartColors,
           animation: false,
           line: {
@@ -596,9 +629,16 @@ export function ACUModelCurves(props: {
           },
           content: [
             {
-              key: (datum: { modelName: string }) => datum.modelName,
-              value: (datum: { quality: number; cost: number }) =>
-                `${datum.quality.toFixed(1)} · ${formatACUCNY(datum.cost)}`,
+              key: (datum: { modelName?: string }) =>
+                datum.modelName ?? t('Router decision'),
+              value: (datum: {
+                modelName?: string
+                quality?: number
+                cost?: number
+              }) =>
+                isCorridorModelTooltipDatum(datum)
+                  ? `${datum.quality.toFixed(1)} · ${formatACUCNY(datum.cost)}`
+                  : '',
             },
           ],
           updateContent: (
@@ -1011,15 +1051,27 @@ export function ACUModelCurves(props: {
                         {selectedProfileUtilityAtHover && (
                           <>
                             {' '}
-                            · C{' '}
+                            · C raw{' '}
+                            {selectedProfileUtilityAtHover.rawCostUtility?.toFixed(
+                              4
+                            ) ?? 'n/a'}{' '}
+                            →{' '}
                             {selectedProfileUtilityAtHover.costUtility.toFixed(
                               4
                             )}{' '}
-                            · S{' '}
+                            · S raw{' '}
+                            {selectedProfileUtilityAtHover.rawSpeedUtility?.toFixed(
+                              4
+                            ) ?? 'n/a'}{' '}
+                            →{' '}
                             {selectedProfileUtilityAtHover.speedUtility.toFixed(
                               4
                             )}{' '}
-                            · R{' '}
+                            · R raw{' '}
+                            {selectedProfileUtilityAtHover.rawReliabilityUtility?.toFixed(
+                              4
+                            ) ?? 'n/a'}{' '}
+                            →{' '}
                             {selectedProfileUtilityAtHover.reliabilityUtility.toFixed(
                               4
                             )}
@@ -1051,8 +1103,11 @@ export function ACUModelCurves(props: {
                             candidate.costUtility != null && (
                               <span className='text-muted-foreground ml-1'>
                                 U {candidate.valueUtility.toFixed(4)} · Q{' '}
-                                {candidate.qualityUtility.toFixed(4)} · C{' '}
-                                {candidate.costUtility.toFixed(4)}
+                                {candidate.rawQualityUtility?.toFixed(4) ??
+                                  'n/a'}{' '}
+                                → {candidate.qualityUtility.toFixed(4)} · C{' '}
+                                {candidate.rawCostUtility?.toFixed(4) ?? 'n/a'}{' '}
+                                → {candidate.costUtility.toFixed(4)}
                               </span>
                             )}
                         </span>
@@ -1066,7 +1121,7 @@ export function ACUModelCurves(props: {
                 </div>
               )}
               <p className='text-muted-foreground mt-2 text-[10px] leading-4'>
-                淡色区域表示当前模式下全部合法候选的质量覆盖范围；模型曲线颜色按实际人民币价格由蓝到紫排列。
+                淡色区域表示当前模式所选候选的质量不确定区间，灰色虚线表示实际决策质量；模型曲线颜色按实际人民币价格由蓝到紫排列。
                 展示 Responses、无工具、基础质量目标 80 的条件结果。
               </p>
             </div>

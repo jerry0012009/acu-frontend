@@ -2,6 +2,12 @@ import type { ACUSelectionCorridorPoint, ACUSelectionCorridor } from '../types'
 
 export type CorridorPreference = 'economy' | 'balanced' | 'quality'
 
+export type CorridorTooltipDatum = {
+  modelName?: string
+  quality?: number
+  cost?: number
+}
+
 export const PRICING_PREVIEW_CONTROL_GRID_CLASS =
   'grid shrink-0 grid-cols-1 items-end gap-2 sm:w-auto sm:grid-cols-2 xl:grid-cols-[minmax(240px,280px)_112px_112px]'
 
@@ -13,6 +19,16 @@ export function resolveEffectiveCorridorPreference(
   return previewTokenId != null && corridor
     ? corridor.defaultPreference
     : manualPreference
+}
+
+export function isCorridorModelTooltipDatum(
+  datum: CorridorTooltipDatum | null | undefined
+): datum is Required<CorridorTooltipDatum> {
+  return (
+    typeof datum?.modelName === 'string' &&
+    Number.isFinite(datum.quality) &&
+    Number.isFinite(datum.cost)
+  )
 }
 
 export function corridorEligibleModelIds(
@@ -35,7 +51,7 @@ export function corridorEligibleModelIds(
     }
   }
   for (const preset of corridor.executionPresetSeries) {
-    if (preset.modelId) modelIds.add(preset.modelId)
+    if (preset.modelId && preset.points.length > 0) modelIds.add(preset.modelId)
   }
   return modelIds
 }

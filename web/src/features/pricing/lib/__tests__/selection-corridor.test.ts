@@ -5,6 +5,7 @@ import {
   PRICING_PREVIEW_CONTROL_GRID_CLASS,
   corridorEligibleModelIds,
   corridorPointAtDifficulty,
+  isCorridorModelTooltipDatum,
   resolveEffectiveCorridorPreference,
 } from '../selection-corridor'
 
@@ -85,5 +86,31 @@ test('uses a three-column aligned desktop control grid', () => {
   assert.match(
     PRICING_PREVIEW_CONTROL_GRID_CLASS,
     /items-end.*xl:grid-cols-\[minmax\(240px,280px\)_112px_112px\]/
+  )
+})
+
+test('keeps corridor band and centerline data out of model tooltips', () => {
+  assert.equal(
+    isCorridorModelTooltipDatum({
+      modelName: 'Luna',
+      quality: 88,
+      cost: 0.01,
+    }),
+    true
+  )
+  assert.equal(
+    isCorridorModelTooltipDatum({
+      quality: 88,
+      cost: 0.01,
+    }),
+    false
+  )
+  assert.equal(
+    isCorridorModelTooltipDatum({
+      modelName: 'Luna',
+      quality: Number.NaN,
+      cost: 0.01,
+    }),
+    false
   )
 })

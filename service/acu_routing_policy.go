@@ -84,8 +84,8 @@ type ACURoutingUtilityConfig struct {
 func defaultACURoutingUtilityConfig() ACURoutingUtilityConfig {
 	return ACURoutingUtilityConfig{
 		SchemaVersion: "acu-routing-utility-config-v1", FormulaMode: "legacy",
-		QualityPresets:    map[string]int{"economy": -60, "balanced": 0, "quality": 60},
-		ACUHighBiasOffset: 40, ModelCostLogScale: 2.5,
+		QualityPresets:    map[string]int{"economy": 0, "balanced": 40, "quality": 70},
+		ACUHighBiasOffset: 40, ModelCostLogScale: 0.75,
 		SupplyPresets: map[string]ACUSupplyWeights{
 			"lowest_cost":      {Cost: 100},
 			"balanced":         {Cost: 40, Speed: 25, Reliability: 35},
@@ -409,6 +409,8 @@ func ResolveACUEffectiveRoutingPolicy(token *model.Token) (ACUEffectiveRoutingPo
 	result.RoutingPolicyVersion = "acu-user-policy-v2-" + hex.EncodeToString(digest[:8])
 	utilityRaw, err := common.Marshal(map[string]interface{}{
 		"schemaVersion": utilityConfig.SchemaVersion, "qualityBias": result.QualityBias,
+		"modelFormulaVersion": "acu-model-utility-v2.1", "profileFormulaVersion": "acu-profile-utility-v2.1",
+		"normalizationVersion": "acu-benefit-range-v1",
 		"supplyStrategy": result.SupplyStrategy, "supplyWeights": supplyWeights,
 		"acuHighBiasOffset": result.ACUHighBiasOffset, "modelCostLogScale": result.ModelCostLogScale,
 		"profileCostLogScale": result.ProfileCostLogScale, "profileSpeedLogScale": result.ProfileSpeedLogScale,
