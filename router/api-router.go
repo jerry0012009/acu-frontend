@@ -33,6 +33,7 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/home_page_content", controller.GetHomePageContent)
 		apiRouter.GET("/pricing", middleware.HeaderNavModuleAuth("pricing"), controller.GetPricing)
 		apiRouter.GET("/pricing/acu-selection-corridor", middleware.HeaderNavModuleAuth("pricing"), controller.GetACUSelectionCorridor)
+		apiRouter.GET("/pricing/acu-selection-corridor/token/:tokenId", middleware.UserAuth(), controller.GetACUTokenSelectionCorridor)
 		perfMetricsRoute := apiRouter.Group("/perf-metrics")
 		perfMetricsRoute.Use(middleware.HeaderNavModulePublicOrUserAuth("pricing"))
 		{
@@ -194,6 +195,8 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			optionRoute.GET("/", controller.GetOptions)
 			optionRoute.PUT("/", controller.UpdateOption)
+			optionRoute.GET("/acu-routing-policy", controller.GetACUGlobalRoutingPolicy)
+			optionRoute.PUT("/acu-routing-policy", controller.UpdateACUGlobalRoutingPolicy)
 			optionRoute.POST("/payment_compliance", controller.ConfirmPaymentCompliance)
 			optionRoute.GET("/channel_affinity_cache", controller.GetChannelAffinityCacheStats)
 			optionRoute.DELETE("/channel_affinity_cache", controller.ClearChannelAffinityCache)

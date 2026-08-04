@@ -88,15 +88,18 @@ type ApiKeyMutateDrawerProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   currentRow?: ApiKey
+  mode?: 'create' | 'update' | 'clone'
 }
 
 export function ApiKeysMutateDrawer({
   open,
   onOpenChange,
   currentRow,
+  mode = currentRow ? 'update' : 'create',
 }: ApiKeyMutateDrawerProps) {
   const { t } = useTranslation()
-  const isUpdate = !!currentRow
+  const isUpdate = mode === 'update'
+  const isClone = mode === 'clone'
   const { triggerRefresh } = useApiKeys()
   const { status } = useStatus()
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -143,7 +146,8 @@ export function ApiKeysMutateDrawer({
       (model) =>
         model.modelCategory === 'text_agent' &&
         model.autoRouteEnabled &&
-        ['verified', 'verified_provisional'].includes(model.verificationStatus)
+        ['verified', 'verified_provisional'].includes(model.verificationStatus) &&
+        (!selectedModelScopeCustom || selectedModelIds.includes(model.modelId))
     )
     .map((model) => ({
       modelId: model.modelId,
@@ -174,6 +178,21 @@ export function ApiKeysMutateDrawer({
     defaultValues: getApiKeyFormDefaultValues(defaultUseAutoGroup),
   })
   const selectedProfileIds = form.watch('acu_profile_limits')
+  const selectedModelScopeCustom = form.watch('acu_model_scope_custom')
+  const selectedModelIds = form.watch('model_limits')
+  useEffect(() => {
+    if (!selectedModelScopeCustom || !form.getValues('acu_profile_scope_custom')) return
+    const allowed = new Set(selectedModelIds)
+    const next = selectedProfileIds.filter((profileId) => {
+      const model = (modelPoolData?.data?.modelPool ?? []).find((item) =>
+        item.profiles.some((profile) => profile.executionProfileId === profileId)
+      )
+      return model ? allowed.has(model.modelId) : false
+    })
+    if (next.length !== selectedProfileIds.length) {
+      form.setValue('acu_profile_limits', next, { shouldDirty: true, shouldValidate: true })
+    }
+  }, [form, modelPoolData, selectedModelIds, selectedModelScopeCustom, selectedProfileIds])
   const selectedProfiles = (modelPoolData?.data?.modelPool ?? [])
     .flatMap((model) => model.profiles.map((profile) => ({ ...profile, modelId: model.modelId })))
     .filter((profile) => selectedProfileIds.includes(profile.executionProfileId))
@@ -184,10 +203,15 @@ export function ApiKeysMutateDrawer({
 
   // Load existing data when updating
   useEffect(() => {
-    if (open && isUpdate && currentRow) {
+    if (open && (isUpdate || isClone) && currentRow) {
       void getApiKey(currentRow.id).then((result) => {
         if (result.success && result.data) {
-          form.reset(transformApiKeyToFormDefaults(result.data))
+          const defaults = transformApiKeyToFormDefaults(result.data)
+          if (isClone) {
+            defaults.name = `${defaults.name} copy`
+            defaults.remain_quota_dollars = 10
+          }
+          form.reset(defaults)
         }
       })
     } else if (open && !isUpdate) {
@@ -195,7 +219,7 @@ export function ApiKeysMutateDrawer({
         getApiKeyFormDefaultValues(defaultUseAutoGroup && backendHasAuto)
       )
     }
-  }, [open, isUpdate, currentRow, form, defaultUseAutoGroup, backendHasAuto])
+  }, [open, isUpdate, isClone, currentRow, form, defaultUseAutoGroup, backendHasAuto])
 
   // Correct group after groups load: if the form value is not in available groups, fall back
   useEffect(() => {
@@ -295,6 +319,9 @@ export function ApiKeysMutateDrawer({
     : t('Enter quota in {{currency}}', { currency: currencyLabel })
   const selectedGroup = form.watch('group')
   const unlimitedQuota = form.watch('unlimited_quota')
+  let drawerTitle = t('Create API Key')
+  if (isUpdate) drawerTitle = t('Update API Key')
+  if (isClone) drawerTitle = t('Copy and create API Key')
 
   return (
     <Sheet
@@ -311,7 +338,7 @@ export function ApiKeysMutateDrawer({
       >
         <SheetHeader className={sideDrawerHeaderClassName()}>
           <SheetTitle>
-            {isUpdate ? t('Update API Key') : t('Create API Key')}
+            {drawerTitle}
           </SheetTitle>
           <SheetDescription>
             {isUpdate
@@ -574,6 +601,26 @@ export function ApiKeysMutateDrawer({
                   <div className='flex flex-col gap-4 pt-2'>
                     <FormField
                       control={form.control}
+                      name='acu_routing_preference'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('ACU routing preference')}</FormLabel>
+                          <FormControl>
+                            <select
+                              className='bg-background h-9 w-full rounded border px-2 text-sm'
+                              value={field.value}
+                              onChange={field.onChange}
+                            >
+                              <option value='economy'>{t('Economy')}</option>
+                              <option value='balanced'>{t('Balanced')}</option>
+                              <option value='quality'>{t('Quality')}</option>
+                            </select>
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
                       name='acu_model_scope_custom'
                       render={({ field }) => (
                         <FormItem className={sideDrawerSwitchItemClassName()}>
@@ -584,7 +631,7 @@ export function ApiKeysMutateDrawer({
                             <FormDescription className='text-xs'>
                               {field.value
                                 ? t('Custom allowed models')
-                                : t('All verified text and agent models')}
+                                : t('All verified routing-eligible models')}
                             </FormDescription>
                           </div>
                           <FormControl>
@@ -747,6 +794,9 @@ export function ApiKeysMutateDrawer({
                                       />
                                       <span>
                                         {profile.provider} / {profile.channel} / {profile.protocol.join(', ')} / {profile.multiplier ?? 'n/a'}x / {profile.routingEligibility}
+                                        {profile.supportedReasoningEfforts?.length
+                                          ? ` / ${profile.supportedReasoningEfforts.join(', ')}`
+                                          : ' / default'}
                                         <span className='text-muted-foreground block break-all'>{profile.executionProfileId}</span>
                                       </span>
                                     </label>

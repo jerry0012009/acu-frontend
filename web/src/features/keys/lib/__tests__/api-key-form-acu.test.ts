@@ -41,6 +41,7 @@ test('all verified mode disables existing Token ModelLimits', () => {
     allow_ips: '',
     group: 'default',
     cross_group_retry: false,
+    acu_routing_preference: 'balanced',
   })
   assert.equal(payload.model_limits_enabled, false)
   assert.equal(payload.model_limits, '')
@@ -58,6 +59,7 @@ test('custom mode persists virtual ACU entry models without showing them as choi
     allow_ips: '',
     group: 'default',
     cross_group_retry: false,
+    acu_routing_preference: 'quality',
   })
   assert.equal(payload.model_limits_enabled, true)
   assert.deepEqual(new Set(payload.model_limits.split(',')), new Set([
@@ -85,6 +87,7 @@ test('custom mode persists virtual ACU entry models without showing them as choi
     used_quota: 0,
     group: 'default',
     cross_group_retry: false,
+    acu_routing_preference: 'balanced',
   } as ApiKey)
   assert.deepEqual(defaults.model_limits, ['gpt-5.6-luna'])
   assert.equal(defaults.acu_model_scope_custom, true)
@@ -103,6 +106,7 @@ test('custom mode requires at least one real routing model', () => {
     allow_ips: '',
     group: 'default',
     cross_group_retry: false,
+    acu_routing_preference: 'economy',
   })
   assert.equal(result.success, false)
 })
@@ -119,6 +123,7 @@ test('custom Profile mode persists exact execution Profile IDs', () => {
     allow_ips: '',
     group: 'default',
     cross_group_retry: false,
+    acu_routing_preference: 'balanced',
   })
   assert.equal(payload.acu_profile_limits_enabled, true)
   assert.deepEqual(payload.acu_profile_limits, [

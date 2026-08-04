@@ -30,15 +30,12 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { ROLE } from '@/lib/roles'
 
 import { updateUserSettings } from '../../api'
-import { getPricing } from '../../../pricing/api'
 import {
   DEFAULT_QUOTA_WARNING_THRESHOLD,
   NOTIFICATION_METHODS,
 } from '../../constants'
 import { parseUserSettings } from '../../lib'
 import type {
-  ACURoutingPreference,
-  ACURoutingPolicy,
   UserProfile,
   UserSettings,
   NotifyType,
@@ -75,14 +72,6 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
   const { t } = useTranslation()
   const isAdmin = (profile?.role ?? 0) >= ROLE.ADMIN
   const [loading, setLoading] = useState(false)
-  const [acuModels, setAcuModels] = useState<
-    Array<{
-      modelId: string
-      healthyChannelCount: number
-      effectiveCostStatuses: Array<'estimated' | 'verified'>
-      temporarilyUnavailableReason?: string | null
-    }>
-  >([])
   const [settings, setSettings] = useState<UserSettings>({
     notify_type: 'email',
     quota_warning_threshold: DEFAULT_QUOTA_WARNING_THRESHOLD,
@@ -134,12 +123,6 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
       })
     }
   }, [profile])
-
-  useEffect(() => {
-    void getPricing()
-      .then((pricing) => setAcuModels(pricing.acu_curve_model_statuses || []))
-      .catch(() => setAcuModels([]))
-  }, [])
 
   const handleSave = async () => {
     try {
@@ -348,116 +331,7 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
         </>
       )}
 
-      {/* Divider */}
-      <div className='border-t' />
-
-      <div className='space-y-3'>
-        <div>
-          <h4 className='text-sm font-medium'>{t('ACU model policy')}</h4>
-          <p className='text-muted-foreground mt-1 text-xs'>
-            {t(
-              'Choose which verified models may participate in acu-auto routing.'
-            )}
-          </p>
-        </div>
-        <div className='space-y-1.5'>
-          <Label htmlFor='acuRoutingPreference'>
-            {t('Routing preference')}
-          </Label>
-          <select
-            id='acuRoutingPreference'
-            className='border-input bg-background h-9 w-full rounded-md border px-3 text-sm'
-            value={settings.acu_routing_preference}
-            onChange={(event) =>
-              updateField(
-                'acu_routing_preference',
-                event.target.value as ACURoutingPreference
-              )
-            }
-          >
-            <option value='economy'>{t('Economy — prioritize savings')}</option>
-            <option value='balanced'>
-              {t('Balanced — balance quality and cost')}
-            </option>
-            <option value='quality'>
-              {t('Quality — prioritize reliability')}
-            </option>
-          </select>
-          <p className='text-muted-foreground text-xs'>
-            {t(
-              'The preference guides acu-auto without locking requests to a fixed model.'
-            )}
-          </p>
-        </div>
-        <div className='space-y-1.5'>
-          <Label htmlFor='acuRoutingPolicy'>{t('Routing policy')}</Label>
-          <select
-            id='acuRoutingPolicy'
-            className='border-input bg-background h-9 w-full rounded-md border px-3 text-sm'
-            value={settings.acu_routing_policy}
-            onChange={(event) =>
-              updateField(
-                'acu_routing_policy',
-                event.target.value as ACURoutingPolicy
-              )
-            }
-          >
-            <option value='all_routing_eligible'>
-              {t('All verified routing-eligible models')}
-            </option>
-            <option value='custom_allowlist'>{t('Custom allowlist')}</option>
-            <option value='explicit_only'>{t('Explicit models only')}</option>
-          </select>
-        </div>
-        {settings.acu_routing_policy === 'custom_allowlist' && (
-          <div className='space-y-1.5'>
-            <Label htmlFor='acuAllowedModels'>{t('Allowed model IDs')}</Label>
-            <div id='acuAllowedModels' className='max-h-64 space-y-2 overflow-y-auto rounded-md border p-3'>
-              {acuModels.map((model) => {
-                const checked = (settings.acu_allowed_model_ids || []).includes(model.modelId)
-                const available = model.healthyChannelCount > 0
-                return (
-                  <label key={model.modelId} className='flex items-start gap-2 text-sm'>
-                    <input
-                      type='checkbox'
-                      className='mt-1'
-                      checked={checked}
-                      disabled={!available}
-                      onChange={(event) => {
-                        const selected = new Set(settings.acu_allowed_model_ids || [])
-                        if (event.target.checked) selected.add(model.modelId)
-                        else selected.delete(model.modelId)
-                        updateField('acu_allowed_model_ids', [...selected].sort())
-                      }}
-                    />
-                    <span>
-                      <span className='font-mono'>{model.modelId}</span>
-                      <span className='text-muted-foreground ml-2 text-xs'>
-                        {available
-                          ? [
-                              t('{{count}} healthy Channel(s)', { count: model.healthyChannelCount }),
-                              ...(model.effectiveCostStatuses || []).map((status) =>
-                                status === 'verified' ? t('Verified cost') : t('Estimated cost')
-                              ),
-                            ].join(' · ')
-                          : t('Temporarily unavailable: {{reason}}', {
-                              reason: model.temporarilyUnavailableReason || 'no healthy Channel',
-                            })}
-                      </span>
-                    </span>
-                  </label>
-                )
-              })}
-            </div>
-            <p className='text-muted-foreground text-xs'>
-              {t(
-                'Unknown, unavailable, incompatible, or unpriced models are still excluded by ACU.'
-              )}
-            </p>
-          </div>
-        )}
-      </div>
-
+      {/* ACU routing policy is configured per API Key. */}
       <div className='border-t' />
 
       {/* Preferences Section */}

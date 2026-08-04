@@ -40,6 +40,8 @@ import { Input } from '@/components/ui/input'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { cn } from '@/lib/utils'
 import { VCHART_OPTION } from '@/lib/vchart'
+import { useAuthStore } from '@/stores/auth-store'
+import { getApiKeys } from '@/features/keys/api'
 
 import { getACUSelectionCorridor } from '../api'
 import {
@@ -93,6 +95,7 @@ export function ACUModelCurves(props: {
 }) {
   const { t } = useTranslation()
   const { resolvedTheme, themeReady } = useChartTheme()
+  const currentUser = useAuthStore((state) => state.auth.user)
   const curveModels = useMemo(
     () =>
       props.models
@@ -115,6 +118,13 @@ export function ACUModelCurves(props: {
   const [sortMode, setSortMode] = useState<CurveSortMode>('price')
   const [corridorPreference, setCorridorPreference] =
     useState<CorridorPreference>('balanced')
+  const [previewTokenId, setPreviewTokenId] = useState<number | undefined>()
+  const { data: apiKeys } = useQuery({
+    queryKey: ['pricing-preview-api-keys', currentUser?.id],
+    queryFn: () => getApiKeys({ p: 1, size: 100 }),
+    enabled: currentUser != null,
+    staleTime: 60_000,
+  })
   const [hoveredDifficulty, setHoveredDifficulty] = useState<number | null>(
     null
   )
@@ -126,9 +136,10 @@ export function ACUModelCurves(props: {
         'acu-selection-corridor',
         deferredInputTokens,
         deferredOutputTokens,
+        previewTokenId,
       ],
       queryFn: () =>
-        getACUSelectionCorridor(deferredInputTokens, deferredOutputTokens),
+        getACUSelectionCorridor(deferredInputTokens, deferredOutputTokens, previewTokenId),
       staleTime: 60 * 1000,
       retry: 1,
     })
@@ -643,6 +654,25 @@ export function ACUModelCurves(props: {
             </p>
           </div>
           <div className="grid shrink-0 grid-cols-2 gap-2 sm:w-auto">
+            {currentUser && (
+              <label className="text-muted-foreground col-span-2 text-[11px] font-medium">
+                {t('Preview API Key')}
+                <select
+                  className="bg-background mt-1 h-8 w-full rounded border px-2 text-sm sm:w-64"
+                  value={previewTokenId ?? ''}
+                  onChange={(event) =>
+                    setPreviewTokenId(event.target.value ? Number(event.target.value) : undefined)
+                  }
+                >
+                  <option value="">{t('Default global routing')}</option>
+                  {(apiKeys?.data?.items ?? []).map((key) => (
+                    <option key={key.id} value={key.id}>
+                      {key.name} · {key.acu_routing_preference || 'balanced'}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label className="text-muted-foreground text-[11px] font-medium">
               {t('Input tokens')}
               <Input

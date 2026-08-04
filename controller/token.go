@@ -10,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 
 	"github.com/gin-gonic/gin"
@@ -21,6 +22,9 @@ func buildMaskedTokenResponse(token *model.Token) *model.Token {
 	}
 	maskedToken := *token
 	maskedToken.Key = token.GetMaskedKey()
+	if strings.TrimSpace(maskedToken.ACURoutingPreference) == "" {
+		maskedToken.ACURoutingPreference = "balanced"
+	}
 	if maskedToken.ACUProfileLimits == nil {
 		maskedToken.ACUProfileLimits = make([]string, 0)
 	}
@@ -163,7 +167,13 @@ func GetTokenUsage(c *gin.Context) {
 			"unlimited_quota":      token.UnlimitedQuota,
 			"model_limits":         token.GetModelLimitsMap(),
 			"model_limits_enabled": token.ModelLimitsEnabled,
-			"expires_at":           expiredAt,
+			"acu_routing_preference": func() string {
+				if strings.TrimSpace(token.ACURoutingPreference) == "" {
+					return "balanced"
+				}
+				return token.ACURoutingPreference
+			}(),
+			"expires_at": expiredAt,
 		},
 	})
 }
@@ -177,6 +187,11 @@ func AddToken(c *gin.Context) {
 	}
 	if len(token.Name) > 50 {
 		common.ApiErrorI18n(c, i18n.MsgTokenNameTooLong)
+		return
+	}
+	preference, err := service.NormalizeACURoutingPreference(token.ACURoutingPreference)
+	if err != nil {
+		common.ApiError(c, err)
 		return
 	}
 	// 非无限额度时，检查额度值是否超出有效范围
@@ -221,6 +236,26 @@ func AddToken(c *gin.Context) {
 			return
 		}
 	}
+	if token.ModelLimitsEnabled || token.ACUProfileLimitsEnabled {
+		scope := service.ACURoutingScope{Policy: service.ACURoutingPolicyAll, ProfilePolicy: service.ACURoutingPolicyAll}
+		if token.ModelLimitsEnabled {
+			scope.Policy = service.ACURoutingPolicyCustom
+			scope.AllowedModelIDs = strings.Split(token.ModelLimits, ",")
+		}
+		if token.ACUProfileLimitsEnabled {
+			scope.ProfilePolicy = service.ACURoutingPolicyCustom
+			scope.AllowedProfileIDs = token.ACUProfileLimits
+		}
+		scope, err = service.NormalizeACURoutingScope(scope)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		if err = service.ValidateACURoutingScopeAgainstPool(c.Request.Context(), scope); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
 	cleanToken := model.Token{
 		UserId:                  c.GetInt("id"),
 		Name:                    token.Name,
@@ -234,6 +269,7 @@ func AddToken(c *gin.Context) {
 		ModelLimits:             token.ModelLimits,
 		ACUProfileLimitsEnabled: token.ACUProfileLimitsEnabled,
 		ACUProfileLimits:        normalizeACUProfileLimits(token.ACUProfileLimits),
+		ACURoutingPreference:    preference,
 		AllowIps:                token.AllowIps,
 		Group:                   token.Group,
 		CrossGroupRetry:         token.CrossGroupRetry,
@@ -276,6 +312,11 @@ func UpdateToken(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgTokenNameTooLong)
 		return
 	}
+	preference, err := service.NormalizeACURoutingPreference(token.ACURoutingPreference)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	if !token.UnlimitedQuota {
 		if token.RemainQuota < 0 {
 			common.ApiErrorI18n(c, i18n.MsgTokenQuotaNegative)
@@ -315,6 +356,26 @@ func UpdateToken(c *gin.Context) {
 				return
 			}
 		}
+		if token.ModelLimitsEnabled || token.ACUProfileLimitsEnabled {
+			scope := service.ACURoutingScope{Policy: service.ACURoutingPolicyAll, ProfilePolicy: service.ACURoutingPolicyAll}
+			if token.ModelLimitsEnabled {
+				scope.Policy = service.ACURoutingPolicyCustom
+				scope.AllowedModelIDs = strings.Split(token.ModelLimits, ",")
+			}
+			if token.ACUProfileLimitsEnabled {
+				scope.ProfilePolicy = service.ACURoutingPolicyCustom
+				scope.AllowedProfileIDs = token.ACUProfileLimits
+			}
+			scope, err = service.NormalizeACURoutingScope(scope)
+			if err != nil {
+				common.ApiError(c, err)
+				return
+			}
+			if err = service.ValidateACURoutingScopeAgainstPool(c.Request.Context(), scope); err != nil {
+				common.ApiError(c, err)
+				return
+			}
+		}
 		// If you add more fields, please also update token.Update()
 		cleanToken.Name = token.Name
 		cleanToken.ExpiredTime = token.ExpiredTime
@@ -324,6 +385,7 @@ func UpdateToken(c *gin.Context) {
 		cleanToken.ModelLimits = token.ModelLimits
 		cleanToken.ACUProfileLimitsEnabled = token.ACUProfileLimitsEnabled
 		cleanToken.ACUProfileLimits = normalizeACUProfileLimits(token.ACUProfileLimits)
+		cleanToken.ACURoutingPreference = preference
 		cleanToken.AllowIps = token.AllowIps
 		cleanToken.Group = token.Group
 		cleanToken.CrossGroupRetry = token.CrossGroupRetry

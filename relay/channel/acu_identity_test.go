@@ -67,7 +67,7 @@ func TestApplyACUTrustedIdentitySignsCustomUserAllowlist(t *testing.T) {
 	})
 	ctx.Set("acu_profile_limit_enabled", true)
 	ctx.Set("acu_profile_limits", []string{"lucen:luna:responses", "closeai:luna:responses"})
-	info.UserSetting.ACURoutingPreference = "quality"
+	ctx.Set("acu_routing_preference", "quality")
 
 	require.NoError(t, applyACUTrustedIdentity(req, ctx, info, []byte(`{"model":"acu-auto"}`)))
 	require.Equal(t, "custom_allowlist", req.Header.Get("X-ACU-Routing-Policy"))

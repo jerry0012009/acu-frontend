@@ -161,6 +161,10 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	// common.SetContextKey(c, constant.ContextKeyTokenCountMeta, meta)
 
 	if relayInfo.IsACUChannel {
+		if policyErr, exists := c.Get("acu_routing_policy_error"); exists {
+			newAPIError = types.NewError(policyErr.(error), types.ErrorCodeInvalidRequest, types.ErrOptionWithStatusCode(http.StatusBadRequest), types.ErrOptionWithSkipRetry())
+			return
+		}
 		newAPIError = service.CheckACUAdmission(c, relayInfo)
 		if newAPIError != nil {
 			return

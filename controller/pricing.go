@@ -103,12 +103,42 @@ func GetPricing(c *gin.Context) {
 func GetACUSelectionCorridor(c *gin.Context) {
 	inputTokens, _ := strconv.Atoi(c.DefaultQuery("input_tokens", "100000"))
 	expectedOutputTokens, _ := strconv.Atoi(c.DefaultQuery("output_tokens", "4000"))
-	result, err := service.GetACUSelectionCorridor(c.Request.Context(), inputTokens, expectedOutputTokens)
+	result, err := service.GetACUSelectionCorridor(c.Request.Context(), inputTokens, expectedOutputTokens, nil)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
 	c.JSON(200, gin.H{"success": true, "data": result})
+}
+
+func GetACUTokenSelectionCorridor(c *gin.Context) {
+	inputTokens, _ := strconv.Atoi(c.DefaultQuery("input_tokens", "100000"))
+	expectedOutputTokens, _ := strconv.Atoi(c.DefaultQuery("output_tokens", "4000"))
+	tokenID, err := strconv.Atoi(c.Param("tokenId"))
+	if err != nil {
+		c.JSON(400, gin.H{"success": false, "message": "invalid token id"})
+		return
+	}
+	token, err := model.GetTokenByIds(tokenID, c.GetInt("id"))
+	if err != nil || token == nil {
+		c.JSON(404, gin.H{"success": false, "message": "token not found"})
+		return
+	}
+	if token.Status != common.TokenStatusEnabled {
+		c.JSON(400, gin.H{"success": false, "message": "token is not enabled"})
+		return
+	}
+	policy, err := service.ResolveACUEffectiveRoutingPolicy(token)
+	if err != nil {
+		c.JSON(400, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	result, err := service.GetACUSelectionCorridor(c.Request.Context(), inputTokens, expectedOutputTokens, &policy)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"success": true, "data": result, "token_id": token.Id, "routing_preference": policy.RoutingPreference})
 }
 
 func ResetModelRatio(c *gin.Context) {

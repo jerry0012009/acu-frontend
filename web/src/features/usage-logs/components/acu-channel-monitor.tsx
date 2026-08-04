@@ -19,9 +19,13 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useIsAdmin } from '@/hooks/use-admin'
+import { useAuthStore } from '@/stores/auth-store'
+import { ROLE } from '@/lib/roles'
 
 import {
   getACUChannelMonitor,
+  getACUGlobalRoutingPolicy,
+  updateACUGlobalRoutingPolicy,
   pauseACUChannel,
   type ACUChannelMonitorProfile,
   type ACUModelPoolEntry,
@@ -60,6 +64,7 @@ function profileFilterValues(
 export function ACUChannelMonitor() {
   const { t } = useTranslation()
   const isAdmin = useIsAdmin()
+  const isRoot = useAuthStore((state) => state.auth.user?.role === ROLE.SUPER_ADMIN)
   const queryClient = useQueryClient()
   const [range, setRange] = useState<ACUMonitorRange>('24h')
   const [filters, setFilters] = useState({
@@ -72,6 +77,22 @@ export function ACUChannelMonitor() {
     queryKey: ['acu-channel-monitor', range],
     queryFn: () => getACUChannelMonitor(range),
     refetchInterval: 60_000,
+  })
+  const policyQuery = useQuery({
+    queryKey: ['acu-global-routing-policy'],
+    queryFn: getACUGlobalRoutingPolicy,
+    enabled: isRoot,
+  })
+  const [policyDraft, setPolicyDraft] = useState<typeof policyQuery.data>()
+  const policy = policyDraft ?? policyQuery.data
+  const policyMutation = useMutation({
+    mutationFn: updateACUGlobalRoutingPolicy,
+    onSuccess: () => {
+      toast.success(t('ACU routing policy updated'))
+      setPolicyDraft(undefined)
+      void queryClient.invalidateQueries({ queryKey: ['acu-global-routing-policy'] })
+    },
+    onError: () => toast.error(t('ACU routing policy update failed')),
   })
   const pause = useMutation({
     mutationFn: ({
@@ -157,6 +178,35 @@ export function ACUChannelMonitor() {
         <div className='text-muted-foreground rounded border p-6 text-center text-xs'>
           {t('Loading channel inventory...')}
         </div>
+      )}
+      {isRoot && policy && (
+        <section className='space-y-3 rounded border p-3'>
+          <div>
+            <h3 className='text-sm font-semibold'>{t('ACU Routing Policy')}</h3>
+            <p className='text-muted-foreground text-xs'>{t('Global policy only narrows verified routing-eligible candidates.')}</p>
+          </div>
+          <div className='grid gap-3 lg:grid-cols-2'>
+            <PolicyScopeEditor
+              title={t('Allowed models')}
+              allLabel={t('All routing-eligible models')}
+              custom={policy.modelPolicy === 'custom_allowlist'}
+              values={policy.allowedModelIds}
+              options={[...new Set((query.data?.data?.modelPool ?? []).filter((item) => item.autoRouteEnabled).map((item) => item.modelId))].sort()}
+              onCustom={(custom) => setPolicyDraft({ ...policy, modelPolicy: custom ? 'custom_allowlist' : 'all_routing_eligible' })}
+              onChange={(values) => setPolicyDraft({ ...policy, allowedModelIds: values })}
+            />
+            <PolicyScopeEditor
+              title={t('Allowed Profiles')}
+              allLabel={t('All routing-eligible profiles')}
+              custom={policy.profilePolicy === 'custom_allowlist'}
+              values={policy.allowedProfileIds}
+              options={(query.data?.data?.profiles ?? []).filter((item) => item.enabled && item.administratorAllowed && item.autoRouteEnabled).map((item) => item.executionProfileId).sort()}
+              onCustom={(custom) => setPolicyDraft({ ...policy, profilePolicy: custom ? 'custom_allowlist' : 'all_routing_eligible' })}
+              onChange={(values) => setPolicyDraft({ ...policy, allowedProfileIds: values })}
+            />
+          </div>
+          <Button size='sm' disabled={policyMutation.isPending} onClick={() => policyMutation.mutate(policy)}>{t('Save policy')}</Button>
+        </section>
       )}
       <div className='grid grid-cols-2 gap-px overflow-hidden rounded border bg-border lg:grid-cols-6'>
         {statItems.map(([label, value, Icon]) => (
@@ -244,6 +294,35 @@ export function ACUChannelMonitor() {
   )
 }
 
+function PolicyScopeEditor(props: {
+  title: string
+  allLabel: string
+  custom: boolean
+  values: string[]
+  options: string[]
+  onCustom: (custom: boolean) => void
+  onChange: (values: string[]) => void
+}) {
+  return (
+    <div className='space-y-2 rounded border p-2'>
+      <label className='flex items-center gap-2 text-xs font-medium'>
+        <input type='checkbox' checked={props.custom} onChange={(event) => props.onCustom(event.target.checked)} />
+        {props.custom ? props.title : props.allLabel}
+      </label>
+      {props.custom && (
+        <div className='max-h-40 space-y-1 overflow-y-auto'>
+          {props.options.map((option) => (
+            <label key={option} className='flex items-center gap-2 text-xs'>
+              <input type='checkbox' checked={props.values.includes(option)} onChange={(event) => props.onChange(event.target.checked ? [...new Set([...props.values, option])].sort() : props.values.filter((value) => value !== option))} />
+              <span className='font-mono'>{option}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function CoverageTable({ rows }: { rows: ACUModelPoolEntry[] }) {
   const { t } = useTranslation()
   return (
@@ -301,8 +380,8 @@ function ProbeTable({ rows }: { rows: ACUProbeHistoryRow[] }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, index) => (
-            <tr key={`${row.execution_profile_id}:${row.started_at}:${index}`} className='border-t align-top'>
+          {rows.map((row) => (
+            <tr key={`${row.execution_profile_id}:${row.started_at}:${row.channel_id}:${row.status}`} className='border-t align-top'>
               <td className='px-3 py-2'>{time(row.started_at)}</td>
               <td className='px-3 py-2 font-medium'>{row.canonical_model_id}</td>
               <td className='px-3 py-2'>{row.protocol}</td>

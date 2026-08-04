@@ -52,6 +52,8 @@ type ACUChannelMonitorProfile struct {
 	ProbeFreshness              string   `json:"probeFreshness"`
 	ProbeDailySpendCNY          float64  `json:"probeDailySpendCny"`
 	ProbeSuccessRate            *float64 `json:"probeSuccessRate"`
+	SupportedReasoningEfforts   []string `json:"supportedReasoningEfforts,omitempty"`
+	ReasoningControlMode        string   `json:"reasoningControlMode,omitempty"`
 }
 
 type ACUChannelPauseRequest struct {

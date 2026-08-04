@@ -49,6 +49,7 @@ export const apiKeySchema = z.object({
     .array(z.string())
     .nullish()
     .transform((value) => value ?? []),
+  acu_routing_preference: z.enum(['economy', 'balanced', 'quality']).catch('balanced'),
   allow_ips: z.string().nullish().default(''),
 })
 
@@ -96,6 +97,7 @@ export interface ApiKeyFormData {
   model_limits: string
   acu_profile_limits_enabled: boolean
   acu_profile_limits: string[]
+  acu_routing_preference: 'economy' | 'balanced' | 'quality'
   allow_ips: string
   group: string
   cross_group_retry: boolean
@@ -107,6 +109,7 @@ export interface ApiKeyFormData {
 
 export type ApiKeysDialogType =
   | 'create'
+  | 'clone'
   | 'update'
   | 'delete'
   | 'batch-delete'

@@ -39,6 +39,7 @@ export function getApiKeyFormSchema(t: TFunction) {
       acu_model_scope_custom: z.boolean(),
       acu_profile_scope_custom: z.boolean(),
       acu_profile_limits: z.array(z.string()),
+      acu_routing_preference: z.enum(['economy', 'balanced', 'quality']),
       allow_ips: z.string().optional(),
       group: z.string().optional(),
       cross_group_retry: z.boolean().optional(),
@@ -92,6 +93,7 @@ export const API_KEY_FORM_DEFAULT_VALUES: ApiKeyFormValues = {
   acu_model_scope_custom: false,
   acu_profile_scope_custom: false,
   acu_profile_limits: [],
+  acu_routing_preference: 'balanced',
   allow_ips: '',
   group: DEFAULT_GROUP,
   cross_group_retry: true,
@@ -135,6 +137,7 @@ export function transformFormDataToPayload(
     acu_profile_limits: data.acu_profile_scope_custom
       ? [...new Set(data.acu_profile_limits)].sort()
       : [],
+    acu_routing_preference: data.acu_routing_preference,
     allow_ips: data.allow_ips || '',
     group: data.group || '',
     cross_group_retry: data.group === 'auto' ? !!data.cross_group_retry : false,
@@ -165,6 +168,7 @@ export function transformApiKeyToFormDefaults(
     acu_model_scope_custom: apiKey.model_limits_enabled,
     acu_profile_scope_custom: apiKey.acu_profile_limits_enabled,
     acu_profile_limits: apiKey.acu_profile_limits ?? [],
+    acu_routing_preference: apiKey.acu_routing_preference || 'balanced',
     allow_ips: apiKey.allow_ips || '',
     group: apiKey.group || DEFAULT_GROUP,
     cross_group_retry: !!apiKey.cross_group_retry,

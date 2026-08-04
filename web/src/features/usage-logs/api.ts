@@ -248,6 +248,8 @@ export type ACUChannelMonitorProfile = {
   probeFreshness: string
   probeDailySpendCny: number
   probeSuccessRate: number | null
+  supportedReasoningEfforts?: string[]
+  reasoningControlMode?: string
 }
 
 export type ACUModelPoolEntry = {
@@ -335,6 +337,23 @@ export type ACUChannelMonitor = {
   probeHistory: ACUProbeHistoryRow[]
   supplyInventory: Array<Record<string, unknown>>
   modelPool: ACUModelPoolEntry[]
+}
+
+export type ACUGlobalRoutingPolicy = {
+  modelPolicy: 'all_routing_eligible' | 'custom_allowlist'
+  allowedModelIds: string[]
+  profilePolicy: 'all_routing_eligible' | 'custom_allowlist'
+  allowedProfileIds: string[]
+}
+
+export async function getACUGlobalRoutingPolicy(): Promise<ACUGlobalRoutingPolicy> {
+  const res = await api.get('/api/option/acu-routing-policy')
+  return res.data.data
+}
+
+export async function updateACUGlobalRoutingPolicy(policy: ACUGlobalRoutingPolicy) {
+  const res = await api.put('/api/option/acu-routing-policy', policy)
+  return res.data
 }
 
 export async function getACUChannelMonitor(range: ACUMonitorRange) {

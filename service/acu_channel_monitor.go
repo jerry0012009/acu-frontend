@@ -51,13 +51,23 @@ func GetACUChannelMonitor(ctx context.Context, rangeValue string) (dto.ACUChanne
 	return result, nil
 }
 
-func GetACUSelectionCorridor(ctx context.Context, inputTokens, expectedOutputTokens int) (map[string]interface{}, error) {
+func GetACUSelectionCorridor(ctx context.Context, inputTokens, expectedOutputTokens int, policy *ACUEffectiveRoutingPolicy) (map[string]interface{}, error) {
 	path := fmt.Sprintf(
 		"/internal/admin/selection-corridor?inputTokens=%d&expectedOutputTokens=%d",
 		inputTokens,
 		expectedOutputTokens,
 	)
-	response, err := acuRouterAdminRequest(ctx, http.MethodGet, path, nil)
+	method := http.MethodGet
+	var body []byte
+	if policy != nil {
+		method = http.MethodPost
+		var err error
+		body, err = common.Marshal(map[string]interface{}{"inputTokens": inputTokens, "expectedOutputTokens": expectedOutputTokens, "allowedModelIds": policy.AllowedModelIDs, "allowedProfileIds": policy.AllowedProfileIDs, "routingPreference": policy.RoutingPreference})
+		if err != nil {
+			return nil, err
+		}
+	}
+	response, err := acuRouterAdminRequest(ctx, method, path, body)
 	if err != nil {
 		return nil, err
 	}

@@ -239,6 +239,17 @@ export function DataTableRowActions<TData>({
         onOpenChange={handleMenuOpenChange}
       >
         <DropdownMenuItem
+          onClick={() => {
+            setCurrentRow(apiKey)
+            setOpen('clone')
+          }}
+        >
+          {t('Copy and create API Key')}
+          <DropdownMenuShortcut>
+            <Copy size={16} />
+          </DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem
           onClick={async () => {
             const realKey = getCachedRealKey()
             if (!realKey) return

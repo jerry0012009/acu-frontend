@@ -490,6 +490,14 @@ func SetupContextForToken(c *gin.Context, token *model.Token, parts ...string) e
 	c.Set("token_id", token.Id)
 	c.Set("token_key", token.Key)
 	c.Set("token_name", token.Name)
+	preference := strings.TrimSpace(token.ACURoutingPreference)
+	if preference == "" {
+		preference = "balanced"
+	}
+	c.Set("acu_routing_preference", preference)
+	if _, policyErr := service.ResolveACUEffectiveRoutingPolicy(token); policyErr != nil {
+		c.Set("acu_routing_policy_error", policyErr)
+	}
 	c.Set("token_unlimited_quota", token.UnlimitedQuota)
 	if !token.UnlimitedQuota {
 		c.Set("token_quota", token.RemainQuota)

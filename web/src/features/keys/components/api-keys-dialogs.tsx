@@ -23,13 +23,17 @@ import { CCSwitchDialog } from './dialogs/cc-switch-dialog'
 
 export function ApiKeysDialogs() {
   const { open, setOpen, currentRow, resolvedKey } = useApiKeys()
+  let mode: 'create' | 'update' | 'clone' = 'create'
+  if (open === 'update') mode = 'update'
+  if (open === 'clone') mode = 'clone'
 
   return (
     <>
       <ApiKeysMutateDrawer
-        open={open === 'create' || open === 'update'}
+        open={open === 'create' || open === 'update' || open === 'clone'}
         onOpenChange={(isOpen) => !isOpen && setOpen(null)}
-        currentRow={open === 'update' ? currentRow || undefined : undefined}
+        currentRow={open === 'update' || open === 'clone' ? currentRow || undefined : undefined}
+        mode={mode}
       />
       <ApiKeysDeleteDialog />
       <CCSwitchDialog

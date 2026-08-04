@@ -26,6 +26,7 @@ type Token struct {
 	ModelLimits             string         `json:"model_limits" gorm:"type:text"`
 	ACUProfileLimitsEnabled bool           `json:"acu_profile_limits_enabled"`
 	ACUProfileLimits        []string       `json:"acu_profile_limits" gorm:"serializer:json;type:text"`
+	ACURoutingPreference    string         `json:"acu_routing_preference" gorm:"type:varchar(16)"`
 	AllowIps                *string        `json:"allow_ips" gorm:"default:''"`
 	UsedQuota               int            `json:"used_quota" gorm:"default:0"` // used quota
 	Group                   string         `json:"group" gorm:"default:''"`
@@ -305,7 +306,7 @@ func (token *Token) Update() (err error) {
 	}()
 	err = DB.Model(token).Select("name", "status", "expired_time", "remain_quota", "unlimited_quota",
 		"model_limits_enabled", "model_limits", "acu_profile_limits_enabled", "acu_profile_limits",
-		"allow_ips", "group", "cross_group_retry").Updates(token).Error
+		"acu_routing_preference", "allow_ips", "group", "cross_group_retry").Updates(token).Error
 	return err
 }
 

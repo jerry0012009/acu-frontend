@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"os"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,6 +20,7 @@ import (
 
 	common2 "github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
@@ -182,53 +182,38 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	tokenID := strconv.Itoa(info.TokenId)
 	logID := requestID
 	clientVersion := acuClientVersion(c)
-	routingPolicy := "all_routing_eligible"
-	allowedModelIDs := make([]string, 0)
-	if c.GetBool("token_model_limit_enabled") {
-		routingPolicy = "custom_allowlist"
-		if rawLimits, exists := c.Get("token_model_limit"); exists {
-			if limits, ok := rawLimits.(map[string]bool); ok {
-				for modelID, allowed := range limits {
-					if allowed && modelID != "acu-auto" && modelID != "acu-high" {
-						allowedModelIDs = append(allowedModelIDs, modelID)
-					}
+	token := &model.Token{ModelLimitsEnabled: c.GetBool("token_model_limit_enabled"), ACUProfileLimitsEnabled: c.GetBool("acu_profile_limit_enabled"), ACURoutingPreference: c.GetString("acu_routing_preference")}
+	if rawLimits, exists := c.Get("token_model_limit"); exists {
+		if limits, ok := rawLimits.(map[string]bool); ok {
+			for modelID, allowed := range limits {
+				if allowed && modelID != "acu-auto" && modelID != "acu-high" {
+					token.ModelLimits += modelID + ","
 				}
 			}
 		}
 	}
-	sort.Strings(allowedModelIDs)
-	if routingPolicy == "custom_allowlist" && len(allowedModelIDs) == 0 {
-		return errors.New("ACU custom routing allowlist is empty")
+	if rawProfiles, exists := c.Get("acu_profile_limits"); exists {
+		if profiles, ok := rawProfiles.([]string); ok {
+			token.ACUProfileLimits = profiles
+		}
 	}
-	routingPreference := strings.TrimSpace(info.UserSetting.ACURoutingPreference)
-	if routingPreference == "" {
-		routingPreference = "balanced"
+	policy, err := service.ResolveACUEffectiveRoutingPolicy(token)
+	if err != nil {
+		return err
 	}
-	if routingPreference != "economy" && routingPreference != "balanced" && routingPreference != "quality" {
-		return errors.New("ACU routing preference is invalid")
-	}
+	routingPolicy := policy.RoutingPolicy
+	allowedModelIDs := policy.AllowedModelIDs
+	routingPreference := policy.RoutingPreference
 	allowedModelIDsJSON, err := json.Marshal(allowedModelIDs)
 	if err != nil {
 		return fmt.Errorf("marshal ACU routing allowlist: %w", err)
 	}
-	allowedProfileIDs := make([]string, 0)
-	if c.GetBool("acu_profile_limit_enabled") {
-		if rawProfileLimits, exists := c.Get("acu_profile_limits"); exists {
-			if profileLimits, ok := rawProfileLimits.([]string); ok {
-				allowedProfileIDs = append(allowedProfileIDs, profileLimits...)
-			}
-		}
-		if len(allowedProfileIDs) == 0 {
-			return errors.New("ACU custom execution Profile allowlist is empty")
-		}
-	}
-	sort.Strings(allowedProfileIDs)
+	allowedProfileIDs := policy.AllowedProfileIDs
 	allowedProfileIDsJSON, err := json.Marshal(allowedProfileIDs)
 	if err != nil {
 		return fmt.Errorf("marshal ACU execution Profile allowlist: %w", err)
 	}
-	policyDigest := sha256.Sum256([]byte(routingPolicy + "\n" + string(allowedModelIDsJSON) + "\n" + string(allowedProfileIDsJSON) + "\n" + routingPreference))
-	routingPolicyVersion := "acu-user-policy-v2-" + hex.EncodeToString(policyDigest[:8])
+	routingPolicyVersion := policy.RoutingPolicyVersion
 	payload := strings.Join([]string{
 		userID, tokenID, logID, requestID, clientVersion, routingPolicy,
 		string(allowedModelIDsJSON), string(allowedProfileIDsJSON), routingPolicyVersion, routingPreference, timestamp, bodySHA,
