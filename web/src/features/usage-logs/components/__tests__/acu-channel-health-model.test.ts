@@ -19,9 +19,14 @@ For commercial licensing, please contact support@quantumnous.com
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import type { ACUChannelHistoryRow, ACUChannelMonitorProfile } from '../../api'
+import type {
+  ACUChannelHistoryRow,
+  ACUChannelMonitorProfile,
+  ACUProbeHistoryRow,
+} from '../../api'
 import {
   classifyHistoryBucket,
+  classifyProbeBucket,
   groupACUChannels,
 } from '../acu-channel-health-model.ts'
 
@@ -117,6 +122,39 @@ test('classifies empty, successful, mixed, and failed production buckets', () =>
     classifyHistoryBucket(bucket({ success_count: 0, error_count: 4 })),
     'failed'
   )
+})
+
+test('groups full-pool and recovery Probes into a separate 60-bucket timeline', () => {
+  const probes = [
+    {
+      execution_profile_id: profile().executionProfileId,
+      status: 'success',
+      started_at: '2026-08-05T12:01:00Z',
+      probeMode: 'full_pool',
+    },
+    {
+      execution_profile_id: profile().executionProfileId,
+      status: 'failed',
+      started_at: '2026-08-05T12:02:00Z',
+      probeMode: 'recovery',
+    },
+  ] as ACUProbeHistoryRow[]
+  const group = groupACUChannels(
+    [profile()],
+    [],
+    '24h',
+    '2026-08-05T12:15:00Z',
+    probes
+  )[0]
+
+  assert.equal(group.probeBuckets.length, 60)
+  assert.equal(group.probeBuckets.at(-2)?.fullPoolCount, 1)
+  assert.equal(group.probeBuckets.at(-2)?.recoveryCount, 1)
+  const probeBucket = group.probeBuckets.at(-2)
+  assert.ok(probeBucket)
+  assert.equal(classifyProbeBucket(probeBucket), 'mixed')
+  assert.equal(group.probedProfileCount, 1)
+  assert.equal(group.recoveryProbeSuccessCount, 0)
 })
 
 test('uses all 96 range buckets for 24h availability but displays only 60', () => {

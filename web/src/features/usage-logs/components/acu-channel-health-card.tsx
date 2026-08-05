@@ -22,17 +22,12 @@ import { useTranslation } from 'react-i18next'
 
 import { StatusBadge } from '@/components/status-badge'
 import { Badge } from '@/components/ui/badge'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 import type { ACUChannelMonitorProfile } from '../api'
 import {
   classifyHistoryBucket,
+  classifyProbeBucket,
   type ACUChannelOverview,
 } from './acu-channel-health-model'
 
@@ -108,95 +103,97 @@ export function ACUChannelHealthCard(props: {
               </Badge>
             ))}
             <span className='text-muted-foreground text-xs'>
-              {props.channel.profiles.length} {t('Profiles')}
+              {props.channel.eligibleProfileCount} /{' '}
+              {props.channel.enabledProfileCount} {t('eligible Profiles')}
             </span>
           </div>
         </div>
       </button>
 
       <div className='bg-border grid gap-px border-y sm:grid-cols-3'>
-        <ChannelMetric
-          label={t('Primary p50')}
-          value={milliseconds(primary?.p50FirstModelEventLatencyMs)}
-        />
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger className='bg-background p-3 text-left'>
-              <ChannelMetric
-                label={t('Primary p95')}
-                value={milliseconds(primary?.p95FirstModelEventLatencyMs)}
-                compact
-              />
-            </TooltipTrigger>
-            <TooltipContent>{t('First model event p95')}</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger className='bg-background p-3 text-left'>
-              <ChannelMetric
-                label={t('Latest Probe')}
-                value={
-                  primary?.probeStatus
-                    ? `${primary.probeStatus} · ${milliseconds(primary.probeLatencyMs)}`
-                    : t('never')
-                }
-                compact
-              />
-            </TooltipTrigger>
-            <TooltipContent>
-              {primary?.lastProbeAt
-                ? relativeTime(primary.lastProbeAt)
-                : t('No probe records')}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <div className='bg-background min-w-0 space-y-1 p-3'>
+          <div className='text-muted-foreground text-[11px]'>
+            {t('Production')} · {t('current range')}
+          </div>
+          {props.channel.availability === null ? (
+            <div className='text-sm font-medium'>{t('No production traffic')}</div>
+          ) : (
+            <>
+              <div className='text-sm font-semibold'>
+                {props.channel.successCount} / {props.channel.requestCount}{' '}
+                {t('successful attempts')}
+              </div>
+              <div className='text-xs'>
+                {(props.channel.availability * 100).toFixed(2)}%
+              </div>
+            </>
+          )}
+          <div className='text-muted-foreground text-xs'>
+            P50 {milliseconds(primary?.p50FirstModelEventLatencyMs)} · P95{' '}
+            {milliseconds(primary?.p95FirstModelEventLatencyMs)}
+          </div>
+        </div>
+        <div className='bg-background min-w-0 space-y-1 p-3'>
+          <div className='text-muted-foreground text-[11px]'>
+            {t('Probe coverage')}
+          </div>
+          {props.channel.probedProfileCount === 0 ? (
+            <div className='text-sm font-medium'>{t('Not actively verified')}</div>
+          ) : (
+            <div className='text-sm font-semibold'>
+              {props.channel.probedProfileCount} /{' '}
+              {props.channel.enabledProfileCount} {t('Profiles passed')}
+            </div>
+          )}
+          <div className='text-muted-foreground text-xs'>
+            {t('Full pool')} {relativeTime(props.channel.latestFullPoolProbeAt)}
+          </div>
+          <div className='text-muted-foreground text-xs'>
+            {t('Recovery')} {props.channel.recoveryProbeSuccessCount} /{' '}
+            {props.channel.recoveryProbeCount}
+          </div>
+        </div>
+        <div className='bg-background min-w-0 space-y-1 p-3'>
+          <div className='text-muted-foreground text-[11px]'>
+            {t('Primary Profile')}
+          </div>
+          <div className='truncate text-sm font-semibold'>
+            {primary?.canonicalModel ?? t('No routing score')}
+          </div>
+          <div className='text-muted-foreground text-xs'>
+            {primary?.profileRank == null
+              ? t('Not scored')
+              : `#${primary.profileRank} / ${primary.profileCandidateCount} · ${primary.multiplier ?? 0}x`}
+          </div>
+        </div>
       </div>
 
       <div className='space-y-3 p-4'>
-        <div>
-          <div className='text-sm font-semibold'>
-            {props.channel.availability === null
-              ? t('No production samples')
-              : `${(props.channel.availability * 100).toFixed(2)}%`}
-          </div>
-          {props.channel.availability !== null && (
-            <div className='text-muted-foreground text-xs'>
-              {props.channel.successCount} / {props.channel.requestCount}{' '}
-              {t('successful requests')}
-            </div>
-          )}
-        </div>
-        <div
-          className='flex h-5 w-full gap-0.5'
-          aria-label={t('Recent production status')}
-        >
-          {props.channel.buckets.map((bucket) => (
-            <span
-              key={bucket.bucket}
-              className={cn(
-                'min-w-0 flex-1 rounded-[1px]',
-                bucketTone[classifyHistoryBucket(bucket)]
-              )}
-              title={`${new Date(bucket.bucket).toLocaleString()} · ${bucket.success_count}/${bucket.request_count}`}
-            />
-          ))}
-          {props.channel.buckets.length === 0 && (
-            <span className='bg-muted h-full w-full rounded-sm' />
-          )}
-        </div>
+        <StatusTimeline
+          label={t('Production')}
+          buckets={props.channel.buckets.map((bucket) => ({
+            key: bucket.bucket,
+            tone: classifyHistoryBucket(bucket),
+            title: `${new Date(bucket.bucket).toLocaleString()} · ${bucket.success_count}/${bucket.request_count}`,
+          }))}
+        />
+        <StatusTimeline
+          label={t('Probe')}
+          buckets={props.channel.probeBuckets.map((bucket) => ({
+            key: bucket.bucket,
+            tone: classifyProbeBucket(bucket),
+            title: `${new Date(bucket.bucket).toLocaleString()} · full-pool ${bucket.fullPoolCount} · recovery ${bucket.recoveryCount} · ${bucket.successCount}/${bucket.totalCount}`,
+          }))}
+        />
         <div className='text-muted-foreground flex flex-wrap justify-between gap-2 text-xs'>
-          <span>
-            {props.channel.eligibleProfileCount} /{' '}
-            {props.channel.enabledProfileCount} {t('eligible')}
-          </span>
           <span>
             {props.channel.modelCount} {t('models')}
           </span>
           <span>
-            {primary?.profileUtility === null || !primary
-              ? t('No routing score')
-              : `${t('Primary Profile')} · ${t('same-model rank')} #${primary.profileRank}/${primary.profileCandidateCount}`}
+            {t('Latest health event')}:{' '}
+            {props.channel.latestHealthEvent
+              ? `${props.channel.latestHealthEvent.source} ${props.channel.latestHealthEvent.result} · ${relativeTime(props.channel.latestHealthEvent.at)}`
+              : t('none')}
           </span>
           <span>{relativeTime(props.generatedAt)}</span>
         </div>
@@ -216,15 +213,32 @@ export function ACUChannelHealthCard(props: {
   )
 }
 
-function ChannelMetric(props: {
+function StatusTimeline(props: {
   label: string
-  value: string
-  compact?: boolean
+  buckets: Array<{
+    key: string
+    tone: keyof typeof bucketTone
+    title: string
+  }>
 }) {
   return (
-    <div className={cn(!props.compact && 'bg-background p-3')}>
+    <div className='grid min-w-0 grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-2'>
       <div className='text-muted-foreground text-[11px]'>{props.label}</div>
-      <div className='mt-1 truncate text-sm font-medium'>{props.value}</div>
+      <div
+        className='flex h-4 min-w-0 gap-0.5'
+        aria-label={`${props.label} timeline`}
+      >
+        {props.buckets.map((bucket) => (
+          <span
+            key={bucket.key}
+            className={cn(
+              'min-w-0 flex-1 rounded-[1px]',
+              bucketTone[bucket.tone]
+            )}
+            title={bucket.title}
+          />
+        ))}
+      </div>
     </div>
   )
 }
@@ -274,8 +288,20 @@ function ChannelProfile(props: { profile: ACUChannelMonitorProfile }) {
           value={String(profile.multiplier || 'n/a')}
         />
         <ProfileField
-          label={t('Evidence')}
-          value={`${profile.successCount}/${profile.requestCount} · ${profile.firstEventSampleCount} first-event`}
+          label={t('Production Attempts')}
+          value={`${profile.successCount}/${profile.requestCount}`}
+        />
+        <ProfileField
+          label={t('Judge Attempts')}
+          value={`${profile.judgeSuccessCount}/${profile.judgeAttemptCount}`}
+        />
+        <ProfileField
+          label={t('Full-pool Probes')}
+          value={`${profile.fullPoolProbeSuccessCount}/${profile.fullPoolProbeCount}`}
+        />
+        <ProfileField
+          label={t('Recovery Probes')}
+          value={`${profile.recoveryProbeSuccessCount}/${profile.recoveryProbeCount}`}
         />
         <ProfileField
           label={t('p50 / p95')}
@@ -295,7 +321,7 @@ function ChannelProfile(props: { profile: ACUChannelMonitorProfile }) {
         />
         <ProfileField
           label={t('Metric source')}
-          value={profile.metricSource || 'n/a'}
+          value={`${profile.metricSource || 'n/a'} · ${profile.firstEventSampleCount} first-event`}
         />
         <ProfileField
           label={t('Last error')}

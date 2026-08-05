@@ -158,7 +158,8 @@ export function ACUChannelMonitor() {
         query.data?.data?.profiles ?? [],
         query.data?.data?.history ?? [],
         range,
-        query.data?.data?.generatedAt
+        query.data?.data?.generatedAt,
+        query.data?.data?.probeHistory ?? []
       ),
     [query.data, range]
   )

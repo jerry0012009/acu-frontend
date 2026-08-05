@@ -20,6 +20,7 @@ import type {
   ACUChannelHistoryRow,
   ACUChannelMonitorProfile,
   ACUMonitorRange,
+  ACUProbeHistoryRow,
 } from '../api'
 
 export type ACUChannelState =
@@ -56,13 +57,37 @@ export type ACUChannelOverview = {
   successCount: number
   availability: number | null
   buckets: ACUChannelHistoryRow[]
+  probeBuckets: ACUProbeBucket[]
+  probedProfileCount: number
+  latestFullPoolProbeAt: string | null
+  recoveryProbeCount: number
+  recoveryProbeSuccessCount: number
+  latestHealthEvent: ACUChannelMonitorProfile['healthEvents'][number] | null
+}
+
+export type ACUProbeBucket = {
+  bucket: string
+  fullPoolCount: number
+  recoveryCount: number
+  successCount: number
+  totalCount: number
+}
+
+export function classifyProbeBucket(
+  row: Pick<ACUProbeBucket, 'successCount' | 'totalCount'>
+): ACUHistoryBucketTone {
+  if (row.totalCount === 0) return 'empty'
+  if (row.successCount === 0) return 'failed'
+  if (row.successCount < row.totalCount) return 'mixed'
+  return 'success'
 }
 
 export function groupACUChannels(
   profiles: ACUChannelMonitorProfile[],
   history: ACUChannelHistoryRow[],
   range: ACUMonitorRange = '24h',
-  generatedAt = new Date().toISOString()
+  generatedAt = new Date().toISOString(),
+  probeHistory: ACUProbeHistoryRow[] = []
 ): ACUChannelOverview[] {
   const profilesByChannel = new Map<string, ACUChannelMonitorProfile[]>()
   for (const profile of profiles) {
@@ -144,6 +169,42 @@ export function groupACUChannels(
           }
         )
       })
+      const profileIds = new Set(
+        channelProfiles.map((profile) => profile.executionProfileId)
+      )
+      const channelProbes = probeHistory.filter((probe) =>
+        profileIds.has(probe.execution_profile_id)
+      )
+      const probesByTime = new Map<number, ACUProbeBucket>()
+      for (const probe of channelProbes) {
+        const probeTime = new Date(probe.started_at).getTime()
+        if (!Number.isFinite(probeTime)) continue
+        const bucketTime = Math.floor(probeTime / bucketMs) * bucketMs
+        const current = probesByTime.get(bucketTime) ?? {
+          bucket: new Date(bucketTime).toISOString(),
+          fullPoolCount: 0,
+          recoveryCount: 0,
+          successCount: 0,
+          totalCount: 0,
+        }
+        current.totalCount += 1
+        current.successCount += probe.status === 'success' ? 1 : 0
+        if (probe.probeMode === 'full_pool') current.fullPoolCount += 1
+        else current.recoveryCount += 1
+        probesByTime.set(bucketTime, current)
+      }
+      const probeBuckets = Array.from({ length: 60 }, (_, index) => {
+        const bucketTime = lastBucketTime - (59 - index) * bucketMs
+        return (
+          probesByTime.get(bucketTime) ?? {
+            bucket: new Date(bucketTime).toISOString(),
+            fullPoolCount: 0,
+            recoveryCount: 0,
+            successCount: 0,
+            totalCount: 0,
+          }
+        )
+      })
       const requestCount = observedBuckets.reduce(
         (total, row) => total + row.request_count,
         0
@@ -152,6 +213,25 @@ export function groupACUChannels(
         (total, row) => total + row.success_count,
         0
       )
+      const successfulProbeProfiles = new Set(
+        channelProbes
+          .filter((probe) => probe.status === 'success')
+          .map((probe) => probe.execution_profile_id)
+      )
+      const fullPoolTimes = channelProbes
+        .filter((probe) => probe.probeMode === 'full_pool')
+        .map((probe) => new Date(probe.started_at).getTime())
+        .filter(Number.isFinite)
+      const latestFullPoolTime = Math.max(...fullPoolTimes, Number.NEGATIVE_INFINITY)
+      const recoveryProbes = channelProbes.filter(
+        (probe) => probe.probeMode === 'recovery'
+      )
+      const latestHealthEvent = channelProfiles
+        .flatMap((profile) => profile.healthEvents ?? [])
+        .sort(
+          (left, right) =>
+            new Date(right.at).getTime() - new Date(left.at).getTime()
+        )[0]
       return {
         channel,
         providers: [
@@ -171,6 +251,18 @@ export function groupACUChannels(
         successCount,
         availability: requestCount > 0 ? successCount / requestCount : null,
         buckets,
+        probeBuckets,
+        probedProfileCount: enabledProfiles.filter((profile) =>
+          successfulProbeProfiles.has(profile.executionProfileId)
+        ).length,
+        latestFullPoolProbeAt: Number.isFinite(latestFullPoolTime)
+          ? new Date(latestFullPoolTime).toISOString()
+          : null,
+        recoveryProbeCount: recoveryProbes.length,
+        recoveryProbeSuccessCount: recoveryProbes.filter(
+          (probe) => probe.status === 'success'
+        ).length,
+        latestHealthEvent: latestHealthEvent ?? null,
       }
     })
     .sort((left, right) => left.channel.localeCompare(right.channel))

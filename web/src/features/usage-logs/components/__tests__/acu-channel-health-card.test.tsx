@@ -66,7 +66,7 @@ await i18n
 ).IS_REACT_ACT_ENVIRONMENT = true
 after(() => domWindow.close())
 
-test('expands a Channel to show Profile score and sample evidence', async () => {
+test('shows separate Production and Probe evidence and expands all Profile evidence', async () => {
   const container = document.createElement('div')
   document.body.append(container)
   const root = createRoot(container)
@@ -85,7 +85,28 @@ test('expands a Channel to show Profile score and sample evidence', async () => 
             requestCount: 12,
             successCount: 11,
             availability: 11 / 12,
-            buckets: [],
+            buckets: Array.from({ length: 60 }, (_, index) => ({
+              bucket: new Date(Date.UTC(2026, 7, 5, 0, index)).toISOString(),
+              request_count: index === 59 ? 12 : 0,
+              success_count: index === 59 ? 11 : 0,
+              error_count: index === 59 ? 1 : 0,
+            })) as never,
+            probeBuckets: Array.from({ length: 60 }, (_, index) => ({
+              bucket: new Date(Date.UTC(2026, 7, 5, 0, index)).toISOString(),
+              fullPoolCount: index === 59 ? 1 : 0,
+              recoveryCount: 0,
+              successCount: index === 59 ? 1 : 0,
+              totalCount: index === 59 ? 1 : 0,
+            })),
+            probedProfileCount: 1,
+            latestFullPoolProbeAt: '2026-08-05T11:00:00Z',
+            recoveryProbeCount: 1,
+            recoveryProbeSuccessCount: 1,
+            latestHealthEvent: {
+              source: 'full_pool_probe',
+              result: 'success',
+              at: '2026-08-05T11:00:00Z',
+            },
             primaryProfile: null,
             profiles: [
               {
@@ -103,6 +124,12 @@ test('expands a Channel to show Profile score and sample evidence', async () => 
                 profileCandidateCount: 3,
                 successCount: 11,
                 requestCount: 12,
+                judgeSuccessCount: 4,
+                judgeAttemptCount: 5,
+                fullPoolProbeSuccessCount: 2,
+                fullPoolProbeCount: 2,
+                recoveryProbeSuccessCount: 1,
+                recoveryProbeCount: 1,
                 firstEventSampleCount: 9,
                 costContribution: 0.3,
                 speedContribution: 0.2,
@@ -115,6 +142,9 @@ test('expands a Channel to show Profile score and sample evidence', async () => 
       </I18nextProvider>
     )
   })
+  assert.match(container.textContent ?? '', /11 \/ 12 successful attempts/)
+  assert.equal(container.querySelectorAll('[aria-label="Production timeline"] span').length, 60)
+  assert.equal(container.querySelectorAll('[aria-label="Probe timeline"] span').length, 60)
   const button = container.querySelector('button')
   assert.ok(button)
   await act(async () =>
@@ -122,8 +152,51 @@ test('expands a Channel to show Profile score and sample evidence', async () => 
   )
   assert.match(container.textContent ?? '', /0\.812/)
   assert.match(container.textContent ?? '', /11\/12/)
+  assert.match(container.textContent ?? '', /4\/5/)
+  assert.match(container.textContent ?? '', /2\/2/)
+  assert.match(container.textContent ?? '', /1\/1/)
   assert.match(container.textContent ?? '', /9 first-event/)
   assert.match(container.textContent ?? '', /first_event_p50/)
+  await act(async () => root.unmount())
+  container.remove()
+})
+
+test('shows Probe coverage without presenting an empty Production success rate', async () => {
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  await act(async () => {
+    root.render(
+      <I18nextProvider i18n={i18n}>
+        <ACUChannelHealthCard
+          generatedAt='2026-08-05T12:00:00Z'
+          channel={{
+            channel: 'cx008',
+            providers: ['lucen'],
+            profiles: [],
+            enabledProfileCount: 1,
+            eligibleProfileCount: 0,
+            modelCount: 1,
+            state: 'unavailable',
+            primaryProfile: null,
+            requestCount: 0,
+            successCount: 0,
+            availability: null,
+            buckets: [],
+            probeBuckets: [],
+            probedProfileCount: 1,
+            latestFullPoolProbeAt: '2026-08-05T11:00:00Z',
+            recoveryProbeCount: 0,
+            recoveryProbeSuccessCount: 0,
+            latestHealthEvent: null,
+          }}
+        />
+      </I18nextProvider>
+    )
+  })
+  assert.match(container.textContent ?? '', /No production traffic/)
+  assert.match(container.textContent ?? '', /1 \/ 1 Profiles passed/)
+  assert.doesNotMatch(container.textContent ?? '', /0\.00%/)
   await act(async () => root.unmount())
   container.remove()
 })

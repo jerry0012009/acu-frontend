@@ -236,6 +236,8 @@ export type ACUChannelMonitorProfile = {
   requestCount: number
   successCount: number
   errorCount: number
+  judgeAttemptCount: number
+  judgeSuccessCount: number
   firstEventSampleCount: number
   consecutiveFailures: number
   p50FirstModelEventLatencyMs: number
@@ -252,6 +254,17 @@ export type ACUChannelMonitorProfile = {
   probeFreshness: string
   probeDailySpendCny: number
   probeSuccessRate: number | null
+  fullPoolProbeCount: number
+  fullPoolProbeSuccessCount: number
+  recoveryProbeCount: number
+  recoveryProbeSuccessCount: number
+  latestSuccessfulProbeAt: string | null
+  latestFullPoolProbeAt: string | null
+  healthEvents: Array<{
+    source: 'production' | 'judge' | 'full_pool_probe' | 'recovery_probe'
+    result: 'success' | 'failed' | 'cooldown' | 'recovered'
+    at: string
+  }>
   supportedReasoningEfforts?: string[]
   reasoningControlMode?: string
   profileUtility: number | null
@@ -350,6 +363,8 @@ export type ACUProbeHistoryRow = {
   started_at: string
   completed_at: string | null
   metadata_json?: Record<string, unknown>
+  probeMode: 'full_pool' | 'recovery'
+  trigger: string
 }
 
 export type ACUMonitorRange = '1h' | '6h' | '24h' | '7d'
