@@ -5318,6 +5318,9 @@
     "Select at least one routing candidate": "Select at least one routing candidate",
     "Candidate preferences must use allowed candidates": "Candidate preferences must use allowed candidates",
     "Base utility": "Base utility",
-    "Adjusted utility": "Adjusted utility"
+    "Adjusted utility": "Adjusted utility",
+    "ACU Route Timeline": "ACU Route Timeline",
+    "Async Task Logs": "Async Task Logs",
+    "Only asynchronous image, video, and music generation tasks appear here. See Usage Logs for ordinary model calls.": "Only asynchronous image, video, and music generation tasks appear here. See Usage Logs for ordinary model calls."
   }
 }

@@ -40,7 +40,12 @@ import { cn } from '@/lib/utils'
 
 import { LOG_TYPE_ENUM } from '../constants'
 import type { UsageLog } from '../data/schema'
-import { parseLogOther } from '../lib/format'
+import {
+  acuCacheReadTokens,
+  acuDurationSeconds,
+  acuFirstTokenMs,
+  parseLogOther,
+} from '../lib/format'
 import {
   getLogTypeConfig,
   isDisplayableLogType,
@@ -204,7 +209,7 @@ function MobileTokensField({ log }: { log: UsageLog }) {
   }
 
   const other = parseLogOther(log.other)
-  const cacheReadTokens = other?.cache_tokens || 0
+  const cacheReadTokens = acuCacheReadTokens(other)
   const cacheWrite5m = other?.cache_creation_tokens_5m || 0
   const cacheWrite1h = other?.cache_creation_tokens_1h || 0
   const hasSplitCache = cacheWrite5m > 0 || cacheWrite1h > 0
@@ -282,7 +287,7 @@ function MobileStreamTimingField({ log }: { log: UsageLog }) {
   if (!isTimingLogType(log.type)) return null
 
   const other = parseLogOther(log.other)
-  const useTime = log.use_time || 0
+  const useTime = acuDurationSeconds(log, other)
   const tokensPerSecond =
     useTime > 0 && log.completion_tokens > 0
       ? log.completion_tokens / useTime
@@ -293,7 +298,7 @@ function MobileStreamTimingField({ log }: { log: UsageLog }) {
       <TimingMetricsCell
         useTimeSec={useTime}
         completionTokens={log.completion_tokens}
-        frtMs={other?.frt}
+        frtMs={acuFirstTokenMs(other)}
         isStream={log.is_stream}
         indicator='dot'
         className='min-w-0 flex-1'

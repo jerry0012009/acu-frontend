@@ -100,24 +100,35 @@ function statusTone(status: string) {
 }
 
 function judgeMode(item: ACUWorkTimelineItem) {
+  if (item.judgeReused) return 'Judge Reused'
+  if (
+    item.judgeStatus === 'rules_fallback' ||
+    item.judgeResultSource === 'rules_strategy'
+  ) {
+    return 'Judge rules fallback'
+  }
+  if (item.judgeSameModelFailoverUsed) {
+    return `Judge Profile failover · ${item.judgeModel}`
+  }
   if (item.judgeResultSource === 'upstream_live') return 'Judge Fresh'
   if (item.judgeResultSource === 'disk_cache') return 'Judge Cache'
   if (item.judgeResultSource === 'recent_evaluation') {
     return 'Judge failed · reused previous'
   }
   if (item.judgeResultSource === 'rules_strategy') return 'Rules fallback'
-  if (item.judgeReused && !item.judgeCalled) return 'Judge Reused'
-  return 'Judge unavailable'
+  if (!item.judgeCalled) return 'Judge not required'
+  return item.judgeModel ? `Judge · ${item.judgeModel}` : 'Judge unavailable'
 }
 
 function difficultyText(item: ACUWorkTimelineItem, digits = 0) {
   return item.difficultyRecorded ? item.difficulty.toFixed(digits) : '—'
 }
 
-function TimelineStep(props: {
+function StepDetailContent(props: {
   item: ACUWorkTimelineItem
   onTrace: (id: string) => void
-  defaultOpen?: boolean
+  onOpen?: (id: string) => void
+  showDetails?: boolean
 }) {
   const { t } = useTranslation()
   const { item } = props
@@ -128,12 +139,16 @@ function TimelineStep(props: {
   const provider =
     item.pointType === 'judge'
       ? item.judgeAttempts.find((attempt) => attempt.status === 'success')
-          ?.provider || 'rules'
+          ?.provider ||
+        item.provider ||
+        'rules'
       : item.provider
   const channel =
     item.pointType === 'judge'
       ? item.judgeAttempts.find((attempt) => attempt.status === 'success')
-          ?.channelId || '—'
+          ?.channelId ||
+        item.channel ||
+        '—'
       : item.channel
   let pointJudgeLabel = t('Execution')
   if (item.pointType === 'judge') {
@@ -148,11 +163,10 @@ function TimelineStep(props: {
       : item.providerAttempts.filter((attempt) => attempt.status !== 'success')
           .length
   return (
-    <Collapsible
-      defaultOpen={props.defaultOpen}
-      className='border-border/70 border-b last:border-b-0'
-    >
-      <CollapsibleTrigger
+    <div className='border-border/70 border-b last:border-b-0'>
+      <button
+        type='button'
+        onClick={() => props.onOpen?.(item.pointId)}
         aria-label={t('Open route step {{sequence}}', {
           sequence: item.sequence,
         })}
@@ -226,8 +240,8 @@ function TimelineStep(props: {
         <span className='pt-1 lg:pt-0'>
           <ChevronDown className='size-4 transition-transform group-data-[panel-open]:rotate-180' />
         </span>
-      </CollapsibleTrigger>
-      <CollapsibleContent>
+      </button>
+      {props.showDetails ? (
         <div className='bg-muted/20 grid gap-4 border-t px-4 py-4 text-xs lg:grid-cols-4'>
           {item.pointType === 'judge' ? (
             <div>
@@ -410,9 +424,16 @@ function TimelineStep(props: {
             </div>
           ) : null}
         </div>
-      </CollapsibleContent>
-    </Collapsible>
+      ) : null}
+    </div>
   )
+}
+
+function TimelineStep(props: {
+  item: ACUWorkTimelineItem
+  onOpen: (id: string) => void
+}) {
+  return <StepDetailContent {...props} onTrace={() => {}} showDetails={false} />
 }
 
 export function ACUWorkTimeline() {
@@ -848,7 +869,7 @@ export function ACUWorkTimeline() {
                 <TimelineStep
                   key={item.pointId}
                   item={item}
-                  onTrace={setTraceId}
+                  onOpen={setSelectedPointId}
                 />
               ))}
             </div>
@@ -870,10 +891,10 @@ export function ACUWorkTimeline() {
             <DialogTitle>{t('Step Detail')}</DialogTitle>
           </DialogHeader>
           {selectedPoint ? (
-            <TimelineStep
+            <StepDetailContent
               item={selectedPoint}
               onTrace={setTraceId}
-              defaultOpen
+              showDetails
             />
           ) : null}
         </DialogContent>

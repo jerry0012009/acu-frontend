@@ -149,8 +149,22 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 			(item.JudgeCalled || item.JudgeResultSource == "disk_cache" || item.JudgeResultSource == "rules_strategy")
 		if createJudgePoint {
 			judge := item
+			judgeModel, judgeProvider, judgeChannel, judgeProfile := judgeIdentity(item.JudgeAttempts)
 			judge.PointID = item.LogicalRequestID + ":judge"
 			judge.PointType = "judge"
+			if judgeModel != "" {
+				judge.JudgeModel = judgeModel
+				judge.ActualModel = judgeModel
+			}
+			if judgeProvider != "" {
+				judge.Provider = judgeProvider
+			}
+			if judgeChannel != "" {
+				judge.Channel = judgeChannel
+			}
+			if judgeProfile != "" {
+				judge.JudgeProfileSelection.SelectedExecutionProfileID = judgeProfile
+			}
 			judge.UserChargeCNY = floatPointer(item.JudgeUserChargeCNY)
 			judge.ActualCashCostCNY = floatPointer(item.JudgeCostCNY)
 			judge.Status = judgePointStatus(item)
@@ -162,6 +176,7 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 			judge.InputTokens = int64(sumJudgeTokens(item.JudgeAttempts, "input"))
 			judge.CachedInputTokens = int64(sumJudgeTokens(item.JudgeAttempts, "cached"))
 			judge.OutputTokens = int64(sumJudgeTokens(item.JudgeAttempts, "output"))
+			judge.CacheHitRatio = floatRatio(judge.CachedInputTokens, judge.InputTokens)
 			items = append(items, judge)
 		}
 		if item.JudgeProtocol != "" {
@@ -246,6 +261,17 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 		TotalUserChargeCNY: totalUserCharge, TotalActualCashCostCNY: totalActualCashCost, UnsettledRequests: unsettledRequests,
 		ActualTotalCostCNY: legacyTotalCost, P50FirstModelEventLatencyMs: percentile(latencies, .5), P95FirstModelEventLatencyMs: percentile(latencies, .95),
 	}}
+}
+
+func judgeIdentity(values []dto.ACUTimelineJudgeAttempt) (string, string, string, string) {
+	var last dto.ACUTimelineJudgeAttempt
+	for _, attempt := range values {
+		last = attempt
+		if attempt.Status == "success" {
+			return attempt.Model, attempt.Provider, attempt.ChannelID, attempt.ExecutionProfileID
+		}
+	}
+	return last.Model, last.Provider, last.ChannelID, last.ExecutionProfileID
 }
 
 func floatPointer(value float64) *float64 { return &value }

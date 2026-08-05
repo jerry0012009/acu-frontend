@@ -34,10 +34,10 @@ const USAGE_LOGS_SECTIONS = [
   },
   {
     id: 'task',
-    titleKey: 'Task Logs',
+    titleKey: 'Async Task Logs',
     build: () => null, // Content is rendered directly in the page component
   },
-  { id: 'timeline', titleKey: '工作路由轨迹', build: () => null },
+  { id: 'timeline', titleKey: 'ACU Route Timeline', build: () => null },
   { id: 'channel-monitor', titleKey: 'Channel Monitor', build: () => null },
 ] as const
 

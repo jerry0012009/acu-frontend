@@ -191,9 +191,15 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
       isLoading={isLoadingData}
       isFetching={isFetching}
       emptyTitle={t('No Logs Found')}
-      emptyDescription={t(
-        'No usage logs available. Logs will appear here once API calls are made.'
-      )}
+      emptyDescription={
+        isCommon
+          ? t(
+              'No usage logs available. Logs will appear here once API calls are made.'
+            )
+          : t(
+              'Only asynchronous image, video, and music generation tasks appear here. See Usage Logs for ordinary model calls.'
+            )
+      }
       skeletonKeyPrefix='usage-log-skeleton'
       applyHeaderSize
       tableClassName={cn(

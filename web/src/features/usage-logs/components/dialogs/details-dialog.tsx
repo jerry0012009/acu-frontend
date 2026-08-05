@@ -89,6 +89,9 @@ import {
   getFirstResponseTimeColor,
   getResponseTimeColor,
   renderAuditContent,
+  acuCacheReadTokens,
+  acuDurationSeconds,
+  acuFirstTokenMs,
 } from '../../lib/format'
 import {
   getLogTypeConfig,
@@ -436,7 +439,7 @@ function TokenBreakdown(props: { log: UsageLog; other: LogOtherData }) {
 
   const promptTokens = log.prompt_tokens || 0
   const completionTokens = log.completion_tokens || 0
-  const cacheRead = other.cache_tokens || 0
+  const cacheRead = acuCacheReadTokens(other)
   const cacheWrite = other.cache_creation_tokens || 0
   const cacheWrite5m = other.cache_creation_tokens_5m || 0
   const cacheWrite1h = other.cache_creation_tokens_1h || 0
@@ -1222,7 +1225,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
             />
           )}
 
-          {showTiming && props.log.use_time > 0 && (
+          {showTiming && acuDurationSeconds(props.log, other) > 0 && (
             <DetailRow
               label={t('Response Time')}
               value={
@@ -1231,28 +1234,29 @@ export function DetailsDialog(props: DetailsDialogProps) {
                     'font-medium',
                     timingTextColorClass(
                       getResponseTimeColor(
-                        props.log.use_time,
+                        acuDurationSeconds(props.log, other),
                         props.log.completion_tokens
                       )
                     )
                   )}
                 >
-                  {formatUseTime(props.log.use_time)}
-                  {props.log.is_stream &&
-                    other?.frt != null &&
-                    other.frt > 0 && (
-                      <span
-                        className={cn(
-                          'font-normal',
-                          timingTextColorClass(
-                            getFirstResponseTimeColor(other.frt / 1000)
+                  {formatUseTime(acuDurationSeconds(props.log, other))}
+                  {props.log.is_stream && acuFirstTokenMs(other) != null && (
+                    <span
+                      className={cn(
+                        'font-normal',
+                        timingTextColorClass(
+                          getFirstResponseTimeColor(
+                            (acuFirstTokenMs(other) ?? 0) / 1000
                           )
-                        )}
-                      >
-                        {' '}
-                        (FRT: {formatUseTime(other.frt / 1000)})
-                      </span>
-                    )}
+                        )
+                      )}
+                    >
+                      {' '}
+                      (FRT:{' '}
+                      {formatUseTime((acuFirstTokenMs(other) ?? 0) / 1000)})
+                    </span>
+                  )}
                 </span>
               }
             />
@@ -1496,13 +1500,14 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 mono
               />
             )}
-            {props.isAdmin && acuRoute?.provider_credit_cash_cost_cny != null && (
-              <DetailRow
-                label={t('Provider Credit Cash Conversion')}
-                value={`¥${Number(acuRoute.provider_credit_cash_cost_cny).toFixed(10)} / Credit`}
-                mono
-              />
-            )}
+            {props.isAdmin &&
+              acuRoute?.provider_credit_cash_cost_cny != null && (
+                <DetailRow
+                  label={t('Provider Credit Cash Conversion')}
+                  value={`¥${Number(acuRoute.provider_credit_cash_cost_cny).toFixed(10)} / Credit`}
+                  mono
+                />
+              )}
             {props.isAdmin && acuRoute?.effective_cash_cost_cny != null && (
               <DetailRow
                 label={t('Effective Cash Cost (CNY)')}
@@ -1517,8 +1522,9 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 mono
               />
             )}
-            {props.isAdmin && (acuRoute?.judge_cost_status === 'estimated_blended' ||
-              acuRoute?.judge_cost_status === 'mixed') &&
+            {props.isAdmin &&
+              (acuRoute?.judge_cost_status === 'estimated_blended' ||
+                acuRoute?.judge_cost_status === 'mixed') &&
               acuRoute.judge_official_payg_equivalent_cost != null && (
                 <DetailRow
                   label={t('MiMo Official PAYG Equivalent')}
@@ -1540,13 +1546,14 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 mono
               />
             )}
-            {props.isAdmin && acuRoute?.failed_attempt_cash_cost_cny != null && (
-              <DetailRow
-                label={t('Failed Attempt Cost (CNY)')}
-                value={`¥${Number(acuRoute.failed_attempt_cash_cost_cny).toFixed(8)}`}
-                mono
-              />
-            )}
+            {props.isAdmin &&
+              acuRoute?.failed_attempt_cash_cost_cny != null && (
+                <DetailRow
+                  label={t('Failed Attempt Cost (CNY)')}
+                  value={`¥${Number(acuRoute.failed_attempt_cash_cost_cny).toFixed(8)}`}
+                  mono
+                />
+              )}
             {props.isAdmin && acuRoute?.actual_total_cash_cost_cny != null && (
               <DetailRow
                 label={t('Actual Total Cost (CNY)')}
@@ -1561,14 +1568,16 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 mono
               />
             )}
-            {props.isAdmin && acuRoute?.counterfactual_quality_ceiling_cost_cny != null && (
-              <DetailRow
-                label={t('Quality Ceiling Counterfactual Cost (CNY)')}
-                value={`¥${Number(acuRoute.counterfactual_quality_ceiling_cost_cny).toFixed(8)}`}
-                mono
-              />
-            )}
-            {props.isAdmin && acuRoute?.counterfactual_quality_ceiling_cost_cny != null &&
+            {props.isAdmin &&
+              acuRoute?.counterfactual_quality_ceiling_cost_cny != null && (
+                <DetailRow
+                  label={t('Quality Ceiling Counterfactual Cost (CNY)')}
+                  value={`¥${Number(acuRoute.counterfactual_quality_ceiling_cost_cny).toFixed(8)}`}
+                  mono
+                />
+              )}
+            {props.isAdmin &&
+              acuRoute?.counterfactual_quality_ceiling_cost_cny != null &&
               acuRoute.actual_total_cash_cost_cny != null &&
               acuRoute.counterfactual_quality_ceiling_cost_cny > 0 && (
                 <DetailRow
@@ -1584,13 +1593,14 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 mono
               />
             )}
-            {props.isAdmin && acuRoute?.effective_savings_vs_reference_cny != null && (
-              <DetailRow
-                label={t('Effective Savings vs Reference (CNY)')}
-                value={`¥${Number(acuRoute.effective_savings_vs_reference_cny).toFixed(8)}`}
-                mono
-              />
-            )}
+            {props.isAdmin &&
+              acuRoute?.effective_savings_vs_reference_cny != null && (
+                <DetailRow
+                  label={t('Effective Savings vs Reference (CNY)')}
+                  value={`¥${Number(acuRoute.effective_savings_vs_reference_cny).toFixed(8)}`}
+                  mono
+                />
+              )}
             {other.cached_input_tokens != null && (
               <DetailRow
                 label={t('Cached Input Tokens')}

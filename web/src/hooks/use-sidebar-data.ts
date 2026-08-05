@@ -92,7 +92,7 @@ export function useSidebarData(): SidebarData {
             icon: FileText,
           },
           {
-            title: t('工作路由轨迹'),
+            title: t('ACU Route Timeline'),
             url: '/usage-logs/timeline',
             icon: Route,
           },
@@ -102,7 +102,7 @@ export function useSidebarData(): SidebarData {
             icon: Activity,
           },
           {
-            title: t('Task Logs'),
+            title: t('Async Task Logs'),
             url: '/usage-logs/task',
             activeUrls: ['/usage-logs/drawing'],
             configUrls: ['/usage-logs/drawing', '/usage-logs/task'],

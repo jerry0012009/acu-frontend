@@ -167,6 +167,36 @@ export function parseLogOther(other: string): LogOtherData | null {
   }
 }
 
+export function acuCacheReadTokens(other: LogOtherData | null): number {
+  return other?.cache_tokens ?? other?.cached_input_tokens ?? 0
+}
+
+export function acuDurationSeconds(
+  log: UsageLog,
+  other: LogOtherData | null
+): number {
+  if (log.use_time > 0) return log.use_time
+  const latency = other?.acu_cost_breakdown?.end_to_end_latency_ms
+  return latency != null && latency > 0 ? latency / 1000 : 0
+}
+
+export function acuFirstTokenMs(
+  other: LogOtherData | null
+): number | undefined {
+  if (other?.frt != null && other.frt > 0) return other.frt
+  const attempts = other?.acu_cost_breakdown?.channel_attempts ?? []
+  const successful = attempts
+    .filter(
+      (attempt) =>
+        attempt.status === 'success' &&
+        (attempt.first_model_event_latency_ms ?? 0) > 0
+    )
+    .sort(
+      (left, right) => (left.attempt_index ?? 0) - (right.attempt_index ?? 0)
+    )
+  return successful[0]?.first_model_event_latency_ms ?? undefined
+}
+
 /**
  * Get time color based on duration (in seconds)
  */

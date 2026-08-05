@@ -135,14 +135,24 @@ function escapeHtml(value: unknown): string {
 }
 
 export function judgeLabel(item: ACUWorkTimelineItem): string {
+  if (item.judgeReused) return 'Judge Reused'
+  if (
+    item.judgeStatus === 'rules_fallback' ||
+    item.judgeResultSource === 'rules_strategy'
+  ) {
+    return 'Judge rules fallback'
+  }
+  if (item.judgeSameModelFailoverUsed) {
+    return `Judge Profile failover · ${item.judgeModel}`
+  }
   if (item.judgeResultSource === 'upstream_live') return 'Judge Fresh'
   if (item.judgeResultSource === 'disk_cache') return 'Judge Cache'
   if (item.judgeResultSource === 'recent_evaluation') {
     return 'Judge failed · reused previous'
   }
   if (item.judgeResultSource === 'rules_strategy') return 'Rules fallback'
-  if (item.judgeReused && !item.judgeCalled) return 'Judge Reused'
-  return 'Judge unavailable'
+  if (!item.judgeCalled) return 'Judge not required'
+  return item.judgeModel ? `Judge · ${item.judgeModel}` : 'Judge unavailable'
 }
 
 function tooltipHtml(item: ACUWorkTimelineItem, chartOrder: number): string {
@@ -158,7 +168,7 @@ function tooltipHtml(item: ACUWorkTimelineItem, chartOrder: number): string {
     `<div>${escapeHtml(t('Thinking effort'))} ${escapeHtml(thinkingEffort(item))}</div>`,
     `<div>${escapeHtml(t('Difficulty'))} ${item.difficultyRecorded ? item.difficulty.toFixed(1) : '—'}</div>`,
     `<div>${escapeHtml(t(judgeLabel(item)))}${backup}</div>`,
-    `<div>${escapeHtml(item.provider)} · ${escapeHtml(item.channel)}</div>`,
+    `<div>${escapeHtml(item.pointType === 'judge' ? item.judgeAttempts.find((attempt) => attempt.status === 'success')?.provider || item.provider : item.provider)} · ${escapeHtml(item.pointType === 'judge' ? item.judgeAttempts.find((attempt) => attempt.status === 'success')?.channelId || item.channel : item.channel)}</div>`,
     `<div>${escapeHtml(t('End-to-end'))} ${formatLatency(item.endToEndLatencyMs)} · ${escapeHtml(t('First model event'))} ${formatLatency(item.firstModelEventLatencyMs)}</div>`,
     `<div>${escapeHtml(t('Judge'))} ${formatLatency(item.judgeLatencyMs)} · ${escapeHtml(t('Provider'))} ${formatLatency(item.providerLatencyMs)}</div>`,
     `<div>${escapeHtml(t('User charge'))} ${formatOptionalMoney(timelineUserCharge(item))} · ${escapeHtml(t('Cash cost'))} ${formatOptionalMoney(timelineCashCost(item))}</div>`,

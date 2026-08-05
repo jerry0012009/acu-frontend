@@ -46,6 +46,9 @@ import {
   formatModelName,
   getTieredBillingSummary,
   hasAnyCacheTokens,
+  acuCacheReadTokens,
+  acuDurationSeconds,
+  acuFirstTokenMs,
   parseLogOther,
   isViolationFeeLog,
   renderAuditContent,
@@ -615,10 +618,19 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         let judgeLine = t('Judge unavailable')
         if (routeBreakdown?.judge_reused) {
           judgeLine = t('Judge reused')
-        } else if (routeBreakdown?.judge_model === 'mimo-v2.5-pro') {
-          judgeLine = t('MiMo Judge')
-        } else if (routeBreakdown?.judge_model === 'deepseek-v4-flash') {
-          judgeLine = t('DeepSeek Backup')
+        } else if (!routedByACU) {
+          judgeLine = t('Judge not required')
+        } else if (routeBreakdown?.judge_result_source === 'disk_cache') {
+          judgeLine = `${t('Judge cache')} · ${routeBreakdown.judge_model || '—'}`
+        } else if (
+          routeBreakdown?.judge_result_source === 'rules_strategy' ||
+          routeBreakdown?.judge_status === 'rules_fallback'
+        ) {
+          judgeLine = t('Judge rules fallback')
+        } else if (routeBreakdown?.judge_model) {
+          judgeLine = `${t('Judge')} · ${routeBreakdown.judge_model}`
+        } else if (other?.acu_pending_finalize) {
+          judgeLine = t('Waiting for ACU finalize')
         }
 
         if (routedByACU) {
@@ -691,7 +703,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
           return <span className='text-muted-foreground text-xs'>-</span>
         }
 
-        const cacheReadTokens = other?.cache_tokens || 0
+        const cacheReadTokens = acuCacheReadTokens(other)
         const cacheWrite5m = other?.cache_creation_tokens_5m || 0
         const cacheWrite1h = other?.cache_creation_tokens_1h || 0
         const hasSplitCache = cacheWrite5m > 0 || cacheWrite1h > 0
@@ -743,14 +755,14 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         const log = row.original
         if (!isTimingLogType(log.type)) return null
 
-        const useTime = row.getValue('use_time') as number
         const other = parseLogOther(log.other)
+        const useTime = acuDurationSeconds(log, other)
 
         return (
           <TimingMetricsCell
             useTimeSec={useTime}
             completionTokens={log.completion_tokens}
-            frtMs={other?.frt}
+            frtMs={acuFirstTokenMs(other)}
             isStream={log.is_stream}
           />
         )

@@ -55,7 +55,7 @@ const SECTION_META: Record<UsageLogsSectionId, { titleKey: string }> = {
   task: {
     titleKey: 'Task Logs',
   },
-  timeline: { titleKey: '工作路由轨迹' },
+  timeline: { titleKey: 'ACU Route Timeline' },
   'channel-monitor': { titleKey: 'Channel Monitor' },
 }
 
@@ -79,7 +79,7 @@ function UsageLogsContent() {
   const tabNavGroups = useMemo<NavGroup[]>(
     () => [
       {
-        title: 'Task Logs',
+        title: 'Async Task Logs',
         items: TASK_LOG_SECTIONS.map((section) => ({
           title: SECTION_META[section].titleKey,
           url: `/usage-logs/${section}`,

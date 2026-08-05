@@ -178,6 +178,7 @@ export interface AcuChannelAttempt {
   error_category?: string | null
   http_status?: number | null
   latency_ms?: number | null
+  first_model_event_latency_ms?: number | null
   started_at?: string
   completed_at?: string | null
   nominal_cost_usd?: number
@@ -416,6 +417,10 @@ export interface LogOtherData {
     judge_cost_source?: string
     judge_provider?: string
     judge_model?: string
+    judge_protocol?: string
+    judge_reasoning_effort?: string
+    judge_result_source?: string
+    judge_status?: string
     failed_attempt_cash_cost_cny?: number
     counterfactual_quality_ceiling_cost_cny?: number
     reference_provider?: string
@@ -436,6 +441,7 @@ export interface LogOtherData {
     judge_explanation?: string
     route_decision?: AcuRouteDecisionView
     channel_attempts?: AcuChannelAttempt[]
+    end_to_end_latency_ms?: number
   }
 }
 

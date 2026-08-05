@@ -5333,6 +5333,9 @@
     "Select at least one routing candidate": "请至少选择一个路由候选",
     "Candidate preferences must use allowed candidates": "候选偏好度只能使用已允许的候选",
     "Base utility": "基础效用",
-    "Adjusted utility": "调整后效用"
+    "Adjusted utility": "调整后效用",
+    "ACU Route Timeline": "ACU 路由轨迹",
+    "Async Task Logs": "异步任务日志",
+    "Only asynchronous image, video, and music generation tasks appear here. See Usage Logs for ordinary model calls.": "仅展示图片、视频、音乐等异步生成任务；普通模型调用请查看使用日志。"
   }
 }
