@@ -124,6 +124,6 @@ test('keeps smoothed chart data isolated from raw routing details', () => {
   assert.match(source, /t\('Combined utility'\)/)
   assert.doesNotMatch(
     source,
-    /C raw|S raw|R raw|Profile utility|Conservative quality|Quality satisfaction|Relative cost utility/
+    /C raw|S raw|R raw|Profile utility|Conservative quality|Quality satisfaction|Relative cost utility|Base utility|Candidate preference|Adjusted utility/
   )
 })
