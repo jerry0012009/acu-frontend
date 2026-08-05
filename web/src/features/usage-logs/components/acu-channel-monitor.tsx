@@ -276,84 +276,95 @@ export function ACUChannelMonitor() {
           {t('Loading channel inventory...')}
         </div>
       )}
-      {isRoot && policy && (
-        <section className='space-y-3 rounded border p-3'>
-          <div>
-            <h3 className='text-sm font-semibold'>{t('ACU Routing Policy')}</h3>
-            <p className='text-muted-foreground text-xs'>
-              {t(
-                'Global policy only narrows verified routing-eligible candidates.'
-              )}
-            </p>
+      {isRoot && (policy || utilityConfig) && (
+        <details className='rounded border'>
+          <summary className='cursor-pointer px-3 py-2 text-sm font-semibold'>
+            {t('ACU Routing Policy')}
+          </summary>
+          <div className='space-y-3 border-t p-3'>
+            {policy && (
+              <section className='space-y-3'>
+                <div>
+                  <h3 className='text-sm font-semibold'>
+                    {t('ACU Routing Policy')}
+                  </h3>
+                  <p className='text-muted-foreground text-xs'>
+                    {t(
+                      'Global policy only narrows verified routing-eligible candidates.'
+                    )}
+                  </p>
+                </div>
+                <div className='grid gap-3 lg:grid-cols-2'>
+                  <PolicyScopeEditor
+                    title={t('Allowed models')}
+                    allLabel={t('All routing-eligible models')}
+                    custom={policy.modelPolicy === 'custom_allowlist'}
+                    values={policy.allowedModelIds}
+                    options={[
+                      ...new Set(
+                        (query.data?.data?.modelPool ?? [])
+                          .filter((item) => item.autoRouteEnabled)
+                          .map((item) => item.modelId)
+                      ),
+                    ].sort()}
+                    onCustom={(custom) =>
+                      setPolicyDraft({
+                        ...policy,
+                        modelPolicy: custom
+                          ? 'custom_allowlist'
+                          : 'all_routing_eligible',
+                      })
+                    }
+                    onChange={(values) =>
+                      setPolicyDraft({ ...policy, allowedModelIds: values })
+                    }
+                  />
+                  <PolicyScopeEditor
+                    title={t('Allowed Profiles')}
+                    allLabel={t('All routing-eligible profiles')}
+                    custom={policy.profilePolicy === 'custom_allowlist'}
+                    values={policy.allowedProfileIds}
+                    options={(query.data?.data?.profiles ?? [])
+                      .filter(
+                        (item) =>
+                          item.enabled &&
+                          item.administratorAllowed &&
+                          item.autoRouteEnabled
+                      )
+                      .map((item) => item.executionProfileId)
+                      .sort()}
+                    onCustom={(custom) =>
+                      setPolicyDraft({
+                        ...policy,
+                        profilePolicy: custom
+                          ? 'custom_allowlist'
+                          : 'all_routing_eligible',
+                      })
+                    }
+                    onChange={(values) =>
+                      setPolicyDraft({ ...policy, allowedProfileIds: values })
+                    }
+                  />
+                </div>
+                <Button
+                  size='sm'
+                  disabled={policyMutation.isPending}
+                  onClick={() => policyMutation.mutate(policy)}
+                >
+                  {t('Save policy')}
+                </Button>
+              </section>
+            )}
+            {utilityConfig && (
+              <RoutingUtilityEditor
+                value={utilityConfig}
+                pending={utilityMutation.isPending}
+                onChange={setUtilityDraft}
+                onSave={() => utilityMutation.mutate(utilityConfig)}
+              />
+            )}
           </div>
-          <div className='grid gap-3 lg:grid-cols-2'>
-            <PolicyScopeEditor
-              title={t('Allowed models')}
-              allLabel={t('All routing-eligible models')}
-              custom={policy.modelPolicy === 'custom_allowlist'}
-              values={policy.allowedModelIds}
-              options={[
-                ...new Set(
-                  (query.data?.data?.modelPool ?? [])
-                    .filter((item) => item.autoRouteEnabled)
-                    .map((item) => item.modelId)
-                ),
-              ].sort()}
-              onCustom={(custom) =>
-                setPolicyDraft({
-                  ...policy,
-                  modelPolicy: custom
-                    ? 'custom_allowlist'
-                    : 'all_routing_eligible',
-                })
-              }
-              onChange={(values) =>
-                setPolicyDraft({ ...policy, allowedModelIds: values })
-              }
-            />
-            <PolicyScopeEditor
-              title={t('Allowed Profiles')}
-              allLabel={t('All routing-eligible profiles')}
-              custom={policy.profilePolicy === 'custom_allowlist'}
-              values={policy.allowedProfileIds}
-              options={(query.data?.data?.profiles ?? [])
-                .filter(
-                  (item) =>
-                    item.enabled &&
-                    item.administratorAllowed &&
-                    item.autoRouteEnabled
-                )
-                .map((item) => item.executionProfileId)
-                .sort()}
-              onCustom={(custom) =>
-                setPolicyDraft({
-                  ...policy,
-                  profilePolicy: custom
-                    ? 'custom_allowlist'
-                    : 'all_routing_eligible',
-                })
-              }
-              onChange={(values) =>
-                setPolicyDraft({ ...policy, allowedProfileIds: values })
-              }
-            />
-          </div>
-          <Button
-            size='sm'
-            disabled={policyMutation.isPending}
-            onClick={() => policyMutation.mutate(policy)}
-          >
-            {t('Save policy')}
-          </Button>
-        </section>
-      )}
-      {isRoot && utilityConfig && (
-        <RoutingUtilityEditor
-          value={utilityConfig}
-          pending={utilityMutation.isPending}
-          onChange={setUtilityDraft}
-          onSave={() => utilityMutation.mutate(utilityConfig)}
-        />
+        </details>
       )}
       <div className='bg-border grid grid-cols-2 gap-px overflow-hidden rounded border lg:grid-cols-6'>
         {statItems.map(([label, value, Icon]) => (
