@@ -11,6 +11,32 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestGetACUChannelMonitorValidatesAndForwardsViewParameters(t *testing.T) {
+	requests := make(chan *http.Request, 2)
+	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		requests <- request.Clone(request.Context())
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"range":"24h","supplyStrategy":"balanced","scenario":"standard","profiles":[],"history":[],"cooldownIntervals":[],"probeHistory":[],"supplyInventory":[],"modelPool":[]}`))
+	}))
+	defer router.Close()
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
+
+	_, err := GetACUChannelMonitor(context.Background(), "7d", "low_latency", "long")
+	require.NoError(t, err)
+	forwarded := <-requests
+	require.Equal(t, "7d", forwarded.URL.Query().Get("range"))
+	require.Equal(t, "low_latency", forwarded.URL.Query().Get("supplyStrategy"))
+	require.Equal(t, "long", forwarded.URL.Query().Get("scenario"))
+
+	_, err = GetACUChannelMonitor(context.Background(), "invalid", "invalid", "invalid")
+	require.NoError(t, err)
+	defaults := <-requests
+	require.Equal(t, "24h", defaults.URL.Query().Get("range"))
+	require.Equal(t, "balanced", defaults.URL.Query().Get("supplyStrategy"))
+	require.Equal(t, "standard", defaults.URL.Query().Get("scenario"))
+}
+
 func TestGetACUSelectionCorridorSendsCandidatePolicy(t *testing.T) {
 	var requestBody []byte
 	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {

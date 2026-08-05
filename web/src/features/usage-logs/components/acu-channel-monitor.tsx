@@ -33,8 +33,12 @@ import {
   type ACUModelPoolEntry,
   type ACUProbeHistoryRow,
   type ACUMonitorRange,
+  type ACUMonitorScenario,
+  type ACUSupplyStrategy,
   type ACURoutingUtilityConfig,
 } from '../api'
+import { ACUChannelHealthCard } from './acu-channel-health-card'
+import { groupACUChannels } from './acu-channel-health-model'
 import { ACUChannelHistory } from './acu-channel-history'
 
 function ms(value?: number) {
@@ -72,6 +76,9 @@ export function ACUChannelMonitor() {
   )
   const queryClient = useQueryClient()
   const [range, setRange] = useState<ACUMonitorRange>('24h')
+  const [supplyStrategy, setSupplyStrategy] =
+    useState<ACUSupplyStrategy>('balanced')
+  const [scenario, setScenario] = useState<ACUMonitorScenario>('standard')
   const [filters, setFilters] = useState({
     model: '',
     provider: '',
@@ -79,8 +86,8 @@ export function ACUChannelMonitor() {
     state: '',
   })
   const query = useQuery({
-    queryKey: ['acu-channel-monitor', range],
-    queryFn: () => getACUChannelMonitor(range),
+    queryKey: ['acu-channel-monitor', range, supplyStrategy, scenario],
+    queryFn: () => getACUChannelMonitor(range, supplyStrategy, scenario),
     refetchInterval: 60_000,
   })
   const policyQuery = useQuery({
@@ -145,6 +152,16 @@ export function ACUChannelMonitor() {
     [filters, query.data]
   )
   const allProfiles = query.data?.data?.profiles ?? []
+  const channelGroups = useMemo(
+    () =>
+      groupACUChannels(
+        query.data?.data?.profiles ?? [],
+        query.data?.data?.history ?? [],
+        range,
+        query.data?.data?.generatedAt
+      ),
+    [query.data, range]
+  )
   const summary = {
     active: allProfiles.filter(
       (item) => item.enabled && item.administratorAllowed
@@ -189,6 +206,55 @@ export function ACUChannelMonitor() {
         >
           <RefreshCw className='size-4' />
         </Button>
+      </div>
+      <div className='grid gap-2 sm:grid-cols-3'>
+        <label className='space-y-1 text-xs'>
+          <span className='text-muted-foreground'>{t('Time range')}</span>
+          <select
+            aria-label={t('Time range')}
+            className='bg-background h-8 w-full rounded border px-2'
+            value={range}
+            onChange={(event) =>
+              setRange(event.target.value as ACUMonitorRange)
+            }
+          >
+            <option value='1h'>1h</option>
+            <option value='6h'>6h</option>
+            <option value='24h'>24h</option>
+            <option value='7d'>7d</option>
+          </select>
+        </label>
+        <label className='space-y-1 text-xs'>
+          <span className='text-muted-foreground'>{t('Scoring strategy')}</span>
+          <select
+            aria-label={t('Scoring strategy')}
+            className='bg-background h-8 w-full rounded border px-2'
+            value={supplyStrategy}
+            onChange={(event) =>
+              setSupplyStrategy(event.target.value as ACUSupplyStrategy)
+            }
+          >
+            <option value='balanced'>{t('Balanced')}</option>
+            <option value='lowest_cost'>{t('Lowest cost')}</option>
+            <option value='low_latency'>{t('Low latency')}</option>
+            <option value='high_reliability'>{t('High reliability')}</option>
+          </select>
+        </label>
+        <label className='space-y-1 text-xs'>
+          <span className='text-muted-foreground'>{t('Request size')}</span>
+          <select
+            aria-label={t('Request size')}
+            className='bg-background h-8 w-full rounded border px-2'
+            value={scenario}
+            onChange={(event) =>
+              setScenario(event.target.value as ACUMonitorScenario)
+            }
+          >
+            <option value='small'>{t('Small 2k/500')}</option>
+            <option value='standard'>{t('Standard 20k/2k')}</option>
+            <option value='long'>{t('Long context 100k/4k')}</option>
+          </select>
+        </label>
       </div>
       {query.isError && (
         <div className='text-destructive border-destructive/30 bg-destructive/5 flex items-start gap-2 rounded border p-3 text-xs'>
@@ -310,7 +376,20 @@ export function ACUChannelMonitor() {
           <TabsTrigger value='models'>{t('Model pool')}</TabsTrigger>
         </TabsList>
         <TabsContent value='overview' className='min-w-0 space-y-3'>
-          <CoverageTable rows={query.data?.data?.modelPool ?? []} />
+          <div className='grid min-w-0 gap-3 xl:grid-cols-2'>
+            {channelGroups.map((channel) => (
+              <ACUChannelHealthCard
+                key={channel.channel}
+                channel={channel}
+                generatedAt={query.data?.data?.generatedAt ?? ''}
+              />
+            ))}
+          </div>
+          {channelGroups.length === 0 && !query.isLoading && (
+            <div className='text-muted-foreground rounded border p-8 text-center text-xs'>
+              {t('No Channel profiles')}
+            </div>
+          )}
           <div className='text-muted-foreground text-xs'>
             {t(
               'Route eligible means the profile is configured, trusted, enabled and not in channel/profile cooldown. Probe status is independent and shows the latest recorded probe.'
@@ -681,86 +760,6 @@ function PolicyScopeEditor(props: {
   )
 }
 
-function CoverageTable({ rows }: { rows: ACUModelPoolEntry[] }) {
-  const { t } = useTranslation()
-  return (
-    <div className='max-w-full overflow-x-auto rounded border'>
-      <table className='w-full min-w-[980px] text-left text-xs'>
-        <thead className='bg-muted/50'>
-          <tr>
-            {[
-              'Model',
-              'Tier',
-              'Protocols',
-              'Configured profiles',
-              'Route eligible',
-              'Providers',
-              'Best channel',
-              'Latest probe',
-            ].map((label) => (
-              <th key={label} className='px-3 py-2 font-medium'>
-                {t(label)}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((model) => {
-            const latest = model.profiles
-              .filter((profile) => profile.lastProbeAt)
-              .sort(
-                (a, b) =>
-                  new Date(b.lastProbeAt).getTime() -
-                  new Date(a.lastProbeAt).getTime()
-              )[0]
-            const probePassed = model.profiles.filter(
-              (profile) => profile.probeStatus === 'success'
-            ).length
-            return (
-              <tr key={model.modelId} className='border-t align-top'>
-                <td className='px-3 py-2.5 font-medium'>{model.modelId}</td>
-                <td className='px-3 py-2.5'>{model.capabilityTier}</td>
-                <td className='px-3 py-2.5'>
-                  {model.protocols.join(', ') || 'n/a'}
-                </td>
-                <td className='px-3 py-2.5'>
-                  {model.activeProfileCount} active / {model.profiles.length}{' '}
-                  configured
-                </td>
-                <td className='px-3 py-2.5'>
-                  <Badge
-                    variant={
-                      model.healthyProfileCount > 0 ? 'secondary' : 'outline'
-                    }
-                  >
-                    {model.healthyProfileCount} / {model.activeProfileCount}
-                  </Badge>
-                </td>
-                <td className='px-3 py-2.5'>
-                  {model.independentProviderCount}
-                </td>
-                <td className='px-3 py-2.5'>
-                  {model.currentBestChannel || t('none')}
-                </td>
-                <td className='px-3 py-2.5'>
-                  <div>
-                    {probePassed} / {model.profiles.length} passed
-                  </div>
-                  <div className='text-muted-foreground'>
-                    {latest
-                      ? `${latest.probeStatus} · ${time(latest.lastProbeAt)}`
-                      : t('never')}
-                  </div>
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
 function ProbeTable({ rows }: { rows: ACUProbeHistoryRow[] }) {
   const { t } = useTranslation()
   return (
@@ -935,7 +934,7 @@ function MonitorTable(props: {
   const { t } = useTranslation()
   return (
     <div className='max-w-full overflow-x-auto rounded border'>
-      <table className='w-full min-w-[1180px] text-left text-xs'>
+      <table className='w-full min-w-[1480px] text-left text-xs'>
         <thead className='bg-muted/50'>
           <tr>
             {[
@@ -945,6 +944,8 @@ function MonitorTable(props: {
               'Multiplier',
               'State',
               'Success',
+              'Evidence',
+              'Routing Score',
               'Failures',
               'p50 / p95',
               'Last error',
@@ -987,6 +988,36 @@ function MonitorTable(props: {
               </td>
               <td className='px-3 py-2'>
                 {((profile.recentSuccessRate ?? 0) * 100).toFixed(0)}%
+              </td>
+              <td className='px-3 py-2'>
+                <div>
+                  {profile.successCount} / {profile.requestCount}
+                </div>
+                <div className='text-muted-foreground'>
+                  {profile.firstEventSampleCount} first-event
+                </div>
+                <div className='text-muted-foreground'>
+                  {profile.metricSource || t('n/a')}
+                </div>
+              </td>
+              <td className='px-3 py-2'>
+                {profile.profileUtility === null ? (
+                  <span className='text-muted-foreground'>
+                    {t('Not scored')}
+                  </span>
+                ) : (
+                  <>
+                    <div className='font-medium'>
+                      {profile.profileUtility.toFixed(3)} · #
+                      {profile.profileRank}/{profile.profileCandidateCount}
+                    </div>
+                    <div className='text-muted-foreground whitespace-nowrap'>
+                      C {profile.costContribution?.toFixed(3)} · S{' '}
+                      {profile.speedContribution?.toFixed(3)} · R{' '}
+                      {profile.reliabilityContribution?.toFixed(3)}
+                    </div>
+                  </>
+                )}
               </td>
               <td className='px-3 py-2'>{profile.consecutiveFailures}</td>
               <td className='px-3 py-2'>

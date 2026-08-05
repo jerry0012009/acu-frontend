@@ -2,6 +2,8 @@ package dto
 
 type ACUChannelMonitor struct {
 	Range             string                     `json:"range"`
+	SupplyStrategy    string                     `json:"supplyStrategy"`
+	Scenario          string                     `json:"scenario"`
 	GeneratedAt       string                     `json:"generatedAt"`
 	Profiles          []ACUChannelMonitorProfile `json:"profiles"`
 	History           []map[string]interface{}   `json:"history"`
@@ -37,6 +39,10 @@ type ACUChannelMonitorProfile struct {
 	StatusReason                string   `json:"statusReason"`
 	UsageTrusted                bool     `json:"usageTrusted"`
 	RecentSuccessRate           float64  `json:"recentSuccessRate"`
+	RequestCount                int      `json:"requestCount"`
+	SuccessCount                int      `json:"successCount"`
+	ErrorCount                  int      `json:"errorCount"`
+	FirstEventSampleCount       int      `json:"firstEventSampleCount"`
 	ConsecutiveFailures         int      `json:"consecutiveFailures"`
 	P50FirstModelEventLatencyMs float64  `json:"p50FirstModelEventLatencyMs"`
 	P95FirstModelEventLatencyMs float64  `json:"p95FirstModelEventLatencyMs"`
@@ -54,6 +60,19 @@ type ACUChannelMonitorProfile struct {
 	ProbeSuccessRate            *float64 `json:"probeSuccessRate"`
 	SupportedReasoningEfforts   []string `json:"supportedReasoningEfforts,omitempty"`
 	ReasoningControlMode        string   `json:"reasoningControlMode,omitempty"`
+	ProfileUtility              *float64 `json:"profileUtility"`
+	ProfileRank                 *int     `json:"profileRank"`
+	ProfileCandidateCount       *int     `json:"profileCandidateCount"`
+	ProfileCost                 *float64 `json:"profileCost"`
+	ProfileLatencyMs            *float64 `json:"profileLatencyMs"`
+	CostUtility                 *float64 `json:"costUtility"`
+	SpeedUtility                *float64 `json:"speedUtility"`
+	ReliabilityUtility          *float64 `json:"reliabilityUtility"`
+	CostContribution            *float64 `json:"costContribution"`
+	SpeedContribution           *float64 `json:"speedContribution"`
+	ReliabilityContribution     *float64 `json:"reliabilityContribution"`
+	MetricSource                *string  `json:"metricSource"`
+	FormulaVersion              *string  `json:"formulaVersion"`
 }
 
 type ACUChannelPauseRequest struct {

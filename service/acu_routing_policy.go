@@ -280,7 +280,7 @@ func ValidateACUCandidatePolicyAgainstPool(ctx context.Context, candidateIDs []s
 	if len(candidateIDs) == 0 && len(scores) == 0 {
 		return nil
 	}
-	monitor, err := GetACUChannelMonitor(ctx, "24h")
+	monitor, err := GetACUChannelMonitor(ctx, "24h", "balanced", "standard")
 	if err != nil {
 		if strings.Contains(err.Error(), "not configured") {
 			return nil
@@ -318,7 +318,7 @@ func ValidateACURoutingScopeAgainstPool(ctx context.Context, scope ACURoutingSco
 	if scope.Policy != ACURoutingPolicyCustom && scope.ProfilePolicy != ACURoutingPolicyCustom {
 		return nil
 	}
-	monitor, err := GetACUChannelMonitor(ctx, "24h")
+	monitor, err := GetACUChannelMonitor(ctx, "24h", "balanced", "standard")
 	if err != nil {
 		if strings.Contains(err.Error(), "not configured") {
 			return nil

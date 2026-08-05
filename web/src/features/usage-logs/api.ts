@@ -233,6 +233,10 @@ export type ACUChannelMonitorProfile = {
   statusReason: string
   usageTrusted: boolean
   recentSuccessRate: number
+  requestCount: number
+  successCount: number
+  errorCount: number
+  firstEventSampleCount: number
   consecutiveFailures: number
   p50FirstModelEventLatencyMs: number
   p95FirstModelEventLatencyMs: number
@@ -250,6 +254,19 @@ export type ACUChannelMonitorProfile = {
   probeSuccessRate: number | null
   supportedReasoningEfforts?: string[]
   reasoningControlMode?: string
+  profileUtility: number | null
+  profileRank: number | null
+  profileCandidateCount: number | null
+  profileCost: number | null
+  profileLatencyMs: number | null
+  costUtility: number | null
+  speedUtility: number | null
+  reliabilityUtility: number | null
+  costContribution: number | null
+  speedContribution: number | null
+  reliabilityContribution: number | null
+  metricSource: string | null
+  formulaVersion: string | null
 }
 
 export type ACUModelPoolEntry = {
@@ -336,9 +353,17 @@ export type ACUProbeHistoryRow = {
 }
 
 export type ACUMonitorRange = '1h' | '6h' | '24h' | '7d'
+export type ACUSupplyStrategy =
+  | 'balanced'
+  | 'lowest_cost'
+  | 'low_latency'
+  | 'high_reliability'
+export type ACUMonitorScenario = 'small' | 'standard' | 'long'
 
 export type ACUChannelMonitor = {
   range: string
+  supplyStrategy: ACUSupplyStrategy
+  scenario: ACUMonitorScenario
   generatedAt: string
   profiles: ACUChannelMonitorProfile[]
   history: ACUChannelHistoryRow[]
@@ -414,8 +439,13 @@ export async function updateACURoutingUtilityConfig(
   return res.data
 }
 
-export async function getACUChannelMonitor(range: ACUMonitorRange) {
-  const res = await api.get(`/api/log/acu-channel-monitor?range=${range}`)
+export async function getACUChannelMonitor(
+  range: ACUMonitorRange,
+  supplyStrategy: ACUSupplyStrategy = 'balanced',
+  scenario: ACUMonitorScenario = 'standard'
+) {
+  const params = new URLSearchParams({ range, supplyStrategy, scenario })
+  const res = await api.get(`/api/log/acu-channel-monitor?${params.toString()}`)
   return res.data as {
     success: boolean
     message?: string

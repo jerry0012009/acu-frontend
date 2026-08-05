@@ -11,7 +11,12 @@ import (
 )
 
 func GetACUChannelMonitor(c *gin.Context) {
-	result, err := service.GetACUChannelMonitor(c.Request.Context(), c.DefaultQuery("range", "1h"))
+	result, err := service.GetACUChannelMonitor(
+		c.Request.Context(),
+		c.DefaultQuery("range", "24h"),
+		c.DefaultQuery("supplyStrategy", "balanced"),
+		c.DefaultQuery("scenario", "standard"),
+	)
 	if err != nil {
 		common.ApiError(c, err)
 		return

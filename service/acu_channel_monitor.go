@@ -33,11 +33,21 @@ func acuRouterAdminRequest(ctx context.Context, method, path string, body []byte
 	return (&http.Client{Timeout: 20 * time.Second}).Do(req)
 }
 
-func GetACUChannelMonitor(ctx context.Context, rangeValue string) (dto.ACUChannelMonitor, error) {
+func GetACUChannelMonitor(ctx context.Context, rangeValue, supplyStrategy, scenario string) (dto.ACUChannelMonitor, error) {
 	if rangeValue != "1h" && rangeValue != "6h" && rangeValue != "24h" && rangeValue != "7d" {
-		rangeValue = "1h"
+		rangeValue = "24h"
 	}
-	response, err := acuRouterAdminRequest(ctx, http.MethodGet, "/internal/admin/channel-monitor?range="+url.QueryEscape(rangeValue), nil)
+	if supplyStrategy != "balanced" && supplyStrategy != "lowest_cost" && supplyStrategy != "low_latency" && supplyStrategy != "high_reliability" {
+		supplyStrategy = "balanced"
+	}
+	if scenario != "small" && scenario != "standard" && scenario != "long" {
+		scenario = "standard"
+	}
+	query := url.Values{}
+	query.Set("range", rangeValue)
+	query.Set("supplyStrategy", supplyStrategy)
+	query.Set("scenario", scenario)
+	response, err := acuRouterAdminRequest(ctx, http.MethodGet, "/internal/admin/channel-monitor?"+query.Encode(), nil)
 	if err != nil {
 		return dto.ACUChannelMonitor{}, err
 	}
