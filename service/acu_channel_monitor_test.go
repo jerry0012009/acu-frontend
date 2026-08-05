@@ -12,6 +12,11 @@ import (
 )
 
 func TestGetACUChannelMonitorValidatesAndForwardsViewParameters(t *testing.T) {
+	previous := common.OptionMap
+	t.Cleanup(func() { common.OptionMap = previous })
+	common.OptionMap = map[string]string{
+		"ACURoutingUtilityConfig": `{"schemaVersion":"acu-routing-utility-config-v1","formulaMode":"active","qualityPresets":{"economy":-10,"balanced":20,"quality":70},"acuHighBiasOffset":40,"modelCostLogScale":0.75,"supplyPresets":{"lowest_cost":{"cost":100,"speed":0,"reliability":0},"balanced":{"cost":40,"speed":25,"reliability":35},"low_latency":{"cost":10,"speed":80,"reliability":10},"high_reliability":{"cost":10,"speed":10,"reliability":80}},"profileCostLogScale":7,"profileSpeedLogScale":2.5,"latency":{"windowHours":24,"longContextThresholdTokens":100000,"minimumSamples":17,"unknownLatencyMultiplier":1.2},"reliability":{"windowHours":24,"minimumSamples":5,"unknownDefault":0.75,"degradedMultiplier":0.85},"workPhaseBiasOffsets":{"inspection":-10,"general":0,"implementation":0,"verification":0,"planning":10,"recovery":20}}`,
+	}
 	requests := make(chan *http.Request, 2)
 	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		requests <- request.Clone(request.Context())
@@ -28,6 +33,11 @@ func TestGetACUChannelMonitorValidatesAndForwardsViewParameters(t *testing.T) {
 	require.Equal(t, "7d", forwarded.URL.Query().Get("range"))
 	require.Equal(t, "low_latency", forwarded.URL.Query().Get("supplyStrategy"))
 	require.Equal(t, "long", forwarded.URL.Query().Get("scenario"))
+	var forwardedPolicy map[string]interface{}
+	require.NoError(t, common.UnmarshalJsonStr(forwarded.Header.Get("X-ACU-Monitor-Routing-Utility-Policy"), &forwardedPolicy))
+	require.Equal(t, float64(7), forwardedPolicy["profileCostLogScale"])
+	require.Equal(t, float64(17), forwardedPolicy["latency"].(map[string]interface{})["minimumSamples"])
+	require.Equal(t, float64(80), forwardedPolicy["supplyWeights"].(map[string]interface{})["speed"])
 
 	_, err = GetACUChannelMonitor(context.Background(), "invalid", "invalid", "invalid")
 	require.NoError(t, err)

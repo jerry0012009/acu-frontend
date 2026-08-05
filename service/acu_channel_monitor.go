@@ -16,7 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 )
 
-func acuRouterAdminRequest(ctx context.Context, method, path string, body []byte) (*http.Response, error) {
+func acuRouterAdminRequest(ctx context.Context, method, path string, body []byte, headers ...map[string]string) (*http.Response, error) {
 	baseURL := strings.TrimRight(strings.TrimSpace(os.Getenv("ACU_ROUTER_INTERNAL_URL")), "/")
 	token := strings.TrimSpace(os.Getenv("ACU_ADMIN_TRACE_TOKEN"))
 	if baseURL == "" || token == "" {
@@ -27,6 +27,11 @@ func acuRouterAdminRequest(ctx context.Context, method, path string, body []byte
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
+	if len(headers) > 0 {
+		for name, value := range headers[0] {
+			req.Header.Set(name, value)
+		}
+	}
 	if len(body) > 0 {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -47,7 +52,29 @@ func GetACUChannelMonitor(ctx context.Context, rangeValue, supplyStrategy, scena
 	query.Set("range", rangeValue)
 	query.Set("supplyStrategy", supplyStrategy)
 	query.Set("scenario", scenario)
-	response, err := acuRouterAdminRequest(ctx, http.MethodGet, "/internal/admin/channel-monitor?"+query.Encode(), nil)
+	config, err := GetACURoutingUtilityConfig()
+	if err != nil {
+		return dto.ACUChannelMonitor{}, err
+	}
+	utilityPolicy, err := common.Marshal(map[string]interface{}{
+		"formulaMode": config.FormulaMode, "qualityBias": config.QualityPresets["balanced"],
+		"supplyStrategy": supplyStrategy, "supplyWeights": config.SupplyPresets[supplyStrategy],
+		"acuHighBiasOffset": config.ACUHighBiasOffset, "modelCostLogScale": config.ModelCostLogScale,
+		"profileCostLogScale": config.ProfileCostLogScale, "profileSpeedLogScale": config.ProfileSpeedLogScale,
+		"latency": config.Latency, "reliability": config.Reliability,
+		"allowedCandidateIds": []string{}, "candidatePreferenceScores": map[string]int{},
+		"routingUtilityVersion": config.SchemaVersion, "workPhaseBiasOffsets": config.WorkPhaseBiasOffsets,
+	})
+	if err != nil {
+		return dto.ACUChannelMonitor{}, err
+	}
+	response, err := acuRouterAdminRequest(
+		ctx,
+		http.MethodGet,
+		"/internal/admin/channel-monitor?"+query.Encode(),
+		nil,
+		map[string]string{"X-ACU-Monitor-Routing-Utility-Policy": string(utilityPolicy)},
+	)
 	if err != nil {
 		return dto.ACUChannelMonitor{}, err
 	}

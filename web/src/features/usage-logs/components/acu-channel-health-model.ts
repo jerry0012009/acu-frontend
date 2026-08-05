@@ -96,9 +96,9 @@ export function groupACUChannels(
         state = 'healthy'
       }
       const primaryProfile = [...eligibleProfiles]
-        .filter((profile) => profile.profileRank !== null)
         .sort(
           (left, right) =>
+            (right.requestCount ?? 0) - (left.requestCount ?? 0) ||
             (left.profileRank ?? Number.POSITIVE_INFINITY) -
               (right.profileRank ?? Number.POSITIVE_INFINITY) ||
             left.executionProfileId.localeCompare(right.executionProfileId)
@@ -144,11 +144,11 @@ export function groupACUChannels(
           }
         )
       })
-      const requestCount = buckets.reduce(
+      const requestCount = observedBuckets.reduce(
         (total, row) => total + row.request_count,
         0
       )
-      const successCount = buckets.reduce(
+      const successCount = observedBuckets.reduce(
         (total, row) => total + row.success_count,
         0
       )

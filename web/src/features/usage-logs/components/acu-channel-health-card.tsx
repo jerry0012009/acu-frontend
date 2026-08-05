@@ -196,7 +196,7 @@ export function ACUChannelHealthCard(props: {
           <span>
             {primary?.profileUtility === null || !primary
               ? t('No routing score')
-              : `${primary.profileUtility.toFixed(3)} · #${primary.profileRank}/${primary.profileCandidateCount}`}
+              : `${t('Primary Profile')} · ${t('same-model rank')} #${primary.profileRank}/${primary.profileCandidateCount}`}
           </span>
           <span>{relativeTime(props.generatedAt)}</span>
         </div>

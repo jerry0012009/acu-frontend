@@ -119,17 +119,38 @@ test('classifies empty, successful, mixed, and failed production buckets', () =>
   )
 })
 
-test('keeps only the most recent 60 buckets and handles empty Monitor data', () => {
+test('uses all 96 range buckets for 24h availability but displays only 60', () => {
   assert.deepEqual(groupACUChannels([], []), [])
-  const history = Array.from({ length: 61 }, (_, index) =>
-    bucket({ bucket: new Date(Date.UTC(2026, 7, 5, 0, index)).toISOString() })
+  const history = Array.from({ length: 96 }, (_, index) =>
+    bucket({
+      bucket: new Date(Date.UTC(2026, 7, 5, 0, index * 15)).toISOString(),
+      request_count: 1,
+      success_count: index < 60 ? 1 : 0,
+      error_count: index < 60 ? 0 : 1,
+    })
   )
   const groups = groupACUChannels(
     [profile()],
     history,
-    '1h',
+    '24h',
     history.at(-1)?.bucket
   )
   assert.equal(groups[0].buckets.length, 60)
-  assert.equal(groups[0].buckets[0].bucket, history[1].bucket)
+  assert.equal(groups[0].buckets[0].bucket, history[36].bucket)
+  assert.equal(groups[0].requestCount, 96)
+  assert.equal(groups[0].successCount, 60)
+  assert.equal(groups[0].availability, 60 / 96)
+})
+
+test('selects the eligible primary Profile with the most production requests', () => {
+  const luna = profile({ requestCount: 10, profileRank: 1 })
+  const sol = profile({
+    executionProfileId: 'cx006:gpt-5.6-sol:responses',
+    canonicalModel: 'gpt-5.6-sol',
+    requestCount: 100,
+    profileRank: 1,
+  })
+  const groups = groupACUChannels([luna, sol], [])
+
+  assert.equal(groups[0].primaryProfile?.executionProfileId, sol.executionProfileId)
 })
