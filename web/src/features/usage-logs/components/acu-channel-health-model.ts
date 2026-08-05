@@ -214,8 +214,19 @@ export function groupACUChannels(
         (total, row) => total + row.success_count,
         0
       )
+      const latestProbeByProfile = new Map<string, ACUProbeHistoryRow>()
+      for (const probe of channelProbes) {
+        const current = latestProbeByProfile.get(probe.execution_profile_id)
+        if (
+          !current ||
+          new Date(probe.started_at).getTime() >
+            new Date(current.started_at).getTime()
+        ) {
+          latestProbeByProfile.set(probe.execution_profile_id, probe)
+        }
+      }
       const successfulProbeProfiles = new Set(
-        channelProbes
+        [...latestProbeByProfile.values()]
           .filter((probe) => probe.status === 'success')
           .map((probe) => probe.execution_profile_id)
       )

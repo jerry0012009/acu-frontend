@@ -124,7 +124,7 @@ test('classifies empty, successful, mixed, and failed production buckets', () =>
   )
 })
 
-test('groups full-pool and recovery Probes into a separate 60-bucket timeline', () => {
+test('uses each Profile latest Probe for coverage while retaining all Probe evidence', () => {
   const probes = [
     {
       execution_profile_id: profile().executionProfileId,
@@ -154,8 +154,21 @@ test('groups full-pool and recovery Probes into a separate 60-bucket timeline', 
   const probeBucket = group.probeBuckets.at(-2)
   assert.ok(probeBucket)
   assert.equal(classifyProbeBucket(probeBucket), 'mixed')
-  assert.equal(group.probedProfileCount, 1)
+  assert.equal(group.probedProfileCount, 0)
   assert.equal(group.recoveryProbeSuccessCount, 0)
+
+  const reversed = probes.map((probe, index) => ({
+    ...probe,
+    started_at: index === 0 ? '2026-08-05T12:02:00Z' : '2026-08-05T12:01:00Z',
+  }))
+  const reversedGroup = groupACUChannels(
+    [profile()],
+    [],
+    '24h',
+    '2026-08-05T12:15:00Z',
+    reversed
+  )[0]
+  assert.equal(reversedGroup.probedProfileCount, 1)
 })
 
 test('uses all 96 range buckets for 24h availability but displays only 60', () => {
