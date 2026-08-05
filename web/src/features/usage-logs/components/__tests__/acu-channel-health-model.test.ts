@@ -148,6 +148,7 @@ test('groups full-pool and recovery Probes into a separate 60-bucket timeline', 
   )[0]
 
   assert.equal(group.probeBuckets.length, 60)
+  assert.equal(group.probeCount, 2)
   assert.equal(group.probeBuckets.at(-2)?.fullPoolCount, 1)
   assert.equal(group.probeBuckets.at(-2)?.recoveryCount, 1)
   const probeBucket = group.probeBuckets.at(-2)

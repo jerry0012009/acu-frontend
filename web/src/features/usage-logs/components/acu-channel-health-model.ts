@@ -58,6 +58,7 @@ export type ACUChannelOverview = {
   availability: number | null
   buckets: ACUChannelHistoryRow[]
   probeBuckets: ACUProbeBucket[]
+  probeCount: number
   probedProfileCount: number
   latestFullPoolProbeAt: string | null
   recoveryProbeCount: number
@@ -252,6 +253,7 @@ export function groupACUChannels(
         availability: requestCount > 0 ? successCount / requestCount : null,
         buckets,
         probeBuckets,
+        probeCount: channelProbes.length,
         probedProfileCount: enabledProfiles.filter((profile) =>
           successfulProbeProfiles.has(profile.executionProfileId)
         ).length,

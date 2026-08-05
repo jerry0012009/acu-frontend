@@ -137,7 +137,7 @@ export function ACUChannelHealthCard(props: {
           <div className='text-muted-foreground text-[11px]'>
             {t('Probe coverage')}
           </div>
-          {props.channel.probedProfileCount === 0 ? (
+          {props.channel.probeCount === 0 ? (
             <div className='text-sm font-medium'>{t('Not actively verified')}</div>
           ) : (
             <div className='text-sm font-semibold'>

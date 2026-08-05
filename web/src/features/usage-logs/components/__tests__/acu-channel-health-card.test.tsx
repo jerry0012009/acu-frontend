@@ -98,6 +98,7 @@ test('shows separate Production and Probe evidence and expands all Profile evide
               successCount: index === 59 ? 1 : 0,
               totalCount: index === 59 ? 1 : 0,
             })),
+            probeCount: 1,
             probedProfileCount: 1,
             latestFullPoolProbeAt: '2026-08-05T11:00:00Z',
             recoveryProbeCount: 1,
@@ -161,7 +162,7 @@ test('shows separate Production and Probe evidence and expands all Profile evide
   container.remove()
 })
 
-test('shows Probe coverage without presenting an empty Production success rate', async () => {
+test('shows failed Probe coverage without presenting an empty Production success rate', async () => {
   const container = document.createElement('div')
   document.body.append(container)
   const root = createRoot(container)
@@ -184,7 +185,8 @@ test('shows Probe coverage without presenting an empty Production success rate',
             availability: null,
             buckets: [],
             probeBuckets: [],
-            probedProfileCount: 1,
+            probeCount: 1,
+            probedProfileCount: 0,
             latestFullPoolProbeAt: '2026-08-05T11:00:00Z',
             recoveryProbeCount: 0,
             recoveryProbeSuccessCount: 0,
@@ -195,7 +197,8 @@ test('shows Probe coverage without presenting an empty Production success rate',
     )
   })
   assert.match(container.textContent ?? '', /No production traffic/)
-  assert.match(container.textContent ?? '', /1 \/ 1 Profiles passed/)
+  assert.match(container.textContent ?? '', /0 \/ 1 Profiles passed/)
+  assert.doesNotMatch(container.textContent ?? '', /Not actively verified/)
   assert.doesNotMatch(container.textContent ?? '', /0\.00%/)
   await act(async () => root.unmount())
   container.remove()
