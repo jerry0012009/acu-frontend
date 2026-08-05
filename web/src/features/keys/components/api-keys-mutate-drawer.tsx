@@ -994,7 +994,7 @@ export function ApiKeysMutateDrawer({
                                                 type='number'
                                                 min={0}
                                                 max={200}
-                                                step={10}
+                                                step={0.1}
                                                 value={
                                                   candidatePreferenceScores[
                                                     candidate.candidateId

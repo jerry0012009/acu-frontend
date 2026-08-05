@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"regexp"
 	"sort"
 	"strings"
@@ -52,7 +53,7 @@ type ACUEffectiveRoutingPolicy struct {
 	RoutingUtilityVersion     string
 	FormulaMode               string
 	AllowedCandidateIDs       []string
-	CandidatePreferenceScores map[string]int
+	CandidatePreferenceScores map[string]float64
 }
 
 type ACUSupplyWeights struct {
@@ -229,7 +230,7 @@ func ACUCanonicalAllowedModelIDs(modelLimits string) []string {
 	return normalizeACUIDs(filtered)
 }
 
-func NormalizeACUCandidatePolicy(candidateIDs []string, scores map[string]int, allowedModelIDs []string, customModelAllowlist bool) ([]string, map[string]int, error) {
+func NormalizeACUCandidatePolicy(candidateIDs []string, scores map[string]float64, allowedModelIDs []string, customModelAllowlist bool) ([]string, map[string]float64, error) {
 	allowedModels := make(map[string]struct{}, len(allowedModelIDs))
 	for _, modelID := range allowedModelIDs {
 		allowedModels[modelID] = struct{}{}
@@ -248,15 +249,15 @@ func NormalizeACUCandidatePolicy(candidateIDs []string, scores map[string]int, a
 		}
 		allowedCandidates[candidateID] = struct{}{}
 	}
-	normalized := make(map[string]int, len(scores))
+	normalized := make(map[string]float64, len(scores))
 	for rawCandidateID, score := range scores {
 		candidateID := strings.TrimSpace(rawCandidateID)
 		modelID := strings.SplitN(candidateID, "@", 2)[0]
 		if !acuRoutingCandidateIDPattern.MatchString(candidateID) || modelID == "acu-auto" || modelID == "acu-high" {
 			return nil, nil, fmt.Errorf("invalid ACU routing candidate ID %q", rawCandidateID)
 		}
-		if score < 0 || score > 200 {
-			return nil, nil, fmt.Errorf("ACU candidate preference score for %q must be an integer from 0 to 200", candidateID)
+		if math.IsNaN(score) || math.IsInf(score, 0) || score < 0 || score > 200 {
+			return nil, nil, fmt.Errorf("ACU candidate preference score for %q must be a number from 0 to 200", candidateID)
 		}
 		if customModelAllowlist {
 			if _, ok := allowedModels[modelID]; !ok {
@@ -275,7 +276,7 @@ func NormalizeACUCandidatePolicy(candidateIDs []string, scores map[string]int, a
 	return normalizedCandidateIDs, normalized, nil
 }
 
-func ValidateACUCandidatePolicyAgainstPool(ctx context.Context, candidateIDs []string, scores map[string]int) error {
+func ValidateACUCandidatePolicyAgainstPool(ctx context.Context, candidateIDs []string, scores map[string]float64) error {
 	if len(candidateIDs) == 0 && len(scores) == 0 {
 		return nil
 	}
@@ -459,7 +460,7 @@ func ResolveACUEffectiveRoutingPolicy(token *model.Token) (ACUEffectiveRoutingPo
 		return ACUEffectiveRoutingPolicy{}, err
 	}
 	allowedCandidateIDs := []string{}
-	candidatePreferenceScores := map[string]int{}
+	candidatePreferenceScores := map[string]float64{}
 	if token != nil {
 		allowedCandidateIDs, candidatePreferenceScores, err = NormalizeACUCandidatePolicy(
 			token.ACUAllowedCandidateIDs,

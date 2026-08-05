@@ -33,13 +33,13 @@ type tokenPageResponse struct {
 }
 
 type tokenResponseItem struct {
-	ID                           int            `json:"id"`
-	Name                         string         `json:"name"`
-	Key                          string         `json:"key"`
-	Status                       int            `json:"status"`
-	ACUProfileLimits             []string       `json:"acu_profile_limits"`
-	ACUAllowedCandidateIDs       []string       `json:"acu_allowed_candidate_ids"`
-	ACUCandidatePreferenceScores map[string]int `json:"acu_candidate_preference_scores"`
+	ID                           int                `json:"id"`
+	Name                         string             `json:"name"`
+	Key                          string             `json:"key"`
+	Status                       int                `json:"status"`
+	ACUProfileLimits             []string           `json:"acu_profile_limits"`
+	ACUAllowedCandidateIDs       []string           `json:"acu_allowed_candidate_ids"`
+	ACUCandidatePreferenceScores map[string]float64 `json:"acu_candidate_preference_scores"`
 }
 
 type tokenKeyResponse struct {
@@ -533,7 +533,7 @@ func TestTokenCandidatePolicyPersistsThroughUpdateAndRead(t *testing.T) {
 	var stored model.Token
 	require.NoError(t, db.First(&stored, token.Id).Error)
 	require.Equal(t, []string{"gpt-5.6-luna", "gpt-5.6-luna@max"}, stored.ACUAllowedCandidateIDs)
-	require.Equal(t, map[string]int{"gpt-5.6-luna@max": 150}, stored.ACUCandidatePreferenceScores)
+	require.Equal(t, map[string]float64{"gpt-5.6-luna@max": 150}, stored.ACUCandidatePreferenceScores)
 
 	ctx, recorder = newAuthenticatedContext(t, http.MethodGet, "/api/token/"+strconv.Itoa(token.Id), nil, 1)
 	ctx.Params = gin.Params{{Key: "id", Value: strconv.Itoa(token.Id)}}
@@ -546,7 +546,7 @@ func TestTokenCandidatePolicyPersistsThroughUpdateAndRead(t *testing.T) {
 	require.Equal(t, stored.ACUCandidatePreferenceScores, detail.ACUCandidatePreferenceScores)
 }
 
-func TestUpdateTokenRejectsFractionalCandidatePreferenceScore(t *testing.T) {
+func TestUpdateTokenPersistsFractionalCandidatePreferenceScore(t *testing.T) {
 	db := setupTokenControllerTestDB(t)
 	token := seedToken(t, db, 1, "fractional-preference", "frac1234token5678")
 	body := map[string]any{
@@ -560,7 +560,11 @@ func TestUpdateTokenRejectsFractionalCandidatePreferenceScore(t *testing.T) {
 	ctx, recorder := newAuthenticatedContext(t, http.MethodPut, "/api/token/", body, 1)
 	UpdateToken(ctx)
 	response := decodeAPIResponse(t, recorder)
-	require.False(t, response.Success)
+	require.True(t, response.Success, response.Message)
+
+	var stored model.Token
+	require.NoError(t, db.First(&stored, token.Id).Error)
+	require.Equal(t, 1.5, stored.ACUCandidatePreferenceScores["gpt-5.6-luna@max"])
 }
 
 func TestGetTokenKeyRequiresOwnershipAndReturnsFullKey(t *testing.T) {

@@ -303,3 +303,41 @@ test('candidate allowlist and preferences round-trip sparsely for create, edit, 
   })
   assert.equal(invalid.success, false)
 })
+
+test('fractional candidate preferences pass validation and remain fractional in the payload', () => {
+  const values = {
+    ...transformApiKeyToFormDefaults({
+      id: 1,
+      name: 'fractional-preference',
+      key: 'masked',
+      status: 1,
+      remain_quota: 0,
+      used_quota: 0,
+      unlimited_quota: true,
+      expired_time: -1,
+      created_time: 0,
+      accessed_time: 0,
+      group: 'default',
+      cross_group_retry: false,
+      model_limits_enabled: true,
+      model_limits: 'gpt-5.6-luna',
+      acu_profile_limits_enabled: false,
+      acu_profile_limits: [],
+      acu_routing_preference: 'balanced',
+      acu_quality_bias: null,
+      acu_supply_strategy: 'balanced',
+      acu_allowed_candidate_ids: ['gpt-5.6-luna@max'],
+      acu_candidate_preference_scores: { 'gpt-5.6-luna@max': 99.9 },
+      allow_ips: '',
+    }),
+  }
+  const schema = getApiKeyFormSchema(((value: string) => value) as never)
+
+  const parsed = schema.parse(values)
+  const payload = transformFormDataToPayload(parsed)
+
+  assert.equal(
+    payload.acu_candidate_preference_scores['gpt-5.6-luna@max'],
+    99.9
+  )
+})

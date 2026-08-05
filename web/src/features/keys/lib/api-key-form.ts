@@ -51,7 +51,7 @@ export function getApiKeyFormSchema(t: TFunction) {
       acu_allowed_candidate_ids: z.array(z.string()),
       acu_candidate_preference_scores: z.record(
         z.string(),
-        z.number().int().min(0).max(200)
+        z.number().min(0).max(200)
       ),
       allow_ips: z.string().optional(),
       group: z.string().optional(),

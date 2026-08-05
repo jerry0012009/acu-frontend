@@ -33,7 +33,7 @@ func TestNewAPIV4HeadersVerifyWithClawRouter(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	const secret = "new-api-router-v4-contract-secret"
 	t.Setenv("ACU_TRUSTED_IDENTITY_SECRET", secret)
-	build := func(requestID string, candidates []string, scores map[string]int) acuV4ContractRequest {
+	build := func(requestID string, candidates []string, scores map[string]float64) acuV4ContractRequest {
 		ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
 		ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
 		ctx.Request.Header.Set("User-Agent", "codex_exec/0.145.0")
@@ -51,7 +51,7 @@ func TestNewAPIV4HeadersVerifyWithClawRouter(t *testing.T) {
 		"scoped": build(
 			"req_v4_scoped",
 			[]string{"gpt-5.6-luna", "gpt-5.6-luna@max"},
-			map[string]int{"gpt-5.6-luna@max": 150},
+			map[string]float64{"gpt-5.6-luna@max": 150.5},
 		),
 		"emptyScope": build("req_v4_empty", nil, nil),
 	})

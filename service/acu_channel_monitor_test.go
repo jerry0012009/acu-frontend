@@ -24,13 +24,13 @@ func TestGetACUSelectionCorridorSendsCandidatePolicy(t *testing.T) {
 
 	_, err := GetACUSelectionCorridor(context.Background(), 10_000, 1_000, &ACUEffectiveRoutingPolicy{
 		AllowedCandidateIDs: []string{"gpt-5.6-luna@max"},
-		CandidatePreferenceScores: map[string]int{
-			"gpt-5.6-luna@max": 140,
+		CandidatePreferenceScores: map[string]float64{
+			"gpt-5.6-luna@max": 140.5,
 		},
 	})
 	require.NoError(t, err)
 	var body map[string]interface{}
 	require.NoError(t, common.Unmarshal(requestBody, &body))
 	require.Equal(t, []interface{}{"gpt-5.6-luna@max"}, body["allowedCandidateIds"])
-	require.Equal(t, float64(140), body["candidatePreferenceScores"].(map[string]interface{})["gpt-5.6-luna@max"])
+	require.Equal(t, 140.5, body["candidatePreferenceScores"].(map[string]interface{})["gpt-5.6-luna@max"])
 }

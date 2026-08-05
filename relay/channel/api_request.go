@@ -193,7 +193,7 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 		}
 	}
 	if rawScores, exists := c.Get("acu_candidate_preference_scores"); exists {
-		if scores, ok := rawScores.(map[string]int); ok {
+		if scores, ok := rawScores.(map[string]float64); ok {
 			token.ACUCandidatePreferenceScores = scores
 		}
 	}

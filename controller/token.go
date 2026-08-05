@@ -35,7 +35,7 @@ func buildMaskedTokenResponse(token *model.Token) *model.Token {
 		maskedToken.ACUAllowedCandidateIDs = make([]string, 0)
 	}
 	if maskedToken.ACUCandidatePreferenceScores == nil {
-		maskedToken.ACUCandidatePreferenceScores = make(map[string]int)
+		maskedToken.ACUCandidatePreferenceScores = make(map[string]float64)
 	}
 	return &maskedToken
 }

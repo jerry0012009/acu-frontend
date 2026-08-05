@@ -121,8 +121,9 @@ test('renders when the ACU model pool arrives asynchronously', async () => {
     '[aria-label="gpt-5.6-sol@high Candidate preference"]'
   ) as HTMLInputElement | null
   assert.ok(preferenceInput)
+  assert.equal(preferenceInput.step, '0.1')
   await act(async () => {
-    preferenceInput.value = '140'
+    preferenceInput.value = '99.9'
     preferenceInput.dispatchEvent(new Event('input', { bubbles: true }))
   })
   await act(async () => presetCheckbox.click())

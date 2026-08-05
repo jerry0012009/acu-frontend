@@ -1,6 +1,7 @@
 package service
 
 import (
+	"math"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -126,17 +127,19 @@ func TestQualitySatisfactionVersionInvalidatesRoutingUtilityVersion(t *testing.T
 func TestNormalizeACUCandidatePolicyUsesSparseDefaultsAndValidatesBounds(t *testing.T) {
 	candidateIDs, scores, err := NormalizeACUCandidatePolicy(
 		[]string{"gpt-5.6-luna", "gpt-5.6-luna@max"},
-		map[string]int{"gpt-5.6-luna": 80, "gpt-5.6-luna@max": 150},
+		map[string]float64{"gpt-5.6-luna": 80, "gpt-5.6-luna@max": 150.5},
 		[]string{"gpt-5.6-luna"},
 		true,
 	)
 	require.NoError(t, err)
 	require.Equal(t, []string{"gpt-5.6-luna", "gpt-5.6-luna@max"}, candidateIDs)
-	require.Equal(t, map[string]int{"gpt-5.6-luna": 80, "gpt-5.6-luna@max": 150}, scores)
+	require.Equal(t, map[string]float64{"gpt-5.6-luna": 80, "gpt-5.6-luna@max": 150.5}, scores)
 
-	for _, invalid := range []map[string]int{
+	for _, invalid := range []map[string]float64{
 		{"gpt-5.6-luna@max": -1},
 		{"gpt-5.6-luna@max": 201},
+		{"gpt-5.6-luna@max": math.NaN()},
+		{"gpt-5.6-luna@max": math.Inf(1)},
 		{"acu-auto": 150},
 		{"invalid model": 150},
 	} {
@@ -145,7 +148,7 @@ func TestNormalizeACUCandidatePolicyUsesSparseDefaultsAndValidatesBounds(t *test
 	}
 	_, _, err = NormalizeACUCandidatePolicy(
 		[]string{"gpt-5.6-luna"},
-		map[string]int{"gpt-5.6-luna@max": 150},
+		map[string]float64{"gpt-5.6-luna@max": 150},
 		[]string{"gpt-5.6-luna"},
 		true,
 	)
@@ -165,7 +168,7 @@ func TestCandidatePolicyAndPreferencesAffectSeparateVersions(t *testing.T) {
 	require.NoError(t, err)
 	preferred, err := ResolveACUEffectiveRoutingPolicy(&model.Token{
 		ACUAllowedCandidateIDs:       []string{"gpt-5.6-luna@max"},
-		ACUCandidatePreferenceScores: map[string]int{"gpt-5.6-luna@max": 150},
+		ACUCandidatePreferenceScores: map[string]float64{"gpt-5.6-luna@max": 150.5},
 	})
 	require.NoError(t, err)
 
