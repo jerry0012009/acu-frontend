@@ -122,3 +122,55 @@ func TestQualitySatisfactionVersionInvalidatesRoutingUtilityVersion(t *testing.T
 	require.NoError(t, err)
 	require.NotEqual(t, "acu-routing-utility-v1-94cb7f76d42bd7cb", policy.RoutingUtilityVersion)
 }
+
+func TestNormalizeACUCandidatePolicyUsesSparseDefaultsAndValidatesBounds(t *testing.T) {
+	candidateIDs, scores, err := NormalizeACUCandidatePolicy(
+		[]string{"gpt-5.6-luna", "gpt-5.6-luna@max"},
+		map[string]int{"gpt-5.6-luna": 80, "gpt-5.6-luna@max": 150},
+		[]string{"gpt-5.6-luna"},
+		true,
+	)
+	require.NoError(t, err)
+	require.Equal(t, []string{"gpt-5.6-luna", "gpt-5.6-luna@max"}, candidateIDs)
+	require.Equal(t, map[string]int{"gpt-5.6-luna": 80, "gpt-5.6-luna@max": 150}, scores)
+
+	for _, invalid := range []map[string]int{
+		{"gpt-5.6-luna@max": -1},
+		{"gpt-5.6-luna@max": 201},
+		{"acu-auto": 150},
+		{"invalid model": 150},
+	} {
+		_, _, err = NormalizeACUCandidatePolicy(nil, invalid, nil, false)
+		require.Error(t, err)
+	}
+	_, _, err = NormalizeACUCandidatePolicy(
+		[]string{"gpt-5.6-luna"},
+		map[string]int{"gpt-5.6-luna@max": 150},
+		[]string{"gpt-5.6-luna"},
+		true,
+	)
+	require.ErrorContains(t, err, "outside the candidate allowlist")
+}
+
+func TestCandidatePolicyAndPreferencesAffectSeparateVersions(t *testing.T) {
+	previous := common.OptionMap
+	t.Cleanup(func() { common.OptionMap = previous })
+	common.OptionMap = map[string]string{}
+
+	neutral, err := ResolveACUEffectiveRoutingPolicy(&model.Token{})
+	require.NoError(t, err)
+	allowed, err := ResolveACUEffectiveRoutingPolicy(&model.Token{
+		ACUAllowedCandidateIDs: []string{"gpt-5.6-luna@max"},
+	})
+	require.NoError(t, err)
+	preferred, err := ResolveACUEffectiveRoutingPolicy(&model.Token{
+		ACUAllowedCandidateIDs:       []string{"gpt-5.6-luna@max"},
+		ACUCandidatePreferenceScores: map[string]int{"gpt-5.6-luna@max": 150},
+	})
+	require.NoError(t, err)
+
+	require.Empty(t, neutral.CandidatePreferenceScores)
+	require.NotEqual(t, neutral.RoutingPolicyVersion, allowed.RoutingPolicyVersion)
+	require.Equal(t, allowed.RoutingPolicyVersion, preferred.RoutingPolicyVersion)
+	require.NotEqual(t, allowed.RoutingUtilityVersion, preferred.RoutingUtilityVersion)
+}

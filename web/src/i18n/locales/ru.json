@@ -5231,6 +5231,15 @@
     "Relative cost utility": "Относительная полезность стоимости",
     "Combined utility": "Итоговая полезность",
     "The light area represents the route's estimated quality range, while the dashed gray line represents decision quality.": "Светлая область показывает ожидаемый диапазон качества маршрута, а серая пунктирная линия — качество решения.",
-    "Model curve colors range from blue to purple by estimated price.": "Цвета кривых моделей меняются от синего к фиолетовому по мере роста ожидаемой цены."
+    "Model curve colors range from blue to purple by estimated price.": "Цвета кривых моделей меняются от синего к фиолетовому по мере роста ожидаемой цены.",
+    "ACU routing candidate scope": "Область кандидатов маршрутизации ACU",
+    "Custom allowed routing candidates": "Настраиваемые разрешённые кандидаты",
+    "All verified routing candidates": "Все проверенные кандидаты маршрутизации",
+    "Allowed Routing Candidates": "Разрешённые кандидаты маршрутизации",
+    "Candidate preference": "Предпочтение кандидата",
+    "Select at least one routing candidate": "Выберите хотя бы одного кандидата маршрутизации",
+    "Candidate preferences must use allowed candidates": "Предпочтения можно задавать только разрешённым кандидатам",
+    "Base utility": "Базовая полезность",
+    "Adjusted utility": "Скорректированная полезность"
   }
 }

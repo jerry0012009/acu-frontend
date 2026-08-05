@@ -187,6 +187,16 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 		ACURoutingPreference:    c.GetString("acu_routing_preference"),
 		ACUSupplyStrategy:       c.GetString("acu_supply_strategy"),
 	}
+	if rawCandidateIDs, exists := c.Get("acu_allowed_candidate_ids"); exists {
+		if candidateIDs, ok := rawCandidateIDs.([]string); ok {
+			token.ACUAllowedCandidateIDs = candidateIDs
+		}
+	}
+	if rawScores, exists := c.Get("acu_candidate_preference_scores"); exists {
+		if scores, ok := rawScores.(map[string]int); ok {
+			token.ACUCandidatePreferenceScores = scores
+		}
+	}
 	if value, exists := c.Get("acu_quality_bias"); exists {
 		if bias, ok := value.(*int); ok {
 			token.ACUQualityBias = bias
@@ -242,6 +252,14 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	if err != nil {
 		return fmt.Errorf("marshal ACU work phase bias offsets: %w", err)
 	}
+	allowedCandidateIDsJSON, err := common2.Marshal(policy.AllowedCandidateIDs)
+	if err != nil {
+		return fmt.Errorf("marshal ACU routing candidate allowlist: %w", err)
+	}
+	candidatePreferenceScoresJSON, err := common2.Marshal(policy.CandidatePreferenceScores)
+	if err != nil {
+		return fmt.Errorf("marshal ACU candidate preference scores: %w", err)
+	}
 	qualityBias := strconv.Itoa(policy.QualityBias)
 	highBiasOffset := strconv.Itoa(policy.ACUHighBiasOffset)
 	modelCostLogScale := strconv.FormatFloat(policy.ModelCostLogScale, 'g', -1, 64)
@@ -253,7 +271,8 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 		qualityBias, policy.SupplyStrategy, string(supplyWeightsJSON), highBiasOffset,
 		modelCostLogScale, profileCostLogScale, profileSpeedLogScale,
 		string(latencyPolicyJSON), string(reliabilityPolicyJSON), string(workPhaseBiasOffsetsJSON),
-		policy.RoutingUtilityVersion, policy.FormulaMode, "v3", timestamp, bodySHA,
+		string(allowedCandidateIDsJSON), string(candidatePreferenceScoresJSON),
+		policy.RoutingUtilityVersion, policy.FormulaMode, "v4", timestamp, bodySHA,
 	}, "\n")
 	mac := hmac.New(sha256.New, []byte(secret))
 	_, _ = mac.Write([]byte(payload))
@@ -277,9 +296,11 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	req.Header.Set("X-ACU-Latency-Policy", string(latencyPolicyJSON))
 	req.Header.Set("X-ACU-Reliability-Policy", string(reliabilityPolicyJSON))
 	req.Header.Set("X-ACU-Work-Phase-Bias-Offsets", string(workPhaseBiasOffsetsJSON))
+	req.Header.Set("X-ACU-Allowed-Candidate-Ids", string(allowedCandidateIDsJSON))
+	req.Header.Set("X-ACU-Candidate-Preference-Scores", string(candidatePreferenceScoresJSON))
 	req.Header.Set("X-ACU-Routing-Utility-Version", policy.RoutingUtilityVersion)
 	req.Header.Set("X-ACU-Formula-Mode", policy.FormulaMode)
-	req.Header.Set("X-ACU-Identity-Version", "v3")
+	req.Header.Set("X-ACU-Identity-Version", "v4")
 	req.Header.Set("X-ACU-Timestamp", timestamp)
 	req.Header.Set("X-ACU-Body-SHA256", bodySHA)
 	req.Header.Set("X-ACU-Signature", hex.EncodeToString(mac.Sum(nil)))

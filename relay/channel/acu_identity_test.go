@@ -27,6 +27,11 @@ func TestApplyACUTrustedIdentityReplacesForgedHeadersAndBindsBody(t *testing.T) 
 	req.Header.Set("X-ACU-Client-Version", "forged-version")
 	req.Header.Set("X-ACU-Unrecognized-Internal", "forged-extra")
 	info := &relaycommon.RelayInfo{IsACUChannel: true, UserId: 17, TokenId: 29, RequestId: "req_alpha_1"}
+	ctx.Set("acu_allowed_candidate_ids", []string{"gpt-5.6-luna@max", "gpt-5.6-sol@high"})
+	ctx.Set("acu_candidate_preference_scores", map[string]int{
+		"gpt-5.6-sol@high": 70,
+		"gpt-5.6-luna@max": 150,
+	})
 
 	require.NoError(t, applyACUTrustedIdentity(req, ctx, info, body))
 	require.Equal(t, "17", req.Header.Get("X-ACU-NewAPI-User-ID"))
@@ -36,12 +41,14 @@ func TestApplyACUTrustedIdentityReplacesForgedHeadersAndBindsBody(t *testing.T) 
 	require.Equal(t, "0.145.0", req.Header.Get("X-ACU-Client-Version"))
 	require.Equal(t, "all_routing_eligible", req.Header.Get("X-ACU-Routing-Policy"))
 	require.Equal(t, "balanced", req.Header.Get("X-ACU-Routing-Preference"))
-	require.Equal(t, "v3", req.Header.Get("X-ACU-Identity-Version"))
-	require.Equal(t, "0", req.Header.Get("X-ACU-Quality-Bias"))
+	require.Equal(t, "v4", req.Header.Get("X-ACU-Identity-Version"))
+	require.Equal(t, "20", req.Header.Get("X-ACU-Quality-Bias"))
 	require.Equal(t, "balanced", req.Header.Get("X-ACU-Supply-Strategy"))
 	require.Equal(t, `{"cost":40,"speed":25,"reliability":35}`, req.Header.Get("X-ACU-Supply-Weights"))
 	require.Equal(t, "[]", req.Header.Get("X-ACU-Allowed-Model-Ids"))
 	require.Equal(t, "[]", req.Header.Get("X-ACU-Allowed-Profile-Ids"))
+	require.Equal(t, `["gpt-5.6-luna@max","gpt-5.6-sol@high"]`, req.Header.Get("X-ACU-Allowed-Candidate-Ids"))
+	require.Equal(t, `{"gpt-5.6-luna@max":150,"gpt-5.6-sol@high":70}`, req.Header.Get("X-ACU-Candidate-Preference-Scores"))
 	require.NotEmpty(t, req.Header.Get("X-ACU-Routing-Policy-Version"))
 	require.Empty(t, req.Header.Get("X-ACU-Unrecognized-Internal"))
 
@@ -56,8 +63,9 @@ func TestApplyACUTrustedIdentityReplacesForgedHeadersAndBindsBody(t *testing.T) 
 		req.Header.Get("X-ACU-Model-Cost-Log-Scale"), req.Header.Get("X-ACU-Profile-Cost-Log-Scale"),
 		req.Header.Get("X-ACU-Profile-Speed-Log-Scale"), req.Header.Get("X-ACU-Latency-Policy"),
 		req.Header.Get("X-ACU-Reliability-Policy"), req.Header.Get("X-ACU-Work-Phase-Bias-Offsets"),
+		req.Header.Get("X-ACU-Allowed-Candidate-Ids"), req.Header.Get("X-ACU-Candidate-Preference-Scores"),
 		req.Header.Get("X-ACU-Routing-Utility-Version"), req.Header.Get("X-ACU-Formula-Mode"),
-		"v3", req.Header.Get("X-ACU-Timestamp"), bodyHash,
+		"v4", req.Header.Get("X-ACU-Timestamp"), bodyHash,
 	}, "\n")
 	mac := hmac.New(sha256.New, []byte("test-only-shared-secret"))
 	_, _ = mac.Write([]byte(payload))
@@ -78,12 +86,16 @@ func TestApplyACUTrustedIdentitySignsCustomUserAllowlist(t *testing.T) {
 	ctx.Set("acu_profile_limit_enabled", true)
 	ctx.Set("acu_profile_limits", []string{"lucen:luna:responses", "closeai:luna:responses"})
 	ctx.Set("acu_routing_preference", "quality")
+	ctx.Set("acu_allowed_candidate_ids", []string{"gpt-5.6-luna", "gpt-5.6-luna@max"})
+	ctx.Set("acu_candidate_preference_scores", map[string]int{"gpt-5.6-luna@max": 150})
 
 	require.NoError(t, applyACUTrustedIdentity(req, ctx, info, []byte(`{"model":"acu-auto"}`)))
 	require.Equal(t, "custom_allowlist", req.Header.Get("X-ACU-Routing-Policy"))
 	require.Equal(t, `["gpt-5.6-luna","gpt-5.6-sol"]`, req.Header.Get("X-ACU-Allowed-Model-Ids"))
 	require.Equal(t, `["closeai:luna:responses","lucen:luna:responses"]`, req.Header.Get("X-ACU-Allowed-Profile-Ids"))
 	require.Equal(t, "quality", req.Header.Get("X-ACU-Routing-Preference"))
+	require.Equal(t, `["gpt-5.6-luna","gpt-5.6-luna@max"]`, req.Header.Get("X-ACU-Allowed-Candidate-Ids"))
+	require.Equal(t, `{"gpt-5.6-luna@max":150}`, req.Header.Get("X-ACU-Candidate-Preference-Scores"))
 	require.Contains(t, req.Header.Get("X-ACU-Routing-Policy-Version"), "acu-user-policy-v2-")
 }
 

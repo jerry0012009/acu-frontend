@@ -65,15 +65,17 @@ func GetACUSelectionCorridor(ctx context.Context, inputTokens, expectedOutputTok
 		body, err = common.Marshal(map[string]interface{}{
 			"inputTokens": inputTokens, "expectedOutputTokens": expectedOutputTokens,
 			"allowedModelIds": policy.AllowedModelIDs, "allowedProfileIds": policy.AllowedProfileIDs,
-			"routingPreference": policy.RoutingPreference, "qualityBias": policy.QualityBias,
+			"allowedCandidateIds": policy.AllowedCandidateIDs,
+			"routingPreference":   policy.RoutingPreference, "qualityBias": policy.QualityBias,
 			"qualityPresets":    policy.QualityPresets,
 			"supplyStrategy":    policy.SupplyStrategy,
 			"supplyWeights":     ACUSupplyWeights{Cost: policy.SupplyCostWeight, Speed: policy.SupplySpeedWeight, Reliability: policy.SupplyReliabilityWeight},
 			"acuHighBiasOffset": policy.ACUHighBiasOffset, "modelCostLogScale": policy.ModelCostLogScale,
 			"profileCostLogScale": policy.ProfileCostLogScale, "profileSpeedLogScale": policy.ProfileSpeedLogScale,
 			"latencyPolicy": policy.LatencyPolicy, "reliabilityPolicy": policy.ReliabilityPolicy,
-			"workPhaseBiasOffsets": policy.WorkPhaseBiasOffsets,
-			"routeMode":            "acu-auto", "routingUtilityVersion": policy.RoutingUtilityVersion,
+			"workPhaseBiasOffsets":      policy.WorkPhaseBiasOffsets,
+			"candidatePreferenceScores": policy.CandidatePreferenceScores,
+			"routeMode":                 "acu-auto", "routingUtilityVersion": policy.RoutingUtilityVersion,
 			"formulaMode": policy.FormulaMode,
 		})
 		if err != nil {

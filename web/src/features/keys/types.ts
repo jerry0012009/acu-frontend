@@ -56,6 +56,14 @@ export const apiKeySchema = z.object({
   acu_supply_strategy: z
     .enum(['lowest_cost', 'balanced', 'low_latency', 'high_reliability'])
     .catch('balanced'),
+  acu_allowed_candidate_ids: z
+    .array(z.string())
+    .nullish()
+    .transform((value) => value ?? []),
+  acu_candidate_preference_scores: z
+    .record(z.string(), z.number().int().min(0).max(200))
+    .nullish()
+    .transform((value) => value ?? {}),
   allow_ips: z.string().nullish().default(''),
 })
 
@@ -110,6 +118,8 @@ export interface ApiKeyFormData {
     | 'balanced'
     | 'low_latency'
     | 'high_reliability'
+  acu_allowed_candidate_ids: string[]
+  acu_candidate_preference_scores: Record<string, number>
   allow_ips: string
   group: string
   cross_group_retry: boolean

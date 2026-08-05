@@ -5231,6 +5231,15 @@
     "Relative cost utility": "相対コスト効用",
     "Combined utility": "総合効用",
     "The light area represents the route's estimated quality range, while the dashed gray line represents decision quality.": "淡色の領域はルートの推定品質範囲を、灰色の破線は意思決定品質を示します。",
-    "Model curve colors range from blue to purple by estimated price.": "モデル曲線の色は推定価格に応じて青から紫へ変化します。"
+    "Model curve colors range from blue to purple by estimated price.": "モデル曲線の色は推定価格に応じて青から紫へ変化します。",
+    "ACU routing candidate scope": "ACUルーティング候補の範囲",
+    "Custom allowed routing candidates": "許可するルーティング候補を指定",
+    "All verified routing candidates": "検証済みの全ルーティング候補",
+    "Allowed Routing Candidates": "許可されたルーティング候補",
+    "Candidate preference": "候補の優先度",
+    "Select at least one routing candidate": "ルーティング候補を1つ以上選択してください",
+    "Candidate preferences must use allowed candidates": "優先度は許可された候補にのみ設定できます",
+    "Base utility": "基本効用",
+    "Adjusted utility": "調整後効用"
   }
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/require"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -32,11 +33,13 @@ type tokenPageResponse struct {
 }
 
 type tokenResponseItem struct {
-	ID               int      `json:"id"`
-	Name             string   `json:"name"`
-	Key              string   `json:"key"`
-	Status           int      `json:"status"`
-	ACUProfileLimits []string `json:"acu_profile_limits"`
+	ID                           int            `json:"id"`
+	Name                         string         `json:"name"`
+	Key                          string         `json:"key"`
+	Status                       int            `json:"status"`
+	ACUProfileLimits             []string       `json:"acu_profile_limits"`
+	ACUAllowedCandidateIDs       []string       `json:"acu_allowed_candidate_ids"`
+	ACUCandidatePreferenceScores map[string]int `json:"acu_candidate_preference_scores"`
 }
 
 type tokenKeyResponse struct {
@@ -507,6 +510,57 @@ func TestUpdateTokenMasksKeyInResponse(t *testing.T) {
 	if strings.Contains(recorder.Body.String(), token.Key) {
 		t.Fatalf("update response leaked raw token key: %s", recorder.Body.String())
 	}
+}
+
+func TestTokenCandidatePolicyPersistsThroughUpdateAndRead(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+	token := seedToken(t, db, 1, "preference-token", "pref1234token5678")
+
+	body := map[string]any{
+		"id": token.Id, "name": token.Name, "expired_time": -1,
+		"remain_quota": 100, "unlimited_quota": true,
+		"model_limits_enabled":            true,
+		"model_limits":                    "gpt-5.6-luna,gpt-5.6-sol",
+		"acu_allowed_candidate_ids":       []string{"gpt-5.6-luna", "gpt-5.6-luna@max"},
+		"acu_candidate_preference_scores": map[string]int{"gpt-5.6-luna": 100, "gpt-5.6-luna@max": 150},
+		"group":                           "default", "cross_group_retry": false,
+	}
+	ctx, recorder := newAuthenticatedContext(t, http.MethodPut, "/api/token/", body, 1)
+	UpdateToken(ctx)
+	response := decodeAPIResponse(t, recorder)
+	require.True(t, response.Success, response.Message)
+
+	var stored model.Token
+	require.NoError(t, db.First(&stored, token.Id).Error)
+	require.Equal(t, []string{"gpt-5.6-luna", "gpt-5.6-luna@max"}, stored.ACUAllowedCandidateIDs)
+	require.Equal(t, map[string]int{"gpt-5.6-luna@max": 150}, stored.ACUCandidatePreferenceScores)
+
+	ctx, recorder = newAuthenticatedContext(t, http.MethodGet, "/api/token/"+strconv.Itoa(token.Id), nil, 1)
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.Itoa(token.Id)}}
+	GetToken(ctx)
+	response = decodeAPIResponse(t, recorder)
+	require.True(t, response.Success, response.Message)
+	var detail tokenResponseItem
+	require.NoError(t, common.Unmarshal(response.Data, &detail))
+	require.Equal(t, stored.ACUAllowedCandidateIDs, detail.ACUAllowedCandidateIDs)
+	require.Equal(t, stored.ACUCandidatePreferenceScores, detail.ACUCandidatePreferenceScores)
+}
+
+func TestUpdateTokenRejectsFractionalCandidatePreferenceScore(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+	token := seedToken(t, db, 1, "fractional-preference", "frac1234token5678")
+	body := map[string]any{
+		"id": token.Id, "name": token.Name, "expired_time": -1,
+		"remain_quota": 100, "unlimited_quota": true,
+		"model_limits_enabled": true, "model_limits": "gpt-5.6-luna",
+		"acu_allowed_candidate_ids":       []string{"gpt-5.6-luna@max"},
+		"acu_candidate_preference_scores": map[string]float64{"gpt-5.6-luna@max": 1.5},
+		"group":                           "default", "cross_group_retry": false,
+	}
+	ctx, recorder := newAuthenticatedContext(t, http.MethodPut, "/api/token/", body, 1)
+	UpdateToken(ctx)
+	response := decodeAPIResponse(t, recorder)
+	require.False(t, response.Success)
 }
 
 func TestGetTokenKeyRequiresOwnershipAndReturnsFullKey(t *testing.T) {

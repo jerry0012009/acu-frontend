@@ -5,12 +5,15 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 )
+
+var acuRoutingCandidateIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}(@[A-Za-z0-9][A-Za-z0-9._-]{0,31})?$`)
 
 const (
 	ACURoutingPolicyAll           = "all_routing_eligible"
@@ -28,26 +31,28 @@ type ACURoutingScope struct {
 }
 
 type ACUEffectiveRoutingPolicy struct {
-	RoutingPolicy           string
-	AllowedModelIDs         []string
-	AllowedProfileIDs       []string
-	RoutingPreference       string
-	RoutingPolicyVersion    string
-	QualityBias             int
-	QualityPresets          map[string]int
-	SupplyStrategy          string
-	SupplyCostWeight        int
-	SupplySpeedWeight       int
-	SupplyReliabilityWeight int
-	ACUHighBiasOffset       int
-	ModelCostLogScale       float64
-	ProfileCostLogScale     float64
-	ProfileSpeedLogScale    float64
-	LatencyPolicy           ACULatencyPolicy
-	ReliabilityPolicy       ACUReliabilityPolicy
-	WorkPhaseBiasOffsets    map[string]int
-	RoutingUtilityVersion   string
-	FormulaMode             string
+	RoutingPolicy             string
+	AllowedModelIDs           []string
+	AllowedProfileIDs         []string
+	RoutingPreference         string
+	RoutingPolicyVersion      string
+	QualityBias               int
+	QualityPresets            map[string]int
+	SupplyStrategy            string
+	SupplyCostWeight          int
+	SupplySpeedWeight         int
+	SupplyReliabilityWeight   int
+	ACUHighBiasOffset         int
+	ModelCostLogScale         float64
+	ProfileCostLogScale       float64
+	ProfileSpeedLogScale      float64
+	LatencyPolicy             ACULatencyPolicy
+	ReliabilityPolicy         ACUReliabilityPolicy
+	WorkPhaseBiasOffsets      map[string]int
+	RoutingUtilityVersion     string
+	FormulaMode               string
+	AllowedCandidateIDs       []string
+	CandidatePreferenceScores map[string]int
 }
 
 type ACUSupplyWeights struct {
@@ -224,6 +229,86 @@ func ACUCanonicalAllowedModelIDs(modelLimits string) []string {
 	return normalizeACUIDs(filtered)
 }
 
+func NormalizeACUCandidatePolicy(candidateIDs []string, scores map[string]int, allowedModelIDs []string, customModelAllowlist bool) ([]string, map[string]int, error) {
+	allowedModels := make(map[string]struct{}, len(allowedModelIDs))
+	for _, modelID := range allowedModelIDs {
+		allowedModels[modelID] = struct{}{}
+	}
+	normalizedCandidateIDs := normalizeACUIDs(candidateIDs)
+	allowedCandidates := make(map[string]struct{}, len(normalizedCandidateIDs))
+	for _, candidateID := range normalizedCandidateIDs {
+		modelID := strings.SplitN(candidateID, "@", 2)[0]
+		if !acuRoutingCandidateIDPattern.MatchString(candidateID) || modelID == "acu-auto" || modelID == "acu-high" {
+			return nil, nil, fmt.Errorf("invalid ACU routing candidate ID %q", candidateID)
+		}
+		if customModelAllowlist {
+			if _, ok := allowedModels[modelID]; !ok {
+				return nil, nil, fmt.Errorf("ACU routing candidate %q is outside the custom model allowlist", candidateID)
+			}
+		}
+		allowedCandidates[candidateID] = struct{}{}
+	}
+	normalized := make(map[string]int, len(scores))
+	for rawCandidateID, score := range scores {
+		candidateID := strings.TrimSpace(rawCandidateID)
+		modelID := strings.SplitN(candidateID, "@", 2)[0]
+		if !acuRoutingCandidateIDPattern.MatchString(candidateID) || modelID == "acu-auto" || modelID == "acu-high" {
+			return nil, nil, fmt.Errorf("invalid ACU routing candidate ID %q", rawCandidateID)
+		}
+		if score < 0 || score > 200 {
+			return nil, nil, fmt.Errorf("ACU candidate preference score for %q must be an integer from 0 to 200", candidateID)
+		}
+		if customModelAllowlist {
+			if _, ok := allowedModels[modelID]; !ok {
+				return nil, nil, fmt.Errorf("ACU candidate preference %q is outside the custom model allowlist", candidateID)
+			}
+		}
+		if len(allowedCandidates) > 0 {
+			if _, ok := allowedCandidates[candidateID]; !ok {
+				return nil, nil, fmt.Errorf("ACU candidate preference %q is outside the candidate allowlist", candidateID)
+			}
+		}
+		if score != 100 {
+			normalized[candidateID] = score
+		}
+	}
+	return normalizedCandidateIDs, normalized, nil
+}
+
+func ValidateACUCandidatePolicyAgainstPool(ctx context.Context, candidateIDs []string, scores map[string]int) error {
+	if len(candidateIDs) == 0 && len(scores) == 0 {
+		return nil
+	}
+	monitor, err := GetACUChannelMonitor(ctx, "24h")
+	if err != nil {
+		if strings.Contains(err.Error(), "not configured") {
+			return nil
+		}
+		return err
+	}
+	available := make(map[string]struct{})
+	for _, item := range monitor.ModelPool {
+		rawCandidates, _ := item["routingCandidates"].([]interface{})
+		for _, rawCandidate := range rawCandidates {
+			candidate, _ := rawCandidate.(map[string]interface{})
+			if candidateID, ok := candidate["candidateId"].(string); ok {
+				available[candidateID] = struct{}{}
+			}
+		}
+	}
+	for _, candidateID := range candidateIDs {
+		if _, ok := available[candidateID]; !ok {
+			return fmt.Errorf("ACU routing candidate %q is not present in the current Router candidate pool", candidateID)
+		}
+	}
+	for candidateID := range scores {
+		if _, ok := available[candidateID]; !ok {
+			return fmt.Errorf("ACU candidate preference %q is not present in the current Router candidate pool", candidateID)
+		}
+	}
+	return nil
+}
+
 func GetACUGlobalRoutingScope() (ACURoutingScope, error) {
 	return globalACURoutingScope()
 }
@@ -373,6 +458,19 @@ func ResolveACUEffectiveRoutingPolicy(token *model.Token) (ACUEffectiveRoutingPo
 	if err != nil {
 		return ACUEffectiveRoutingPolicy{}, err
 	}
+	allowedCandidateIDs := []string{}
+	candidatePreferenceScores := map[string]int{}
+	if token != nil {
+		allowedCandidateIDs, candidatePreferenceScores, err = NormalizeACUCandidatePolicy(
+			token.ACUAllowedCandidateIDs,
+			token.ACUCandidatePreferenceScores,
+			tokenScope.AllowedModelIDs,
+			tokenScope.Policy == ACURoutingPolicyCustom,
+		)
+		if err != nil {
+			return ACUEffectiveRoutingPolicy{}, err
+		}
+	}
 	result := ACUEffectiveRoutingPolicy{
 		RoutingPolicy: ACURoutingPolicyAll, AllowedModelIDs: []string{}, AllowedProfileIDs: []string{}, RoutingPreference: preference,
 		QualityBias: qualityBias, QualityPresets: map[string]int{
@@ -385,6 +483,8 @@ func ResolveACUEffectiveRoutingPolicy(token *model.Token) (ACUEffectiveRoutingPo
 		ProfileCostLogScale: utilityConfig.ProfileCostLogScale, ProfileSpeedLogScale: utilityConfig.ProfileSpeedLogScale,
 		LatencyPolicy: utilityConfig.Latency, ReliabilityPolicy: utilityConfig.Reliability,
 		WorkPhaseBiasOffsets: utilityConfig.WorkPhaseBiasOffsets, FormulaMode: utilityConfig.FormulaMode,
+		AllowedCandidateIDs:       allowedCandidateIDs,
+		CandidatePreferenceScores: candidatePreferenceScores,
 	}
 	if global.Policy == ACURoutingPolicyCustom && tokenScope.Policy == ACURoutingPolicyCustom {
 		result.AllowedModelIDs = intersectACUIDs(global.AllowedModelIDs, tokenScope.AllowedModelIDs)
@@ -398,6 +498,27 @@ func ResolveACUEffectiveRoutingPolicy(token *model.Token) (ACUEffectiveRoutingPo
 	} else if global.Policy == ACURoutingPolicyCustom || tokenScope.Policy == ACURoutingPolicyCustom {
 		return result, fmt.Errorf("ACU model allowlist intersection is empty")
 	}
+	if result.RoutingPolicy == ACURoutingPolicyCustom {
+		allowedModels := make(map[string]struct{}, len(result.AllowedModelIDs))
+		for _, modelID := range result.AllowedModelIDs {
+			allowedModels[modelID] = struct{}{}
+		}
+		effectiveCandidateIDs := make([]string, 0, len(result.AllowedCandidateIDs))
+		for _, candidateID := range result.AllowedCandidateIDs {
+			if _, ok := allowedModels[strings.SplitN(candidateID, "@", 2)[0]]; ok {
+				effectiveCandidateIDs = append(effectiveCandidateIDs, candidateID)
+			}
+		}
+		if len(result.AllowedCandidateIDs) > 0 && len(effectiveCandidateIDs) == 0 {
+			return result, fmt.Errorf("ACU candidate allowlist intersection is empty")
+		}
+		result.AllowedCandidateIDs = effectiveCandidateIDs
+		for candidateID := range result.CandidatePreferenceScores {
+			if _, ok := allowedModels[strings.SplitN(candidateID, "@", 2)[0]]; !ok {
+				delete(result.CandidatePreferenceScores, candidateID)
+			}
+		}
+	}
 	if global.ProfilePolicy == ACURoutingPolicyCustom && tokenScope.ProfilePolicy == ACURoutingPolicyCustom {
 		result.AllowedProfileIDs = intersectACUIDs(global.AllowedProfileIDs, tokenScope.AllowedProfileIDs)
 	} else if global.ProfilePolicy == ACURoutingPolicyCustom {
@@ -408,7 +529,7 @@ func ResolveACUEffectiveRoutingPolicy(token *model.Token) (ACUEffectiveRoutingPo
 	if len(result.AllowedProfileIDs) == 0 && (global.ProfilePolicy == ACURoutingPolicyCustom || tokenScope.ProfilePolicy == ACURoutingPolicyCustom) {
 		return result, fmt.Errorf("ACU profile allowlist intersection is empty")
 	}
-	digest := sha256.Sum256([]byte(result.RoutingPolicy + "\n" + strings.Join(result.AllowedModelIDs, ",") + "\n" + strings.Join(result.AllowedProfileIDs, ",") + "\n" + result.RoutingPreference))
+	digest := sha256.Sum256([]byte(result.RoutingPolicy + "\n" + strings.Join(result.AllowedModelIDs, ",") + "\n" + strings.Join(result.AllowedProfileIDs, ",") + "\n" + strings.Join(result.AllowedCandidateIDs, ",") + "\n" + result.RoutingPreference))
 	result.RoutingPolicyVersion = "acu-user-policy-v2-" + hex.EncodeToString(digest[:8])
 	utilityRaw, err := common.Marshal(map[string]interface{}{
 		"schemaVersion": utilityConfig.SchemaVersion, "qualityBias": result.QualityBias,
@@ -420,6 +541,7 @@ func ResolveACUEffectiveRoutingPolicy(token *model.Token) (ACUEffectiveRoutingPo
 		"profileCostLogScale": result.ProfileCostLogScale, "profileSpeedLogScale": result.ProfileSpeedLogScale,
 		"latency": result.LatencyPolicy, "reliability": result.ReliabilityPolicy,
 		"workPhaseBiasOffsets": result.WorkPhaseBiasOffsets, "formulaMode": result.FormulaMode,
+		"candidatePreferenceScores": result.CandidatePreferenceScores,
 	})
 	if err != nil {
 		return result, err

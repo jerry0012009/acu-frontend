@@ -48,17 +48,37 @@ export function getApiKeyFormSchema(t: TFunction) {
         'low_latency',
         'high_reliability',
       ]),
+      acu_allowed_candidate_ids: z.array(z.string()),
+      acu_candidate_preference_scores: z.record(
+        z.string(),
+        z.number().int().min(0).max(200)
+      ),
       allow_ips: z.string().optional(),
       group: z.string().optional(),
       cross_group_retry: z.boolean().optional(),
       tokenCount: z.number().min(1).optional(),
     })
     .superRefine((data, ctx) => {
-      if (data.acu_model_scope_custom && data.model_limits.length === 0) {
+      if (
+        data.acu_model_scope_custom &&
+        data.acu_allowed_candidate_ids.length === 0
+      ) {
         ctx.addIssue({
           code: 'custom',
-          path: ['model_limits'],
-          message: t('Select at least one verified model'),
+          path: ['acu_allowed_candidate_ids'],
+          message: t('Select at least one routing candidate'),
+        })
+      }
+      if (
+        data.acu_allowed_candidate_ids.length > 0 &&
+        Object.keys(data.acu_candidate_preference_scores).some(
+          (candidateId) => !data.acu_allowed_candidate_ids.includes(candidateId)
+        )
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['acu_candidate_preference_scores'],
+          message: t('Candidate preferences must use allowed candidates'),
         })
       }
       if (
@@ -108,6 +128,8 @@ export const API_KEY_FORM_DEFAULT_VALUES: ApiKeyFormValues = {
   acu_quality_mode: 'balanced',
   acu_quality_bias: 0,
   acu_supply_strategy: 'balanced',
+  acu_allowed_candidate_ids: [],
+  acu_candidate_preference_scores: {},
   allow_ips: '',
   group: DEFAULT_GROUP,
   cross_group_retry: true,
@@ -145,7 +167,15 @@ export function transformFormDataToPayload(
     unlimited_quota: data.unlimited_quota,
     model_limits_enabled: data.acu_model_scope_custom,
     model_limits: data.acu_model_scope_custom
-      ? [...new Set([...data.model_limits, 'acu-auto', 'acu-high'])].join(',')
+      ? [
+          ...new Set([
+            ...data.acu_allowed_candidate_ids.map(
+              (candidateId) => candidateId.split('@', 1)[0]
+            ),
+            'acu-auto',
+            'acu-high',
+          ]),
+        ].join(',')
       : '',
     acu_profile_limits_enabled: data.acu_profile_scope_custom,
     acu_profile_limits: data.acu_profile_scope_custom
@@ -156,6 +186,16 @@ export function transformFormDataToPayload(
     acu_quality_bias:
       data.acu_quality_mode === 'custom' ? data.acu_quality_bias : null,
     acu_supply_strategy: data.acu_supply_strategy,
+    acu_allowed_candidate_ids: data.acu_model_scope_custom
+      ? [...new Set(data.acu_allowed_candidate_ids)].sort()
+      : [],
+    acu_candidate_preference_scores: data.acu_model_scope_custom
+      ? Object.fromEntries(
+          Object.entries(data.acu_candidate_preference_scores)
+            .filter(([, score]) => score !== 100)
+            .sort(([left], [right]) => left.localeCompare(right))
+        )
+      : {},
     allow_ips: data.allow_ips || '',
     group: data.group || '',
     cross_group_retry: data.group === 'auto' ? !!data.cross_group_retry : false,
@@ -195,6 +235,9 @@ export function transformApiKeyToFormDefaults(
         : 'custom',
     acu_quality_bias: apiKey.acu_quality_bias ?? 0,
     acu_supply_strategy: apiKey.acu_supply_strategy || 'balanced',
+    acu_allowed_candidate_ids: apiKey.acu_allowed_candidate_ids ?? [],
+    acu_candidate_preference_scores:
+      apiKey.acu_candidate_preference_scores ?? {},
     allow_ips: apiKey.allow_ips || '',
     group: apiKey.group || DEFAULT_GROUP,
     cross_group_retry: !!apiKey.cross_group_retry,

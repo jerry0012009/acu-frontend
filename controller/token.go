@@ -31,6 +31,12 @@ func buildMaskedTokenResponse(token *model.Token) *model.Token {
 	if maskedToken.ACUProfileLimits == nil {
 		maskedToken.ACUProfileLimits = make([]string, 0)
 	}
+	if maskedToken.ACUAllowedCandidateIDs == nil {
+		maskedToken.ACUAllowedCandidateIDs = make([]string, 0)
+	}
+	if maskedToken.ACUCandidatePreferenceScores == nil {
+		maskedToken.ACUCandidatePreferenceScores = make(map[string]int)
+	}
 	return &maskedToken
 }
 
@@ -241,6 +247,24 @@ func AddToken(c *gin.Context) {
 	if token.ModelLimitsEnabled {
 		token.ModelLimits = normalizeACUTokenModelLimits(token.ModelLimits)
 	}
+	token.ACUAllowedCandidateIDs, token.ACUCandidatePreferenceScores, err = service.NormalizeACUCandidatePolicy(
+		token.ACUAllowedCandidateIDs,
+		token.ACUCandidatePreferenceScores,
+		service.ACUCanonicalAllowedModelIDs(token.ModelLimits),
+		token.ModelLimitsEnabled,
+	)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if token.ModelLimitsEnabled && len(token.ACUAllowedCandidateIDs) == 0 {
+		common.ApiError(c, fmt.Errorf("ACU custom routing scope requires at least one candidate"))
+		return
+	}
+	if err = service.ValidateACUCandidatePolicyAgainstPool(c.Request.Context(), token.ACUAllowedCandidateIDs, token.ACUCandidatePreferenceScores); err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	if token.ACUProfileLimitsEnabled {
 		token.ACUProfileLimits = normalizeACUProfileLimits(token.ACUProfileLimits)
 		if err := validateACUProfileLimits(token.ACUProfileLimits); err != nil {
@@ -271,24 +295,26 @@ func AddToken(c *gin.Context) {
 		}
 	}
 	cleanToken := model.Token{
-		UserId:                  c.GetInt("id"),
-		Name:                    token.Name,
-		Key:                     key,
-		CreatedTime:             common.GetTimestamp(),
-		AccessedTime:            common.GetTimestamp(),
-		ExpiredTime:             token.ExpiredTime,
-		RemainQuota:             token.RemainQuota,
-		UnlimitedQuota:          token.UnlimitedQuota,
-		ModelLimitsEnabled:      token.ModelLimitsEnabled,
-		ModelLimits:             token.ModelLimits,
-		ACUProfileLimitsEnabled: token.ACUProfileLimitsEnabled,
-		ACUProfileLimits:        normalizeACUProfileLimits(token.ACUProfileLimits),
-		ACURoutingPreference:    preference,
-		ACUQualityBias:          token.ACUQualityBias,
-		ACUSupplyStrategy:       supplyStrategy,
-		AllowIps:                token.AllowIps,
-		Group:                   token.Group,
-		CrossGroupRetry:         token.CrossGroupRetry,
+		UserId:                       c.GetInt("id"),
+		Name:                         token.Name,
+		Key:                          key,
+		CreatedTime:                  common.GetTimestamp(),
+		AccessedTime:                 common.GetTimestamp(),
+		ExpiredTime:                  token.ExpiredTime,
+		RemainQuota:                  token.RemainQuota,
+		UnlimitedQuota:               token.UnlimitedQuota,
+		ModelLimitsEnabled:           token.ModelLimitsEnabled,
+		ModelLimits:                  token.ModelLimits,
+		ACUProfileLimitsEnabled:      token.ACUProfileLimitsEnabled,
+		ACUProfileLimits:             normalizeACUProfileLimits(token.ACUProfileLimits),
+		ACURoutingPreference:         preference,
+		ACUQualityBias:               token.ACUQualityBias,
+		ACUSupplyStrategy:            supplyStrategy,
+		ACUAllowedCandidateIDs:       token.ACUAllowedCandidateIDs,
+		ACUCandidatePreferenceScores: token.ACUCandidatePreferenceScores,
+		AllowIps:                     token.AllowIps,
+		Group:                        token.Group,
+		CrossGroupRetry:              token.CrossGroupRetry,
 	}
 	err = cleanToken.Insert()
 	if err != nil {
@@ -374,6 +400,24 @@ func UpdateToken(c *gin.Context) {
 		if token.ModelLimitsEnabled {
 			token.ModelLimits = normalizeACUTokenModelLimits(token.ModelLimits)
 		}
+		token.ACUAllowedCandidateIDs, token.ACUCandidatePreferenceScores, err = service.NormalizeACUCandidatePolicy(
+			token.ACUAllowedCandidateIDs,
+			token.ACUCandidatePreferenceScores,
+			service.ACUCanonicalAllowedModelIDs(token.ModelLimits),
+			token.ModelLimitsEnabled,
+		)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		if token.ModelLimitsEnabled && len(token.ACUAllowedCandidateIDs) == 0 {
+			common.ApiError(c, fmt.Errorf("ACU custom routing scope requires at least one candidate"))
+			return
+		}
+		if err = service.ValidateACUCandidatePolicyAgainstPool(c.Request.Context(), token.ACUAllowedCandidateIDs, token.ACUCandidatePreferenceScores); err != nil {
+			common.ApiError(c, err)
+			return
+		}
 		if token.ACUProfileLimitsEnabled {
 			token.ACUProfileLimits = normalizeACUProfileLimits(token.ACUProfileLimits)
 			if err := validateACUProfileLimits(token.ACUProfileLimits); err != nil {
@@ -415,6 +459,8 @@ func UpdateToken(c *gin.Context) {
 		cleanToken.ACURoutingPreference = preference
 		cleanToken.ACUQualityBias = token.ACUQualityBias
 		cleanToken.ACUSupplyStrategy = supplyStrategy
+		cleanToken.ACUAllowedCandidateIDs = token.ACUAllowedCandidateIDs
+		cleanToken.ACUCandidatePreferenceScores = token.ACUCandidatePreferenceScores
 		cleanToken.AllowIps = token.AllowIps
 		cleanToken.Group = token.Group
 		cleanToken.CrossGroupRetry = token.CrossGroupRetry

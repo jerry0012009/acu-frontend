@@ -34,8 +34,8 @@ import {
   sideDrawerHeaderClassName,
   sideDrawerSwitchItemClassName,
 } from '@/components/drawer-layout'
-import { MultiSelect } from '@/components/multi-select'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Collapsible,
   CollapsibleContent,
@@ -142,6 +142,10 @@ export function ApiKeysMutateDrawer({
   const selectedProfileIds = form.watch('acu_profile_limits')
   const selectedModelScopeCustom = form.watch('acu_model_scope_custom')
   const selectedModelIds = form.watch('model_limits')
+  const selectedCandidateIds = form.watch('acu_allowed_candidate_ids')
+  const candidatePreferenceScores = form.watch(
+    'acu_candidate_preference_scores'
+  )
   const acuReasoningEffort = acuModelFilters.reasoningEffort
   const groupsRaw = groupsData?.data || {}
   const groups: ApiKeyGroupOption[] = Object.entries(groupsRaw).map(
@@ -195,6 +199,35 @@ export function ApiKeysMutateDrawer({
       ),
     }))
     .filter((group) => group.profiles.length > 0)
+  useEffect(() => {
+    if (
+      !selectedModelScopeCustom ||
+      selectedCandidateIds.length > 0 ||
+      selectedModelIds.length === 0
+    ) {
+      return
+    }
+    const legacyCandidateIds = routingModels
+      .filter((model) => selectedModelIds.includes(model.modelId))
+      .flatMap((model) =>
+        (model.routingCandidates?.length ?? 0) > 0
+          ? (model.routingCandidates ?? []).map(
+              (candidate) => candidate.candidateId
+            )
+          : [model.modelId]
+      )
+    if (legacyCandidateIds.length > 0) {
+      form.setValue('acu_allowed_candidate_ids', legacyCandidateIds, {
+        shouldValidate: true,
+      })
+    }
+  }, [
+    form,
+    routingModels,
+    selectedCandidateIds.length,
+    selectedModelIds,
+    selectedModelScopeCustom,
+  ])
   useEffect(() => {
     if (
       !selectedModelScopeCustom ||
@@ -760,12 +793,12 @@ export function ApiKeysMutateDrawer({
                         <FormItem className={sideDrawerSwitchItemClassName()}>
                           <div className='flex flex-col gap-0.5'>
                             <FormLabel className='text-sm'>
-                              {t('ACU routing model scope')}
+                              {t('ACU routing candidate scope')}
                             </FormLabel>
                             <FormDescription className='text-xs'>
                               {field.value
-                                ? t('Custom allowed models')
-                                : t('All verified routing-eligible models')}
+                                ? t('Custom allowed routing candidates')
+                                : t('All verified routing candidates')}
                             </FormDescription>
                           </div>
                           <FormControl>
@@ -853,28 +886,152 @@ export function ApiKeysMutateDrawer({
                         </div>
                         <FormField
                           control={form.control}
-                          name='model_limits'
+                          name='acu_allowed_candidate_ids'
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>
-                                {t('Custom allowed models')}
+                                {t('Allowed Routing Candidates')}
                               </FormLabel>
-                              <FormControl>
-                                <MultiSelect
-                                  options={routingModels.map((model) => ({
-                                    label: `${model.modelId} · ${model.vendor} · ${model.capabilityTier}`,
-                                    value: model.modelId,
-                                  }))}
-                                  selected={field.value}
-                                  onChange={field.onChange}
-                                  placeholder={t('Select verified models')}
-                                />
-                              </FormControl>
-                              <FormDescription>
-                                {t(
-                                  'Virtual ACU entry models are allowed automatically'
-                                )}
-                              </FormDescription>
+                              <div className='space-y-3'>
+                                {routingModels.map((model) => {
+                                  const candidates =
+                                    (model.routingCandidates?.length ?? 0) > 0
+                                      ? (model.routingCandidates ?? [])
+                                      : [
+                                          {
+                                            candidateId: model.modelId,
+                                            modelId: model.modelId,
+                                            displayName: model.modelId,
+                                            kind: 'base' as const,
+                                          },
+                                        ]
+                                  return (
+                                    <div
+                                      key={model.modelId}
+                                      className='space-y-1.5'
+                                    >
+                                      <div className='text-sm font-medium'>
+                                        {candidates.find(
+                                          (candidate) =>
+                                            candidate.kind === 'base'
+                                        )?.displayName ?? model.modelId}
+                                      </div>
+                                      {candidates.map((candidate) => {
+                                        const checked = field.value.includes(
+                                          candidate.candidateId
+                                        )
+                                        let candidateLabel =
+                                          candidate.displayName
+                                        if (candidate.kind === 'base') {
+                                          candidateLabel = t('Standard')
+                                        } else if (candidate.reasoningEffort) {
+                                          candidateLabel = `${candidate.reasoningEffort.charAt(0).toUpperCase()}${candidate.reasoningEffort.slice(1)}`
+                                        }
+                                        return (
+                                          <div
+                                            key={candidate.candidateId}
+                                            className='grid grid-cols-[1.25rem_minmax(0,1fr)_6rem] items-center gap-2 pl-2'
+                                          >
+                                            <Checkbox
+                                              id={`acu-candidate-${candidate.candidateId}`}
+                                              checked={checked}
+                                              onCheckedChange={(value) => {
+                                                const next = value
+                                                  ? [
+                                                      ...new Set([
+                                                        ...field.value,
+                                                        candidate.candidateId,
+                                                      ]),
+                                                    ]
+                                                  : field.value.filter(
+                                                      (candidateId) =>
+                                                        candidateId !==
+                                                        candidate.candidateId
+                                                    )
+                                                field.onChange(next)
+                                                form.setValue(
+                                                  'model_limits',
+                                                  [
+                                                    ...new Set(
+                                                      next.map(
+                                                        (candidateId) =>
+                                                          candidateId.split(
+                                                            '@',
+                                                            1
+                                                          )[0]
+                                                      )
+                                                    ),
+                                                  ],
+                                                  { shouldValidate: true }
+                                                )
+                                                if (!value) {
+                                                  const scores = {
+                                                    ...form.getValues(
+                                                      'acu_candidate_preference_scores'
+                                                    ),
+                                                  }
+                                                  delete scores[
+                                                    candidate.candidateId
+                                                  ]
+                                                  form.setValue(
+                                                    'acu_candidate_preference_scores',
+                                                    scores,
+                                                    {
+                                                      shouldValidate: true,
+                                                    }
+                                                  )
+                                                }
+                                              }}
+                                            />
+                                            <label
+                                              className='truncate text-sm'
+                                              htmlFor={`acu-candidate-${candidate.candidateId}`}
+                                            >
+                                              {candidateLabel}
+                                            </label>
+                                            {checked ? (
+                                              <Input
+                                                type='number'
+                                                min={0}
+                                                max={200}
+                                                step={10}
+                                                value={
+                                                  candidatePreferenceScores[
+                                                    candidate.candidateId
+                                                  ] ?? 100
+                                                }
+                                                onChange={(event) => {
+                                                  const score =
+                                                    event.target.valueAsNumber
+                                                  form.setValue(
+                                                    'acu_candidate_preference_scores',
+                                                    {
+                                                      ...form.getValues(
+                                                        'acu_candidate_preference_scores'
+                                                      ),
+                                                      [candidate.candidateId]:
+                                                        Number.isFinite(score)
+                                                          ? score
+                                                          : 100,
+                                                    },
+                                                    {
+                                                      shouldDirty: true,
+                                                      shouldValidate: true,
+                                                    }
+                                                  )
+                                                }}
+                                                aria-label={`${candidate.candidateId} ${t('Candidate preference')}`}
+                                              />
+                                            ) : (
+                                              <span />
+                                            )}
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  )
+                                })}
+                              </div>
                               <FormMessage />
                             </FormItem>
                           )}

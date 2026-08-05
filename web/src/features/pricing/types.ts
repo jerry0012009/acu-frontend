@@ -171,6 +171,11 @@ export type ACUSelectionCandidate = {
   quality: number
   costCny: number
   valueUtility: number
+  baseValueUtility?: number
+  candidatePreferenceScore?: number
+  candidatePreferenceMultiplier?: number
+  adjustedValueUtility?: number
+  selected?: boolean
   rawQualityUtility?: number
   rawCostUtility?: number
   qualitySatisfactionUtility?: number

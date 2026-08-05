@@ -42,4 +42,6 @@ func TestGetACUSelectionCorridorUsesGlobalPolicy(t *testing.T) {
 	require.Contains(t, string(body), `"allowedProfileIds":["sol:responses"]`)
 	require.Contains(t, string(body), `"qualityPresets":{"balanced":20,"economy":-10,"quality":70}`)
 	require.Contains(t, string(body), `"formulaMode":"legacy"`)
+	require.Contains(t, string(body), `"allowedCandidateIds":[]`)
+	require.Contains(t, string(body), `"candidatePreferenceScores":{}`)
 }

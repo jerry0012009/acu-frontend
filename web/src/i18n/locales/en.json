@@ -5309,6 +5309,15 @@
     "Relative cost utility": "Relative cost utility",
     "Combined utility": "Combined utility",
     "The light area represents the route's estimated quality range, while the dashed gray line represents decision quality.": "The light area represents the route's estimated quality range, while the dashed gray line represents decision quality.",
-    "Model curve colors range from blue to purple by estimated price.": "Model curve colors range from blue to purple by estimated price."
+    "Model curve colors range from blue to purple by estimated price.": "Model curve colors range from blue to purple by estimated price.",
+    "ACU routing candidate scope": "ACU routing candidate scope",
+    "Custom allowed routing candidates": "Custom allowed routing candidates",
+    "All verified routing candidates": "All verified routing candidates",
+    "Allowed Routing Candidates": "Allowed Routing Candidates",
+    "Candidate preference": "Candidate preference",
+    "Select at least one routing candidate": "Select at least one routing candidate",
+    "Candidate preferences must use allowed candidates": "Candidate preferences must use allowed candidates",
+    "Base utility": "Base utility",
+    "Adjusted utility": "Adjusted utility"
   }
 }

@@ -27,16 +27,20 @@ for (const key of [
 
 const React = await import('react')
 const { act } = React
-;(globalThis as typeof globalThis & { React?: unknown }).React = React.default ?? React
+;(globalThis as typeof globalThis & { React?: unknown }).React =
+  React.default ?? React
 const { createRoot } = await import('react-dom/client')
 const i18next = (await import('i18next')).default
 const { initReactI18next } = await import('react-i18next')
-await i18next.use(initReactI18next).init({ lng: 'en', resources: { en: { translation: {} } } })
+await i18next
+  .use(initReactI18next)
+  .init({ lng: 'en', resources: { en: { translation: {} } } })
 const { ApiKeysProvider } = await import('../api-keys-provider')
 const { ApiKeysMutateDrawer } = await import('../api-keys-mutate-drawer')
 
-;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean })
-  .IS_REACT_ACT_ENVIRONMENT = true
+;(
+  globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true
 
 test('renders when the ACU model pool arrives asynchronously', async () => {
   const queryClient = new QueryClient({
@@ -62,19 +66,71 @@ test('renders when the ACU model pool arrives asynchronously', async () => {
     queryClient.setQueryData(['acu-model-pool'], {
       data: {
         profiles: [],
-        modelPool: [{
-          modelId: 'gpt-5.6-sol',
-          vendor: 'OpenAI',
-          modelCategory: 'text_agent',
-          capabilityTier: 'SOL',
-          protocols: ['responses'],
-          verificationStatus: 'verified',
-          autoRouteEnabled: true,
-          profiles: [],
-        }],
+        modelPool: [
+          {
+            modelId: 'gpt-5.6-sol',
+            vendor: 'OpenAI',
+            modelCategory: 'text_agent',
+            capabilityTier: 'SOL',
+            protocols: ['responses'],
+            verificationStatus: 'verified',
+            autoRouteEnabled: true,
+            profiles: [],
+            routingCandidates: [
+              {
+                candidateId: 'gpt-5.6-sol',
+                modelId: 'gpt-5.6-sol',
+                displayName: 'GPT-5.6 Sol',
+                kind: 'base',
+              },
+              {
+                candidateId: 'gpt-5.6-sol@high',
+                modelId: 'gpt-5.6-sol',
+                displayName: 'GPT-5.6 Sol · High',
+                kind: 'preset',
+                reasoningEffort: 'high',
+              },
+            ],
+          },
+        ],
       },
     })
   })
+
+  const advancedButton = [...document.body.querySelectorAll('button')].find(
+    (button) => button.textContent?.includes('Advanced Settings')
+  )
+  assert.ok(advancedButton)
+  await act(async () => advancedButton.click())
+  const candidateScopeSwitch = [
+    ...document.body.querySelectorAll('[role="switch"]'),
+  ].find((element) =>
+    element.parentElement?.textContent?.includes(
+      'All verified routing candidates'
+    )
+  ) as HTMLElement | undefined
+  assert.ok(candidateScopeSwitch)
+  await act(async () => candidateScopeSwitch.click())
+
+  const presetCheckbox = document.body.querySelector(
+    '[id="acu-candidate-gpt-5.6-sol@high"]'
+  ) as HTMLElement | null
+  assert.ok(presetCheckbox)
+  await act(async () => presetCheckbox.click())
+  const preferenceInput = document.body.querySelector(
+    '[aria-label="gpt-5.6-sol@high Candidate preference"]'
+  ) as HTMLInputElement | null
+  assert.ok(preferenceInput)
+  await act(async () => {
+    preferenceInput.value = '140'
+    preferenceInput.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  await act(async () => presetCheckbox.click())
+  await act(async () => presetCheckbox.click())
+  const resetPreferenceInput = document.body.querySelector(
+    '[aria-label="gpt-5.6-sol@high Candidate preference"]'
+  ) as HTMLInputElement | null
+  assert.equal(resetPreferenceInput?.value, '100')
 
   assert.equal(container.isConnected, true)
   await act(async () => root.unmount())

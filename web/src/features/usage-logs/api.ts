@@ -272,6 +272,15 @@ export type ACUModelPoolEntry = {
   autoRouteEnabled: boolean
   exclusionReason: string | null
   profiles: ACUChannelMonitorProfile[]
+  routingCandidates?: Array<{
+    candidateId: string
+    modelId: string
+    displayName: string
+    kind: 'base' | 'preset'
+    presetId?: string
+    reasoningEffort?: string
+    calibrationStatus?: string
+  }>
 }
 
 export type ACUChannelHistoryRow = {

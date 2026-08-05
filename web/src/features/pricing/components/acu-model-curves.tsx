@@ -1002,24 +1002,43 @@ export function ACUModelCurves(props: {
                 {Math.round(abilityDifficulty)}
               </div>
               {corridorAtHover ? (
-                <div className='flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4'>
-                  <span className='min-w-0 truncate text-sm font-semibold'>
-                    {modelNameById.get(
-                      corridorAtHover.selectedCandidateId ||
-                        corridorAtHover.selectedModelId
-                    ) ||
-                      corridorAtHover.selectedCandidateId ||
-                      corridorAtHover.selectedModelId}
-                  </span>
-                  <span className='text-muted-foreground shrink-0 text-xs'>
-                    {t('Estimated quality')}{' '}
-                    {corridorAtHover.selectedQuality.toFixed(1)}% ·{' '}
-                    {t('Combined utility')}{' '}
-                    {selectedCandidateAtHover
-                      ? selectedCandidateAtHover.valueUtility.toFixed(4)
-                      : '—'}
-                  </span>
-                </div>
+                <>
+                  <div className='flex min-w-0 flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4'>
+                    <span className='min-w-0 truncate text-sm font-semibold'>
+                      {modelNameById.get(
+                        corridorAtHover.selectedCandidateId ||
+                          corridorAtHover.selectedModelId
+                      ) ||
+                        corridorAtHover.selectedCandidateId ||
+                        corridorAtHover.selectedModelId}
+                    </span>
+                    <span className='text-muted-foreground shrink-0 text-xs'>
+                      {t('Estimated quality')}{' '}
+                      {corridorAtHover.selectedQuality.toFixed(1)}% ·{' '}
+                      {t('Combined utility')}{' '}
+                      {selectedCandidateAtHover
+                        ? selectedCandidateAtHover.valueUtility.toFixed(4)
+                        : '—'}
+                    </span>
+                  </div>
+                  {selectedCandidateAtHover?.candidatePreferenceScore != null &&
+                    selectedCandidateAtHover.candidatePreferenceScore !==
+                      100 && (
+                      <p className='text-muted-foreground mt-1 text-xs'>
+                        {t('Base utility')}{' '}
+                        {selectedCandidateAtHover.baseValueUtility?.toFixed(3)}{' '}
+                        · {t('Candidate preference')}{' '}
+                        {selectedCandidateAtHover.candidatePreferenceScore} →{' '}
+                        {selectedCandidateAtHover.candidatePreferenceMultiplier?.toFixed(
+                          2
+                        )}
+                        × · {t('Adjusted utility')}{' '}
+                        {selectedCandidateAtHover.adjustedValueUtility?.toFixed(
+                          3
+                        )}
+                      </p>
+                    )}
+                </>
               ) : (
                 <div className='text-muted-foreground text-xs'>
                   暂无可路由模型
