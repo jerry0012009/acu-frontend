@@ -74,15 +74,6 @@ func buildACUSelectionCorridorBody(inputTokens, expectedOutputTokens int, policy
 	return common.Marshal(payload)
 }
 
-func isSelectionCorridorCandidatePreferenceRejection(statusCode int, body []byte) bool {
-	if statusCode != http.StatusServiceUnavailable {
-		return false
-	}
-	message := strings.ToLower(string(body))
-	return strings.Contains(message, "selection corridor candidate preference scores are invalid") ||
-		strings.Contains(message, "trusted candidate preference scores are invalid")
-}
-
 func GetACUSelectionCorridor(ctx context.Context, inputTokens, expectedOutputTokens int, policy *ACUEffectiveRoutingPolicy) (map[string]interface{}, error) {
 	path := fmt.Sprintf(
 		"/internal/admin/selection-corridor?inputTokens=%d&expectedOutputTokens=%d",
@@ -109,32 +100,6 @@ func GetACUSelectionCorridor(ctx context.Context, inputTokens, expectedOutputTok
 		return nil, readErr
 	}
 	if response.StatusCode != http.StatusOK {
-		if policy != nil && len(policy.CandidatePreferenceScores) > 0 &&
-			isSelectionCorridorCandidatePreferenceRejection(response.StatusCode, responseBody) {
-			// Legacy Router builds reject fractional scores on the preview endpoint only;
-			// relay requests continue to carry the exact token preference values.
-			fallbackBody, marshalErr := buildACUSelectionCorridorBody(inputTokens, expectedOutputTokens, policy, false)
-			if marshalErr != nil {
-				return nil, marshalErr
-			}
-			fallbackResponse, fallbackErr := acuRouterAdminRequest(ctx, http.MethodPost, path, fallbackBody)
-			if fallbackErr != nil {
-				return nil, fallbackErr
-			}
-			defer fallbackResponse.Body.Close()
-			fallbackResponseBody, fallbackReadErr := io.ReadAll(fallbackResponse.Body)
-			if fallbackReadErr != nil {
-				return nil, fallbackReadErr
-			}
-			if fallbackResponse.StatusCode != http.StatusOK {
-				return nil, fmt.Errorf("ACU selection corridor returned HTTP %d", fallbackResponse.StatusCode)
-			}
-			result := map[string]interface{}{}
-			if err := common.DecodeJson(bytes.NewReader(fallbackResponseBody), &result); err != nil {
-				return nil, err
-			}
-			return result, nil
-		}
 		return nil, fmt.Errorf("ACU selection corridor returned HTTP %d", response.StatusCode)
 	}
 	result := map[string]interface{}{}
