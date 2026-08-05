@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -51,6 +52,37 @@ func GetACUChannelMonitor(ctx context.Context, rangeValue string) (dto.ACUChanne
 	return result, nil
 }
 
+func buildACUSelectionCorridorBody(inputTokens, expectedOutputTokens int, policy *ACUEffectiveRoutingPolicy, includeCandidatePreferenceScores bool) ([]byte, error) {
+	payload := map[string]interface{}{
+		"inputTokens": inputTokens, "expectedOutputTokens": expectedOutputTokens,
+		"allowedModelIds": policy.AllowedModelIDs, "allowedProfileIds": policy.AllowedProfileIDs,
+		"allowedCandidateIds": policy.AllowedCandidateIDs,
+		"routingPreference":   policy.RoutingPreference, "qualityBias": policy.QualityBias,
+		"qualityPresets":    policy.QualityPresets,
+		"supplyStrategy":    policy.SupplyStrategy,
+		"supplyWeights":     ACUSupplyWeights{Cost: policy.SupplyCostWeight, Speed: policy.SupplySpeedWeight, Reliability: policy.SupplyReliabilityWeight},
+		"acuHighBiasOffset": policy.ACUHighBiasOffset, "modelCostLogScale": policy.ModelCostLogScale,
+		"profileCostLogScale": policy.ProfileCostLogScale, "profileSpeedLogScale": policy.ProfileSpeedLogScale,
+		"latencyPolicy": policy.LatencyPolicy, "reliabilityPolicy": policy.ReliabilityPolicy,
+		"workPhaseBiasOffsets": policy.WorkPhaseBiasOffsets,
+		"routeMode":            "acu-auto", "routingUtilityVersion": policy.RoutingUtilityVersion,
+		"formulaMode": policy.FormulaMode,
+	}
+	if includeCandidatePreferenceScores {
+		payload["candidatePreferenceScores"] = policy.CandidatePreferenceScores
+	}
+	return common.Marshal(payload)
+}
+
+func isSelectionCorridorCandidatePreferenceRejection(statusCode int, body []byte) bool {
+	if statusCode != http.StatusServiceUnavailable {
+		return false
+	}
+	message := strings.ToLower(string(body))
+	return strings.Contains(message, "selection corridor candidate preference scores are invalid") ||
+		strings.Contains(message, "trusted candidate preference scores are invalid")
+}
+
 func GetACUSelectionCorridor(ctx context.Context, inputTokens, expectedOutputTokens int, policy *ACUEffectiveRoutingPolicy) (map[string]interface{}, error) {
 	path := fmt.Sprintf(
 		"/internal/admin/selection-corridor?inputTokens=%d&expectedOutputTokens=%d",
@@ -62,22 +94,7 @@ func GetACUSelectionCorridor(ctx context.Context, inputTokens, expectedOutputTok
 	if policy != nil {
 		method = http.MethodPost
 		var err error
-		body, err = common.Marshal(map[string]interface{}{
-			"inputTokens": inputTokens, "expectedOutputTokens": expectedOutputTokens,
-			"allowedModelIds": policy.AllowedModelIDs, "allowedProfileIds": policy.AllowedProfileIDs,
-			"allowedCandidateIds": policy.AllowedCandidateIDs,
-			"routingPreference":   policy.RoutingPreference, "qualityBias": policy.QualityBias,
-			"qualityPresets":    policy.QualityPresets,
-			"supplyStrategy":    policy.SupplyStrategy,
-			"supplyWeights":     ACUSupplyWeights{Cost: policy.SupplyCostWeight, Speed: policy.SupplySpeedWeight, Reliability: policy.SupplyReliabilityWeight},
-			"acuHighBiasOffset": policy.ACUHighBiasOffset, "modelCostLogScale": policy.ModelCostLogScale,
-			"profileCostLogScale": policy.ProfileCostLogScale, "profileSpeedLogScale": policy.ProfileSpeedLogScale,
-			"latencyPolicy": policy.LatencyPolicy, "reliabilityPolicy": policy.ReliabilityPolicy,
-			"workPhaseBiasOffsets":      policy.WorkPhaseBiasOffsets,
-			"candidatePreferenceScores": policy.CandidatePreferenceScores,
-			"routeMode":                 "acu-auto", "routingUtilityVersion": policy.RoutingUtilityVersion,
-			"formulaMode": policy.FormulaMode,
-		})
+		body, err = buildACUSelectionCorridorBody(inputTokens, expectedOutputTokens, policy, true)
 		if err != nil {
 			return nil, err
 		}
@@ -87,11 +104,41 @@ func GetACUSelectionCorridor(ctx context.Context, inputTokens, expectedOutputTok
 		return nil, err
 	}
 	defer response.Body.Close()
+	responseBody, readErr := io.ReadAll(response.Body)
+	if readErr != nil {
+		return nil, readErr
+	}
 	if response.StatusCode != http.StatusOK {
+		if policy != nil && len(policy.CandidatePreferenceScores) > 0 &&
+			isSelectionCorridorCandidatePreferenceRejection(response.StatusCode, responseBody) {
+			// Legacy Router builds reject fractional scores on the preview endpoint only;
+			// relay requests continue to carry the exact token preference values.
+			fallbackBody, marshalErr := buildACUSelectionCorridorBody(inputTokens, expectedOutputTokens, policy, false)
+			if marshalErr != nil {
+				return nil, marshalErr
+			}
+			fallbackResponse, fallbackErr := acuRouterAdminRequest(ctx, http.MethodPost, path, fallbackBody)
+			if fallbackErr != nil {
+				return nil, fallbackErr
+			}
+			defer fallbackResponse.Body.Close()
+			fallbackResponseBody, fallbackReadErr := io.ReadAll(fallbackResponse.Body)
+			if fallbackReadErr != nil {
+				return nil, fallbackReadErr
+			}
+			if fallbackResponse.StatusCode != http.StatusOK {
+				return nil, fmt.Errorf("ACU selection corridor returned HTTP %d", fallbackResponse.StatusCode)
+			}
+			result := map[string]interface{}{}
+			if err := common.DecodeJson(bytes.NewReader(fallbackResponseBody), &result); err != nil {
+				return nil, err
+			}
+			return result, nil
+		}
 		return nil, fmt.Errorf("ACU selection corridor returned HTTP %d", response.StatusCode)
 	}
 	result := map[string]interface{}{}
-	if err := common.DecodeJson(response.Body, &result); err != nil {
+	if err := common.DecodeJson(bytes.NewReader(responseBody), &result); err != nil {
 		return nil, err
 	}
 	return result, nil
