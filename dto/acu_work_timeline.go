@@ -9,6 +9,9 @@ type ACUWorkTimeline struct {
 
 type ACUWorkTimelineSummary struct {
 	APISteps                        int     `json:"apiSteps"`
+	ExecutionSteps                  int     `json:"executionSteps"`
+	JudgeEvaluations                int     `json:"judgeEvaluations"`
+	PlatformRetryCostCNY            float64 `json:"platformRetryCostCny"`
 	JudgeFirstAttemptSuccessRate    float64 `json:"judgeFirstAttemptSuccessRate"`
 	JudgeFirstAttemptSuccessSamples int     `json:"judgeFirstAttemptSuccessSamples"`
 	JudgeCalledRequests             int     `json:"judgeCalledRequests"`
@@ -27,6 +30,8 @@ type ACUWorkTimelineSummary struct {
 }
 
 type ACUWorkTimelineItem struct {
+	PointID                  string   `json:"pointId"`
+	PointType                string   `json:"pointType"`
 	Timestamp                int64    `json:"timestamp"`
 	Sequence                 int      `json:"sequence"`
 	LogicalRequestID         string   `json:"logicalRequestId"`
@@ -59,6 +64,13 @@ type ACUWorkTimelineItem struct {
 	JudgeCostCNY                   float64                       `json:"judgeCostCny"`
 	ProviderCostCNY                float64                       `json:"providerCostCny"`
 	FailedAttemptCostCNY           float64                       `json:"failedAttemptCostCny"`
+	FailedJudgeAttemptCostCNY      float64                       `json:"failedJudgeAttemptCostCny"`
+	ProviderUserChargeCNY          float64                       `json:"providerUserChargeCny"`
+	JudgeUserChargeCNY             float64                       `json:"judgeUserChargeCny"`
+	JudgeProtocol                  string                        `json:"judgeProtocol,omitempty"`
+	JudgeReasoningEffort           string                        `json:"judgeReasoningEffort,omitempty"`
+	JudgeProfileSelection          ACUJudgeProfileSelection      `json:"judgeProfileSelection"`
+	JudgeAttempts                  []ACUTimelineJudgeAttempt     `json:"judgeAttempts"`
 	ErrorClass                     string                        `json:"errorClass,omitempty"`
 	CooldownUntil                  string                        `json:"cooldownUntil,omitempty"`
 	WorkPhase                      string                        `json:"workPhase"`
@@ -88,6 +100,34 @@ type ACUWorkTimelineItem struct {
 	RouteRefreshReason             string                        `json:"routeRefreshReason,omitempty"`
 	TopCandidates                  []ACUTimelineCandidateSummary `json:"topCandidates"`
 	ProviderAttempts               []ACUTimelineProviderAttempt  `json:"providerAttempts"`
+}
+
+type ACUJudgeProfileSelection struct {
+	FormulaVersion             string  `json:"formulaVersion,omitempty"`
+	SupplyStrategy             string  `json:"supplyStrategy,omitempty"`
+	CandidateCount             int     `json:"candidateCount"`
+	SelectedExecutionProfileID string  `json:"selectedExecutionProfileId,omitempty"`
+	SelectedProfileRank        int     `json:"selectedProfileRank,omitempty"`
+	SelectedProfileUtility     float64 `json:"selectedProfileUtility,omitempty"`
+}
+
+type ACUTimelineJudgeAttempt struct {
+	AttemptIndex       int     `json:"attemptIndex"`
+	AttemptRole        string  `json:"attemptRole"`
+	Model              string  `json:"model"`
+	Provider           string  `json:"provider"`
+	ExecutionProfileID string  `json:"executionProfileId,omitempty"`
+	ChannelID          string  `json:"channelId,omitempty"`
+	Status             string  `json:"status"`
+	ErrorCategory      string  `json:"errorCategory,omitempty"`
+	HTTPStatus         int     `json:"httpStatus,omitempty"`
+	InputTokens        int64   `json:"inputTokens"`
+	CachedInputTokens  int64   `json:"cachedInputTokens"`
+	OutputTokens       int64   `json:"outputTokens"`
+	LatencyMs          int     `json:"latencyMs"`
+	EffectiveCostCNY   float64 `json:"effectiveCostCny"`
+	CostStatus         string  `json:"costStatus"`
+	UsageStatus        string  `json:"usageStatus"`
 }
 
 type ACUTimelineCandidateSummary struct {

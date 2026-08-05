@@ -33,7 +33,11 @@ type TimelineChartOptions = {
 }
 
 function modelColor(item: ACUWorkTimelineItem): string {
-  return MODEL_COLORS[item.actualModel] ?? '#64748b'
+  return (
+    MODEL_COLORS[
+      item.pointType === 'judge' ? item.judgeModel : item.actualModel
+    ] ?? '#64748b'
+  )
 }
 
 function pointStroke(item: ACUWorkTimelineItem): string {
@@ -71,6 +75,7 @@ export function timelineCashCost(
 }
 
 export function thinkingEffort(item: ACUWorkTimelineItem): string {
+  if (item.pointType === 'judge') return item.judgeReasoningEffort || 'default'
   return (
     item.resolvedReasoningEffort ||
     item.presetReasoningEffort ||
@@ -141,9 +146,13 @@ export function judgeLabel(item: ACUWorkTimelineItem): string {
 }
 
 function tooltipHtml(item: ACUWorkTimelineItem, chartOrder: number): string {
-  const backup = item.judgeBackupUsed ? ' · Backup' : ''
+  const backup = item.judgeAttempts.some(
+    (attempt) => attempt.attemptRole === 'backup'
+  )
+    ? ' · Backup'
+    : ''
   return [
-    `<div style="font-weight:600;margin-bottom:6px">${escapeHtml(item.actualModel || item.requestedModel)}</div>`,
+    `<div style="font-weight:600;margin-bottom:6px">${escapeHtml(item.pointType === 'judge' ? item.judgeModel : item.actualModel || item.requestedModel)}</div>`,
     `<div>${escapeHtml(t('Request'))} #${chartOrder} · ${escapeHtml(t('Task step'))} ${item.sequence}</div>`,
     `<div>${escapeHtml(t('Time'))} ${escapeHtml(formatTimelineTimestamp(item.timestamp))}</div>`,
     `<div>${escapeHtml(t('Thinking effort'))} ${escapeHtml(thinkingEffort(item))}</div>`,
@@ -182,11 +191,11 @@ function difficultyDatum(
     value: [chartOrder, item.difficultyRecorded ? item.difficulty : Number.NaN],
     timelineItem: item,
     chartOrder,
-    symbolSize: item.judgeBackupUsed ? 13 : 10,
+    symbolSize: item.pointType === 'judge' ? 13 : 10,
     itemStyle: {
       color: fill,
       borderColor: pointStroke(item),
-      borderWidth: item.judgeBackupUsed ? 3 : 2,
+      borderWidth: item.pointType === 'judge' ? 3 : 2,
     },
   }
 }
@@ -431,7 +440,9 @@ export function buildACUWorkTimelineChartOption({
         symbol: 'circle',
         symbolSize: 19,
         data: orderedItems
-          .filter(({ item }) => item.judgeBackupUsed && item.difficultyRecorded)
+          .filter(
+            ({ item }) => item.pointType === 'judge' && item.difficultyRecorded
+          )
           .map(({ item, chartOrder }) => ({
             value: [chartOrder, item.difficulty],
             chartOrder,
@@ -472,12 +483,16 @@ function percentile(values: number[], ratio: number): number {
 }
 
 export function summarizeTimelineItems(items: ACUWorkTimelineItem[]) {
-  const judged = items.filter((item) => item.judgeCalled)
+  const judged = items.filter(
+    (item) =>
+      item.pointType === 'judge' || (!item.judgeProtocol && item.judgeCalled)
+  )
   const firstAttemptSamples = judged.filter(
     (item) => item.judgeFirstAttemptRecorded
   )
   const fallbackSamples = judged.filter((item) => item.judgeFallbackRecorded)
-  const completed = items.filter((item) => isCompletedStatus(item.status))
+  const executions = items.filter((item) => item.pointType === 'execution')
+  const completed = executions.filter((item) => isCompletedStatus(item.status))
   const userChargeSamples = items.filter(
     (item) =>
       item.billingStatus === 'finalized' && timelineUserCharge(item) != null
@@ -489,7 +504,14 @@ export function summarizeTimelineItems(items: ACUWorkTimelineItem[]) {
     .map((item) => item.firstModelEventLatencyMs)
     .filter((value) => value > 0)
   return {
-    apiSteps: items.length,
+    apiSteps: executions.length,
+    executionSteps: executions.length,
+    judgeEvaluations: judged.length,
+    platformRetryCostCny: executions.reduce(
+      (sum, item) =>
+        sum + item.failedAttemptCostCny + item.failedJudgeAttemptCostCny,
+      0
+    ),
     judgeCalledRequests: judged.length,
     judgeFirstAttemptSuccessSamples: firstAttemptSamples.length,
     judgeFirstAttemptSuccessRate: firstAttemptSamples.length
@@ -504,10 +526,12 @@ export function summarizeTimelineItems(items: ACUWorkTimelineItem[]) {
             item.judgeResultSource === 'rules_strategy'
         ).length / fallbackSamples.length
       : 0,
-    completionRate: items.length ? completed.length / items.length : 0,
-    cacheHitRate: items.reduce((sum, item) => sum + item.inputTokens, 0)
-      ? items.reduce((sum, item) => sum + item.cachedInputTokens, 0) /
-        items.reduce((sum, item) => sum + item.inputTokens, 0)
+    completionRate: executions.length
+      ? completed.length / executions.length
+      : 0,
+    cacheHitRate: executions.reduce((sum, item) => sum + item.inputTokens, 0)
+      ? executions.reduce((sum, item) => sum + item.cachedInputTokens, 0) /
+        executions.reduce((sum, item) => sum + item.inputTokens, 0)
       : 0,
     userChargeSamples: userChargeSamples.length,
     actualCashCostSamples: actualCashCostSamples.length,
@@ -526,18 +550,10 @@ export function summarizeTimelineItems(items: ACUWorkTimelineItem[]) {
       (sum, item) => sum + (timelineCashCost(item) ?? 0),
       0
     ),
-    actualTotalCostCny: items.reduce(
-      (sum, item) => {
-        if (item.billingStatus !== 'finalized') return sum
-        return (
-          sum +
-          (timelineUserCharge(item) ??
-            timelineCashCost(item) ??
-            0)
-        )
-      },
-      0
-    ),
+    actualTotalCostCny: items.reduce((sum, item) => {
+      if (item.billingStatus !== 'finalized') return sum
+      return sum + (timelineUserCharge(item) ?? timelineCashCost(item) ?? 0)
+    }, 0),
     p50FirstModelEventLatencyMs: percentile(latencies, 0.5),
     p95FirstModelEventLatencyMs: percentile(latencies, 0.95),
   }

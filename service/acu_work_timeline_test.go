@@ -22,7 +22,7 @@ func TestBuildACUWorkTimelineCompactsLogicalRequests(t *testing.T) {
 	assert.Equal(t, 4, result.Summary.APISteps)
 	assert.Equal(t, 0.0, result.Summary.JudgeFirstAttemptSuccessRate)
 	assert.True(t, result.Items[2].JudgeReused)
-	assert.True(t, result.Items[1].JudgeBackupUsed)
+	assert.False(t, result.Items[1].JudgeBackupUsed)
 	assert.Equal(t, "provider_edge_timeout", result.Items[1].ErrorClass)
 	assert.NotEmpty(t, result.Items[1].CooldownUntil)
 	assert.NotEqual(t, result.Items[0].ActualModel, result.Items[2].ActualModel)
@@ -73,6 +73,34 @@ func TestBuildACUWorkTimelineMapsV2DecisionSummary(t *testing.T) {
 	assert.Equal(t, 0.6, result.Summary.CacheHitRate)
 	assert.Equal(t, 0, item.EndToEndLatencyMs)
 	assert.Equal(t, "unavailable", item.LatencySource)
+}
+
+func TestBuildACUWorkTimelineSplitsFreshJudgeAndExecutionWithoutSplittingBilling(t *testing.T) {
+	logs := []*model.Log{{
+		CreatedAt: 100, Type: model.LogTypeConsume, ModelName: "gpt-5.6-luna", PromptTokens: 1000, CompletionTokens: 100,
+		Other: `{"acu_logical_request_id":"req-points","acu_billing_status":"finalized","acu_cost_breakdown":{"task_id":"task-1","segment_id":"seg-1","judge_calls":2,"judge_reused":false,"judge_protocol":"responses","judge_reasoning_effort":"default","judge_model":"gpt-5.6-sol","judge_cash_cost_cny":0.03,"failed_judge_attempt_cash_cost_cny":0.01,"judge_user_charge_cny":0.025,"provider_user_charge_cny":0.1,"effective_provider_cash_cost_cny":0.08,"failed_attempt_cash_cost_cny":0.005,"user_charge_cny":0.125,"actual_total_cash_cost_cny":0.125,"decision_summary":{"judge_result_source":"upstream_live"},"judge_profile_selection":{"formulaVersion":"acu-profile-utility-v2.1","supplyStrategy":"balanced","candidateCount":3,"selectedExecutionProfileId":"judge-b","selectedProfileRank":1,"selectedProfileUtility":0.9},"judge_attempts":[{"attempt_index":1,"attempt_role":"primary","model":"gpt-5.6-sol","provider":"lucen","execution_profile_id":"judge-a","channel_id":"cx-a","status":"error","input_tokens":100,"cached_input_tokens":20,"output_tokens":0,"latency_ms":500,"effective_cost_cny":0.01,"cost_status":"verified","usage_status":"reported"},{"attempt_index":2,"attempt_role":"same_model_failover","model":"gpt-5.6-sol","provider":"lucen","execution_profile_id":"judge-b","channel_id":"cx-b","status":"success","input_tokens":120,"cached_input_tokens":50,"output_tokens":20,"latency_ms":600,"effective_cost_cny":0.02,"cost_status":"verified","usage_status":"reported"}],"channel_attempts":[{"attempt_index":1,"status":"success","latency_ms":1000}]}}`,
+	}}
+
+	result := buildACUWorkTimeline(logs, 0, 200)
+	require.Len(t, result.Items, 2)
+	judge, execution := result.Items[0], result.Items[1]
+	assert.Equal(t, "judge", judge.PointType)
+	assert.Equal(t, "execution", execution.PointType)
+	assert.Equal(t, int64(70), judge.CachedInputTokens)
+	assert.Equal(t, 0.025, *judge.UserChargeCNY)
+	assert.Equal(t, 0.1, *execution.UserChargeCNY)
+	assert.InDelta(t, 0.125, *judge.UserChargeCNY+*execution.UserChargeCNY, 1e-12)
+	assert.Equal(t, 0.015, result.Summary.PlatformRetryCostCNY)
+	assert.Equal(t, 1, result.Summary.ExecutionSteps)
+	assert.Equal(t, 1, result.Summary.JudgeEvaluations)
+}
+
+func TestBuildACUWorkTimelineKeepsJudgeReuseOnExecutionPoint(t *testing.T) {
+	logs := []*model.Log{{CreatedAt: 100, Type: model.LogTypeConsume, Other: `{"acu_logical_request_id":"req-reused","acu_cost_breakdown":{"task_id":"task-1","judge_calls":0,"judge_reused":true,"judge_protocol":"responses","decision_summary":{"judge_result_source":"recent_evaluation"}}}`}}
+	result := buildACUWorkTimeline(logs, 0, 200)
+	require.Len(t, result.Items, 1)
+	assert.Equal(t, "execution", result.Items[0].PointType)
+	assert.True(t, result.Items[0].JudgeReused)
 }
 
 func TestBuildACUWorkTimelineUsesAuthoritativeSettledCosts(t *testing.T) {

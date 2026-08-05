@@ -32,9 +32,6 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 			continue
 		}
 		billingStatus := stringValue(other, "acu_billing_status")
-		if billingStatus == "" {
-			billingStatus = "finalized"
-		}
 		attempts, _ := breakdown["channel_attempts"].([]interface{})
 		decision := mapValue(breakdown, "decision_summary")
 		firstLatency, totalLatency, errorClass, cooldown := attemptFields(attempts)
@@ -57,10 +54,21 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 		}
 		judgeModel := stringValue(breakdown, "judge_model")
 		userCharge, userChargeFound := preferredNumber(other, breakdown, "user_charge_cny")
+		if billingStatus == "" {
+			if userChargeFound {
+				billingStatus = "finalized"
+			} else {
+				billingStatus = "pending"
+			}
+		}
 		actualCashCost, actualCashCostFound := preferredNumber(other, breakdown, "actual_total_cash_cost_cny")
 		judgeCost, _ := preferredNumber(other, breakdown, "judge_cash_cost_cny")
 		providerCost, _ := preferredNumber(other, breakdown, "effective_provider_cash_cost_cny")
 		failedAttemptCost, _ := preferredNumber(other, breakdown, "failed_attempt_cash_cost_cny")
+		failedJudgeAttemptCost, _ := preferredNumber(other, breakdown, "failed_judge_attempt_cash_cost_cny")
+		providerUserCharge, _ := preferredNumber(other, breakdown, "provider_user_charge_cny")
+		judgeUserCharge, _ := preferredNumber(other, breakdown, "judge_user_charge_cny")
+		judgeAttempts, _ := breakdown["judge_attempts"].([]interface{})
 		legacyCost := 0.0
 		if userChargeFound {
 			legacyCost = userCharge
@@ -83,24 +91,30 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 			Timestamp: log.CreatedAt, LogicalRequestID: logicalID,
 			SessionID: stringValue(breakdown, "session_id"), TaskID: stringValue(breakdown, "task_id"), SegmentID: stringValue(breakdown, "segment_id"),
 			JudgeCalled: numberValue(breakdown, "judge_calls") > 0, JudgeReused: boolValue(breakdown, "judge_reused"),
-			JudgeModel: judgeModel, JudgeBackupUsed: strings.Contains(strings.ToLower(judgeModel), "deepseek"),
+			PointID: logicalID + ":execution", PointType: "execution",
+			JudgeModel: judgeModel,
 			Difficulty: difficulty, DifficultyRecorded: difficultyRecorded, RequestedModel: stringValue(breakdown, "requested_model"),
 			ActualModel: firstTimelineValue(stringValue(breakdown, "canonical_model"), log.ModelName),
 			Provider:    firstTimelineValue(stringValue(breakdown, "actual_provider"), stringValue(other, "actual_provider")),
 			Channel:     firstTimelineValue(stringValue(breakdown, "channel_id"), stringValue(other, "actual_channel")), Status: status,
 			BillingStatus: billingStatus, BillingErrorCode: stringValue(other, "acu_finalize_error_code"),
-			FirstModelEventLatencyMs: firstLatency,
-			EndToEndLatencyMs:        endToEndLatency,
-			LatencySource:            latencySource,
-			JudgeLatencyMs:           int(numberValue(breakdown, "judge_latency_ms")),
-			ProviderLatencyMs:        firstPositiveInt(int(numberValue(breakdown, "provider_latency_ms")), totalLatency),
-			UserChargeCNY:            userChargeValue,
-			ActualCashCostCNY:        actualCashCostValue,
-			ActualCostCNY:            legacyCost,
-			JudgeCostCNY:             judgeCost,
-			ProviderCostCNY:          providerCost,
-			FailedAttemptCostCNY:     failedAttemptCost,
-			ErrorClass:               errorClass, CooldownUntil: cooldown,
+			FirstModelEventLatencyMs:  firstLatency,
+			EndToEndLatencyMs:         endToEndLatency,
+			LatencySource:             latencySource,
+			JudgeLatencyMs:            int(numberValue(breakdown, "judge_latency_ms")),
+			ProviderLatencyMs:         firstPositiveInt(int(numberValue(breakdown, "provider_latency_ms")), totalLatency),
+			UserChargeCNY:             userChargeValue,
+			ActualCashCostCNY:         actualCashCostValue,
+			ActualCostCNY:             legacyCost,
+			JudgeCostCNY:              judgeCost,
+			ProviderCostCNY:           providerCost,
+			FailedAttemptCostCNY:      failedAttemptCost,
+			FailedJudgeAttemptCostCNY: failedJudgeAttemptCost,
+			ProviderUserChargeCNY:     providerUserCharge, JudgeUserChargeCNY: judgeUserCharge,
+			JudgeProtocol: stringValue(breakdown, "judge_protocol"), JudgeReasoningEffort: stringValue(breakdown, "judge_reasoning_effort"),
+			JudgeProfileSelection: timelineJudgeProfileSelection(mapValue(breakdown, "judge_profile_selection")),
+			JudgeAttempts:         timelineJudgeAttempts(judgeAttempts),
+			ErrorClass:            errorClass, CooldownUntil: cooldown,
 			WorkPhase:                    firstTimelineValue(stringValue(decision, "work_phase"), stringValue(breakdown, "phase")),
 			WorkPhaseQualityTargetOffset: numberValue(decision, "work_phase_quality_target_offset"),
 			JudgeTrigger:                 firstTimelineValue(stringValue(decision, "judge_trigger"), stringValue(breakdown, "judge_trigger")),
@@ -129,13 +143,47 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 			byRequest[logicalID] = item
 		}
 	}
-	items := make([]dto.ACUWorkTimelineItem, 0, len(byRequest))
+	items := make([]dto.ACUWorkTimelineItem, 0, len(byRequest)*2)
 	for _, item := range byRequest {
+		createJudgePoint := item.JudgeProtocol != "" && !item.JudgeReused &&
+			(item.JudgeCalled || item.JudgeResultSource == "disk_cache" || item.JudgeResultSource == "rules_strategy")
+		if createJudgePoint {
+			judge := item
+			judge.PointID = item.LogicalRequestID + ":judge"
+			judge.PointType = "judge"
+			judge.UserChargeCNY = floatPointer(item.JudgeUserChargeCNY)
+			judge.ActualCashCostCNY = floatPointer(item.JudgeCostCNY)
+			judge.Status = judgePointStatus(item)
+			judge.EndToEndLatencyMs = item.JudgeLatencyMs
+			judge.ProviderLatencyMs = 0
+			judge.FirstModelEventLatencyMs = 0
+			judge.ProviderAttempts = nil
+			judge.TopCandidates = nil
+			judge.InputTokens = int64(sumJudgeTokens(item.JudgeAttempts, "input"))
+			judge.CachedInputTokens = int64(sumJudgeTokens(item.JudgeAttempts, "cached"))
+			judge.OutputTokens = int64(sumJudgeTokens(item.JudgeAttempts, "output"))
+			items = append(items, judge)
+		}
+		if item.JudgeProtocol != "" {
+			item.UserChargeCNY = floatPointer(item.ProviderUserChargeCNY)
+			item.ActualCashCostCNY = floatPointer(item.ProviderCostCNY + item.FailedAttemptCostCNY)
+			item.EndToEndLatencyMs = item.ProviderLatencyMs
+		}
+		item.JudgeAttempts = nil
+		item.JudgeProfileSelection = dto.ACUJudgeProfileSelection{}
 		items = append(items, item)
 	}
-	sort.Slice(items, func(i, j int) bool { return items[i].Timestamp < items[j].Timestamp })
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Timestamp != items[j].Timestamp {
+			return items[i].Timestamp < items[j].Timestamp
+		}
+		if items[i].LogicalRequestID != items[j].LogicalRequestID {
+			return items[i].LogicalRequestID < items[j].LogicalRequestID
+		}
+		return items[i].PointType == "judge" && items[j].PointType == "execution"
+	})
 	latencies := make([]int, 0, len(items))
-	completed, judgeCalls := 0, 0
+	completed, judgeCalls, executionSteps, judgeEvaluations := 0, 0, 0, 0
 	judgeFirstSuccess, judgeFirstSamples := 0, 0
 	rulesFallback, rulesFallbackSamples := 0, 0
 	totalUserCharge, totalActualCashCost, legacyTotalCost := 0.0, 0.0, 0.0
@@ -149,16 +197,23 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 		if items[i].BillingStatus == "finalized" && items[i].UserChargeCNY != nil {
 			totalUserCharge += *items[i].UserChargeCNY
 		}
-		if items[i].BillingStatus == "unsettled" {
+		if items[i].PointType == "execution" && items[i].BillingStatus == "unsettled" {
 			unsettledRequests++
 		}
 		if items[i].ActualCashCostCNY != nil {
 			totalActualCashCost += *items[i].ActualCashCostCNY
 		}
-		if items[i].Status == "completed" || items[i].Status == "completed_with_recovery" {
+		if items[i].PointType == "execution" {
+			executionSteps++
+		}
+		isJudgeEvaluation := items[i].PointType == "judge" || (items[i].JudgeProtocol == "" && items[i].JudgeCalled)
+		if isJudgeEvaluation {
+			judgeEvaluations++
+		}
+		if items[i].PointType == "execution" && (items[i].Status == "completed" || items[i].Status == "completed_with_recovery") {
 			completed++
 		}
-		if items[i].JudgeCalled {
+		if isJudgeEvaluation {
 			judgeCalls++
 			if items[i].JudgeFirstAttemptRecorded {
 				judgeFirstSamples++
@@ -173,21 +228,66 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 				}
 			}
 		}
-		totalInput += items[i].InputTokens
-		totalCached += items[i].CachedInputTokens
+		if items[i].PointType == "execution" {
+			totalInput += items[i].InputTokens
+			totalCached += items[i].CachedInputTokens
+		}
 		if items[i].FirstModelEventLatencyMs > 0 {
 			latencies = append(latencies, items[i].FirstModelEventLatencyMs)
 		}
 	}
 	sort.Ints(latencies)
 	return dto.ACUWorkTimeline{From: from, To: to, Items: items, Summary: dto.ACUWorkTimelineSummary{
-		APISteps: len(items), JudgeFirstAttemptSuccessRate: ratio(judgeFirstSuccess, judgeFirstSamples),
+		APISteps: executionSteps, ExecutionSteps: executionSteps, JudgeEvaluations: judgeEvaluations,
+		PlatformRetryCostCNY: itemsPlatformRetryCost(items), JudgeFirstAttemptSuccessRate: ratio(judgeFirstSuccess, judgeFirstSamples),
 		JudgeFirstAttemptSuccessSamples: judgeFirstSamples, JudgeCalledRequests: judgeCalls,
 		JudgeRulesFallbackRate: ratio(rulesFallback, rulesFallbackSamples), JudgeRulesFallbackSamples: rulesFallbackSamples,
-		CompletionRate: ratio(completed, len(items)), CacheHitRate: floatRatio(totalCached, totalInput),
+		CompletionRate: ratio(completed, executionSteps), CacheHitRate: floatRatio(totalCached, totalInput),
 		TotalUserChargeCNY: totalUserCharge, TotalActualCashCostCNY: totalActualCashCost, UnsettledRequests: unsettledRequests,
 		ActualTotalCostCNY: legacyTotalCost, P50FirstModelEventLatencyMs: percentile(latencies, .5), P95FirstModelEventLatencyMs: percentile(latencies, .95),
 	}}
+}
+
+func floatPointer(value float64) *float64 { return &value }
+
+func judgePointStatus(item dto.ACUWorkTimelineItem) string {
+	if item.JudgeResultSource == "rules_strategy" || item.JudgeStatus == "rules_fallback" {
+		return "rules_fallback"
+	}
+	for _, attempt := range item.JudgeAttempts {
+		if attempt.Status == "success" {
+			return "completed"
+		}
+	}
+	if item.JudgeResultSource == "disk_cache" {
+		return "completed"
+	}
+	return "failed"
+}
+
+func sumJudgeTokens(attempts []dto.ACUTimelineJudgeAttempt, kind string) int {
+	total := int64(0)
+	for _, attempt := range attempts {
+		switch kind {
+		case "input":
+			total += attempt.InputTokens
+		case "cached":
+			total += attempt.CachedInputTokens
+		case "output":
+			total += attempt.OutputTokens
+		}
+	}
+	return int(total)
+}
+
+func itemsPlatformRetryCost(items []dto.ACUWorkTimelineItem) float64 {
+	total := 0.0
+	for _, item := range items {
+		if item.PointType == "execution" {
+			total += item.FailedAttemptCostCNY + item.FailedJudgeAttemptCostCNY
+		}
+	}
+	return total
 }
 
 func mapValue(value map[string]interface{}, key string) map[string]interface{} {
@@ -222,6 +322,32 @@ func timelineAttempts(values []interface{}) []dto.ACUTimelineProviderAttempt {
 			ExecutionProfileID: stringValue(attempt, "execution_profile_id"), Status: stringValue(attempt, "status"),
 			ErrorCategory: firstTimelineValue(stringValue(attempt, "error_category"), stringValue(attempt, "error_class")),
 			HTTPStatus:    int(numberValue(attempt, "http_status")), LatencyMs: int(numberValue(attempt, "latency_ms")),
+		})
+	}
+	return result
+}
+
+func timelineJudgeProfileSelection(value map[string]interface{}) dto.ACUJudgeProfileSelection {
+	return dto.ACUJudgeProfileSelection{
+		FormulaVersion: stringValue(value, "formulaVersion"), SupplyStrategy: stringValue(value, "supplyStrategy"),
+		CandidateCount: int(numberValue(value, "candidateCount")), SelectedExecutionProfileID: stringValue(value, "selectedExecutionProfileId"),
+		SelectedProfileRank: int(numberValue(value, "selectedProfileRank")), SelectedProfileUtility: numberValue(value, "selectedProfileUtility"),
+	}
+}
+
+func timelineJudgeAttempts(values []interface{}) []dto.ACUTimelineJudgeAttempt {
+	result := make([]dto.ACUTimelineJudgeAttempt, 0, len(values))
+	for _, value := range values {
+		attempt, _ := value.(map[string]interface{})
+		if attempt == nil {
+			continue
+		}
+		result = append(result, dto.ACUTimelineJudgeAttempt{
+			AttemptIndex: int(numberValue(attempt, "attempt_index")), AttemptRole: stringValue(attempt, "attempt_role"),
+			Model: stringValue(attempt, "model"), Provider: stringValue(attempt, "provider"), ExecutionProfileID: stringValue(attempt, "execution_profile_id"), ChannelID: stringValue(attempt, "channel_id"),
+			Status: stringValue(attempt, "status"), ErrorCategory: stringValue(attempt, "error_category"), HTTPStatus: int(numberValue(attempt, "http_status")),
+			InputTokens: int64(numberValue(attempt, "input_tokens")), CachedInputTokens: int64(numberValue(attempt, "cached_input_tokens")), OutputTokens: int64(numberValue(attempt, "output_tokens")),
+			LatencyMs: int(numberValue(attempt, "latency_ms")), EffectiveCostCNY: numberValue(attempt, "effective_cost_cny"), CostStatus: stringValue(attempt, "cost_status"), UsageStatus: stringValue(attempt, "usage_status"),
 		})
 	}
 	return result

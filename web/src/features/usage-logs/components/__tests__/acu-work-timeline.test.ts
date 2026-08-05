@@ -36,6 +36,8 @@ test('rolling timeline range advances on each calculation while custom bounds st
 
 function item(overrides: Partial<ACUWorkTimelineItem>): ACUWorkTimelineItem {
   return {
+    pointId: 'logical-1:execution',
+    pointType: 'execution',
     timestamp: Date.parse('2026-07-30T10:00:00Z') / 1000,
     sequence: 1,
     logicalRequestId: 'logical-1',
@@ -65,6 +67,11 @@ function item(overrides: Partial<ACUWorkTimelineItem>): ACUWorkTimelineItem {
     judgeCostCny: 0.001,
     providerCostCny: 0.009,
     failedAttemptCostCny: 0,
+    failedJudgeAttemptCostCny: 0,
+    providerUserChargeCny: 0.009,
+    judgeUserChargeCny: 0.001,
+    judgeProfileSelection: { candidateCount: 1 },
+    judgeAttempts: [],
     errorClass: '',
     cooldownUntil: undefined,
     workPhase: 'implementation',
@@ -215,11 +222,48 @@ test('uses one-based request order for points and bars regardless of timestamps 
 
 test('uses the same chart order for Judge backup rings', () => {
   const items = [
-    item({ judgeBackupUsed: true, sequence: 1 }),
     item({
+      pointId: 'logical-1:judge',
+      pointType: 'judge',
+      judgeAttempts: [
+        {
+          attemptIndex: 1,
+          attemptRole: 'backup',
+          model: 'gpt-5.6-sol',
+          provider: 'lucen',
+          status: 'success',
+          inputTokens: 1,
+          cachedInputTokens: 0,
+          outputTokens: 1,
+          latencyMs: 1,
+          effectiveCostCny: 0,
+          costStatus: 'verified',
+          usageStatus: 'reported',
+        },
+      ],
+      sequence: 1,
+    }),
+    item({
+      pointId: 'logical-2:judge',
+      pointType: 'judge',
       logicalRequestId: 'logical-2',
       timestamp: Date.parse('2026-07-30T11:00:00Z') / 1000,
-      judgeBackupUsed: true,
+      judgeAttempts: [
+        {
+          attemptIndex: 1,
+          attemptRole: 'backup',
+          model: 'gpt-5.6-sol',
+          provider: 'lucen',
+          status: 'success',
+          inputTokens: 1,
+          cachedInputTokens: 0,
+          outputTokens: 1,
+          latencyMs: 1,
+          effectiveCostCny: 0,
+          costStatus: 'verified',
+          usageStatus: 'reported',
+        },
+      ],
       sequence: 1,
     }),
   ]
@@ -375,6 +419,9 @@ test('visible summary is derived only from items inside the engine viewport', ()
   ])
   assert.deepEqual(summary, {
     apiSteps: 2,
+    executionSteps: 2,
+    judgeEvaluations: 1,
+    platformRetryCostCny: 0,
     judgeCalledRequests: 1,
     judgeFirstAttemptSuccessSamples: 1,
     judgeFirstAttemptSuccessRate: 1,

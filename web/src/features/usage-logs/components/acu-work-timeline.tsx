@@ -87,7 +87,9 @@ function optionalMoney(value: number | undefined) {
 }
 
 function datetimeLocalValue(timestampMs: number) {
-  const date = new Date(timestampMs - new Date(timestampMs).getTimezoneOffset() * 60_000)
+  const date = new Date(
+    timestampMs - new Date(timestampMs).getTimezoneOffset() * 60_000
+  )
   return date.toISOString().slice(0, 16)
 }
 
@@ -115,12 +117,41 @@ function difficultyText(item: ACUWorkTimelineItem, digits = 0) {
 function TimelineStep(props: {
   item: ACUWorkTimelineItem
   onTrace: (id: string) => void
+  defaultOpen?: boolean
 }) {
   const { t } = useTranslation()
   const { item } = props
-  const model = item.selectedDisplayName || item.actualModel
+  const model =
+    item.pointType === 'judge'
+      ? item.judgeModel
+      : item.selectedDisplayName || item.actualModel
+  const provider =
+    item.pointType === 'judge'
+      ? item.judgeAttempts.find((attempt) => attempt.status === 'success')
+          ?.provider || 'rules'
+      : item.provider
+  const channel =
+    item.pointType === 'judge'
+      ? item.judgeAttempts.find((attempt) => attempt.status === 'success')
+          ?.channelId || '—'
+      : item.channel
+  let pointJudgeLabel = t('Execution')
+  if (item.pointType === 'judge') {
+    pointJudgeLabel = `${t(judgeMode(item))} · D${difficultyText(item)}`
+  } else if (item.judgeReused) {
+    pointJudgeLabel = `${t('Judge Reused')} · D${difficultyText(item)}`
+  }
+  const failedAttempts =
+    item.pointType === 'judge'
+      ? item.judgeAttempts.filter((attempt) => attempt.status !== 'success')
+          .length
+      : item.providerAttempts.filter((attempt) => attempt.status !== 'success')
+          .length
   return (
-    <Collapsible className='border-border/70 border-b last:border-b-0'>
+    <Collapsible
+      defaultOpen={props.defaultOpen}
+      className='border-border/70 border-b last:border-b-0'
+    >
       <CollapsibleTrigger
         aria-label={t('Open route step {{sequence}}', {
           sequence: item.sequence,
@@ -132,22 +163,24 @@ function TimelineStep(props: {
         </span>
         <span className='hidden min-w-0 grid-cols-[6.5rem_5.5rem_minmax(0,1.4fr)_minmax(0,1fr)_6.5rem_6.5rem_5.5rem_3.5rem] items-center gap-3 lg:grid'>
           <span className='font-medium'>
-            {item.workPhase || t('general')}{' '}
+            {item.pointType === 'judge'
+              ? t('Judge')
+              : item.workPhase || t('general')}{' '}
             {item.workPhaseQualityTargetOffset
               ? `${item.workPhaseQualityTargetOffset > 0 ? '+' : ''}${item.workPhaseQualityTargetOffset}`
               : ''}
           </span>
           <span className='text-muted-foreground text-xs'>
-            {t(judgeMode(item))} · D{difficultyText(item)}
+            {pointJudgeLabel}
           </span>
           <span className='truncate text-sm font-medium' title={model}>
             {model}
           </span>
           <span
             className='text-muted-foreground truncate text-xs'
-            title={`${item.provider} · ${item.channel}`}
+            title={`${provider} · ${channel}`}
           >
-            {item.provider} · {item.channel}
+            {provider} · {channel}
           </span>
           <span
             className={cn('truncate text-xs', statusTone(item.status))}
@@ -178,11 +211,8 @@ function TimelineStep(props: {
             <span>
               {t('Difficulty')} {difficultyText(item)}
             </span>
-            <span
-              className='truncate'
-              title={`${item.provider} · ${item.channel}`}
-            >
-              {item.provider} · {item.channel}
+            <span className='truncate' title={`${provider} · ${channel}`}>
+              {provider} · {channel}
             </span>
             <span>
               {t('User charge')} {optionalMoney(timelineUserCharge(item))}
@@ -199,59 +229,96 @@ function TimelineStep(props: {
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className='bg-muted/20 grid gap-4 border-t px-4 py-4 text-xs lg:grid-cols-4'>
-          <div>
-            <div className='text-muted-foreground mb-1'>
-              {t('Trigger / Judge')}
-            </div>
+          {item.pointType === 'judge' ? (
             <div>
-              {item.judgeTrigger || t('n/a')} ·{' '}
-              {item.judgeStatus || t(judgeMode(item))}
+              <div className='text-muted-foreground mb-1'>
+                {t('Trigger / Judge')}
+              </div>
+              <div>
+                {item.judgeTrigger || t('n/a')} ·{' '}
+                {item.judgeStatus || t(judgeMode(item))}
+              </div>
+              <div>
+                {item.judgeResultSource || t('n/a')} ·{' '}
+                {item.judgeProfileAttemptCount} {t('Judge attempts')}
+              </div>
+              <div>
+                {t('Time')} {formatTimelineTimestamp(item.timestamp)}
+              </div>
             </div>
+          ) : null}
+          {item.pointType === 'execution' ? (
             <div>
-              {item.judgeResultSource || t('n/a')} ·{' '}
-              {item.judgeProfileAttemptCount} {t('Judge attempts')}
+              <div className='text-muted-foreground mb-1'>
+                {t('Thinking effort')} {thinkingEffort(item)}
+              </div>
+              <div>
+                {item.clientRequestedReasoningEffort || t('none')} →{' '}
+                {item.presetReasoningEffort || t('base')} →{' '}
+                {item.resolvedReasoningEffort || t('default')}
+              </div>
+              <div>{item.reasoningMappingStatus || t('model_default')}</div>
             </div>
+          ) : null}
+          {item.pointType === 'judge' ? (
+            <div className='lg:col-span-4'>
+              <div className='text-muted-foreground mb-1'>
+                {t('Judge attempts')}
+              </div>
+              <div>
+                {item.judgeProfileSelection.formulaVersion ||
+                  'acu-profile-utility-v2.1'}{' '}
+                · {item.judgeProfileSelection.supplyStrategy || 'balanced'} · #
+                {item.judgeProfileSelection.selectedProfileRank || '—'} /{' '}
+                {item.judgeProfileSelection.candidateCount}
+              </div>
+              {item.judgeAttempts.map((attempt) => (
+                <div
+                  key={attempt.attemptIndex}
+                  className='mt-1 grid grid-cols-[2rem_minmax(0,1fr)_5rem_5rem] gap-2'
+                >
+                  <span>{attempt.attemptIndex}</span>
+                  <span className='truncate'>
+                    {attempt.channelId} · {attempt.executionProfileId}
+                  </span>
+                  <span>{attempt.status}</span>
+                  <span>{ms(attempt.latencyMs)}</span>
+                  <span className='text-muted-foreground col-span-4'>
+                    Input {attempt.inputTokens.toLocaleString()} · Cached input{' '}
+                    {attempt.cachedInputTokens.toLocaleString()} · Output{' '}
+                    {attempt.outputTokens.toLocaleString()} ·{' '}
+                    {attempt.usageStatus} · {attempt.costStatus}{' '}
+                    {money(attempt.effectiveCostCny)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {item.pointType === 'execution' ? (
             <div>
-              {t('Time')} {formatTimelineTimestamp(item.timestamp)}
+              <div className='text-muted-foreground mb-1'>
+                {t('Token usage')}
+              </div>
+              <div>
+                {t('Input')} {item.inputTokens.toLocaleString()} · {t('Cached')}{' '}
+                {item.cachedInputTokens.toLocaleString()}
+              </div>
+              <div>
+                {t('Output')} {item.outputTokens.toLocaleString()} ·{' '}
+                {t('Reasoning')} {item.reasoningTokens.toLocaleString()}
+              </div>
             </div>
-          </div>
-          <div>
-            <div className='text-muted-foreground mb-1'>
-              {t('Thinking effort')} {thinkingEffort(item)}
-            </div>
+          ) : null}
+          {item.pointType === 'execution' ? (
             <div>
-              {item.clientRequestedReasoningEffort || t('none')} →{' '}
-              {item.presetReasoningEffort || t('base')} →{' '}
-              {item.resolvedReasoningEffort || t('default')}
+              <div className='text-muted-foreground mb-1'>{t('Recovery')}</div>
+              <div>
+                {item.recoveryDecisionReason ||
+                  item.routeRefreshReason ||
+                  t('No recovery')}
+              </div>
             </div>
-            <div>{item.reasoningMappingStatus || t('model_default')}</div>
-          </div>
-          <div>
-            <div className='text-muted-foreground mb-1'>{t('Token usage')}</div>
-            <div>
-              {t('Input')} {item.inputTokens.toLocaleString()} · {t('Cached')}{' '}
-              {item.cachedInputTokens.toLocaleString()}
-            </div>
-            <div>
-              {t('Output')} {item.outputTokens.toLocaleString()} ·{' '}
-              {t('Reasoning')} {item.reasoningTokens.toLocaleString()}
-            </div>
-          </div>
-          <div>
-            <div className='text-muted-foreground mb-1'>{t('Recovery')}</div>
-            <div>
-              {item.recoveryDecisionReason ||
-                item.routeRefreshReason ||
-                t('No recovery')}
-            </div>
-            <button
-              type='button'
-              className='text-primary mt-1 underline-offset-2 hover:underline'
-              onClick={() => props.onTrace(item.logicalRequestId)}
-            >
-              {t('Open Session Trace')}
-            </button>
-          </div>
+          ) : null}
           <div>
             <div className='text-muted-foreground mb-1'>{t('Cost')}</div>
             <div>
@@ -263,57 +330,85 @@ function TimelineStep(props: {
             <div>
               {t('Cash cost')} {optionalMoney(timelineCashCost(item))}
             </div>
-            <div className={cn(item.billingStatus === 'unsettled' && 'text-orange-600')}>
+            <div>
+              {t('Failed attempts')} {failedAttempts}
+            </div>
+            <div>
+              {t('Confirmed failed-attempt cost')}{' '}
+              {money(
+                item.pointType === 'judge'
+                  ? item.failedJudgeAttemptCostCny
+                  : item.failedAttemptCostCny
+              )}
+            </div>
+            <div
+              className={cn(
+                item.billingStatus === 'unsettled' && 'text-orange-600'
+              )}
+            >
               {t('Billing status')} ·{' '}
               {item.billingStatus === 'unsettled'
                 ? t('Billing unsettled · insufficient quota')
                 : t(item.billingStatus)}
             </div>
           </div>
-          <div className='lg:col-span-2'>
-            <div className='text-muted-foreground mb-1'>
-              {t('Top candidates')}
-            </div>
-            {item.topCandidates.length ? (
-              item.topCandidates.map((candidate) => (
-                <div
-                  key={candidate.candidateId}
-                  className='grid grid-cols-[minmax(0,1fr)_4rem_5rem_5rem] gap-2 py-0.5'
-                >
-                  <span className='truncate' title={candidate.displayName}>
-                    {candidate.selected ? `${t('Selected')} · ` : ''}
-                    {candidate.displayName}
-                  </span>
-                  <span>Q {candidate.estimatedQuality.toFixed(1)}</span>
-                  <span>{money(candidate.estimatedCallCost)}</span>
-                  <span>U {candidate.valueUtility.toFixed(3)}</span>
-                </div>
-              ))
-            ) : (
-              <div>{t('No candidate summary for this legacy request.')}</div>
-            )}
+          <div>
+            <button
+              type='button'
+              className='text-primary underline-offset-2 hover:underline'
+              onClick={() => props.onTrace(item.logicalRequestId)}
+            >
+              {t('View full Session Trace')}
+            </button>
           </div>
-          <div className='lg:col-span-2'>
-            <div className='text-muted-foreground mb-1'>
-              {t('Provider attempts')}
-            </div>
-            {item.providerAttempts.map((attempt) => (
-              <div
-                key={`${attempt.attemptIndex}-${attempt.executionProfileId}`}
-                className='grid grid-cols-[2rem_minmax(0,1fr)_5rem_5rem] gap-2 py-0.5'
-              >
-                <span>{attempt.attemptIndex}</span>
-                <span
-                  className='truncate'
-                  title={`${attempt.channel} · ${attempt.executionProfileId}`}
-                >
-                  {attempt.channel} · {attempt.executionProfileId}
-                </span>
-                <span>{t(attempt.status)}</span>
-                <span>{ms(attempt.latencyMs)}</span>
+          {item.pointType === 'execution' ? (
+            <div className='lg:col-span-2'>
+              <div className='text-muted-foreground mb-1'>
+                {t('Top candidates')}
               </div>
-            ))}
-          </div>
+              {item.topCandidates.length ? (
+                item.topCandidates.map((candidate) => (
+                  <div
+                    key={candidate.candidateId}
+                    className='grid grid-cols-[minmax(0,1fr)_4rem_5rem_5rem] gap-2 py-0.5'
+                  >
+                    <span className='truncate' title={candidate.displayName}>
+                      {candidate.selected ? `${t('Selected')} · ` : ''}
+                      {candidate.displayName}
+                    </span>
+                    <span>Q {candidate.estimatedQuality.toFixed(1)}</span>
+                    <span>{money(candidate.estimatedCallCost)}</span>
+                    <span>U {candidate.valueUtility.toFixed(3)}</span>
+                  </div>
+                ))
+              ) : (
+                <div>{t('No candidate summary for this legacy request.')}</div>
+              )}
+            </div>
+          ) : null}
+          {item.pointType === 'execution' ? (
+            <div className='lg:col-span-2'>
+              <div className='text-muted-foreground mb-1'>
+                {t('Provider attempts')}
+              </div>
+              {item.providerAttempts.map((attempt) => (
+                <div
+                  key={`${attempt.attemptIndex}-${attempt.executionProfileId}`}
+                  className='grid grid-cols-[2rem_minmax(0,1fr)_5rem_5rem] gap-2 py-0.5'
+                >
+                  <span>{attempt.attemptIndex}</span>
+                  <span
+                    className='truncate'
+                    title={`${attempt.channel} · ${attempt.executionProfileId}`}
+                  >
+                    {attempt.channel} · {attempt.executionProfileId}
+                  </span>
+                  <span>{t(attempt.status)}</span>
+                  <span>{ms(attempt.latencyMs)}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       </CollapsibleContent>
     </Collapsible>
@@ -336,6 +431,7 @@ export function ACUWorkTimeline() {
   )
   const [rangeError, setRangeError] = useState('')
   const [traceId, setTraceId] = useState('')
+  const [selectedPointId, setSelectedPointId] = useState('')
   const [trendOpen, setTrendOpen] = useState(true)
   const [search, setSearch] = useState('')
   const [filterMode, setFilterMode] = useState<'all' | 'errors'>('all')
@@ -350,12 +446,7 @@ export function ACUWorkTimeline() {
     queryKey:
       rangeMode === 'rolling'
         ? ['acu-work-timeline', 'rolling', hours]
-        : [
-            'acu-work-timeline',
-            'custom',
-            customRange.from,
-            customRange.to,
-          ],
+        : ['acu-work-timeline', 'custom', customRange.from, customRange.to],
     queryFn: () => {
       const range =
         rangeMode === 'rolling' ? rollingTimelineRange(hours) : customRange
@@ -365,6 +456,10 @@ export function ACUWorkTimeline() {
   })
   const data = query.data?.data
   const items = useMemo(() => data?.items ?? [], [data])
+  const selectedPoint = useMemo(
+    () => items.find((item) => item.pointId === selectedPointId),
+    [items, selectedPointId]
+  )
 
   useEffect(() => {
     setVisibleOrderRange({ start: 1, end: Math.max(1, items.length) })
@@ -453,7 +548,7 @@ export function ACUWorkTimeline() {
     }
     const handleClick = (event: unknown) => {
       const item = timelineItemFromChartEvent(event)
-      if (item) setTraceId(item.logicalRequestId)
+      if (item) setSelectedPointId(item.pointId)
     }
     const handleDoubleClick = (event: { target?: unknown }) => {
       if (!event.target) resetZoom()
@@ -482,7 +577,8 @@ export function ACUWorkTimeline() {
   ])
 
   const stats = [
-    [t('API steps'), summary.apiSteps, Activity, ''],
+    [t('Execution Steps'), summary.executionSteps, Activity, ''],
+    [t('Judge Evaluations'), summary.judgeEvaluations, Scale, ''],
     [
       t('Judge first-attempt success'),
       summary.judgeFirstAttemptSuccessSamples
@@ -527,6 +623,7 @@ export function ACUWorkTimeline() {
       }),
     ],
     [t('Unsettled requests'), summary.unsettledRequests, Coins, ''],
+    [t('Platform Retry Cost'), money(summary.platformRetryCostCny), Coins, ''],
     [
       t('Cash cost'),
       summary.actualCashCostSamples
@@ -587,7 +684,11 @@ export function ACUWorkTimeline() {
             <Button
               key={value}
               size='sm'
-              variant={rangeMode === 'rolling' && hours === value ? 'default' : 'outline'}
+              variant={
+                rangeMode === 'rolling' && hours === value
+                  ? 'default'
+                  : 'outline'
+              }
               aria-pressed={rangeMode === 'rolling' && hours === value}
               onClick={() => {
                 setHours(value)
@@ -623,10 +724,16 @@ export function ACUWorkTimeline() {
             className='h-8 w-[13rem]'
           />
         </label>
-        <Button size='sm' variant={rangeMode === 'custom' ? 'default' : 'outline'} onClick={applyCustomRange}>
+        <Button
+          size='sm'
+          variant={rangeMode === 'custom' ? 'default' : 'outline'}
+          onClick={applyCustomRange}
+        >
           {t('Apply')}
         </Button>
-        {rangeError ? <span className='text-destructive text-xs'>{rangeError}</span> : null}
+        {rangeError ? (
+          <span className='text-destructive text-xs'>{rangeError}</span>
+        ) : null}
       </div>
       <div className='text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs'>
         <span>
@@ -739,7 +846,7 @@ export function ACUWorkTimeline() {
               </div>
               {taskItems.map((item) => (
                 <TimelineStep
-                  key={item.logicalRequestId}
+                  key={item.pointId}
                   item={item}
                   onTrace={setTraceId}
                 />
@@ -752,6 +859,25 @@ export function ACUWorkTimeline() {
           </div>
         )}
       </section>
+      <Dialog
+        open={Boolean(selectedPointId)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedPointId('')
+        }}
+      >
+        <DialogContent className='max-h-[90vh] w-[min(52rem,calc(100%-1rem))] max-w-none overflow-y-auto'>
+          <DialogHeader>
+            <DialogTitle>{t('Step Detail')}</DialogTitle>
+          </DialogHeader>
+          {selectedPoint ? (
+            <TimelineStep
+              item={selectedPoint}
+              onTrace={setTraceId}
+              defaultOpen
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
       <Dialog
         modal={false}
         open={Boolean(traceId)}

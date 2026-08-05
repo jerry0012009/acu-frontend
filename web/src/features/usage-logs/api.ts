@@ -97,6 +97,8 @@ export async function getACUSessionTrace(identifier: string) {
 }
 
 export type ACUWorkTimelineItem = {
+  pointId: string
+  pointType: 'judge' | 'execution'
   timestamp: number
   sequence: number
   logicalRequestId: string
@@ -127,6 +129,37 @@ export type ACUWorkTimelineItem = {
   judgeCostCny: number
   providerCostCny: number
   failedAttemptCostCny: number
+  failedJudgeAttemptCostCny: number
+  providerUserChargeCny: number
+  judgeUserChargeCny: number
+  judgeProtocol?: string
+  judgeReasoningEffort?: string
+  judgeProfileSelection: {
+    formulaVersion?: string
+    supplyStrategy?: string
+    candidateCount: number
+    selectedExecutionProfileId?: string
+    selectedProfileRank?: number
+    selectedProfileUtility?: number
+  }
+  judgeAttempts: Array<{
+    attemptIndex: number
+    attemptRole: string
+    model: string
+    provider: string
+    executionProfileId?: string
+    channelId?: string
+    status: string
+    errorCategory?: string
+    httpStatus?: number
+    inputTokens: number
+    cachedInputTokens: number
+    outputTokens: number
+    latencyMs: number
+    effectiveCostCny: number
+    costStatus: string
+    usageStatus: string
+  }>
   errorClass?: string
   cooldownUntil?: string
   workPhase: string
@@ -179,6 +212,9 @@ export type ACUWorkTimeline = {
   to: number
   summary: {
     apiSteps: number
+    executionSteps: number
+    judgeEvaluations: number
+    platformRetryCostCny: number
     judgeFirstAttemptSuccessRate: number
     judgeFirstAttemptSuccessSamples?: number
     judgeCalledRequests?: number
