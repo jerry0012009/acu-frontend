@@ -156,7 +156,8 @@ export function judgeLabel(item: ACUWorkTimelineItem): string {
 }
 
 function tooltipHtml(item: ACUWorkTimelineItem, chartOrder: number): string {
-  const backup = item.judgeAttempts.some(
+  const judgeAttempts = item.judgeAttempts ?? []
+  const backup = judgeAttempts.some(
     (attempt) => attempt.attemptRole === 'backup'
   )
     ? ' · Backup'
@@ -168,7 +169,7 @@ function tooltipHtml(item: ACUWorkTimelineItem, chartOrder: number): string {
     `<div>${escapeHtml(t('Thinking effort'))} ${escapeHtml(thinkingEffort(item))}</div>`,
     `<div>${escapeHtml(t('Difficulty'))} ${item.difficultyRecorded ? item.difficulty.toFixed(1) : '—'}</div>`,
     `<div>${escapeHtml(t(judgeLabel(item)))}${backup}</div>`,
-    `<div>${escapeHtml(item.pointType === 'judge' ? item.judgeAttempts.find((attempt) => attempt.status === 'success')?.provider || item.provider : item.provider)} · ${escapeHtml(item.pointType === 'judge' ? item.judgeAttempts.find((attempt) => attempt.status === 'success')?.channelId || item.channel : item.channel)}</div>`,
+    `<div>${escapeHtml(item.pointType === 'judge' ? judgeAttempts.find((attempt) => attempt.status === 'success')?.provider || item.provider : item.provider)} · ${escapeHtml(item.pointType === 'judge' ? judgeAttempts.find((attempt) => attempt.status === 'success')?.channelId || item.channel : item.channel)}</div>`,
     `<div>${escapeHtml(t('End-to-end'))} ${formatLatency(item.endToEndLatencyMs)} · ${escapeHtml(t('First model event'))} ${formatLatency(item.firstModelEventLatencyMs)}</div>`,
     `<div>${escapeHtml(t('Judge'))} ${formatLatency(item.judgeLatencyMs)} · ${escapeHtml(t('Provider'))} ${formatLatency(item.providerLatencyMs)}</div>`,
     `<div>${escapeHtml(t('User charge'))} ${formatOptionalMoney(timelineUserCharge(item))} · ${escapeHtml(t('Cash cost'))} ${formatOptionalMoney(timelineCashCost(item))}</div>`,

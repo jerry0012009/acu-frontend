@@ -351,6 +351,22 @@ test('tooltip exposes request order, task step, exact time, and thinking effort'
   assert.ok(html?.includes('medium'))
 })
 
+test('execution tooltip tolerates null judge attempts from the API', () => {
+  const timelineItem = item({ judgeAttempts: null as never })
+  const option = buildACUWorkTimelineChartOption({
+    items: [timelineItem],
+    dark: false,
+  })
+  const formatter = (
+    option.tooltip as { formatter?: (params: unknown) => string }
+  ).formatter
+  assert.doesNotThrow(() =>
+    formatter?.({
+      data: { value: [1, 50], timelineItem, chartOrder: 1 },
+    })
+  )
+})
+
 test('thinking effort falls back from resolved to preset, client, and default', () => {
   assert.equal(
     thinkingEffort(item({ resolvedReasoningEffort: 'high' })),
