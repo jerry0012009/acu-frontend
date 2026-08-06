@@ -46,10 +46,15 @@ import { Input } from '@/components/ui/input'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { cn } from '@/lib/utils'
 
-import { getACUWorkTimeline, type ACUWorkTimelineItem } from '../api'
+import {
+  getACUChannelMonitor,
+  getACUWorkTimeline,
+  type ACUWorkTimelineItem,
+} from '../api'
 import {
   ACU_TIMELINE_INSIDE_ZOOM_ID,
   buildACUWorkTimelineChartOption,
+  filterTimelineBySupply,
   filterTimelineItems,
   formatTimelineTimestamp,
   isCompletedStatus,
@@ -59,6 +64,7 @@ import {
   timelineItemFromChartEvent,
   timelineOrderRangeFromZoom,
   timelineUserCharge,
+  type TimelineProtocolFilter,
   thinkingEffort,
 } from './acu-work-timeline-model'
 import { ACUSessionTracePanel } from './dialogs/acu-session-trace'
@@ -456,6 +462,15 @@ export function ACUWorkTimeline() {
   const [trendOpen, setTrendOpen] = useState(true)
   const [search, setSearch] = useState('')
   const [filterMode, setFilterMode] = useState<'all' | 'errors'>('all')
+  const [protocolFilter, setProtocolFilter] =
+    useState<TimelineProtocolFilter>('all')
+  const [channelFilter, setChannelFilter] = useState('')
+  const [pointTypeFilter, setPointTypeFilter] = useState<
+    'all' | 'judge' | 'execution'
+  >('all')
+  const [resultFilter, setResultFilter] = useState<
+    'all' | 'success' | 'issues'
+  >('all')
   const chartContainerRef = useRef<HTMLDivElement | null>(null)
   const chartRef = useRef<EChartsType | null>(null)
   const { resolvedTheme, themeReady } = useChartTheme()
@@ -477,14 +492,57 @@ export function ACUWorkTimeline() {
   })
   const data = query.data?.data
   const items = useMemo(() => data?.items ?? [], [data])
+  const monitorQuery = useQuery({
+    queryKey: ['acu-channel-monitor', '24h', 'balanced', 'standard'],
+    queryFn: () => getACUChannelMonitor('24h', 'balanced', 'standard'),
+    staleTime: 60_000,
+  })
+  const profileProtocols = useMemo(
+    () =>
+      new Map(
+        (monitorQuery.data?.data?.profiles ?? []).map((profile) => [
+          profile.executionProfileId,
+          profile.protocol,
+        ])
+      ),
+    [monitorQuery.data]
+  )
+  const supplyItems = useMemo(
+    () =>
+      filterTimelineBySupply(
+        items,
+        profileProtocols,
+        protocolFilter,
+        channelFilter,
+        pointTypeFilter,
+        resultFilter
+      ),
+    [
+      channelFilter,
+      items,
+      pointTypeFilter,
+      profileProtocols,
+      protocolFilter,
+      resultFilter,
+    ]
+  )
+  const channelOptions = useMemo(
+    () =>
+      [
+        ...new Set(
+          items.flatMap((item) => [item.provider, item.channel]).filter(Boolean)
+        ),
+      ].sort(),
+    [items]
+  )
   const selectedPoint = useMemo(
     () => items.find((item) => item.pointId === selectedPointId),
     [items, selectedPointId]
   )
 
   useEffect(() => {
-    setVisibleOrderRange({ start: 1, end: Math.max(1, items.length) })
-  }, [customRange.from, customRange.to, hours, items.length, rangeMode])
+    setVisibleOrderRange({ start: 1, end: Math.max(1, supplyItems.length) })
+  }, [customRange.from, customRange.to, hours, rangeMode, supplyItems.length])
 
   const applyCustomRange = () => {
     const from = Math.floor(new Date(customStart).getTime() / 1000)
@@ -512,8 +570,8 @@ export function ACUWorkTimeline() {
   }
 
   const rangeItems = useMemo(
-    () => items.slice(visibleOrderRange.start - 1, visibleOrderRange.end),
-    [items, visibleOrderRange]
+    () => supplyItems.slice(visibleOrderRange.start - 1, visibleOrderRange.end),
+    [supplyItems, visibleOrderRange]
   )
   const visibleItems = useMemo(
     () => filterTimelineItems(rangeItems, search, filterMode),
@@ -536,10 +594,10 @@ export function ACUWorkTimeline() {
   const chartOption = useMemo(
     () =>
       buildACUWorkTimelineChartOption({
-        items,
+        items: supplyItems,
         dark: resolvedTheme === 'dark',
       }),
-    [items, resolvedTheme]
+    [resolvedTheme, supplyItems]
   )
 
   const resetZoom = useCallback(() => {
@@ -549,12 +607,14 @@ export function ACUWorkTimeline() {
       start: 0,
       end: 100,
     })
-    setVisibleOrderRange({ start: 1, end: Math.max(1, items.length) })
-  }, [items.length])
+    setVisibleOrderRange({ start: 1, end: Math.max(1, supplyItems.length) })
+  }, [supplyItems.length])
 
   useEffect(() => {
     const container = chartContainerRef.current
-    if (!trendOpen || !container || !themeReady || items.length === 0) return
+    if (!trendOpen || !container || !themeReady || supplyItems.length === 0) {
+      return
+    }
     const chart = echarts.init(
       container,
       resolvedTheme === 'dark' ? 'dark' : undefined,
@@ -564,7 +624,7 @@ export function ACUWorkTimeline() {
     chart.setOption(chartOption, { notMerge: true })
 
     const handleZoom = (event: unknown) => {
-      const range = timelineOrderRangeFromZoom(event, items.length)
+      const range = timelineOrderRangeFromZoom(event, supplyItems.length)
       if (range) setVisibleOrderRange(range)
     }
     const handleClick = (event: unknown) => {
@@ -590,7 +650,7 @@ export function ACUWorkTimeline() {
     }
   }, [
     chartOption,
-    items.length,
+    supplyItems.length,
     resetZoom,
     resolvedTheme,
     themeReady,
@@ -669,7 +729,7 @@ export function ACUWorkTimeline() {
         {t('Loading…')}
       </div>
     )
-  } else if (items.length > 0) {
+  } else if (supplyItems.length > 0) {
     chartContent = (
       <section className='bg-card min-w-0 overflow-hidden rounded border'>
         <div className='border-b px-4 py-3'>
@@ -697,7 +757,7 @@ export function ACUWorkTimeline() {
       <div className='flex flex-wrap items-center justify-between gap-3'>
         <p className='text-muted-foreground text-xs'>
           {t(
-            'Each point is a logical request. Select a point or cost bar to inspect its session trace.'
+            'View production requests, channel status, automatic Probes, and recovery progress.'
           )}
         </p>
         <div className='flex flex-wrap items-center justify-end gap-1'>
@@ -727,6 +787,67 @@ export function ACUWorkTimeline() {
         </div>
       </div>
       <div className='flex flex-wrap items-end gap-2 rounded border p-3'>
+        <label className='grid min-w-44 flex-1 gap-1 text-xs sm:flex-none'>
+          <span className='text-muted-foreground'>{t('Protocol')}</span>
+          <select
+            className='bg-background h-8 rounded border px-2'
+            value={protocolFilter}
+            onChange={(event) =>
+              setProtocolFilter(event.target.value as TimelineProtocolFilter)
+            }
+          >
+            <option value='all'>{t('All protocols')}</option>
+            <option value='responses'>{t('OpenAI Responses (Codex)')}</option>
+            <option value='messages'>
+              {t('Anthropic Messages (Claude protocol)')}
+            </option>
+          </select>
+        </label>
+        <label className='grid min-w-44 flex-1 gap-1 text-xs sm:flex-none'>
+          <span className='text-muted-foreground'>
+            {t('Provider / Channel')}
+          </span>
+          <select
+            className='bg-background h-8 rounded border px-2'
+            value={channelFilter}
+            onChange={(event) => setChannelFilter(event.target.value)}
+          >
+            <option value=''>{t('All')}</option>
+            {channelOptions.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className='grid min-w-36 flex-1 gap-1 text-xs sm:flex-none'>
+          <span className='text-muted-foreground'>{t('Event type')}</span>
+          <select
+            className='bg-background h-8 rounded border px-2'
+            value={pointTypeFilter}
+            onChange={(event) =>
+              setPointTypeFilter(event.target.value as typeof pointTypeFilter)
+            }
+          >
+            <option value='all'>{t('All event types')}</option>
+            <option value='judge'>{t('Judge evaluation')}</option>
+            <option value='execution'>{t('Production request')}</option>
+          </select>
+        </label>
+        <label className='grid min-w-32 flex-1 gap-1 text-xs sm:flex-none'>
+          <span className='text-muted-foreground'>{t('Result')}</span>
+          <select
+            className='bg-background h-8 rounded border px-2'
+            value={resultFilter}
+            onChange={(event) =>
+              setResultFilter(event.target.value as typeof resultFilter)
+            }
+          >
+            <option value='all'>{t('All results')}</option>
+            <option value='success'>{t('Successful')}</option>
+            <option value='issues'>{t('Issues only')}</option>
+          </select>
+        </label>
         <label className='grid gap-1 text-xs'>
           <span className='text-muted-foreground'>{t('Start time')}</span>
           <Input
@@ -760,8 +881,11 @@ export function ACUWorkTimeline() {
         <span>
           {t('Visible requests #{{start}}–#{{end}} of {{total}}', {
             start: visibleOrderRange.start,
-            end: Math.min(visibleOrderRange.end, Math.max(1, items.length)),
-            total: items.length,
+            end: Math.min(
+              visibleOrderRange.end,
+              Math.max(1, supplyItems.length)
+            ),
+            total: supplyItems.length,
           })}
         </span>
         <span>

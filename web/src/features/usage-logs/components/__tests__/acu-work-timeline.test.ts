@@ -8,6 +8,7 @@ import {
   ACU_TIMELINE_SLIDER_ZOOM_ID,
   buildACUWorkTimelineChartOption,
   filterTimelineItems,
+  filterTimelineBySupply,
   formatTimelineTimestamp,
   judgeLabel,
   isCompletedStatus,
@@ -16,6 +17,7 @@ import {
   timelineCashCost,
   timelineItemFromChartEvent,
   timelineOrderRangeFromZoom,
+  timelineItemProtocol,
   rollingTimelineRange,
   timelineUserCharge,
   thinkingEffort,
@@ -584,6 +586,45 @@ test('filters route steps across task request model and channel and keeps recove
   assert.equal(isCompletedStatus('success'), true)
   assert.equal(isCompletedStatus('completed_with_recovery'), true)
   assert.equal(isCompletedStatus('failed'), false)
+})
+
+test('filters Timeline by native protocol, channel, event type, and result', () => {
+  const execution = item({
+    provider: 'closeai',
+    channel: 'closeai-anthropic-primary',
+    providerAttempts: [
+      {
+        attemptIndex: 1,
+        provider: 'closeai',
+        channel: 'closeai-anthropic-primary',
+        executionProfileId: 'closeai:luna:messages',
+        status: 'success',
+        latencyMs: 100,
+      },
+    ],
+  })
+  const judge = item({
+    pointId: 'logical-1:judge',
+    pointType: 'judge',
+    judgeProtocol: 'responses',
+  })
+  const protocols = new Map<string, readonly string[]>([
+    ['closeai:luna:messages', ['messages']],
+  ])
+
+  assert.equal(timelineItemProtocol(execution, protocols), 'messages')
+  assert.equal(timelineItemProtocol(judge, protocols), 'responses')
+  assert.deepEqual(
+    filterTimelineBySupply(
+      [judge, execution],
+      protocols,
+      'messages',
+      'closeai-anthropic-primary',
+      'execution',
+      'success'
+    ),
+    [execution]
+  )
 })
 
 test('session trace inspector does not lock timeline wheel interaction', () => {

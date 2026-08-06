@@ -3,6 +3,51 @@ import { t } from 'i18next'
 
 import type { ACUWorkTimelineItem } from '../api'
 
+export type TimelineProtocolFilter = 'all' | 'responses' | 'messages'
+
+export function timelineItemProtocol(
+  item: ACUWorkTimelineItem,
+  profileProtocols: ReadonlyMap<string, readonly string[]>
+): string | undefined {
+  if (item.pointType === 'judge') return item.judgeProtocol || undefined
+  for (const attempt of item.providerAttempts ?? []) {
+    const protocols = profileProtocols.get(attempt.executionProfileId)
+    if (protocols?.length) return protocols[0]
+  }
+  return undefined
+}
+
+export function filterTimelineBySupply(
+  items: ACUWorkTimelineItem[],
+  profileProtocols: ReadonlyMap<string, readonly string[]>,
+  protocol: TimelineProtocolFilter,
+  channel: string,
+  pointType: 'all' | 'judge' | 'execution',
+  result: 'all' | 'success' | 'issues'
+): ACUWorkTimelineItem[] {
+  return items.filter((item) => {
+    if (
+      protocol !== 'all' &&
+      timelineItemProtocol(item, profileProtocols) !== protocol
+    ) {
+      return false
+    }
+    if (channel && ![item.provider, item.channel].includes(channel)) {
+      return false
+    }
+    if (pointType !== 'all' && item.pointType !== pointType) {
+      return false
+    }
+    if (result === 'success' && !isCompletedStatus(item.status)) {
+      return false
+    }
+    if (result === 'issues' && !isTimelineError(item)) {
+      return false
+    }
+    return true
+  })
+}
+
 export const ACU_TIMELINE_INSIDE_ZOOM_ID = 'acu-timeline-inside-zoom'
 export const ACU_TIMELINE_SLIDER_ZOOM_ID = 'acu-timeline-slider-zoom'
 

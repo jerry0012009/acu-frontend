@@ -30,6 +30,11 @@ import {
   classifyProbeBucket,
   type ACUChannelOverview,
 } from './acu-channel-health-model'
+import {
+  monitorReason,
+  monitorStateLabel,
+  protocolLabel,
+} from './acu-monitor-presentation'
 
 function milliseconds(value?: number | null) {
   if (!value) return 'n/a'
@@ -38,16 +43,22 @@ function milliseconds(value?: number | null) {
     : `${(value / 1000).toFixed(1)} s`
 }
 
-function relativeTime(value?: string | null) {
+function relativeTime(value: string | null | undefined, language: string) {
   if (!value) return 'n/a'
   const elapsedSeconds = Math.max(
     0,
     Math.round((Date.now() - new Date(value).getTime()) / 1000)
   )
-  if (elapsedSeconds < 60) return `${elapsedSeconds}s ago`
-  if (elapsedSeconds < 3600) return `${Math.floor(elapsedSeconds / 60)}m ago`
-  if (elapsedSeconds < 86400) return `${Math.floor(elapsedSeconds / 3600)}h ago`
-  return `${Math.floor(elapsedSeconds / 86400)}d ago`
+  const locale = language.replace('_', '-').replace(/^zhCN$/i, 'zh-CN')
+  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
+  if (elapsedSeconds < 60) return formatter.format(0, 'minute')
+  if (elapsedSeconds < 3600) {
+    return formatter.format(-Math.floor(elapsedSeconds / 60), 'minute')
+  }
+  if (elapsedSeconds < 86400) {
+    return formatter.format(-Math.floor(elapsedSeconds / 3600), 'hour')
+  }
+  return formatter.format(-Math.floor(elapsedSeconds / 86400), 'day')
 }
 
 const stateVariant = {
@@ -69,7 +80,7 @@ export function ACUChannelHealthCard(props: {
   channel: ACUChannelOverview
   generatedAt: string
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const primary = props.channel.primaryProfile
   return (
@@ -91,7 +102,7 @@ export function ACUChannelHealthCard(props: {
               {props.channel.channel}
             </h3>
             <StatusBadge
-              label={props.channel.state}
+              label={monitorStateLabel(props.channel.state, t)}
               variant={stateVariant[props.channel.state]}
               copyable={false}
             />
@@ -104,8 +115,17 @@ export function ACUChannelHealthCard(props: {
             ))}
             <span className='text-muted-foreground text-xs'>
               {props.channel.eligibleProfileCount} /{' '}
-              {props.channel.enabledProfileCount} {t('eligible Profiles')}
+              {props.channel.enabledProfileCount} {t('Profiles available')}
             </span>
+            {[
+              ...new Set(
+                props.channel.profiles.flatMap((profile) => profile.protocol)
+              ),
+            ].map((value) => (
+              <Badge key={value} variant='outline'>
+                {protocolLabel(value, t)}
+              </Badge>
+            ))}
           </div>
         </div>
       </button>
@@ -116,7 +136,9 @@ export function ACUChannelHealthCard(props: {
             {t('Production')} · {t('current range')}
           </div>
           {props.channel.availability === null ? (
-            <div className='text-sm font-medium'>{t('No production traffic')}</div>
+            <div className='text-sm font-medium'>
+              {t('No production traffic')}
+            </div>
           ) : (
             <>
               <div className='text-sm font-semibold'>
@@ -138,7 +160,9 @@ export function ACUChannelHealthCard(props: {
             {t('Probe coverage')}
           </div>
           {props.channel.probeCount === 0 ? (
-            <div className='text-sm font-medium'>{t('Not actively verified')}</div>
+            <div className='text-sm font-medium'>
+              {t('Not actively verified')}
+            </div>
           ) : (
             <div className='text-sm font-semibold'>
               {props.channel.probedProfileCount} /{' '}
@@ -146,7 +170,8 @@ export function ACUChannelHealthCard(props: {
             </div>
           )}
           <div className='text-muted-foreground text-xs'>
-            {t('Full pool')} {relativeTime(props.channel.latestFullPoolProbeAt)}
+            {t('Full pool')}{' '}
+            {relativeTime(props.channel.latestFullPoolProbeAt, i18n.language)}
           </div>
           <div className='text-muted-foreground text-xs'>
             {t('Recovery')} {props.channel.recoveryProbeSuccessCount} /{' '}
@@ -192,10 +217,10 @@ export function ACUChannelHealthCard(props: {
           <span>
             {t('Latest health event')}:{' '}
             {props.channel.latestHealthEvent
-              ? `${props.channel.latestHealthEvent.source} ${props.channel.latestHealthEvent.result} · ${relativeTime(props.channel.latestHealthEvent.at)}`
+              ? `${t(props.channel.latestHealthEvent.source)} ${monitorStateLabel(props.channel.latestHealthEvent.result, t)} · ${relativeTime(props.channel.latestHealthEvent.at, i18n.language)}`
               : t('none')}
           </span>
-          <span>{relativeTime(props.generatedAt)}</span>
+          <span>{relativeTime(props.generatedAt, i18n.language)}</span>
         </div>
       </div>
 
@@ -244,7 +269,7 @@ function StatusTimeline(props: {
 }
 
 function ChannelProfile(props: { profile: ACUChannelMonitorProfile }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const profile = props.profile
   return (
     <details className='rounded border p-3 text-xs'>
@@ -258,7 +283,10 @@ function ChannelProfile(props: { profile: ACUChannelMonitorProfile }) {
           </div>
           <div className='flex items-center gap-2'>
             <StatusBadge
-              label={profile.state}
+              label={monitorStateLabel(
+                profile.routingEligible ? 'eligible' : profile.state,
+                t
+              )}
               variant={
                 stateVariant[
                   profile.routingEligible ? 'healthy' : 'unavailable'
@@ -277,7 +305,9 @@ function ChannelProfile(props: { profile: ACUChannelMonitorProfile }) {
       <div className='mt-3 grid gap-3 border-t pt-3 sm:grid-cols-2 lg:grid-cols-4'>
         <ProfileField
           label={t('Protocol')}
-          value={profile.protocol.join(', ')}
+          value={profile.protocol
+            .map((value) => protocolLabel(value, t))
+            .join(', ')}
         />
         <ProfileField
           label={t('Eligibility')}
@@ -309,7 +339,7 @@ function ChannelProfile(props: { profile: ACUChannelMonitorProfile }) {
         />
         <ProfileField
           label={t('Latest Probe')}
-          value={`${profile.probeStatus || 'never'} · ${milliseconds(profile.probeLatencyMs)} · ${relativeTime(profile.lastProbeAt)}`}
+          value={`${profile.probeStatus || 'never'} · ${milliseconds(profile.probeLatencyMs)} · ${relativeTime(profile.lastProbeAt, i18n.language)}`}
         />
         <ProfileField
           label={t('Contributions')}
@@ -325,7 +355,7 @@ function ChannelProfile(props: { profile: ACUChannelMonitorProfile }) {
         />
         <ProfileField
           label={t('Last error')}
-          value={profile.lastError || 'none'}
+          value={`${monitorReason(profile.lastError || profile.statusReason, t).title} · ${monitorReason(profile.lastError || profile.statusReason, t).code}`}
         />
         <ProfileField
           label={t('Cooldown')}

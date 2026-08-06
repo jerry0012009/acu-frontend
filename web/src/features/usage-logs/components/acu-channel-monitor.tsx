@@ -2,9 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Activity,
   AlertCircle,
-  CircleOff,
   Clock3,
-  Gauge,
   HeartPulse,
   Network,
   ShieldCheck,
@@ -40,6 +38,16 @@ import {
 import { ACUChannelHealthCard } from './acu-channel-health-card'
 import { groupACUChannels } from './acu-channel-health-model'
 import { ACUChannelHistory } from './acu-channel-history'
+import {
+  filterProfilesByProtocol,
+  monitorReason,
+  monitorStateLabel,
+  protocolLabel,
+  sortMonitorProfiles,
+  summarizeMonitorProfiles,
+  type ACUMonitorProtocol,
+  type ACUMonitorSort,
+} from './acu-monitor-presentation'
 
 function ms(value?: number) {
   if (!value) return 'n/a'
@@ -79,6 +87,8 @@ export function ACUChannelMonitor() {
   const [supplyStrategy, setSupplyStrategy] =
     useState<ACUSupplyStrategy>('balanced')
   const [scenario, setScenario] = useState<ACUMonitorScenario>('standard')
+  const [protocol, setProtocol] = useState<ACUMonitorProtocol>('all')
+  const [sort, setSort] = useState<ACUMonitorSort>('recommended')
   const [filters, setFilters] = useState({
     model: '',
     provider: '',
@@ -140,63 +150,60 @@ export function ACUChannelMonitor() {
     },
     onError: () => toast.error(t('Channel pause failed')),
   })
+  const allProfiles = useMemo(
+    () => query.data?.data?.profiles ?? [],
+    [query.data?.data?.profiles]
+  )
+  const protocolProfiles = useMemo(
+    () => filterProfilesByProtocol(allProfiles, protocol),
+    [allProfiles, protocol]
+  )
   const profiles = useMemo(
     () =>
-      (query.data?.data?.profiles ?? []).filter(
-        (profile) =>
-          (!filters.model || profile.canonicalModel === filters.model) &&
-          (!filters.provider || profile.provider === filters.provider) &&
-          (!filters.protocol || profile.protocol.includes(filters.protocol)) &&
-          (!filters.state || profile.state === filters.state)
+      sortMonitorProfiles(
+        protocolProfiles.filter(
+          (profile) =>
+            (!filters.model || profile.canonicalModel === filters.model) &&
+            (!filters.provider || profile.provider === filters.provider) &&
+            (!filters.protocol ||
+              profile.protocol.includes(filters.protocol)) &&
+            (!filters.state || profile.state === filters.state)
+        ),
+        sort
       ),
-    [filters, query.data]
+    [filters, protocolProfiles, sort]
   )
-  const allProfiles = query.data?.data?.profiles ?? []
   const channelGroups = useMemo(
     () =>
       groupACUChannels(
-        query.data?.data?.profiles ?? [],
+        protocolProfiles,
         query.data?.data?.history ?? [],
         range,
         query.data?.data?.generatedAt,
         query.data?.data?.probeHistory ?? []
       ),
-    [query.data, range]
+    [protocolProfiles, query.data, range]
   )
-  const summary = {
-    active: allProfiles.filter(
-      (item) => item.enabled && item.administratorAllowed
-    ).length,
-    providers: new Set(allProfiles.map((item) => item.provider)).size,
-    healthy: allProfiles.filter((item) => item.state === 'healthy').length,
-    degraded: allProfiles.filter(
-      (item) => item.state === 'degraded' || item.state === 'half_open'
-    ).length,
-    cooldown: allProfiles.filter((item) => item.state === 'open').length,
-    disabled: allProfiles.filter(
-      (item) => item.state === 'disabled' || !item.enabled
-    ).length,
-    eligible: allProfiles.filter((item) => item.routingEligible).length,
-    models: new Set(allProfiles.map((item) => item.canonicalModel)).size,
-    probes: query.data?.data?.probeHistory ?? [],
-  }
+  const summary = summarizeMonitorProfiles(protocolProfiles)
   const statItems = [
-    [t('Active Profiles'), summary.active, Activity],
-    [t('Independent Providers'), summary.providers, Network],
-    [t('Healthy'), summary.healthy, HeartPulse],
-    [t('Degraded'), summary.degraded, Gauge],
-    [t('Cooldown'), summary.cooldown, Clock3],
-    [t('Disabled'), summary.disabled, CircleOff],
-    [t('Route eligible'), summary.eligible, ShieldCheck],
-    [t('Canonical models'), summary.models, Table2],
+    [t('Configured'), summary.configured, Activity],
+    [t('Currently available'), summary.eligible, HeartPulse],
+    [t('Cooling down or recovering'), summary.recovering, Clock3],
+    [t('Independent available channels'), summary.channels, Network],
+    [t('Available models'), summary.models, ShieldCheck],
+    [t('Production requests in range'), summary.requests, Table2],
   ] as const
   return (
     <div className='flex h-full min-h-0 flex-col gap-4 overflow-x-hidden overflow-y-auto pb-4'>
       <div className='flex flex-wrap items-center justify-between gap-3'>
         <div>
-          <h2 className='text-base font-semibold'>{t('Channel Monitor')}</h2>
+          <h2 className='text-base font-semibold'>
+            {t('Supply Channel Monitor')}
+          </h2>
           <p className='text-muted-foreground text-xs'>
-            {t('Execution supply health, recovery and verified inventory.')}
+            {t(
+              'View model supply availability, automatic recovery status, and verified inventory.'
+            )}
           </p>
         </div>
         <Button
@@ -208,7 +215,7 @@ export function ACUChannelMonitor() {
           <RefreshCw className='size-4' />
         </Button>
       </div>
-      <div className='grid gap-2 sm:grid-cols-3'>
+      <div className='grid gap-2 sm:grid-cols-2 xl:grid-cols-5'>
         <label className='space-y-1 text-xs'>
           <span className='text-muted-foreground'>{t('Time range')}</span>
           <select
@@ -256,6 +263,53 @@ export function ACUChannelMonitor() {
             <option value='long'>{t('Long context 100k/4k')}</option>
           </select>
         </label>
+        <label className='space-y-1 text-xs'>
+          <span className='text-muted-foreground'>{t('Protocol')}</span>
+          <select
+            aria-label={t('Protocol')}
+            className='bg-background h-8 w-full rounded border px-2'
+            value={protocol}
+            onChange={(event) =>
+              setProtocol(event.target.value as ACUMonitorProtocol)
+            }
+          >
+            <option value='all'>{t('All protocols')}</option>
+            <option value='responses'>{t('OpenAI Responses (Codex)')}</option>
+            <option value='messages'>
+              {t('Anthropic Messages (Claude protocol)')}
+            </option>
+          </select>
+        </label>
+        <label className='space-y-1 text-xs'>
+          <span className='text-muted-foreground'>{t('Sort')}</span>
+          <select
+            aria-label={t('Sort')}
+            className='bg-background h-8 w-full rounded border px-2'
+            value={sort}
+            onChange={(event) => setSort(event.target.value as ACUMonitorSort)}
+          >
+            <option value='recommended'>{t('Recommended')}</option>
+            <option value='usage'>{t('Usage high to low')}</option>
+            <option value='cost'>{t('Estimated cost low to high')}</option>
+            <option value='reliability'>{t('Reliability high to low')}</option>
+            <option value='speed'>{t('Response speed fast to slow')}</option>
+            <option value='recent_issue'>{t('Most recent issue')}</option>
+          </select>
+        </label>
+      </div>
+      <div className='bg-muted/40 text-muted-foreground rounded border px-3 py-2 text-xs'>
+        {t(
+          'Route eligible means this Profile can currently take production requests. A fresh Probe only means a recent check ran; it does not mean the check passed.'
+        )}
+        {protocol === 'messages' &&
+        summary.channels === 1 &&
+        summary.eligible > 0 ? (
+          <div className='text-foreground mt-1 font-medium'>
+            {t(
+              'Currently available Anthropic Messages supply is concentrated in one independent channel.'
+            )}
+          </div>
+        ) : null}
       </div>
       {query.isError && (
         <div className='text-destructive border-destructive/30 bg-destructive/5 flex items-start gap-2 rounded border p-3 text-xs'>
@@ -427,7 +481,7 @@ export function ACUChannelMonitor() {
                   <option value=''>
                     {t('All')} {key}
                   </option>
-                  {[...new Set(profileFilterValues(allProfiles, key))]
+                  {[...new Set(profileFilterValues(protocolProfiles, key))]
                     .filter(Boolean)
                     .sort()
                     .map((value) => (
@@ -446,22 +500,35 @@ export function ACUChannelMonitor() {
           />
         </TabsContent>
         <TabsContent value='probes' className='min-w-0'>
-          <ProbeTable rows={summary.probes} />
+          <ProbeTable
+            rows={(query.data?.data?.probeHistory ?? []).filter(
+              (row) => protocol === 'all' || row.protocol === protocol
+            )}
+          />
         </TabsContent>
         <TabsContent value='history' className='min-w-0 space-y-3'>
           <ACUChannelHistory
             range={range}
             onRangeChange={setRange}
-            profiles={query.data?.data?.profiles ?? []}
+            profiles={protocolProfiles}
             rows={query.data?.data?.history ?? []}
             cooldownIntervals={query.data?.data?.cooldownIntervals ?? []}
           />
         </TabsContent>
         <TabsContent value='inventory' className='min-w-0'>
-          <InventoryTable rows={query.data?.data?.supplyInventory ?? []} />
+          <InventoryTable
+            rows={(query.data?.data?.supplyInventory ?? []).filter(
+              (row) => protocol === 'all' || row.protocol === protocol
+            )}
+          />
         </TabsContent>
         <TabsContent value='models' className='min-w-0'>
-          <ModelPoolTable rows={query.data?.data?.modelPool ?? []} />
+          <ModelPoolTable
+            rows={(query.data?.data?.modelPool ?? []).filter(
+              (model) =>
+                protocol === 'all' || model.protocols.includes(protocol)
+            )}
+          />
         </TabsContent>
       </Tabs>
     </div>
@@ -808,7 +875,7 @@ function ProbeTable({ rows }: { rows: ACUProbeHistoryRow[] }) {
               <td className='px-3 py-2 font-medium'>
                 {row.canonical_model_id}
               </td>
-              <td className='px-3 py-2'>{row.protocol}</td>
+              <td className='px-3 py-2'>{protocolLabel(row.protocol, t)}</td>
               <td className='px-3 py-2'>
                 <div>{row.provider_id}</div>
                 <div className='text-muted-foreground'>{row.channel_id}</div>
@@ -819,7 +886,7 @@ function ProbeTable({ rows }: { rows: ACUProbeHistoryRow[] }) {
                     row.status === 'success' ? 'secondary' : 'destructive'
                   }
                 >
-                  {row.status}
+                  {monitorStateLabel(row.status, t)}
                 </Badge>
               </td>
               <td className='px-3 py-2'>{row.http_status ?? 'n/a'}</td>
@@ -892,12 +959,16 @@ function ModelPoolTable({ rows }: { rows: ACUModelPoolEntry[] }) {
                     {model.profiles.map((profile) => (
                       <div key={profile.executionProfileId}>
                         {profile.provider} · {profile.channel} ·{' '}
-                        {profile.routingEligibility}
+                        {monitorStateLabel(profile.routingEligibility, t)}
                         {profile.requiresFreshProbe && (
                           <>
                             {' '}
-                            · Probe {profile.probeFreshness} /{' '}
-                            {profile.probeStatus || 'never'}
+                            · {t('Probe')}{' '}
+                            {monitorStateLabel(profile.probeFreshness, t)} /{' '}
+                            {monitorStateLabel(
+                              profile.probeStatus || 'none',
+                              t
+                            )}
                           </>
                         )}
                       </div>
@@ -908,8 +979,14 @@ function ModelPoolTable({ rows }: { rows: ACUModelPoolEntry[] }) {
               <td className='px-3 py-2.5'>
                 {model.vendor} · {model.capabilityTier}
               </td>
-              <td className='px-3 py-2.5'>{model.protocols.join(', ')}</td>
-              <td className='px-3 py-2.5'>{model.verificationStatus}</td>
+              <td className='px-3 py-2.5'>
+                {model.protocols
+                  .map((value) => protocolLabel(value, t))
+                  .join(', ')}
+              </td>
+              <td className='px-3 py-2.5'>
+                {monitorStateLabel(model.verificationStatus, t)}
+              </td>
               <td className='px-3 py-2.5'>
                 {model.activeProfileCount} active / {model.healthyProfileCount}{' '}
                 healthy
@@ -946,25 +1023,18 @@ function MonitorTable(props: {
   const { t } = useTranslation()
   return (
     <div className='max-w-full overflow-x-auto rounded border'>
-      <table className='w-full min-w-[1480px] text-left text-xs'>
+      <table className='w-full min-w-[1060px] text-left text-xs'>
         <thead className='bg-muted/50'>
           <tr>
             {[
               'Model',
               'Protocol',
               'Provider / Channel',
-              'Multiplier',
-              'State',
-              'Success',
-              'Evidence',
-              'Routing Score',
-              'Failures',
-              'p50 / p95',
-              'Last error',
-              'Last success',
-              'Cooldown',
-              'Adaptive Probe',
-              'Eligible',
+              'Current status',
+              'Production usage',
+              'Estimated cost',
+              'Response speed',
+              'Latest verification',
               ...(props.canPause ? ['Actions'] : []),
             ].map((label) => (
               <th key={label} className='px-3 py-2 font-medium'>
@@ -976,109 +1046,145 @@ function MonitorTable(props: {
         <tbody>
           {props.profiles.map((profile) => (
             <tr key={profile.executionProfileId} className='border-t align-top'>
-              <td className='px-3 py-2 font-medium'>
-                {profile.canonicalModel}
+              <td className='px-3 py-2'>
+                <div className='font-medium'>{profile.canonicalModel}</div>
+                <details className='text-muted-foreground mt-1 max-w-64'>
+                  <summary className='cursor-pointer'>
+                    {t('Operations detail')}
+                  </summary>
+                  <div className='mt-1 space-y-1 break-words'>
+                    <div className='font-mono text-[10px]'>
+                      {profile.executionProfileId}
+                    </div>
+                    <div>
+                      {t('Routing score')}:{' '}
+                      {profile.profileUtility == null
+                        ? t('Not scored')
+                        : `${profile.profileUtility.toFixed(3)} · #${profile.profileRank}/${profile.profileCandidateCount}`}
+                    </div>
+                    <div>
+                      {t('Multiplier')}: {profile.multiplier || t('n/a')}x
+                    </div>
+                    <div>
+                      {t('Last error')}:{' '}
+                      {
+                        monitorReason(
+                          profile.lastError || profile.statusReason,
+                          t
+                        ).title
+                      }
+                      <div className='mt-0.5'>
+                        {
+                          monitorReason(
+                            profile.lastError || profile.statusReason,
+                            t
+                          ).description
+                        }
+                      </div>
+                      <div className='font-mono text-[10px]'>
+                        {
+                          monitorReason(
+                            profile.lastError || profile.statusReason,
+                            t
+                          ).code
+                        }
+                      </div>
+                    </div>
+                  </div>
+                </details>
               </td>
-              <td className='px-3 py-2'>{profile.protocol.join(', ')}</td>
+              <td className='px-3 py-2'>
+                {profile.protocol
+                  .map((value) => protocolLabel(value, t))
+                  .join(', ')}
+              </td>
               <td className='px-3 py-2'>
                 <div>{profile.provider}</div>
                 <div className='text-muted-foreground'>{profile.channel}</div>
               </td>
-              <td className='px-3 py-2'>{profile.multiplier || t('n/a')}</td>
-              <td className='px-3 py-2'>
-                <Badge variant={stateTone(profile.state)}>
-                  {profile.state}
-                </Badge>
-                <div className='text-muted-foreground mt-1 whitespace-nowrap'>
-                  P {profile.profileStateRaw || profile.profileState} · C{' '}
-                  {profile.channelStateRaw || profile.channelState}
-                </div>
-                <div className='text-muted-foreground whitespace-nowrap'>
-                  Provider {profile.providerStateRaw || 'unknown'} · Probe{' '}
-                  {profile.probeStateRaw || profile.probeFreshness}
-                </div>
-              </td>
-              <td className='px-3 py-2'>
-                {((profile.recentSuccessRate ?? 0) * 100).toFixed(0)}%
-              </td>
-              <td className='px-3 py-2'>
-                <div>
-                  {profile.successCount} / {profile.requestCount}
-                </div>
-                <div className='text-muted-foreground'>
-                  {profile.firstEventSampleCount} first-event
-                </div>
-                <div className='text-muted-foreground'>
-                  {profile.metricSource || t('n/a')}
-                </div>
-              </td>
-              <td className='px-3 py-2'>
-                {profile.profileUtility === null ? (
-                  <span className='text-muted-foreground'>
-                    {t('Not scored')}
-                  </span>
-                ) : (
-                  <>
-                    <div className='font-medium'>
-                      {profile.profileUtility.toFixed(3)} · #
-                      {profile.profileRank}/{profile.profileCandidateCount}
-                    </div>
-                    <div className='text-muted-foreground whitespace-nowrap'>
-                      C {profile.costContribution?.toFixed(3)} · S{' '}
-                      {profile.speedContribution?.toFixed(3)} · R{' '}
-                      {profile.reliabilityContribution?.toFixed(3)}
-                    </div>
-                  </>
-                )}
-              </td>
-              <td className='px-3 py-2'>{profile.consecutiveFailures}</td>
-              <td className='px-3 py-2'>
-                {ms(profile.p50FirstModelEventLatencyMs)} /{' '}
-                {ms(profile.p95FirstModelEventLatencyMs)}
-              </td>
-              <td
-                className='max-w-40 truncate px-3 py-2'
-                title={profile.lastError}
-              >
-                {profile.lastError || t('none')}
-              </td>
-              <td className='px-3 py-2'>
-                {profile.lastSuccessAt
-                  ? new Date(profile.lastSuccessAt).toLocaleString()
-                  : t('n/a')}
-              </td>
-              <td className='px-3 py-2'>
-                {profile.cooldownUntil
-                  ? new Date(profile.cooldownUntil).toLocaleString()
-                  : t('none')}
-              </td>
-              <td className='px-3 py-2'>
-                <div>{profile.probeStatus || t('never')}</div>
-                <div className='text-muted-foreground'>
-                  {profile.probeFreshness} · {ms(profile.probeLatencyMs)} · ¥
-                  {Number(profile.probeCostCny || 0).toFixed(4)}
-                </div>
-                <div className='text-muted-foreground'>
-                  {profile.lastProbeAt
-                    ? new Date(profile.lastProbeAt).toLocaleString()
-                    : t('n/a')}{' '}
-                  · today ¥{Number(profile.probeDailySpendCny || 0).toFixed(4)}
-                </div>
-              </td>
               <td className='px-3 py-2'>
                 <Badge
-                  variant={
-                    profile.routingEligibility === 'eligible'
-                      ? 'secondary'
-                      : 'outline'
-                  }
+                  variant={stateTone(
+                    profile.routingEligible ? 'healthy' : profile.state
+                  )}
                 >
-                  {profile.routingEligibility ||
-                    (profile.routingEligible ? 'eligible' : 'unavailable')}
+                  {monitorStateLabel(
+                    profile.routingEligible ? 'eligible' : profile.state,
+                    t
+                  )}
                 </Badge>
-                <div className='text-muted-foreground mt-1 max-w-48'>
-                  {profile.blockingScope ? `${profile.blockingScope}: ` : ''}
-                  {profile.statusReason || profile.effectiveState}
+                <div className='text-muted-foreground mt-1 max-w-52'>
+                  {
+                    monitorReason(profile.statusReason || profile.lastError, t)
+                      .title
+                  }
+                </div>
+              </td>
+              <td className='px-3 py-2'>
+                {profile.requestCount > 0 ? (
+                  <>
+                    <div className='font-medium'>
+                      {profile.successCount} / {profile.requestCount}{' '}
+                      {t('successful')}
+                    </div>
+                    <div className='text-muted-foreground'>
+                      {t('Success rate')}{' '}
+                      {(
+                        (profile.successCount / profile.requestCount) *
+                        100
+                      ).toFixed(1)}
+                      %
+                    </div>
+                  </>
+                ) : (
+                  <span className='text-muted-foreground'>
+                    {t('No production traffic')}
+                  </span>
+                )}
+              </td>
+              <td className='px-3 py-2'>
+                {profile.profileCost == null ? (
+                  <span className='text-muted-foreground'>
+                    {t('Price pending verification')}
+                  </span>
+                ) : (
+                  <div className='font-medium'>
+                    {t('Estimated ¥{{cost}} per request', {
+                      cost: profile.profileCost.toFixed(4),
+                    })}
+                  </div>
+                )}
+              </td>
+              <td className='px-3 py-2'>
+                {profile.p50FirstModelEventLatencyMs ? (
+                  <>
+                    <div className='font-medium'>
+                      P50 {ms(profile.p50FirstModelEventLatencyMs)}
+                    </div>
+                    <div className='text-muted-foreground'>
+                      P95 {ms(profile.p95FirstModelEventLatencyMs)}
+                    </div>
+                  </>
+                ) : (
+                  <span className='text-muted-foreground'>
+                    {t('No samples')}
+                  </span>
+                )}
+              </td>
+              <td className='px-3 py-2'>
+                <div>{monitorStateLabel(profile.probeStatus || 'none', t)}</div>
+                <div className='text-muted-foreground mt-1'>
+                  {profile.lastProbeAt
+                    ? new Date(profile.lastProbeAt).toLocaleString()
+                    : t('Never verified')}
+                </div>
+                <div
+                  className='text-muted-foreground'
+                  title={t(
+                    'A fresh Probe only means a recent check ran; it does not mean the check passed.'
+                  )}
+                >
+                  {monitorStateLabel(profile.probeFreshness || 'stale', t)}
                 </div>
               </td>
               {props.canPause && (

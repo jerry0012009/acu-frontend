@@ -55,8 +55,8 @@ const SECTION_META: Record<UsageLogsSectionId, { titleKey: string }> = {
   task: {
     titleKey: 'Task Logs',
   },
-  timeline: { titleKey: 'ACU Route Timeline' },
-  'channel-monitor': { titleKey: 'Channel Monitor' },
+  timeline: { titleKey: 'Event Timeline' },
+  'channel-monitor': { titleKey: 'Supply Channel Monitor' },
 }
 
 function UsageLogsContent() {

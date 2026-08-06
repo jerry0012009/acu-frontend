@@ -37,8 +37,12 @@ const USAGE_LOGS_SECTIONS = [
     titleKey: 'Async Task Logs',
     build: () => null, // Content is rendered directly in the page component
   },
-  { id: 'timeline', titleKey: 'ACU Route Timeline', build: () => null },
-  { id: 'channel-monitor', titleKey: 'Channel Monitor', build: () => null },
+  { id: 'timeline', titleKey: 'Event Timeline', build: () => null },
+  {
+    id: 'channel-monitor',
+    titleKey: 'Supply Channel Monitor',
+    build: () => null,
+  },
 ] as const
 
 export type UsageLogsSectionId = (typeof USAGE_LOGS_SECTIONS)[number]['id']
