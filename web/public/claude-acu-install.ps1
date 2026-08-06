@@ -45,7 +45,7 @@ $Cmd = "@echo off`r`npowershell.exe -NoProfile -ExecutionPolicy Bypass -File `"%
 [System.IO.File]::WriteAllText((Join-Path $AcuBin 'claude-acu.cmd'), $Cmd, [System.Text.UTF8Encoding]::new($false))
 
 $Headers = @{ 'x-api-key' = $Token; 'anthropic-version' = '2023-06-01' }
-$Body = @{ model = 'acu-auto'; max_tokens = 16; messages = @(@{ role = 'user'; content = 'Return exactly CLAUDE_ACU_OK' }) } | ConvertTo-Json -Depth 5
+$Body = @{ model = 'acu-auto'; max_tokens = 32; messages = @(@{ role = 'user'; content = 'Return exactly CLAUDE_ACU_OK' }) } | ConvertTo-Json -Depth 5
 $Response = Invoke-RestMethod -Method Post -Uri "$AcuBaseUrl/v1/messages" -Headers $Headers -ContentType 'application/json' -Body $Body
 if (($Response.content.text -join '') -notmatch 'CLAUDE_ACU_OK') { throw 'ACU Messages connection check failed.' }
 

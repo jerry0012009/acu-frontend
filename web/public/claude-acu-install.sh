@@ -51,7 +51,7 @@ exec claude --model acu-auto "$@"
 EOF
 chmod 700 "${ACU_LAUNCHER}"
 
-VALIDATION_BODY='{"model":"acu-auto","max_tokens":16,"messages":[{"role":"user","content":"Return exactly CLAUDE_ACU_OK"}]}'
+VALIDATION_BODY='{"model":"acu-auto","max_tokens":32,"messages":[{"role":"user","content":"Return exactly CLAUDE_ACU_OK"}]}'
 VALIDATION_RESPONSE="$(curl -fsS "${ACU_BASE_URL}/v1/messages" \
   -H "content-type: application/json" \
   -H "anthropic-version: 2023-06-01" \
