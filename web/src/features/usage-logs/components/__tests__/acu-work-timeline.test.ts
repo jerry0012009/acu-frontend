@@ -116,6 +116,47 @@ test('missing difficulty stays absent instead of producing a y=0 point', () => {
   assert.ok(Number.isNaN(difficulty?.data?.[0]?.value[1]))
 })
 
+test('difficulty points use an interactive scatter layer for Judge and Execution', () => {
+  const option = buildACUWorkTimelineChartOption({
+    items: [
+      item({ pointId: 'logical-judge:judge', pointType: 'judge' }),
+      item({
+        pointId: 'logical-execution:execution',
+        logicalRequestId: 'logical-execution',
+      }),
+    ],
+    dark: false,
+  })
+  const series = option.series as Array<{
+    id?: string
+    type?: string
+    showSymbol?: boolean
+    silent?: boolean
+    z?: number
+    data?: Array<{ chartOrder?: number; timelineItem?: ACUWorkTimelineItem }>
+  }>
+  const line = series.find((entry) => entry.id === 'difficulty-segment-1')
+  const points = series.find((entry) => entry.id === 'difficulty-points')
+  const rings = series.find((entry) => entry.id === 'judge-backup-rings')
+  assert.equal(line?.showSymbol, false)
+  assert.equal(line?.silent, true)
+  assert.equal(points?.type, 'scatter')
+  assert.equal(points?.silent, false)
+  assert.equal(points?.z, 3)
+  assert.deepEqual(
+    points?.data?.map((datum) => datum.timelineItem?.pointType),
+    ['judge', 'execution']
+  )
+  const executionDatum = points?.data?.[1]
+  assert.equal(executionDatum?.chartOrder, 2)
+  assert.equal(
+    timelineItemFromChartEvent({ data: executionDatum })?.pointId,
+    'logical-execution:execution'
+  )
+  assert.equal(rings?.silent, true)
+  assert.equal((rings?.z ?? 0) < (points?.z ?? 0), true)
+})
+
 test('a failed live Judge that reused a recent evaluation is not labeled new', () => {
   assert.equal(
     judgeLabel(

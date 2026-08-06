@@ -293,13 +293,29 @@ export function buildACUWorkTimelineChartOption({
     data: orderedItems
       .filter(({ item }) => item.segmentId === segmentId)
       .map(({ item, chartOrder }) => difficultyDatum(item, chartOrder, dark)),
-    showSymbol: true,
+    showSymbol: false,
+    silent: true,
+    z: 1,
     connectNulls: false,
     symbol: 'circle',
     lineStyle: { color: '#64748b', width: 1.5, opacity: 0.68 },
     emphasis: { focus: 'self' as const, scale: 1.3 },
     animation: false,
   }))
+  const difficultyPoints = {
+    id: 'difficulty-points',
+    type: 'scatter' as const,
+    xAxisIndex: 0,
+    yAxisIndex: 0,
+    silent: false,
+    symbol: 'circle',
+    z: 3,
+    data: orderedItems
+      .filter(({ item }) => item.difficultyRecorded)
+      .map(({ item, chartOrder }) => difficultyDatum(item, chartOrder, dark)),
+    emphasis: { focus: 'self' as const, scale: 1.3 },
+    animation: false,
+  }
 
   return {
     animation: false,
@@ -441,12 +457,14 @@ export function buildACUWorkTimelineChartOption({
     },
     series: [
       ...difficultySeries,
+      difficultyPoints,
       {
         id: 'judge-backup-rings',
         type: 'scatter',
         xAxisIndex: 0,
         yAxisIndex: 0,
         silent: true,
+        z: 2,
         symbol: 'circle',
         symbolSize: 19,
         data: orderedItems
