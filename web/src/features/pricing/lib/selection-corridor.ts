@@ -18,7 +18,7 @@ export const CORRIDOR_DISPLAY_SMOOTH_RADIUS = 5
 export const CORRIDOR_DISPLAY_SMOOTH_SIGMA = 2.5
 
 export const PRICING_PREVIEW_CONTROL_GRID_CLASS =
-  'grid shrink-0 grid-cols-1 items-end gap-2 sm:w-auto sm:grid-cols-2 xl:grid-cols-[minmax(240px,280px)_112px_112px]'
+  'grid shrink-0 grid-cols-2 items-end gap-2 sm:w-auto sm:grid-cols-4 xl:grid-cols-[minmax(220px,260px)_minmax(180px,240px)_112px_112px]'
 
 function clampQuality(value: number): number {
   return Math.min(100, Math.max(0, value))

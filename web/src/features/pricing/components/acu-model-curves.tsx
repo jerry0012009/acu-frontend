@@ -85,7 +85,7 @@ function positiveInteger(value: string, fallback: number): number {
 }
 
 type CurveSortMode = 'price' | 'ability'
-type PricingProtocol = 'responses' | 'messages'
+type PricingProtocol = 'all' | 'responses' | 'messages'
 
 const CORRIDOR_PREFERENCES: Array<{
   id: CorridorPreference
@@ -123,7 +123,7 @@ export function ACUModelCurves(props: {
   const [inputTokens, setInputTokens] = useState(100_000)
   const [outputTokens, setOutputTokens] = useState(4_000)
   const [pricingProtocol, setPricingProtocol] =
-    useState<PricingProtocol>('responses')
+    useState<PricingProtocol>('all')
   const [sortMode, setSortMode] = useState<CurveSortMode>('price')
   const [corridorPreference, setCorridorPreference] =
     useState<CorridorPreference>('balanced')
@@ -146,14 +146,14 @@ export function ACUModelCurves(props: {
         deferredInputTokens,
         deferredOutputTokens,
         previewTokenId,
-        pricingProtocol,
+        pricingProtocol === 'all' ? 'responses' : pricingProtocol,
       ],
       queryFn: () =>
         getACUSelectionCorridor(
           deferredInputTokens,
           deferredOutputTokens,
           previewTokenId,
-          pricingProtocol
+          pricingProtocol === 'all' ? 'responses' : pricingProtocol
         ),
       staleTime: 60 * 1000,
       retry: 1,
@@ -169,12 +169,12 @@ export function ACUModelCurves(props: {
   }, [selectionCorridor])
   const curveModels = useMemo(() => {
     if (!selectionCorridor) {
-      return pricingProtocol === 'responses' ? allCurveModels : []
+      return allCurveModels
     }
     const eligibleModelIds = corridorEligibleModelIds(selectionCorridor)
-    return allCurveModels.filter((model) =>
-      eligibleModelIds.has(model.model_name)
-    )
+    return pricingProtocol === 'all'
+      ? allCurveModels
+      : allCurveModels.filter((model) => eligibleModelIds.has(model.model_name))
   }, [allCurveModels, pricingProtocol, selectionCorridor])
   const effectiveCorridorPreference = resolveEffectiveCorridorPreference(
     previewTokenId,
@@ -756,8 +756,9 @@ export function ACUModelCurves(props: {
               >
                 {(
                   [
-                    ['responses', 'Codex'],
-                    ['messages', 'Claude Code'],
+                    ['all', 'ALL'],
+                    ['responses', 'OpenAI'],
+                    ['messages', 'Claude'],
                   ] as const
                 ).map(([protocol, label]) => (
                   <Button
