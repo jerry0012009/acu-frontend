@@ -63,12 +63,13 @@ func TestGetACUSelectionCorridorSendsCandidatePolicy(t *testing.T) {
 		CandidatePreferenceScores: map[string]float64{
 			"gpt-5.6-luna@max": 140.5,
 		},
-	})
+	}, "messages")
 	require.NoError(t, err)
 	var body map[string]interface{}
 	require.NoError(t, common.Unmarshal(requestBody, &body))
 	require.Equal(t, []interface{}{"gpt-5.6-luna@max"}, body["allowedCandidateIds"])
 	require.Equal(t, 140.5, body["candidatePreferenceScores"].(map[string]interface{})["gpt-5.6-luna@max"])
+	require.Equal(t, "messages", body["protocol"])
 }
 
 func TestGetACUSelectionCorridorPropagatesPreferenceValidationError(t *testing.T) {

@@ -370,6 +370,20 @@ func processHeaderOverride(info *common.RelayInfo, c *gin.Context) (map[string]s
 	}
 
 	headerOverrideSource := common.GetEffectiveHeaderOverride(info)
+	if info.IsACUChannel && c != nil && c.Request != nil {
+		for name := range c.Request.Header {
+			lower := strings.ToLower(strings.TrimSpace(name))
+			if !strings.HasPrefix(lower, "anthropic-") && !strings.HasPrefix(lower, "x-claude-code-") {
+				continue
+			}
+			if shouldSkipPassthroughHeader(name) {
+				continue
+			}
+			if value := strings.TrimSpace(c.Request.Header.Get(name)); value != "" {
+				headerOverride[lower] = value
+			}
+		}
+	}
 
 	passAll := false
 	var passthroughRegex []*regexp.Regexp

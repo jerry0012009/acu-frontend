@@ -85,6 +85,7 @@ function positiveInteger(value: string, fallback: number): number {
 }
 
 type CurveSortMode = 'price' | 'ability'
+type PricingProtocol = 'responses' | 'messages'
 
 const CORRIDOR_PREFERENCES: Array<{
   id: CorridorPreference
@@ -121,6 +122,8 @@ export function ACUModelCurves(props: {
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([])
   const [inputTokens, setInputTokens] = useState(100_000)
   const [outputTokens, setOutputTokens] = useState(4_000)
+  const [pricingProtocol, setPricingProtocol] =
+    useState<PricingProtocol>('responses')
   const [sortMode, setSortMode] = useState<CurveSortMode>('price')
   const [corridorPreference, setCorridorPreference] =
     useState<CorridorPreference>('balanced')
@@ -143,42 +146,42 @@ export function ACUModelCurves(props: {
         deferredInputTokens,
         deferredOutputTokens,
         previewTokenId,
+        pricingProtocol,
       ],
       queryFn: () =>
         getACUSelectionCorridor(
           deferredInputTokens,
           deferredOutputTokens,
-          previewTokenId
+          previewTokenId,
+          pricingProtocol
         ),
       staleTime: 60 * 1000,
       retry: 1,
     })
   const executionPresetSeries = useMemo(() => {
     const presets = selectionCorridor?.executionPresetSeries ?? []
-    if (previewTokenId == null || !selectionCorridor) return presets
+    if (!selectionCorridor) return presets
     const eligibleModelIds = corridorEligibleModelIds(selectionCorridor)
     return presets.filter(
       (preset) =>
         preset.points.length > 0 && eligibleModelIds.has(preset.modelId)
     )
-  }, [previewTokenId, selectionCorridor])
+  }, [selectionCorridor])
   const curveModels = useMemo(() => {
-    if (previewTokenId == null) return allCurveModels
-    if (!selectionCorridor) return []
+    if (!selectionCorridor) {
+      return pricingProtocol === 'responses' ? allCurveModels : []
+    }
     const eligibleModelIds = corridorEligibleModelIds(selectionCorridor)
     return allCurveModels.filter((model) =>
       eligibleModelIds.has(model.model_name)
     )
-  }, [allCurveModels, previewTokenId, selectionCorridor])
+  }, [allCurveModels, pricingProtocol, selectionCorridor])
   const effectiveCorridorPreference = resolveEffectiveCorridorPreference(
     previewTokenId,
     selectionCorridor,
     corridorPreference
   )
-  const isPreviewLoading =
-    previewTokenId != null &&
-    !selectionCorridor &&
-    !selectionCorridorUnavailable
+  const isPreviewLoading = !selectionCorridor && !selectionCorridorUnavailable
   const allCandidateIds = useMemo(
     () => [
       ...curveModels.map((model) => model.model_name),
@@ -744,6 +747,32 @@ export function ACUModelCurves(props: {
             </p>
           </div>
           <div className={PRICING_PREVIEW_CONTROL_GRID_CLASS}>
+            <div className='text-muted-foreground text-[11px] font-medium'>
+              {t('Client')}
+              <div
+                className='bg-muted/40 mt-1 inline-flex h-8 w-full items-center rounded-md border p-0.5'
+                role='group'
+                aria-label='Pricing protocol'
+              >
+                {(
+                  [
+                    ['responses', 'Codex'],
+                    ['messages', 'Claude Code'],
+                  ] as const
+                ).map(([protocol, label]) => (
+                  <Button
+                    key={protocol}
+                    type='button'
+                    size='sm'
+                    variant={pricingProtocol === protocol ? 'default' : 'ghost'}
+                    className='h-7 flex-1 px-2 text-xs'
+                    onClick={() => setPricingProtocol(protocol)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+            </div>
             {currentUser && (
               <label className='text-muted-foreground col-span-1 text-[11px] font-medium sm:col-span-2 xl:col-span-1'>
                 {t('Preview API Key')}

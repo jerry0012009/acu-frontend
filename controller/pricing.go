@@ -103,12 +103,17 @@ func GetPricing(c *gin.Context) {
 func GetACUSelectionCorridor(c *gin.Context) {
 	inputTokens, _ := strconv.Atoi(c.DefaultQuery("input_tokens", "100000"))
 	expectedOutputTokens, _ := strconv.Atoi(c.DefaultQuery("output_tokens", "4000"))
+	protocol := c.DefaultQuery("protocol", "responses")
+	if protocol != "responses" && protocol != "messages" {
+		c.JSON(400, gin.H{"success": false, "message": "invalid protocol"})
+		return
+	}
 	policy, err := service.ResolveACUEffectiveRoutingPolicy(nil)
 	if err != nil {
 		c.JSON(400, gin.H{"success": false, "message": err.Error()})
 		return
 	}
-	result, err := service.GetACUSelectionCorridor(c.Request.Context(), inputTokens, expectedOutputTokens, &policy)
+	result, err := service.GetACUSelectionCorridor(c.Request.Context(), inputTokens, expectedOutputTokens, &policy, protocol)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -119,6 +124,11 @@ func GetACUSelectionCorridor(c *gin.Context) {
 func GetACUTokenSelectionCorridor(c *gin.Context) {
 	inputTokens, _ := strconv.Atoi(c.DefaultQuery("input_tokens", "100000"))
 	expectedOutputTokens, _ := strconv.Atoi(c.DefaultQuery("output_tokens", "4000"))
+	protocol := c.DefaultQuery("protocol", "responses")
+	if protocol != "responses" && protocol != "messages" {
+		c.JSON(400, gin.H{"success": false, "message": "invalid protocol"})
+		return
+	}
 	tokenID, err := strconv.Atoi(c.Param("tokenId"))
 	if err != nil {
 		c.JSON(400, gin.H{"success": false, "message": "invalid token id"})
@@ -138,7 +148,7 @@ func GetACUTokenSelectionCorridor(c *gin.Context) {
 		c.JSON(400, gin.H{"success": false, "message": err.Error()})
 		return
 	}
-	result, err := service.GetACUSelectionCorridor(c.Request.Context(), inputTokens, expectedOutputTokens, &policy)
+	result, err := service.GetACUSelectionCorridor(c.Request.Context(), inputTokens, expectedOutputTokens, &policy, protocol)
 	if err != nil {
 		common.ApiError(c, err)
 		return

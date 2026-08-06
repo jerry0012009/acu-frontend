@@ -89,9 +89,21 @@ func GetACUChannelMonitor(ctx context.Context, rangeValue, supplyStrategy, scena
 	return result, nil
 }
 
-func buildACUSelectionCorridorBody(inputTokens, expectedOutputTokens int, policy *ACUEffectiveRoutingPolicy, includeCandidatePreferenceScores bool) ([]byte, error) {
+func normalizedACUSelectionProtocol(protocol string) string {
+	if protocol == "messages" {
+		return "messages"
+	}
+	return "responses"
+}
+
+func buildACUSelectionCorridorBody(inputTokens, expectedOutputTokens int, policy *ACUEffectiveRoutingPolicy, includeCandidatePreferenceScores bool, protocols ...string) ([]byte, error) {
+	protocol := "responses"
+	if len(protocols) > 0 {
+		protocol = normalizedACUSelectionProtocol(protocols[0])
+	}
 	payload := map[string]interface{}{
 		"inputTokens": inputTokens, "expectedOutputTokens": expectedOutputTokens,
+		"protocol":        protocol,
 		"allowedModelIds": policy.AllowedModelIDs, "allowedProfileIds": policy.AllowedProfileIDs,
 		"allowedCandidateIds": policy.AllowedCandidateIDs,
 		"routingPreference":   policy.RoutingPreference, "qualityBias": policy.QualityBias,
@@ -111,18 +123,23 @@ func buildACUSelectionCorridorBody(inputTokens, expectedOutputTokens int, policy
 	return common.Marshal(payload)
 }
 
-func GetACUSelectionCorridor(ctx context.Context, inputTokens, expectedOutputTokens int, policy *ACUEffectiveRoutingPolicy) (map[string]interface{}, error) {
+func GetACUSelectionCorridor(ctx context.Context, inputTokens, expectedOutputTokens int, policy *ACUEffectiveRoutingPolicy, protocols ...string) (map[string]interface{}, error) {
+	protocol := "responses"
+	if len(protocols) > 0 {
+		protocol = normalizedACUSelectionProtocol(protocols[0])
+	}
 	path := fmt.Sprintf(
-		"/internal/admin/selection-corridor?inputTokens=%d&expectedOutputTokens=%d",
+		"/internal/admin/selection-corridor?inputTokens=%d&expectedOutputTokens=%d&protocol=%s",
 		inputTokens,
 		expectedOutputTokens,
+		protocol,
 	)
 	method := http.MethodGet
 	var body []byte
 	if policy != nil {
 		method = http.MethodPost
 		var err error
-		body, err = buildACUSelectionCorridorBody(inputTokens, expectedOutputTokens, policy, true)
+		body, err = buildACUSelectionCorridorBody(inputTokens, expectedOutputTokens, policy, true, protocol)
 		if err != nil {
 			return nil, err
 		}

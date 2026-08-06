@@ -346,6 +346,9 @@ export type ACUModelPoolEntry = {
     presetId?: string
     reasoningEffort?: string
     calibrationStatus?: string
+    protocols: Array<'responses' | 'messages'>
+    responsesProfileCount: number
+    messagesProfileCount: number
   }>
 }
 

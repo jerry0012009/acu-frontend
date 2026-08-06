@@ -30,7 +30,7 @@ func TestGetACUSelectionCorridorUsesGlobalPolicy(t *testing.T) {
 	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
 	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
 
-	request := httptest.NewRequest(http.MethodGet, "/api/pricing/acu-selection-corridor", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/pricing/acu-selection-corridor?protocol=messages", nil)
 	response := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(response)
 	c.Request = request
@@ -44,4 +44,15 @@ func TestGetACUSelectionCorridorUsesGlobalPolicy(t *testing.T) {
 	require.Contains(t, string(body), `"formulaMode":"legacy"`)
 	require.Contains(t, string(body), `"allowedCandidateIds":[]`)
 	require.Contains(t, string(body), `"candidatePreferenceScores":{}`)
+	require.Contains(t, string(body), `"protocol":"messages"`)
+}
+
+func TestGetACUSelectionCorridorRejectsUnknownProtocol(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	request := httptest.NewRequest(http.MethodGet, "/api/pricing/acu-selection-corridor?protocol=chat", nil)
+	response := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(response)
+	c.Request = request
+	GetACUSelectionCorridor(c)
+	require.Equal(t, http.StatusBadRequest, response.Code)
 }

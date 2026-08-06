@@ -33,6 +33,31 @@ func TestProcessHeaderOverride_ChannelTestSkipsPassthroughRules(t *testing.T) {
 	require.Empty(t, headers)
 }
 
+func TestProcessHeaderOverride_ACUForwardsOpenMessagesHeadersOnly(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+	ctx.Request.Header.Set("Anthropic-Test-Capability", "future-beta")
+	ctx.Request.Header.Set("X-Claude-Code-Test-Id", "audit-only")
+	ctx.Request.Header.Set("Authorization", "Bearer customer-secret")
+	ctx.Request.Header.Set("X-Api-Key", "customer-secret")
+	ctx.Request.Header.Set("Cookie", "session=customer-secret")
+	ctx.Request.Header.Set("X-ACU-Signature", "client-forged")
+
+	info := &relaycommon.RelayInfo{IsACUChannel: true}
+	headers, err := processHeaderOverride(info, ctx)
+	require.NoError(t, err)
+	require.Equal(t, "future-beta", headers["anthropic-test-capability"])
+	require.Equal(t, "audit-only", headers["x-claude-code-test-id"])
+	require.NotContains(t, headers, "authorization")
+	require.NotContains(t, headers, "x-api-key")
+	require.NotContains(t, headers, "cookie")
+	require.NotContains(t, headers, "x-acu-signature")
+}
+
 func TestProcessHeaderOverride_ChannelTestSkipsClientHeaderPlaceholder(t *testing.T) {
 	t.Parallel()
 

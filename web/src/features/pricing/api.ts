@@ -33,13 +33,19 @@ export async function getPricing(): Promise<PricingData> {
 export async function getACUSelectionCorridor(
   inputTokens: number,
   outputTokens: number,
-  tokenId?: number
+  tokenId?: number,
+  protocol: 'responses' | 'messages' = 'responses'
 ): Promise<ACUSelectionCorridor> {
-  const path = tokenId == null
-    ? '/api/pricing/acu-selection-corridor'
-    : `/api/pricing/acu-selection-corridor/token/${tokenId}`
+  const path =
+    tokenId == null
+      ? '/api/pricing/acu-selection-corridor'
+      : `/api/pricing/acu-selection-corridor/token/${tokenId}`
   const res = await api.get(path, {
-    params: { input_tokens: inputTokens, output_tokens: outputTokens },
+    params: {
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      protocol,
+    },
   })
   return res.data.data
 }
