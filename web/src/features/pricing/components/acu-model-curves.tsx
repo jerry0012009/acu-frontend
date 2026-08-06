@@ -70,7 +70,6 @@ import {
 import {
   PRICING_PREVIEW_CONTROL_GRID_CLASS,
   buildSmoothedCorridorDisplayValues,
-  buildSmoothedCorridorDisplayValues,
   corridorEligibleModelIds,
   corridorEffectivePointAtDifficulty,
   corridorPointAtDifficulty,
