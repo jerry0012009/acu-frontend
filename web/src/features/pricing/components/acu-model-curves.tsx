@@ -171,10 +171,15 @@ export function ACUModelCurves(props: {
     if (!selectionCorridor) {
       return allCurveModels
     }
-    const eligibleModelIds = corridorEligibleModelIds(selectionCorridor)
-    return pricingProtocol === 'all'
-      ? allCurveModels
-      : allCurveModels.filter((model) => eligibleModelIds.has(model.model_name))
+    if (pricingProtocol === 'all') return allCurveModels
+
+    // The corridor contains recommended candidates, not the complete
+    // protocol inventory. Keep every curve-capable model for the selected
+    // protocol and use corridor eligibility only for the all-protocol view.
+    const protocolLabel = pricingProtocol === 'messages' ? 'Messages' : 'Responses'
+    return allCurveModels.filter((model) =>
+      model.acu_protocol?.split('+').some((value) => value.trim() === protocolLabel)
+    )
   }, [allCurveModels, pricingProtocol, selectionCorridor])
   const effectiveCorridorPreference = resolveEffectiveCorridorPreference(
     previewTokenId,
