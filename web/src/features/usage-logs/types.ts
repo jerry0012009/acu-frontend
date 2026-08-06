@@ -421,6 +421,11 @@ export interface LogOtherData {
     judge_reasoning_effort?: string
     judge_result_source?: string
     judge_status?: string
+    decision_summary?: {
+      judge_result_source?: string
+      judge_status?: string
+      judge_same_model_failover_used?: boolean
+    }
     failed_attempt_cash_cost_cny?: number
     counterfactual_quality_ceiling_cost_cny?: number
     reference_provider?: string

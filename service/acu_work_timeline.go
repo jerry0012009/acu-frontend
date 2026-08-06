@@ -208,7 +208,9 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 	for i := range items {
 		sequenceByTask[items[i].TaskID]++
 		items[i].Sequence = sequenceByTask[items[i].TaskID]
-		legacyTotalCost += items[i].ActualCostCNY
+		if items[i].PointType == "execution" {
+			legacyTotalCost += items[i].ActualCostCNY
+		}
 		if items[i].BillingStatus == "finalized" && items[i].UserChargeCNY != nil {
 			totalUserCharge += *items[i].UserChargeCNY
 		}

@@ -49,6 +49,7 @@ import {
   acuCacheReadTokens,
   acuDurationSeconds,
   acuFirstTokenMs,
+  acuLogPresentation,
   parseLogOther,
   isViolationFeeLog,
   renderAuditContent,
@@ -610,30 +611,28 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
 
         const modelInfo = formatModelName(log)
         const other = parseLogOther(log.other)
-        const routeBreakdown = other?.acu_cost_breakdown
-        const routedByACU =
-          routeBreakdown?.routed_by_acu ||
-          routeBreakdown?.requested_model === 'acu-auto' ||
-          !!other?.acu_logical_request_id
+        const presentation = acuLogPresentation(other)
         let judgeLine = t('Judge unavailable')
-        if (routeBreakdown?.judge_reused) {
-          judgeLine = t('Judge reused')
-        } else if (!routedByACU) {
-          judgeLine = t('Judge not required')
-        } else if (routeBreakdown?.judge_result_source === 'disk_cache') {
-          judgeLine = `${t('Judge cache')} · ${routeBreakdown.judge_model || '—'}`
-        } else if (
-          routeBreakdown?.judge_result_source === 'rules_strategy' ||
-          routeBreakdown?.judge_status === 'rules_fallback'
-        ) {
-          judgeLine = t('Judge rules fallback')
-        } else if (routeBreakdown?.judge_model) {
-          judgeLine = `${t('Judge')} · ${routeBreakdown.judge_model}`
-        } else if (other?.acu_pending_finalize) {
+        if (presentation.judgeMode === 'pending') {
           judgeLine = t('Waiting for ACU finalize')
+        } else if (presentation.judgeMode === 'reused') {
+          judgeLine = t('Judge reused')
+        } else if (presentation.judgeMode === 'cache') {
+          judgeLine = `${t('Judge cache')} · ${presentation.judgeModel || '—'}`
+        } else if (presentation.judgeMode === 'rules_fallback') {
+          judgeLine = t('Judge rules fallback')
+        } else if (presentation.judgeMode === 'profile_failover') {
+          judgeLine = `${t('Judge Profile failover')} · ${presentation.judgeModel || '—'}`
+        } else if (presentation.judgeMode === 'judge') {
+          judgeLine = `${t('Judge')} · ${presentation.judgeModel}`
+        } else if (presentation.judgeMode === 'not_required') {
+          judgeLine = t('Judge not required')
         }
 
-        if (routedByACU) {
+        if (presentation.acuManaged) {
+          const routeLabel = presentation.automaticRouting
+            ? 'ACU Auto'
+            : t('Explicit')
           return (
             <div className='flex min-w-0 flex-col gap-0.5'>
               <div className='flex min-w-0 items-center gap-1 text-xs font-medium'>
@@ -641,7 +640,9 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
                   className='size-3.5 shrink-0 text-cyan-700'
                   aria-hidden='true'
                 />
-                <span className='truncate'>ACU Auto → {log.model_name}</span>
+                <span className='truncate'>
+                  {routeLabel} → {log.model_name}
+                </span>
               </div>
               <span className='text-muted-foreground truncate text-[11px]'>
                 {judgeLine}

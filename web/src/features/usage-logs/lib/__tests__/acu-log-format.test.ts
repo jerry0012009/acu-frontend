@@ -6,6 +6,7 @@ import {
   acuCacheReadTokens,
   acuDurationSeconds,
   acuFirstTokenMs,
+  acuLogPresentation,
   parseLogOther,
 } from '../format.ts'
 
@@ -49,4 +50,36 @@ test('ACU logs use end-to-end latency and successful provider first token fallba
   assert.equal(acuCacheReadTokens(other), 12640)
   assert.equal(acuDurationSeconds(log, other), 36)
   assert.equal(acuFirstTokenMs(other), 420)
+})
+
+test('ACU presentation reads Judge status from decision summary and separates explicit requests', () => {
+  const cases = [
+    ['disk_cache', { judge_result_source: 'disk_cache' }, 'cache'],
+    [
+      'rules_strategy',
+      { judge_result_source: 'rules_strategy' },
+      'rules_fallback',
+    ],
+    ['failover', { judge_same_model_failover_used: true }, 'profile_failover'],
+  ] as const
+  for (const [, decision, expected] of cases) {
+    const presentation = acuLogPresentation({
+      acu_logical_request_id: 'req-1',
+      acu_cost_breakdown: {
+        requested_model: 'acu-auto',
+        judge_model: 'gpt-5.6-sol',
+        decision_summary: decision,
+      },
+    })
+    assert.equal(presentation.judgeMode, expected)
+    assert.equal(presentation.automaticRouting, true)
+  }
+
+  const explicit = acuLogPresentation({
+    acu_logical_request_id: 'req-2',
+    acu_cost_breakdown: { requested_model: 'gpt-5.6-sol' },
+  })
+  assert.equal(explicit.acuManaged, true)
+  assert.equal(explicit.automaticRouting, false)
+  assert.equal(explicit.judgeMode, 'not_required')
 })

@@ -197,6 +197,50 @@ export function acuFirstTokenMs(
   return successful[0]?.first_model_event_latency_ms ?? undefined
 }
 
+type ACUJudgePresentationMode =
+  | 'pending'
+  | 'reused'
+  | 'cache'
+  | 'rules_fallback'
+  | 'profile_failover'
+  | 'judge'
+  | 'unavailable'
+  | 'not_required'
+
+export function acuLogPresentation(other: LogOtherData | null): {
+  acuManaged: boolean
+  automaticRouting: boolean
+  judgeMode: ACUJudgePresentationMode
+  judgeModel?: string
+} {
+  const breakdown = other?.acu_cost_breakdown
+  const decision = breakdown?.decision_summary
+  const acuManaged = !!other?.acu_logical_request_id || !!breakdown
+  const automaticRouting =
+    breakdown?.routed_by_acu === true ||
+    breakdown?.requested_model === 'acu-auto' ||
+    breakdown?.requested_model === 'acu-high'
+  let judgeMode: ACUJudgePresentationMode = 'unavailable'
+  if (other?.acu_pending_finalize === true) judgeMode = 'pending'
+  else if (breakdown?.judge_reused) judgeMode = 'reused'
+  else if (decision?.judge_result_source === 'disk_cache') judgeMode = 'cache'
+  else if (
+    decision?.judge_result_source === 'rules_strategy' ||
+    decision?.judge_status === 'rules_fallback'
+  ) {
+    judgeMode = 'rules_fallback'
+  } else if (decision?.judge_same_model_failover_used === true) {
+    judgeMode = 'profile_failover'
+  } else if (breakdown?.judge_model) judgeMode = 'judge'
+  else if (!automaticRouting) judgeMode = 'not_required'
+  return {
+    acuManaged,
+    automaticRouting,
+    judgeMode,
+    judgeModel: breakdown?.judge_model,
+  }
+}
+
 /**
  * Get time color based on duration (in seconds)
  */
