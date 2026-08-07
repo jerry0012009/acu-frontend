@@ -49,7 +49,21 @@ const model = {
     input_cny_per_million: 2,
     output_cny_per_million: 10,
     status: 'estimated',
-    pricing_policy_version: 'retail-v1',
+    pricing_policy_version: 'acu-retail-v1',
+  },
+  payable_by_protocol: {
+    responses: {
+      input_cny_per_million: 1,
+      output_cny_per_million: 5,
+      status: 'estimated',
+      pricing_policy_version: 'acu-retail-v1',
+    },
+    messages: {
+      input_cny_per_million: 4,
+      output_cny_per_million: 20,
+      status: 'verified',
+      pricing_policy_version: 'acu-retail-v1',
+    },
   },
   reference: {
     input_cny_per_million: 7.2,
@@ -194,6 +208,12 @@ test('comparison sorts by payable and reference_only sorts by reference', () => 
       displayedPricingCost(model, 'reference_only', 1_000_000, 100_000) - 8.64
     ) < 1e-12
   )
+})
+
+test('protocol views select backend payable prices while all keeps the backend compatibility price', () => {
+  assert.equal(displayedPricingCost(model, 'comparison', 1_000_000, 100_000, 'all'), 3)
+  assert.equal(displayedPricingCost(model, 'comparison', 1_000_000, 100_000, 'responses'), 1.5)
+  assert.equal(displayedPricingCost(model, 'comparison', 1_000_000, 100_000, 'messages'), 6)
 })
 
 test('models without a comparable reference sort after priced models', () => {

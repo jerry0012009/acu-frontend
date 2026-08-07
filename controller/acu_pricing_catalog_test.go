@@ -2,6 +2,8 @@ package controller
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -13,6 +15,7 @@ import (
 
 func TestOverlayACUPricingUsesDynamicAutoAndCatalogPrices(t *testing.T) {
 	cachePayable := 0.006
+	cacheWritePayable := 0.075
 	cacheReference := 0.72
 	catalog := &acuPricingCatalog{
 		PricingVersion: "catalog-v1",
@@ -36,7 +39,15 @@ func TestOverlayACUPricingUsesDynamicAutoAndCatalogPrices(t *testing.T) {
 			CostSemantics:                          "estimated_user_payable_price",
 			Payable: &acuCatalogPayable{
 				InputCNYPerMillion: 0.06, OutputCNYPerMillion: 0.36,
-				CachedInputCNYPerMillion: &cachePayable, Status: "estimated", PricingPolicyVersion: "retail-v1",
+				CachedInputCNYPerMillion: &cachePayable, CacheWriteCNYPerMillion: &cacheWritePayable,
+				Status: "estimated", PricingPolicyVersion: "acu-retail-v1",
+			},
+			PayableByProtocol: map[string]*acuCatalogPayable{
+				"responses": {InputCNYPerMillion: 0.06, OutputCNYPerMillion: 0.36,
+					CachedInputCNYPerMillion: &cachePayable, CacheWriteCNYPerMillion: &cacheWritePayable,
+					Status: "estimated", PricingPolicyVersion: "acu-retail-v1"},
+				"messages": {InputCNYPerMillion: 0.12, OutputCNYPerMillion: 0.72,
+					Status: "verified", PricingPolicyVersion: "acu-retail-v1"},
 			},
 			Reference: &acuCatalogReference{
 				InputCNYPerMillion: 7.2, OutputCNYPerMillion: 43.2,
@@ -69,6 +80,11 @@ func TestOverlayACUPricingUsesDynamicAutoAndCatalogPrices(t *testing.T) {
 	require.Equal(t, 0.06, *got[1].InputPricePerMillion)
 	require.Equal(t, 0.36, *got[1].OutputPricePerMillion)
 	require.Equal(t, 0.006, *got[1].CachedPricePerMillion)
+	require.Equal(t, 0.075/0.06, *got[1].CreateCacheRatio)
+	require.Equal(t, 0.06, got[1].PayableByProtocol["responses"].InputCNYPerMillion)
+	require.Equal(t, 0.12, got[1].PayableByProtocol["messages"].InputCNYPerMillion)
+	require.Equal(t, 0.075, *got[1].PayableByProtocol["responses"].CacheWriteCNYPerMillion)
+	require.Equal(t, "acu-retail-v1", got[1].Payable.PricingPolicyVersion)
 	require.Equal(t, "CNY", got[1].PriceCurrency)
 	require.Equal(t, "estimated_user_payable_price", got[1].PriceSemantics)
 	require.Equal(t, "estimated", got[1].Payable.Status)
@@ -82,6 +98,33 @@ func TestOverlayACUPricingUsesDynamicAutoAndCatalogPrices(t *testing.T) {
 	for _, privateField := range []string{"provider", "channel", "multiplier", "execution_profile"} {
 		require.NotContains(t, strings.ToLower(string(body)), privateField)
 	}
+}
+
+func TestLoadACUPricingCatalogReadsRuntimeFileOnEveryCallAndFallsBack(t *testing.T) {
+	dir := t.TempDir()
+	runtimePath := filepath.Join(dir, "runtime.json")
+	fallbackPath := filepath.Join(dir, "fallback.json")
+	t.Setenv("ACU_PRICING_CATALOG_FILE", runtimePath)
+	t.Setenv("ACU_PRICING_FALLBACK_CATALOG_FILE", fallbackPath)
+
+	write := func(path, version string) {
+		require.NoError(t, os.WriteFile(path, []byte(`{"pricingVersion":"`+version+`","auto":{"modelId":"acu-auto"},"responses":[]}`), 0o600))
+	}
+	write(fallbackPath, "fallback-v1")
+
+	catalog, err := loadACUPricingCatalog()
+	require.NoError(t, err)
+	require.Equal(t, "fallback-v1", catalog.PricingVersion)
+
+	write(runtimePath, "runtime-v1")
+	catalog, err = loadACUPricingCatalog()
+	require.NoError(t, err)
+	require.Equal(t, "runtime-v1", catalog.PricingVersion)
+
+	write(runtimePath, "runtime-v2")
+	catalog, err = loadACUPricingCatalog()
+	require.NoError(t, err)
+	require.Equal(t, "runtime-v2", catalog.PricingVersion)
 }
 
 func TestCatalogCamelCasePricesProduceSerializablePublicPricing(t *testing.T) {
