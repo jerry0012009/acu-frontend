@@ -9,24 +9,26 @@ export function HowItWorks() {
   const steps = [
     {
       num: '1',
-      title: t('Configure'),
+      title: t('Integrate'),
       desc: t(
-        'Add your API keys, set up channels and configure access permissions'
+        'Create an API key and connect to ACU without changing existing calling patterns.'
       ),
       icon: <Settings className='size-6' strokeWidth={1.5} />,
     },
     {
       num: '2',
-      title: t('Connect'),
+      title: t('Route'),
       desc: t(
-        'Connect through OpenAI, Claude, Gemini, and other compatible API routes'
+        'ACU automatically selects models and execution paths based on the task and quality requirements.'
       ),
       icon: <Zap className='size-6' strokeWidth={1.5} />,
     },
     {
       num: '3',
-      title: t('Monitor'),
-      desc: t('Track usage, costs and performance with real-time analytics'),
+      title: t('Trace'),
+      desc: t(
+        'Review model selection, cost, quality, and Fallback records in the ACU routing trace.'
+      ),
       icon: <BarChart3 className='size-6' strokeWidth={1.5} />,
     },
   ]
