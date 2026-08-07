@@ -5454,6 +5454,25 @@
     "Upgrade fixed-model calls to": "固定模型调用，升级为",
     "With one interface and no changes to existing business workflows, upgrade every AI call into a measurable, controllable, and optimizable capacity orchestration decision.": "一个接口，无需改变现有业务流程，即可将每一次 AI 调用升级为可计量、可控制、可优化的产能配置决策。",
     "Enter Console": "进入控制台",
-    "Product Demo": "产品演示"
+    "Product Demo": "产品演示",
+    "Experience": "体验",
+    "Management": "管理",
+    "ACU Conversation": "ACU 对话",
+    "Call Records": "调用记录",
+    "Route Timeline": "路由轨迹",
+    "Supply Monitor": "供给监控",
+    "Async Tasks": "异步任务",
+    "Model Supply Monitor": "模型供给监控",
+    "Start an ACU conversation": "开始一场 ACU 对话",
+    "Enter a task or question and let ACU Auto automatically select the model and execution path.": "输入任务或问题，由 ACU Auto 自动选择模型与执行路径。",
+    "Failed to load ACU conversation models": "加载 ACU 对话模型失败",
+    "Failed to load ACU conversation groups": "加载 ACU 对话分组失败",
+    "All ACU conversation messages saved in this browser will be removed. This cannot be undone.": "将删除此浏览器中保存的所有 ACU 对话消息，此操作无法撤销。",
+    "Verify routing with ACU Conversation or your client": "使用 ACU 对话或您的客户端验证路由",
+    "Experience Area": "体验区域",
+    "ACU Conversation and compatible client functions": "ACU 对话与兼容客户端功能",
+    "Task-level ACU Router experience": "任务级 ACU Router 体验",
+    "ACU conversations and compatible client integrations.": "ACU 对话与兼容客户端接入。",
+    "Send tasks through ACU Auto and inspect the routed result.": "通过 ACU Auto 发送任务并查看路由结果。"
   }
 }

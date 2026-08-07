@@ -107,6 +107,6 @@ test('localizes states and human-readable failure evidence', async () => {
     monitorReason('actual_model_missing', tZh).description,
     /自动探针重新验证/
   )
-  assert.equal(tZh('Supply Channel Monitor'), '供应通道监控')
-  assert.equal(tEn('Supply Channel Monitor'), 'Supply Channel Monitor')
+  assert.equal(tZh('Model Supply Monitor'), '模型供给监控')
+  assert.equal(tEn('Model Supply Monitor'), 'Model Supply Monitor')
 })

@@ -5435,6 +5435,25 @@
     "Upgrade fixed-model calls to": "Upgrade fixed-model calls to",
     "With one interface and no changes to existing business workflows, upgrade every AI call into a measurable, controllable, and optimizable capacity orchestration decision.": "With one interface and no changes to existing business workflows, upgrade every AI call into a measurable, controllable, and optimizable capacity orchestration decision.",
     "Enter Console": "Enter Console",
-    "Product Demo": "Product Demo"
+    "Product Demo": "Product Demo",
+    "Experience": "Experience",
+    "Management": "Management",
+    "ACU Conversation": "ACU Conversation",
+    "Call Records": "Call Records",
+    "Route Timeline": "Route Timeline",
+    "Supply Monitor": "Supply Monitor",
+    "Async Tasks": "Async Tasks",
+    "Model Supply Monitor": "Model Supply Monitor",
+    "Start an ACU conversation": "Start an ACU conversation",
+    "Enter a task or question and let ACU Auto automatically select the model and execution path.": "Enter a task or question and let ACU Auto automatically select the model and execution path.",
+    "Failed to load ACU conversation models": "Failed to load ACU conversation models",
+    "Failed to load ACU conversation groups": "Failed to load ACU conversation groups",
+    "All ACU conversation messages saved in this browser will be removed. This cannot be undone.": "All ACU conversation messages saved in this browser will be removed. This cannot be undone.",
+    "Verify routing with ACU Conversation or your client": "Verify routing with ACU Conversation or your client",
+    "Experience Area": "Experience Area",
+    "ACU Conversation and compatible client functions": "ACU Conversation and compatible client functions",
+    "Task-level ACU Router experience": "Task-level ACU Router experience",
+    "ACU conversations and compatible client integrations.": "ACU conversations and compatible client integrations.",
+    "Send tasks through ACU Auto and inspect the routed result.": "Send tasks through ACU Auto and inspect the routed result."
   }
 }

@@ -29,7 +29,7 @@ const TASK_LOG_SECTIONS = ['drawing', 'task'] as const
 
 const SECTION_META: Record<UsageLogsSectionId, { titleKey: string }> = {
   common: {
-    titleKey: 'Common Logs',
+    titleKey: 'Call Records',
   },
   drawing: {
     titleKey: 'Drawing Logs',
@@ -37,8 +37,8 @@ const SECTION_META: Record<UsageLogsSectionId, { titleKey: string }> = {
   task: {
     titleKey: 'Task Logs',
   },
-  timeline: { titleKey: 'Event Timeline' },
-  'channel-monitor': { titleKey: 'Supply Channel Monitor' },
+  timeline: { titleKey: 'ACU Route Timeline' },
+  'channel-monitor': { titleKey: 'Model Supply Monitor' },
 }
 
 function UsageLogsContent() {

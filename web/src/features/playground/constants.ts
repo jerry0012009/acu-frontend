@@ -27,7 +27,7 @@ export const DEFAULT_GROUP = 'default' as const
 
 // Default configuration
 export const DEFAULT_CONFIG: PlaygroundConfig = {
-  model: 'gpt-4o',
+  model: 'acu-auto',
   group: DEFAULT_GROUP,
   temperature: 0.7,
   top_p: 1,

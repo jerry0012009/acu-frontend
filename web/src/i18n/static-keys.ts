@@ -430,10 +430,10 @@ export const STATIC_I18N_KEYS = [
   'Actions',
 
   // Sidebar modules
-  'Chat Area',
-  'Playground and chat functions',
-  'Playground',
-  'AI model testing environment',
+  'Experience Area',
+  'ACU Conversation and compatible client functions',
+  'ACU Conversation',
+  'Task-level ACU Router experience',
   'Chat session management',
   'No content to copy',
   'Please wait for the current generation to complete',
@@ -459,7 +459,7 @@ export const STATIC_I18N_KEYS = [
   'Requests',
   'Token Management',
   'API token management',
-  'Usage Logs',
+  'Call Records',
   'API usage records',
   'Drawing Logs',
   'Drawing task records',

@@ -40,13 +40,13 @@ export function SidebarModulesCard() {
   const sectionDefs: SectionDef[] = [
     {
       key: 'chat',
-      title: t('Chat Area'),
-      description: t('Playground and chat functions'),
+      title: t('Experience Area'),
+      description: t('ACU Conversation and compatible client functions'),
       modules: [
         {
           key: 'playground',
-          title: t('Playground'),
-          description: t('AI model testing environment'),
+          title: t('ACU Conversation'),
+          description: t('Task-level ACU Router experience'),
         },
         {
           key: 'chat',
@@ -72,7 +72,7 @@ export function SidebarModulesCard() {
         },
         {
           key: 'log',
-          title: t('Usage Logs'),
+          title: t('Call Records'),
           description: t('API usage records'),
         },
         {
@@ -82,7 +82,7 @@ export function SidebarModulesCard() {
         },
         {
           key: 'task',
-          title: t('Async Task Logs'),
+          title: t('Async Tasks'),
           description: t('System task records'),
         },
       ],

@@ -58,7 +58,7 @@ export function usePlaygroundOptions({
     toast.error(
       getOptionLoadErrorMessage(
         modelsError,
-        t('Failed to load playground models')
+        t('Failed to load ACU conversation models')
       )
     )
   }, [isModelsError, modelsError, t])
@@ -69,7 +69,7 @@ export function usePlaygroundOptions({
     toast.error(
       getOptionLoadErrorMessage(
         groupsError,
-        t('Failed to load playground groups')
+        t('Failed to load ACU conversation groups')
       )
     )
   }, [isGroupsError, groupsError, t])

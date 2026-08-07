@@ -199,7 +199,7 @@ export function ACUChannelMonitor() {
       <div className='flex flex-wrap items-center justify-between gap-3'>
         <div>
           <h2 className='text-base font-semibold'>
-            {t('Supply Channel Monitor')}
+            {t('Model Supply Monitor')}
           </h2>
           <p className='text-muted-foreground text-xs'>
             {t(

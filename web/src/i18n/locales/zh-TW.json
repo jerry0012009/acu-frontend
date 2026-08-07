@@ -5245,6 +5245,25 @@
     "Select at least one routing candidate": "請至少選擇一個路由候選",
     "Candidate preferences must use allowed candidates": "候選偏好度只能使用已允許的候選",
     "Base utility": "基礎效用",
-    "Adjusted utility": "調整後效用"
+    "Adjusted utility": "調整後效用",
+    "Experience": "體驗",
+    "Management": "管理",
+    "ACU Conversation": "ACU 對話",
+    "Call Records": "呼叫記錄",
+    "Route Timeline": "路由軌跡",
+    "Supply Monitor": "供給監控",
+    "Async Tasks": "非同步任務",
+    "Model Supply Monitor": "模型供給監控",
+    "Start an ACU conversation": "開始一場 ACU 對話",
+    "Enter a task or question and let ACU Auto automatically select the model and execution path.": "輸入任務或問題，由 ACU Auto 自動選擇模型與執行路徑。",
+    "Failed to load ACU conversation models": "載入 ACU 對話模型失敗",
+    "Failed to load ACU conversation groups": "載入 ACU 對話分組失敗",
+    "All ACU conversation messages saved in this browser will be removed. This cannot be undone.": "將刪除此瀏覽器中儲存的所有 ACU 對話訊息，此操作無法復原。",
+    "Verify routing with ACU Conversation or your client": "使用 ACU 對話或您的用戶端驗證路由",
+    "Experience Area": "體驗區域",
+    "ACU Conversation and compatible client functions": "ACU 對話與相容用戶端功能",
+    "Task-level ACU Router experience": "任務級 ACU Router 體驗",
+    "ACU conversations and compatible client integrations.": "ACU 對話與相容用戶端整合。",
+    "Send tasks through ACU Auto and inspect the routed result.": "透過 ACU Auto 傳送任務並查看路由結果。"
   }
 }

@@ -7,7 +7,6 @@ import {
   Key,
   LayoutDashboard,
   ListTodo,
-  MessageSquare,
   Radio,
   Route,
   ServerCog,
@@ -35,23 +34,18 @@ export function useSidebarData(): SidebarData {
     navGroups: [
       {
         id: 'chat',
-        title: t('Chat'),
+        title: t('Experience'),
         items: [
           {
-            title: t('Playground'),
+            title: t('ACU Conversation'),
             url: '/playground',
             icon: FlaskConical,
-          },
-          {
-            title: t('Chat'),
-            icon: MessageSquare,
-            type: 'chat-presets',
           },
         ],
       },
       {
         id: 'general',
-        title: t('General'),
+        title: t('Management'),
         items: [
           {
             title: t('Overview'),
@@ -69,22 +63,22 @@ export function useSidebarData(): SidebarData {
             icon: Key,
           },
           {
-            title: t('Usage Logs'),
+            title: t('Call Records'),
             url: '/usage-logs/common',
             icon: FileText,
           },
           {
-            title: t('ACU Route Timeline'),
+            title: t('Route Timeline'),
             url: '/usage-logs/timeline',
             icon: Route,
           },
           {
-            title: t('Channel Monitor'),
+            title: t('Supply Monitor'),
             url: '/usage-logs/channel-monitor',
             icon: Activity,
           },
           {
-            title: t('Async Task Logs'),
+            title: t('Async Tasks'),
             url: '/usage-logs/task',
             activeUrls: ['/usage-logs/drawing'],
             configUrls: ['/usage-logs/drawing', '/usage-logs/task'],

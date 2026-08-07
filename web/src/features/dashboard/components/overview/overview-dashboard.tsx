@@ -497,7 +497,7 @@ export function OverviewDashboard() {
       },
       {
         title: t('Send a request'),
-        description: t('Verify routing with Playground or your client'),
+        description: t('Verify routing with ACU Conversation or your client'),
         to: '/playground',
         icon: TerminalSquare,
         completed: requestCount > 0,
@@ -522,7 +522,7 @@ export function OverviewDashboard() {
         adminOnly: true,
       },
       {
-        title: t('Usage Logs'),
+        title: t('Call Records'),
         description: t('Inspect requests, errors, and billing details'),
         to: '/usage-logs',
         icon: FileText,

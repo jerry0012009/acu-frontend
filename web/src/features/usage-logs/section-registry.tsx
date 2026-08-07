@@ -6,7 +6,7 @@ import { createSectionRegistry } from '@/features/system-settings/utils/section-
 const USAGE_LOGS_SECTIONS = [
   {
     id: 'common',
-    titleKey: 'Common Logs',
+    titleKey: 'Call Records',
     build: () => null, // Content is rendered directly in the page component
   },
   {
@@ -19,10 +19,10 @@ const USAGE_LOGS_SECTIONS = [
     titleKey: 'Async Task Logs',
     build: () => null, // Content is rendered directly in the page component
   },
-  { id: 'timeline', titleKey: 'Event Timeline', build: () => null },
+  { id: 'timeline', titleKey: 'ACU Route Timeline', build: () => null },
   {
     id: 'channel-monitor',
-    titleKey: 'Supply Channel Monitor',
+    titleKey: 'Model Supply Monitor',
     build: () => null,
   },
 ] as const

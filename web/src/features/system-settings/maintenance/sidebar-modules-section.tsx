@@ -48,8 +48,8 @@ export function SidebarModulesSection({
 
   const sectionMeta: Record<string, { title: string; description: string }> = {
     chat: {
-      title: t('Chat area'),
-      description: t('Playground experiments and live conversations.'),
+      title: t('Experience Area'),
+      description: t('ACU conversations and compatible client integrations.'),
     },
     console: {
       title: t('Console area'),
@@ -71,8 +71,10 @@ export function SidebarModulesSection({
   > = {
     chat: {
       playground: {
-        title: t('Playground'),
-        description: t('Experiment with prompts and models in real time.'),
+        title: t('ACU Conversation'),
+        description: t(
+          'Send tasks through ACU Auto and inspect the routed result.'
+        ),
       },
       chat: {
         title: t('Chat'),
@@ -89,7 +91,7 @@ export function SidebarModulesSection({
         description: t('Create, revoke, and audit API tokens.'),
       },
       log: {
-        title: t('Usage logs'),
+        title: t('Call Records'),
         description: t('Detailed request logs for investigations.'),
       },
       midjourney: {
@@ -97,7 +99,7 @@ export function SidebarModulesSection({
         description: t('History of MjProxy-style image tasks.'),
       },
       task: {
-        title: t('Task logs'),
+        title: t('Async Tasks'),
         description: t('Background job tracker for queued work.'),
       },
     },
