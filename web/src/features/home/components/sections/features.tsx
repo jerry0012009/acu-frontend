@@ -183,9 +183,9 @@ export function Features(_props: FeaturesProps) {
             {t('Core Capabilities')}
           </p>
           <h2 className='text-2xl leading-tight font-bold tracking-tight md:text-3xl'>
-            {t('Turn every AI call into')}
+            <span>{t('Turn every AI call into')}</span>
             <br />
-            {t('an optimizable capacity orchestration decision')}
+            <span>{t('an optimizable capacity orchestration decision')}</span>
           </h2>
         </AnimateInView>
 

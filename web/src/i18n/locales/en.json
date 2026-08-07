@@ -5431,6 +5431,9 @@
     "Route": "Route",
     "ACU automatically selects models and execution paths based on the task and quality requirements.": "ACU automatically selects models and execution paths based on the task and quality requirements.",
     "Trace": "Trace",
-    "Review model selection, cost, quality, and Fallback records in the ACU routing trace.": "Review model selection, cost, quality, and Fallback records in the ACU routing trace."
+    "Review model selection, cost, quality, and Fallback records in the ACU routing trace.": "Review model selection, cost, quality, and Fallback records in the ACU routing trace.",
+    "Upgrade fixed-model calls to": "Upgrade fixed-model calls to",
+    "With one interface and no changes to existing business workflows, upgrade every AI call into a measurable, controllable, and optimizable capacity orchestration decision.": "With one interface and no changes to existing business workflows, upgrade every AI call into a measurable, controllable, and optimizable capacity orchestration decision.",
+    "Enter Console": "Enter Console"
   }
 }

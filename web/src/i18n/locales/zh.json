@@ -5450,6 +5450,9 @@
     "Route": "路由",
     "ACU automatically selects models and execution paths based on the task and quality requirements.": "ACU 根据任务与质量要求，自动选择模型和执行路径",
     "Trace": "追踪",
-    "Review model selection, cost, quality, and Fallback records in the ACU routing trace.": "在 ACU 路由轨迹中查看模型选择、成本、质量与 Fallback 记录"
+    "Review model selection, cost, quality, and Fallback records in the ACU routing trace.": "在 ACU 路由轨迹中查看模型选择、成本、质量与 Fallback 记录",
+    "Upgrade fixed-model calls to": "固定模型调用，升级为",
+    "With one interface and no changes to existing business workflows, upgrade every AI call into a measurable, controllable, and optimizable capacity orchestration decision.": "一个接口，无需改变现有业务流程，即可将每一次 AI 调用升级为可计量、可控制、可优化的产能配置决策。",
+    "Enter Console": "进入控制台"
   }
 }

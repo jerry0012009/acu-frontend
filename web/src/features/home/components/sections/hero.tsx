@@ -102,7 +102,9 @@ export function Hero(props: HeroProps) {
             className='landing-animate-fade-up text-[clamp(2.25rem,4.5vw,3.25rem)] leading-[1.15] font-bold tracking-tight'
             style={{ animationDelay: '60ms' }}
           >
-            {t('One interface upgrades fixed-model calls to')}
+            <span className='md:whitespace-nowrap'>
+              {t('Upgrade fixed-model calls to')}
+            </span>
             <br />
             <span className='bg-gradient-to-r from-blue-400 via-violet-400 to-purple-500 bg-clip-text text-transparent'>
               {t('dynamic capacity orchestration')}
@@ -113,7 +115,7 @@ export function Hero(props: HeroProps) {
             style={{ animationDelay: '120ms' }}
           >
             {t(
-              'Without changing business workflows, connect once to upgrade fixed-model calls into measurable, controllable, and optimizable AI capacity.'
+              'With one interface and no changes to existing business workflows, upgrade every AI call into a measurable, controllable, and optimizable capacity orchestration decision.'
             )}
           </p>
 
@@ -127,7 +129,7 @@ export function Hero(props: HeroProps) {
                   className='group h-11 rounded-lg px-5 text-sm font-medium'
                   render={<Link to='/dashboard' />}
                 >
-                  {t('Go to Dashboard')}
+                  {t('Enter Console')}
                   <ArrowRight className='ml-1.5 size-4 transition-transform duration-200 group-hover:translate-x-0.5' />
                 </Button>
                 {renderDocsButton()}
