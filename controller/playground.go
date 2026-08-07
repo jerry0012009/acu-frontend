@@ -3,7 +3,11 @@ package controller
 import (
 	"errors"
 	"fmt"
+	"net/http"
+	"strings"
+	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -45,12 +49,60 @@ func Playground(c *gin.Context) {
 	}
 	userCache.WriteContext(c)
 
-	tempToken := &model.Token{
+	playgroundToken := &model.Token{
 		UserId: userId,
 		Name:   fmt.Sprintf("playground-%s", relayInfo.UsingGroup),
 		Group:  relayInfo.UsingGroup,
 	}
-	_ = middleware.SetupContextForToken(c, tempToken)
+	if relayInfo.OriginModelName == "acu-auto" || relayInfo.OriginModelName == "acu-high" {
+		playgroundToken, err = getPlaygroundACUToken(userId, time.Now().Unix())
+		if err != nil {
+			newAPIError = types.NewErrorWithStatusCode(
+				err,
+				types.ErrorCodeAccessDenied,
+				http.StatusForbidden,
+				types.ErrOptionWithSkipRetry(),
+			)
+			return
+		}
+	}
+	_ = middleware.SetupContextForToken(c, playgroundToken)
 
 	Relay(c, types.RelayFormatOpenAI)
+}
+
+func getPlaygroundACUToken(userId int, now int64) (*model.Token, error) {
+	tokens, err := model.GetAllUserTokens(userId, 0, 1000)
+	if err != nil {
+		return nil, err
+	}
+	return selectPlaygroundACUToken(tokens, now)
+}
+
+func selectPlaygroundACUToken(tokens []*model.Token, now int64) (*model.Token, error) {
+	for _, token := range tokens {
+		if token == nil || token.Status != common.TokenStatusEnabled {
+			continue
+		}
+		if token.ExpiredTime != -1 && token.ExpiredTime <= now {
+			continue
+		}
+		if !token.UnlimitedQuota && token.RemainQuota < max(1, common.PreConsumedQuota) {
+			continue
+		}
+		if token.ACUProfileLimitsEnabled {
+			hasResponsesProfile := false
+			for _, profileId := range token.ACUProfileLimits {
+				if strings.HasSuffix(strings.ToLower(strings.TrimSpace(profileId)), ":responses") {
+					hasResponsesProfile = true
+					break
+				}
+			}
+			if !hasResponsesProfile {
+				continue
+			}
+		}
+		return token, nil
+	}
+	return nil, errors.New("ACU Conversation requires an enabled API key with available quota")
 }
