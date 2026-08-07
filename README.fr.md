@@ -98,7 +98,7 @@
 </p>
 
 <p align="center">
-  <strong>Merci à <a href="https://www.jetbrains.com/?from=new-api">JetBrains</a> pour avoir fourni une licence de développement open-source gratuite pour ce projet</strong>
+  <strong>Merci à <a href="https://www.jetbrains.com/?from=new-api">JetBrains</a> pour son soutien aux outils de développement du projet</strong>
 </p>
 
 ---
@@ -468,7 +468,7 @@ Bienvenue à toutes les formes de contribution!
 
 ## Remerciements
 
-Ce projet est développé sur la base de [One API](https://github.com/songquanpeng/one-api) (licence MIT).
+Ce projet comprend du code dérivé de [One API](https://github.com/songquanpeng/one-api) ; les conditions applicables aux composants tiers sont documentées dans [THIRD-PARTY-LICENSES.md](./THIRD-PARTY-LICENSES.md).
 
 ---
 

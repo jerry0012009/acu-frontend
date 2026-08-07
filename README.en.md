@@ -54,7 +54,7 @@
 ## 📝 Project Description
 
 > [!NOTE]  
-> This is an open-source project developed based on [One API](https://github.com/songquanpeng/one-api)
+> This project includes code derived from [One API](https://github.com/songquanpeng/one-api); applicable third-party terms are documented in [THIRD-PARTY-LICENSES.md](./THIRD-PARTY-LICENSES.md).
 
 > [!IMPORTANT]  
 > - This project is intended solely for lawful and authorized AI API gateway, organization-level authentication, multi-model management, usage analytics, cost accounting, and private deployment scenarios.
@@ -99,7 +99,7 @@
 </p>
 
 <p align="center">
-  <strong>Thanks to <a href="https://www.jetbrains.com/?from=new-api">JetBrains</a> for providing free open-source development license for this project</strong>
+  <strong>Thanks to <a href="https://www.jetbrains.com/?from=new-api">JetBrains</a> for supporting the project's development tooling</strong>
 </p>
 
 ---

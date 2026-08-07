@@ -97,7 +97,7 @@
 </p>
 
 <p align="center">
-  <strong>感謝 <a href="https://www.jetbrains.com/?from=new-api">JetBrains</a> 為本項目提供免費的開源開發許可證</strong>
+  <strong>感謝 <a href="https://www.jetbrains.com/?from=new-api">JetBrains</a> 對本項目開發工具的支持</strong>
 </p>
 
 ---
@@ -467,7 +467,7 @@ Token、Origin 驗證和 PAT 契約請參閱[使用者鑑權與登入工作階�
 
 ## 致謝
 
-本項目在 [One API](https://github.com/songquanpeng/one-api)（MIT 許可證）的基礎上進行二次開發。
+本項目包含源自 [One API](https://github.com/songquanpeng/one-api) 的代碼；適用的第三方條款記錄於 [THIRD-PARTY-LICENSES.md](./THIRD-PARTY-LICENSES.md)。
 
 ---
 

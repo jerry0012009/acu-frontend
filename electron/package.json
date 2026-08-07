@@ -61,10 +61,6 @@
           "to": "bin/new-api"
         },
         {
-          "from": "../LICENSE",
-          "to": "licenses/LICENSE"
-        },
-        {
           "from": "../NOTICE",
           "to": "licenses/NOTICE"
         },
@@ -92,10 +88,6 @@
         {
           "from": "../new-api.exe",
           "to": "bin/new-api.exe"
-        },
-        {
-          "from": "../LICENSE",
-          "to": "licenses/LICENSE"
         },
         {
           "from": "../NOTICE",
@@ -126,10 +118,6 @@
         {
           "from": "../new-api",
           "to": "bin/new-api"
-        },
-        {
-          "from": "../LICENSE",
-          "to": "licenses/LICENSE"
         },
         {
           "from": "../NOTICE",

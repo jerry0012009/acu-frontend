@@ -98,7 +98,7 @@
 </p>
 
 <p align="center">
-  <strong>感謝 <a href="https://www.jetbrains.com/?from=new-api">JetBrains</a> が本プロジェクトに無料のオープンソース開発ライセンスを提供してくれたことに感謝します</strong>
+  <strong>本プロジェクトの開発ツールをご支援いただいた <a href="https://www.jetbrains.com/?from=new-api">JetBrains</a> に感謝します</strong>
 </p>
 
 ---
@@ -468,7 +468,7 @@ Token、Origin 検証、PAT の契約については[ユーザー認証とログ
 
 ## 謝辞
 
-本プロジェクトは、[One API](https://github.com/songquanpeng/one-api)（MITライセンス）をベースに開発されています。
+本プロジェクトには [One API](https://github.com/songquanpeng/one-api) 由来のコードが含まれます。適用される第三者コンポーネントの条件は [THIRD-PARTY-LICENSES.md](./THIRD-PARTY-LICENSES.md) に記載しています。
 
 ---
 

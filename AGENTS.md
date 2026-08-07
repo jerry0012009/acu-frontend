@@ -135,6 +135,8 @@ Do NOT directly import or call `encoding/json` in business code. `json.RawMessag
 
 ### Project Governance
 
+**Distribution policy:** This repository is developed and distributed as proprietary software. Do not add or restore a project-level open-source `LICENSE`, SPDX project license declaration, or open-source license badge unless the repository owner explicitly changes this policy. Packaging must continue to include `NOTICE`, `THIRD-PARTY-LICENSES.md`, and license material required by bundled third-party components; those files document dependency obligations and do not license this project itself.
+
 **Protected project information:** The following project-related information is strictly protected and MUST NOT be modified, deleted, replaced, or removed under any circumstances:
 
 - Any references, mentions, branding, metadata, or attributions related to **nеw-аρi** (the project name/identity)
