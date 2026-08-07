@@ -180,8 +180,13 @@ export function Hero(props: HeroProps) {
                 href='https://openclaw.ai/'
                 target='_blank'
                 rel='noopener noreferrer'
-                className='group border-border/40 bg-muted/15 text-foreground/80 hover:border-border hover:bg-muted/30 hover:text-foreground flex h-11 items-center rounded-full border px-3.5 text-sm font-medium shadow-[0_1px_2.5px_rgba(0,0,0,0.01)] backdrop-blur-xs transition-all duration-300 hover:scale-[1.02]'
+                className='group border-border/40 bg-muted/15 text-foreground/80 hover:border-border hover:bg-muted/30 hover:text-foreground flex h-11 items-center gap-2 rounded-full border px-3.5 text-sm font-medium shadow-[0_1px_2.5px_rgba(0,0,0,0.01)] backdrop-blur-xs transition-all duration-300 hover:scale-[1.02]'
               >
+                <img
+                  src='/brand/openclaw.svg'
+                  alt='OpenClaw'
+                  className='size-6 shrink-0 object-contain'
+                />
                 <span>OpenClaw</span>
               </a>
 
@@ -189,8 +194,14 @@ export function Hero(props: HeroProps) {
                 href='https://hermes-agent.nousresearch.com/'
                 target='_blank'
                 rel='noopener noreferrer'
-                className='group border-border/40 bg-muted/15 text-foreground/80 hover:border-border hover:bg-muted/30 hover:text-foreground flex h-11 items-center rounded-full border px-3.5 text-sm font-medium shadow-[0_1px_2.5px_rgba(0,0,0,0.01)] backdrop-blur-xs transition-all duration-300 hover:scale-[1.02]'
+                className='group border-border/40 bg-muted/15 text-foreground/80 hover:border-border hover:bg-muted/30 hover:text-foreground flex h-11 items-center gap-2 rounded-full border px-3.5 text-sm font-medium shadow-[0_1px_2.5px_rgba(0,0,0,0.01)] backdrop-blur-xs transition-all duration-300 hover:scale-[1.02]'
               >
+                {/* Official Nous Research Hermes Agent character asset. */}
+                <img
+                  src='/brand/hermes-agent.png'
+                  alt='Hermes'
+                  className='size-6 shrink-0 object-contain'
+                />
                 <span>Hermes</span>
               </a>
             </div>
