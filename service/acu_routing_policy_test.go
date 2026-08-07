@@ -124,7 +124,7 @@ func TestQualitySatisfactionVersionInvalidatesRoutingUtilityVersion(t *testing.T
 	require.NotEqual(t, "acu-routing-utility-v1-94cb7f76d42bd7cb", policy.RoutingUtilityVersion)
 }
 
-func TestNormalizeACUCandidatePolicyUsesSparseDefaultsAndValidatesBounds(t *testing.T) {
+func TestNormalizeACUCandidatePolicyPreservesExplicitNeutralAndValidatesBounds(t *testing.T) {
 	candidateIDs, scores, err := NormalizeACUCandidatePolicy(
 		[]string{"gpt-5.6-luna", "gpt-5.6-luna@max"},
 		map[string]float64{"gpt-5.6-luna": 80, "gpt-5.6-luna@max": 150.5},
@@ -134,6 +134,9 @@ func TestNormalizeACUCandidatePolicyUsesSparseDefaultsAndValidatesBounds(t *test
 	require.NoError(t, err)
 	require.Equal(t, []string{"gpt-5.6-luna", "gpt-5.6-luna@max"}, candidateIDs)
 	require.Equal(t, map[string]float64{"gpt-5.6-luna": 80, "gpt-5.6-luna@max": 150.5}, scores)
+	_, scores, err = NormalizeACUCandidatePolicy(nil, map[string]float64{"gpt-5.6-luna": 100}, nil, false)
+	require.NoError(t, err)
+	require.Equal(t, map[string]float64{"gpt-5.6-luna": 100}, scores)
 
 	for _, invalid := range []map[string]float64{
 		{"gpt-5.6-luna@max": -1},
@@ -172,8 +175,42 @@ func TestCandidatePolicyAndPreferencesAffectSeparateVersions(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.Empty(t, neutral.CandidatePreferenceScores)
+	require.Equal(t, defaultACUCandidatePreferenceScores(), neutral.CandidatePreferenceScores)
 	require.NotEqual(t, neutral.RoutingPolicyVersion, allowed.RoutingPolicyVersion)
 	require.Equal(t, allowed.RoutingPolicyVersion, preferred.RoutingPolicyVersion)
 	require.NotEqual(t, allowed.RoutingUtilityVersion, preferred.RoutingUtilityVersion)
+}
+
+func TestDefaultCandidatePreferencesAreInheritedAndTokenScoresOverride(t *testing.T) {
+	previous := common.OptionMap
+	t.Cleanup(func() { common.OptionMap = previous })
+	config := defaultACURoutingUtilityConfig()
+	config.FormulaMode = "active"
+	config.DefaultCandidatePreferenceScores = map[string]float64{
+		"gpt-5.6-luna":     118,
+		"gpt-5.6-sol@high": 90,
+	}
+	raw, err := common.Marshal(config)
+	require.NoError(t, err)
+	common.OptionMap = map[string]string{"ACURoutingUtilityConfig": string(raw)}
+
+	inherited, err := ResolveACUEffectiveRoutingPolicy(&model.Token{})
+	require.NoError(t, err)
+	require.Equal(t, config.DefaultCandidatePreferenceScores, inherited.CandidatePreferenceScores)
+
+	overridden, err := ResolveACUEffectiveRoutingPolicy(&model.Token{
+		ACUAllowedCandidateIDs:       []string{"gpt-5.6-luna"},
+		ACUCandidatePreferenceScores: map[string]float64{"gpt-5.6-luna": 100},
+	})
+	require.NoError(t, err)
+	require.Equal(t, map[string]float64{"gpt-5.6-luna": 100}, overridden.CandidatePreferenceScores)
+
+	config.DefaultCandidatePreferenceScores["gpt-5.6-luna"] = 119
+	raw, err = common.Marshal(config)
+	require.NoError(t, err)
+	common.OptionMap["ACURoutingUtilityConfig"] = string(raw)
+	changed, err := ResolveACUEffectiveRoutingPolicy(&model.Token{})
+	require.NoError(t, err)
+	require.Equal(t, inherited.RoutingPolicyVersion, changed.RoutingPolicyVersion)
+	require.NotEqual(t, inherited.RoutingUtilityVersion, changed.RoutingUtilityVersion)
 }

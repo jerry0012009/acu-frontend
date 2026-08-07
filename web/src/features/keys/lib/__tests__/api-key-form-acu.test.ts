@@ -268,6 +268,7 @@ test('candidate allowlist and preferences round-trip sparsely for create, edit, 
   ])
   assert.deepEqual(payload.acu_candidate_preference_scores, {
     'gpt-5.6-luna@max': 150,
+    'gpt-5.6-sol@high': 100,
   })
   assert.deepEqual(
     new Set(payload.model_limits.split(',')),

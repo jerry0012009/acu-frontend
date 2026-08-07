@@ -425,6 +425,7 @@ export type ACUChannelMonitor = {
   probeHistory: ACUProbeHistoryRow[]
   supplyInventory: Array<Record<string, unknown>>
   modelPool: ACUModelPoolEntry[]
+  defaultCandidatePreferenceScores: Record<string, number>
 }
 
 export type ACUGlobalRoutingPolicy = {
@@ -479,6 +480,7 @@ export type ACURoutingUtilityConfig = {
     | 'recovery',
     number
   >
+  defaultCandidatePreferenceScores: Record<string, number>
 }
 
 export async function getACURoutingUtilityConfig(): Promise<ACURoutingUtilityConfig> {

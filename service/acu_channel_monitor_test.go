@@ -27,8 +27,9 @@ func TestGetACUChannelMonitorValidatesAndForwardsViewParameters(t *testing.T) {
 	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
 	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
 
-	_, err := GetACUChannelMonitor(context.Background(), "7d", "low_latency", "long")
+	result, err := GetACUChannelMonitor(context.Background(), "7d", "low_latency", "long")
 	require.NoError(t, err)
+	require.Equal(t, float64(118), result.DefaultCandidatePreferenceScores["claude-opus-4-8"])
 	forwarded := <-requests
 	require.Equal(t, "7d", forwarded.URL.Query().Get("range"))
 	require.Equal(t, "low_latency", forwarded.URL.Query().Get("supplyStrategy"))

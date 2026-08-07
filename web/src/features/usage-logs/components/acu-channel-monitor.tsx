@@ -133,6 +133,7 @@ export function ACUChannelMonitor() {
       void queryClient.invalidateQueries({
         queryKey: ['acu-routing-utility-config'],
       })
+      void queryClient.invalidateQueries({ queryKey: ['acu-model-pool'] })
     },
     onError: () => toast.error(t('ACU routing utility update failed')),
   })
@@ -413,6 +414,7 @@ export function ACUChannelMonitor() {
             {utilityConfig && (
               <RoutingUtilityEditor
                 value={utilityConfig}
+                modelPool={query.data?.data?.modelPool ?? []}
                 pending={utilityMutation.isPending}
                 onChange={setUtilityDraft}
                 onSave={() => utilityMutation.mutate(utilityConfig)}
@@ -537,11 +539,34 @@ export function ACUChannelMonitor() {
 
 function RoutingUtilityEditor(props: {
   value: ACURoutingUtilityConfig
+  modelPool: ACUModelPoolEntry[]
   pending: boolean
   onChange: (value: ACURoutingUtilityConfig) => void
   onSave: () => void
 }) {
   const { t } = useTranslation()
+  const candidateGroups = props.modelPool
+    .filter(
+      (model) =>
+        model.modelCategory === 'text_agent' &&
+        model.autoRouteEnabled &&
+        ['verified', 'verified_provisional'].includes(model.verificationStatus)
+    )
+    .map((model) => ({
+      modelId: model.modelId,
+      candidates: model.routingCandidates?.length
+        ? model.routingCandidates
+        : [
+            {
+              candidateId: model.modelId,
+              modelId: model.modelId,
+              displayName: model.modelId,
+              kind: 'base' as const,
+            },
+          ],
+    }))
+    .filter((group) => group.candidates.length > 0)
+    .sort((left, right) => left.modelId.localeCompare(right.modelId))
   const numberField = (
     label: string,
     value: number,
@@ -672,6 +697,73 @@ function RoutingUtilityEditor(props: {
             </div>
           ))}
         </div>
+        <details className='rounded border p-2'>
+          <summary className='cursor-pointer text-xs font-medium'>
+            {t('Default candidate preferences')}
+          </summary>
+          <p className='text-muted-foreground mt-2 text-xs'>
+            {t(
+              'These defaults apply when an API key has no candidate-specific override. API key allowlists remain hard constraints.'
+            )}
+          </p>
+          <div className='mt-3 grid max-h-96 gap-3 overflow-y-auto pr-1 md:grid-cols-2'>
+            {candidateGroups.map((group) => (
+              <div key={group.modelId} className='space-y-1 rounded border p-2'>
+                <div className='truncate text-xs font-medium'>
+                  {group.candidates.find(
+                    (candidate) => candidate.kind === 'base'
+                  )?.displayName ?? group.modelId}
+                </div>
+                {group.candidates.map((candidate) => {
+                  let label = candidate.displayName
+                  if (candidate.kind === 'base') {
+                    label = t('Standard')
+                  } else if (candidate.reasoningEffort) {
+                    label = candidate.reasoningEffort
+                  }
+                  return (
+                    <label
+                      key={candidate.candidateId}
+                      className='grid grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-2 text-xs'
+                    >
+                      <span className='truncate' title={candidate.candidateId}>
+                        {label}
+                      </span>
+                      <input
+                        aria-label={`${candidate.candidateId} ${t('Default candidate preference')}`}
+                        className='bg-background h-8 w-full rounded-md border px-2'
+                        type='number'
+                        min={0}
+                        max={200}
+                        step={0.1}
+                        value={
+                          props.value.defaultCandidatePreferenceScores[
+                            candidate.candidateId
+                          ] ?? 100
+                        }
+                        onChange={(event) => {
+                          const score = event.target.valueAsNumber
+                          const next = {
+                            ...props.value.defaultCandidatePreferenceScores,
+                          }
+                          if (!Number.isFinite(score) || score === 100) {
+                            delete next[candidate.candidateId]
+                          } else {
+                            next[candidate.candidateId] = score
+                          }
+                          props.onChange({
+                            ...props.value,
+                            defaultCandidatePreferenceScores: next,
+                          })
+                        }}
+                      />
+                    </label>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+        </details>
         <details className='rounded border p-2'>
           <summary className='cursor-pointer text-xs font-medium'>
             {t('Latency and reliability')}

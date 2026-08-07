@@ -95,7 +95,7 @@ func TestApplyACUTrustedIdentitySignsCustomUserAllowlist(t *testing.T) {
 	require.Equal(t, `["closeai:luna:responses","lucen:luna:responses"]`, req.Header.Get("X-ACU-Allowed-Profile-Ids"))
 	require.Equal(t, "quality", req.Header.Get("X-ACU-Routing-Preference"))
 	require.Equal(t, `["gpt-5.6-luna","gpt-5.6-luna@max"]`, req.Header.Get("X-ACU-Allowed-Candidate-Ids"))
-	require.Equal(t, `{"gpt-5.6-luna@max":150.5}`, req.Header.Get("X-ACU-Candidate-Preference-Scores"))
+	require.Equal(t, `{"gpt-5.6-luna":99.7,"gpt-5.6-luna@max":150.5}`, req.Header.Get("X-ACU-Candidate-Preference-Scores"))
 	require.Contains(t, req.Header.Get("X-ACU-Routing-Policy-Version"), "acu-user-policy-v2-")
 }
 

@@ -86,6 +86,7 @@ func GetACUChannelMonitor(ctx context.Context, rangeValue, supplyStrategy, scena
 	if err := common.DecodeJson(response.Body, &result); err != nil {
 		return result, err
 	}
+	result.DefaultCandidatePreferenceScores = config.DefaultCandidatePreferenceScores
 	return result, nil
 }
 

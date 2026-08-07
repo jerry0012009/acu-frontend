@@ -1,16 +1,17 @@
 package dto
 
 type ACUChannelMonitor struct {
-	Range             string                     `json:"range"`
-	SupplyStrategy    string                     `json:"supplyStrategy"`
-	Scenario          string                     `json:"scenario"`
-	GeneratedAt       string                     `json:"generatedAt"`
-	Profiles          []ACUChannelMonitorProfile `json:"profiles"`
-	History           []map[string]interface{}   `json:"history"`
-	CooldownIntervals []map[string]interface{}   `json:"cooldownIntervals"`
-	ProbeHistory      []map[string]interface{}   `json:"probeHistory"`
-	SupplyInventory   []map[string]interface{}   `json:"supplyInventory"`
-	ModelPool         []map[string]interface{}   `json:"modelPool"`
+	Range                            string                     `json:"range"`
+	SupplyStrategy                   string                     `json:"supplyStrategy"`
+	Scenario                         string                     `json:"scenario"`
+	GeneratedAt                      string                     `json:"generatedAt"`
+	Profiles                         []ACUChannelMonitorProfile `json:"profiles"`
+	History                          []map[string]interface{}   `json:"history"`
+	CooldownIntervals                []map[string]interface{}   `json:"cooldownIntervals"`
+	ProbeHistory                     []map[string]interface{}   `json:"probeHistory"`
+	SupplyInventory                  []map[string]interface{}   `json:"supplyInventory"`
+	ModelPool                        []map[string]interface{}   `json:"modelPool"`
+	DefaultCandidatePreferenceScores map[string]float64         `json:"defaultCandidatePreferenceScores"`
 }
 
 type ACUChannelMonitorProfile struct {

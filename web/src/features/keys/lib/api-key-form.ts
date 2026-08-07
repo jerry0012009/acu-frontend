@@ -191,9 +191,9 @@ export function transformFormDataToPayload(
       : [],
     acu_candidate_preference_scores: data.acu_model_scope_custom
       ? Object.fromEntries(
-          Object.entries(data.acu_candidate_preference_scores)
-            .filter(([, score]) => score !== 100)
-            .sort(([left], [right]) => left.localeCompare(right))
+          Object.entries(data.acu_candidate_preference_scores).sort(
+            ([left], [right]) => left.localeCompare(right)
+          )
         )
       : {},
     allow_ips: data.allow_ips || '',

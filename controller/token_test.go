@@ -533,7 +533,7 @@ func TestTokenCandidatePolicyPersistsThroughUpdateAndRead(t *testing.T) {
 	var stored model.Token
 	require.NoError(t, db.First(&stored, token.Id).Error)
 	require.Equal(t, []string{"gpt-5.6-luna", "gpt-5.6-luna@max"}, stored.ACUAllowedCandidateIDs)
-	require.Equal(t, map[string]float64{"gpt-5.6-luna@max": 150}, stored.ACUCandidatePreferenceScores)
+	require.Equal(t, map[string]float64{"gpt-5.6-luna": 100, "gpt-5.6-luna@max": 150}, stored.ACUCandidatePreferenceScores)
 
 	ctx, recorder = newAuthenticatedContext(t, http.MethodGet, "/api/token/"+strconv.Itoa(token.Id), nil, 1)
 	ctx.Params = gin.Params{{Key: "id", Value: strconv.Itoa(token.Id)}}

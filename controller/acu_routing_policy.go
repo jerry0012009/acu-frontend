@@ -67,6 +67,10 @@ func UpdateACURoutingUtilityConfig(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
 		return
 	}
+	if err := service.ValidateACUCandidatePolicyAgainstPool(c.Request.Context(), nil, normalized.DefaultCandidatePreferenceScores); err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	raw, err := common.Marshal(normalized)
 	if err != nil {
 		common.ApiError(c, err)
@@ -77,8 +81,9 @@ func UpdateACURoutingUtilityConfig(c *gin.Context) {
 		return
 	}
 	model.RecordOperationAuditLog(c.GetInt("id"), "Updated ACU routing utility config", c.ClientIP(), "acu_routing_utility.update", map[string]interface{}{
-		"formula_mode":   normalized.FormulaMode,
-		"schema_version": normalized.SchemaVersion,
+		"formula_mode":                       normalized.FormulaMode,
+		"schema_version":                     normalized.SchemaVersion,
+		"default_candidate_preference_count": len(normalized.DefaultCandidatePreferenceScores),
 	}, auditOperatorInfo(c), nil)
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": normalized})
 }

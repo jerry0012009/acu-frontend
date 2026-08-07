@@ -146,6 +146,8 @@ export function ApiKeysMutateDrawer({
   const candidatePreferenceScores = form.watch(
     'acu_candidate_preference_scores'
   )
+  const defaultCandidatePreferenceScores =
+    modelPoolData?.data?.defaultCandidatePreferenceScores ?? {}
   const acuReasoningEffort = acuModelFilters.reasoningEffort
   const groupsRaw = groupsData?.data || {}
   const groups: ApiKeyGroupOption[] = Object.entries(groupsRaw).map(
@@ -998,22 +1000,42 @@ export function ApiKeysMutateDrawer({
                                                 value={
                                                   candidatePreferenceScores[
                                                     candidate.candidateId
-                                                  ] ?? 100
+                                                  ] ??
+                                                  defaultCandidatePreferenceScores[
+                                                    candidate.candidateId
+                                                  ] ??
+                                                  100
                                                 }
                                                 onChange={(event) => {
                                                   const score =
                                                     event.target.valueAsNumber
+                                                  const nextScore =
+                                                    Number.isFinite(score)
+                                                      ? score
+                                                      : 100
+                                                  const scores = {
+                                                    ...form.getValues(
+                                                      'acu_candidate_preference_scores'
+                                                    ),
+                                                  }
+                                                  const defaultScore =
+                                                    defaultCandidatePreferenceScores[
+                                                      candidate.candidateId
+                                                    ] ?? 100
+                                                  if (
+                                                    nextScore === defaultScore
+                                                  ) {
+                                                    delete scores[
+                                                      candidate.candidateId
+                                                    ]
+                                                  } else {
+                                                    scores[
+                                                      candidate.candidateId
+                                                    ] = nextScore
+                                                  }
                                                   form.setValue(
                                                     'acu_candidate_preference_scores',
-                                                    {
-                                                      ...form.getValues(
-                                                        'acu_candidate_preference_scores'
-                                                      ),
-                                                      [candidate.candidateId]:
-                                                        Number.isFinite(score)
-                                                          ? score
-                                                          : 100,
-                                                    },
+                                                    scores,
                                                     {
                                                       shouldDirty: true,
                                                       shouldValidate: true,

@@ -77,17 +77,31 @@ type ACUReliabilityPolicy struct {
 }
 
 type ACURoutingUtilityConfig struct {
-	SchemaVersion        string                      `json:"schemaVersion"`
-	FormulaMode          string                      `json:"formulaMode"`
-	QualityPresets       map[string]int              `json:"qualityPresets"`
-	ACUHighBiasOffset    int                         `json:"acuHighBiasOffset"`
-	ModelCostLogScale    float64                     `json:"modelCostLogScale"`
-	SupplyPresets        map[string]ACUSupplyWeights `json:"supplyPresets"`
-	ProfileCostLogScale  float64                     `json:"profileCostLogScale"`
-	ProfileSpeedLogScale float64                     `json:"profileSpeedLogScale"`
-	Latency              ACULatencyPolicy            `json:"latency"`
-	Reliability          ACUReliabilityPolicy        `json:"reliability"`
-	WorkPhaseBiasOffsets map[string]int              `json:"workPhaseBiasOffsets"`
+	SchemaVersion                    string                      `json:"schemaVersion"`
+	FormulaMode                      string                      `json:"formulaMode"`
+	QualityPresets                   map[string]int              `json:"qualityPresets"`
+	ACUHighBiasOffset                int                         `json:"acuHighBiasOffset"`
+	ModelCostLogScale                float64                     `json:"modelCostLogScale"`
+	SupplyPresets                    map[string]ACUSupplyWeights `json:"supplyPresets"`
+	ProfileCostLogScale              float64                     `json:"profileCostLogScale"`
+	ProfileSpeedLogScale             float64                     `json:"profileSpeedLogScale"`
+	Latency                          ACULatencyPolicy            `json:"latency"`
+	Reliability                      ACUReliabilityPolicy        `json:"reliability"`
+	WorkPhaseBiasOffsets             map[string]int              `json:"workPhaseBiasOffsets"`
+	DefaultCandidatePreferenceScores map[string]float64          `json:"defaultCandidatePreferenceScores"`
+}
+
+func defaultACUCandidatePreferenceScores() map[string]float64 {
+	return map[string]float64{
+		"gpt-5.6-luna":      99.7,
+		"gpt-5.6-luna@max":  99.7,
+		"gpt-5.6-sol@high":  99.8,
+		"gpt-5.6-sol@xhigh": 97.5,
+		"gpt-5.6-terra@max": 102,
+		"claude-opus-4-8":   118,
+		"claude-sonnet-5":   90,
+		"claude-fable-5":    91,
+	}
 }
 
 func defaultACURoutingUtilityConfig() ACURoutingUtilityConfig {
@@ -102,9 +116,10 @@ func defaultACURoutingUtilityConfig() ACURoutingUtilityConfig {
 			"high_reliability": {Cost: 10, Speed: 10, Reliability: 80},
 		},
 		ProfileCostLogScale: 2.5, ProfileSpeedLogScale: 2.5,
-		Latency:              ACULatencyPolicy{WindowHours: 24, LongContextThresholdTokens: 100000, MinimumSamples: 5, UnknownLatencyMultiplier: 1.2},
-		Reliability:          ACUReliabilityPolicy{WindowHours: 24, MinimumSamples: 5, UnknownDefault: 0.75, DegradedMultiplier: 0.85},
-		WorkPhaseBiasOffsets: map[string]int{"inspection": -10, "general": 0, "implementation": 0, "verification": 0, "planning": 10, "recovery": 20},
+		Latency:                          ACULatencyPolicy{WindowHours: 24, LongContextThresholdTokens: 100000, MinimumSamples: 5, UnknownLatencyMultiplier: 1.2},
+		Reliability:                      ACUReliabilityPolicy{WindowHours: 24, MinimumSamples: 5, UnknownDefault: 0.75, DegradedMultiplier: 0.85},
+		WorkPhaseBiasOffsets:             map[string]int{"inspection": -10, "general": 0, "implementation": 0, "verification": 0, "planning": 10, "recovery": 20},
+		DefaultCandidatePreferenceScores: defaultACUCandidatePreferenceScores(),
 	}
 }
 
@@ -120,6 +135,9 @@ func NormalizeACUSupplyStrategy(value string) (string, error) {
 }
 
 func NormalizeACURoutingUtilityConfig(config ACURoutingUtilityConfig) (ACURoutingUtilityConfig, error) {
+	if config.DefaultCandidatePreferenceScores == nil {
+		config.DefaultCandidatePreferenceScores = defaultACUCandidatePreferenceScores()
+	}
 	if config.SchemaVersion == "" {
 		config.SchemaVersion = "acu-routing-utility-config-v1"
 	}
@@ -159,6 +177,11 @@ func NormalizeACURoutingUtilityConfig(config ACURoutingUtilityConfig) (ACURoutin
 			return config, fmt.Errorf("invalid ACU work phase bias offset %s", phase)
 		}
 	}
+	_, normalizedDefaultScores, err := NormalizeACUCandidatePolicy(nil, config.DefaultCandidatePreferenceScores, nil, false)
+	if err != nil {
+		return config, fmt.Errorf("invalid default candidate preference scores: %w", err)
+	}
+	config.DefaultCandidatePreferenceScores = normalizedDefaultScores
 	return config, nil
 }
 
@@ -269,9 +292,8 @@ func NormalizeACUCandidatePolicy(candidateIDs []string, scores map[string]float6
 				return nil, nil, fmt.Errorf("ACU candidate preference %q is outside the candidate allowlist", candidateID)
 			}
 		}
-		if score != 100 {
-			normalized[candidateID] = score
-		}
+		// An explicit 100 overrides a non-neutral global default.
+		normalized[candidateID] = score
 	}
 	return normalizedCandidateIDs, normalized, nil
 }
@@ -460,9 +482,13 @@ func ResolveACUEffectiveRoutingPolicy(token *model.Token) (ACUEffectiveRoutingPo
 		return ACUEffectiveRoutingPolicy{}, err
 	}
 	allowedCandidateIDs := []string{}
-	candidatePreferenceScores := map[string]float64{}
+	candidatePreferenceScores := make(map[string]float64, len(utilityConfig.DefaultCandidatePreferenceScores))
+	for candidateID, score := range utilityConfig.DefaultCandidatePreferenceScores {
+		candidatePreferenceScores[candidateID] = score
+	}
 	if token != nil {
-		allowedCandidateIDs, candidatePreferenceScores, err = NormalizeACUCandidatePolicy(
+		var tokenScores map[string]float64
+		allowedCandidateIDs, tokenScores, err = NormalizeACUCandidatePolicy(
 			token.ACUAllowedCandidateIDs,
 			token.ACUCandidatePreferenceScores,
 			tokenScope.AllowedModelIDs,
@@ -470,6 +496,9 @@ func ResolveACUEffectiveRoutingPolicy(token *model.Token) (ACUEffectiveRoutingPo
 		)
 		if err != nil {
 			return ACUEffectiveRoutingPolicy{}, err
+		}
+		for candidateID, score := range tokenScores {
+			candidatePreferenceScores[candidateID] = score
 		}
 	}
 	result := ACUEffectiveRoutingPolicy{
@@ -486,6 +515,17 @@ func ResolveACUEffectiveRoutingPolicy(token *model.Token) (ACUEffectiveRoutingPo
 		WorkPhaseBiasOffsets: utilityConfig.WorkPhaseBiasOffsets, FormulaMode: utilityConfig.FormulaMode,
 		AllowedCandidateIDs:       allowedCandidateIDs,
 		CandidatePreferenceScores: candidatePreferenceScores,
+	}
+	if len(result.AllowedCandidateIDs) > 0 {
+		allowedCandidates := make(map[string]struct{}, len(result.AllowedCandidateIDs))
+		for _, candidateID := range result.AllowedCandidateIDs {
+			allowedCandidates[candidateID] = struct{}{}
+		}
+		for candidateID := range result.CandidatePreferenceScores {
+			if _, ok := allowedCandidates[candidateID]; !ok {
+				delete(result.CandidatePreferenceScores, candidateID)
+			}
+		}
 	}
 	if global.Policy == ACURoutingPolicyCustom && tokenScope.Policy == ACURoutingPolicyCustom {
 		result.AllowedModelIDs = intersectACUIDs(global.AllowedModelIDs, tokenScope.AllowedModelIDs)
