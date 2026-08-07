@@ -39,9 +39,11 @@ describe('ACUindex brand presentation', () => {
     const systemBrand = read(
       'web/src/components/layout/components/system-brand.tsx'
     )
+    const authLayout = read('web/src/features/auth/auth-layout.tsx')
 
     assert.match(publicHeader, /scrolled[\s\S]*h-7 w-\[4\.75rem\]/)
     assert.match(publicHeader, /sm:h-8 sm:w-\[5\.25rem\]/)
     assert.match(systemBrand, /group-data-\[collapsible=icon\]:invisible/)
+    assert.match(authLayout, /sm:h-11 sm:w-\[7\.25rem\]/)
   })
 })

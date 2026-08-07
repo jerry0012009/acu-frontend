@@ -14,7 +14,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         aria-label={BRAND_DOCUMENT_TITLE}
         className='absolute top-4 left-4 z-10 flex items-center transition-opacity hover:opacity-80 sm:top-8 sm:left-8'
       >
-        <div className='relative h-9 w-[5.75rem] sm:h-11 sm:w-[7rem]'>
+        <div className='relative h-9 w-[5.75rem] sm:h-11 sm:w-[7.25rem]'>
           <img
             src={BRAND_WORDMARK_URL}
             alt={BRAND_DOCUMENT_TITLE}
