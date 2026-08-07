@@ -23,6 +23,7 @@ type acuCatalogPayable struct {
 	InputCNYPerMillion       float64  `json:"inputCnyPerMillion"`
 	OutputCNYPerMillion      float64  `json:"outputCnyPerMillion"`
 	CachedInputCNYPerMillion *float64 `json:"cachedInputCnyPerMillion"`
+	CacheWriteCNYPerMillion  *float64 `json:"cacheWriteCnyPerMillion"`
 	Status                   string   `json:"status"`
 	PricingPolicyVersion     string   `json:"pricingPolicyVersion"`
 }
@@ -34,6 +35,7 @@ func (price *acuCatalogPayable) public() *model.PricingPayable {
 	return &model.PricingPayable{
 		InputCNYPerMillion: price.InputCNYPerMillion, OutputCNYPerMillion: price.OutputCNYPerMillion,
 		CachedInputCNYPerMillion: price.CachedInputCNYPerMillion, Status: price.Status,
+		CacheWriteCNYPerMillion: price.CacheWriteCNYPerMillion,
 		PricingPolicyVersion: price.PricingPolicyVersion,
 	}
 }
@@ -72,6 +74,7 @@ type acuPricingResponse struct {
 	EffectiveOutputPriceCNYPerMillion      float64              `json:"effectiveOutputPriceCnyPerMillion"`
 	EffectiveCachedInputPriceCNYPerMillion float64              `json:"effectiveCachedInputPriceCnyPerMillion"`
 	Payable                                *acuCatalogPayable   `json:"payable"`
+	PayableByProtocol                      map[string]*acuCatalogPayable `json:"payableByProtocol"`
 	Reference                              *acuCatalogReference `json:"reference"`
 	CostCurrency                           string               `json:"costCurrency"`
 	CostSemantics                          string               `json:"costSemantics"`
@@ -86,6 +89,8 @@ type acuPricingResponse struct {
 	Status                                 string               `json:"status"`
 	HealthyChannelCount                    int                  `json:"healthyChannelCount"`
 	EffectiveCostStatuses                  []string             `json:"effectiveCostStatuses"`
+	CurrentlyEligible                      bool                 `json:"currentlyEligible"`
+	TemporarilyUnavailableReason           *string              `json:"temporarilyUnavailableReason"`
 }
 
 type acuCurvePoint = model.ACUPricingCurvePoint
@@ -114,6 +119,11 @@ func loadACUPricingCatalog() (*acuPricingCatalog, error) {
 		return nil, nil
 	}
 	body, err := os.ReadFile(path)
+	if err != nil {
+		if fallbackPath := strings.TrimSpace(os.Getenv("ACU_PRICING_FALLBACK_CATALOG_FILE")); fallbackPath != "" && fallbackPath != path {
+			body, err = os.ReadFile(fallbackPath)
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -195,10 +205,18 @@ func overlayACUPricing(catalog *acuPricingCatalog, current []model.Pricing) []mo
 		}
 		cacheRatio := *cachePrice / displayPrice.InputCNYPerMillion
 		item.CacheRatio = &cacheRatio
+		if displayPrice.CacheWriteCNYPerMillion != nil {
+			createCacheRatio := *displayPrice.CacheWriteCNYPerMillion / displayPrice.InputCNYPerMillion
+			item.CreateCacheRatio = &createCacheRatio
+		}
 		item.InputPricePerMillion = &displayPrice.InputCNYPerMillion
 		item.OutputPricePerMillion = &displayPrice.OutputCNYPerMillion
 		item.CachedPricePerMillion = cachePrice
 		item.Payable = source.Payable.public()
+		item.PayableByProtocol = make(map[string]*model.PricingPayable, len(source.PayableByProtocol))
+		for protocol, payable := range source.PayableByProtocol {
+			item.PayableByProtocol[protocol] = payable.public()
+		}
 		item.Reference = source.Reference.public()
 		item.PriceCurrency = source.CostCurrency
 		item.PriceSemantics = source.CostSemantics
@@ -211,6 +229,8 @@ func overlayACUPricing(catalog *acuPricingCatalog, current []model.Pricing) []mo
 		item.ACUToolCall = &source.ToolCall
 		item.ACUReasoning = &source.Reasoning
 		item.ACUActive = &source.ActiveInAcuAuto
+		item.ACUCurrentlyEligible = &source.CurrentlyEligible
+		item.ACUTemporarilyUnavailableReason = source.TemporarilyUnavailableReason
 		item.ACUStatus = source.Status
 		item.PricingVersion = catalog.PricingVersion
 		item.EnableGroup = []string{"default"}

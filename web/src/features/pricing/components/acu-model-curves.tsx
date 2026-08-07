@@ -218,13 +218,15 @@ export function ACUModelCurves(props: {
           right,
           props.displayMode,
           inputTokens,
-          outputTokens
+          outputTokens,
+          pricingProtocol
         )
         const leftCost = displayedPricingCost(
           left,
           props.displayMode,
           inputTokens,
-          outputTokens
+          outputTokens,
+          pricingProtocol
         )
         return compareDisplayedCostsDescending(leftCost, rightCost)
       }),
@@ -314,7 +316,8 @@ export function ACUModelCurves(props: {
           model,
           props.displayMode,
           inputTokens,
-          outputTokens
+          outputTokens,
+          pricingProtocol
         )
         return (model.acu_curve ?? []).map((point) => ({
           modelId: model.model_name,
@@ -393,7 +396,8 @@ export function ACUModelCurves(props: {
               model,
               props.displayMode,
               inputTokens,
-              outputTokens
+              outputTokens,
+              pricingProtocol
             ),
             abilityScore:
               qualityAtDifficulty(model.acu_curve ?? [], abilityDifficulty) *

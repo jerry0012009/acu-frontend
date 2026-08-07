@@ -41,6 +41,7 @@ type Pricing struct {
 	OutputPricePerMillion  *float64                `json:"output_price_per_million,omitempty"`
 	CachedPricePerMillion  *float64                `json:"cached_input_price_per_million,omitempty"`
 	Payable                *PricingPayable         `json:"payable,omitempty"`
+	PayableByProtocol      map[string]*PricingPayable `json:"payable_by_protocol,omitempty"`
 	Reference              *PricingReference       `json:"reference,omitempty"`
 	ACURole                string                  `json:"acu_role,omitempty"`
 	ACUProtocol            string                  `json:"acu_protocol,omitempty"`
@@ -48,6 +49,8 @@ type Pricing struct {
 	ACUReasoning           *bool                   `json:"acu_reasoning,omitempty"`
 	ACUActive              *bool                   `json:"acu_active,omitempty"`
 	ACUStatus              string                  `json:"acu_status,omitempty"`
+	ACUCurrentlyEligible   *bool                   `json:"acu_currently_eligible,omitempty"`
+	ACUTemporarilyUnavailableReason *string        `json:"acu_temporarily_unavailable_reason,omitempty"`
 	PricingLabel           string                  `json:"pricing_label,omitempty"`
 	PricingDescription     string                  `json:"pricing_description,omitempty"`
 	PriceCurrency          string                  `json:"price_currency,omitempty"`
@@ -62,6 +65,7 @@ type PricingPayable struct {
 	InputCNYPerMillion       float64  `json:"input_cny_per_million"`
 	OutputCNYPerMillion      float64  `json:"output_cny_per_million"`
 	CachedInputCNYPerMillion *float64 `json:"cached_input_cny_per_million,omitempty"`
+	CacheWriteCNYPerMillion  *float64 `json:"cache_write_cny_per_million,omitempty"`
 	Status                   string   `json:"status"`
 	PricingPolicyVersion     string   `json:"pricing_policy_version"`
 }

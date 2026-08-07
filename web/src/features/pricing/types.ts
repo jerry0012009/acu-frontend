@@ -61,6 +61,7 @@ export type PricingModel = {
   output_price_per_million?: number
   cached_input_price_per_million?: number
   payable?: PricingPayable
+  payable_by_protocol?: Record<string, PricingPayable>
   reference?: PricingReference
   acu_role?: string
   acu_protocol?: string
@@ -68,6 +69,8 @@ export type PricingModel = {
   acu_reasoning?: boolean
   acu_active?: boolean
   acu_status?: string
+  acu_currently_eligible?: boolean
+  acu_temporarily_unavailable_reason?: string
   pricing_label?: string
   pricing_description?: string
   price_currency?: 'CNY' | 'USD'
@@ -99,6 +102,7 @@ export type PricingPayable = {
   input_cny_per_million: number
   output_cny_per_million: number
   cached_input_cny_per_million?: number
+  cache_write_cny_per_million?: number
   status: 'verified' | 'estimated'
   pricing_policy_version: string
 }

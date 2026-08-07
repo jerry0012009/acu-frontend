@@ -48,9 +48,13 @@ export function displayedPricingCost(
   model: PricingModel,
   mode: PricingDisplayMode,
   inputTokens: number,
-  outputTokens: number
+  outputTokens: number,
+  protocol: 'all' | 'responses' | 'messages' = 'all'
 ): number {
-  const price = mode === 'reference_only' ? model.reference : model.payable
+  const protocolPrice = protocol === 'all'
+    ? model.payable
+    : model.payable_by_protocol?.[protocol] ?? model.payable
+  const price = mode === 'reference_only' ? model.reference : protocolPrice
   return (
     estimatedPricingCost(
       price?.input_cny_per_million,
