@@ -33,14 +33,14 @@ function BrandLogo({
   onClick,
 }: BrandLogoProps) {
   return (
-    <Link to={homeUrl} className='flex items-center' onClick={onClick}>
+    <a href={homeUrl} className='flex items-center' onClick={onClick}>
       <div className='relative h-8 overflow-hidden [&_img]:h-full [&_img]:w-auto [&_img]:object-contain [&_img]:invert dark:[&_img]:invert-0'>
         {loading || !logoLoaded ? (
           <Skeleton className='absolute inset-0 rounded-md' />
         ) : null}
         {displayLogo}
       </div>
-    </Link>
+    </a>
   )
 }
 
@@ -240,13 +240,23 @@ export function MobileDrawer({
                         className='border-border border-b p-2.5 last:border-b-0'
                         variants={MOBILE_DRAWER_ANIMATION.menuItem as Variants}
                       >
-                        <Link
-                          to={link.href}
-                          className='text-primary/60 hover:text-primary/80 transition-colors'
-                          onClick={onClose}
-                        >
-                          {link.title}
-                        </Link>
+                        {link.href === '/index' ? (
+                          <a
+                            href='/index'
+                            className='text-primary/60 hover:text-primary/80 transition-colors'
+                            onClick={onClose}
+                          >
+                            {link.title}
+                          </a>
+                        ) : (
+                          <Link
+                            to={link.href}
+                            className='text-primary/60 hover:text-primary/80 transition-colors'
+                            onClick={onClose}
+                          >
+                            {link.title}
+                          </Link>
+                        )}
                       </motion.div>
                     ))}
                   </AnimatePresence>

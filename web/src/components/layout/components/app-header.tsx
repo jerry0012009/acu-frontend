@@ -95,7 +95,9 @@ export function AppHeader({
   return (
     <>
       <Header>
-        <SystemBrand variant='inline' />
+        <div className='md:hidden'>
+          <SystemBrand variant='inline' />
+        </div>
 
         {leftContent ? (
           <div className='ms-2 flex items-center'>{leftContent}</div>

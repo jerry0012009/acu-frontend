@@ -29,10 +29,18 @@ func SetWebRouter(router *gin.Engine, assets WebAssets) {
 	router.Use(gzip.Gzip(gzip.DefaultCompression))
 	router.Use(middleware.GlobalWebRateLimit())
 	router.Use(middleware.Cache())
-	router.GET("/index", func(c *gin.Context) {
+	serveCommercialIndex := func(c *gin.Context) {
 		c.Header("Cache-Control", "no-cache")
+		if c.Request.Method == http.MethodHead {
+			c.Status(http.StatusOK)
+			return
+		}
 		c.Data(http.StatusOK, "text/html; charset=utf-8", commercialIndex)
-	})
+	}
+	for _, path := range []string{"/index", "/index/"} {
+		router.GET(path, serveCommercialIndex)
+		router.HEAD(path, serveCommercialIndex)
+	}
 	router.Use(static.Serve("/", frontendFS))
 	router.NoRoute(func(c *gin.Context) {
 		c.Set(middleware.RouteTagKey, "web")

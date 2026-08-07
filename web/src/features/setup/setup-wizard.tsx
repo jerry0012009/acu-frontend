@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 
 import { ErrorState } from '@/components/error-state'
 import { LanguageSwitcher } from '@/components/language-switcher'
+import { BrandWordmark } from '@/components/layout/components/brand-wordmark'
 import { LoadingState } from '@/components/loading-state'
 import {
   Card,
@@ -17,11 +18,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Form } from '@/components/ui/form'
-import {
-  BRAND_DOCUMENT_TITLE,
-  BRAND_NAME_ZH,
-  BRAND_WORDMARK_URL,
-} from '@/lib/brand'
+import { BRAND_DOCUMENT_TITLE, BRAND_NAME_ZH } from '@/lib/brand'
 import { cn } from '@/lib/utils'
 
 import { buildSetupPayload, getSetupStatus, submitSetup } from './api'
@@ -269,13 +266,10 @@ export function SetupWizard() {
       </div>
       <div className='container mx-auto flex max-w-5xl flex-col gap-8 px-4 sm:px-6'>
         <div className='flex flex-col items-center gap-3'>
-          <div className='relative h-14'>
-            <img
-              src={BRAND_WORDMARK_URL}
-              alt={BRAND_DOCUMENT_TITLE}
-              className='h-full w-auto object-contain invert dark:invert-0'
-            />
-          </div>
+          <BrandWordmark
+            aria-label={BRAND_DOCUMENT_TITLE}
+            className='text-[40px]'
+          />
           <span className='text-muted-foreground text-xs tracking-[0.3em]'>
             {BRAND_NAME_ZH}
           </span>

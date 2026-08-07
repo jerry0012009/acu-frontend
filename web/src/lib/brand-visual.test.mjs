@@ -16,25 +16,30 @@ describe('ACUindex brand presentation', () => {
     assert.match(html, /name="title" content="ACUindex · 清度"/)
   })
 
-  test('uses the supplied horizontal logo without square-image styling', () => {
+  test('uses one serif text wordmark across product brand surfaces', () => {
+    const component = read(
+      'web/src/components/layout/components/brand-wordmark.tsx'
+    )
     const files = [
-      'web/src/components/layout/components/header-logo.tsx',
       'web/src/components/layout/components/system-brand.tsx',
       'web/src/components/layout/components/footer.tsx',
+      'web/src/components/layout/components/public-header.tsx',
       'web/src/features/auth/auth-layout.tsx',
       'web/src/features/setup/setup-wizard.tsx',
     ]
 
+    assert.match(component, /font-serif/)
+    assert.match(component, /font-semibold/)
+    assert.match(component, /tracking-\[-0\.035em\]/)
+    assert.match(component, />\s*ACUindex\s*<\/span>/)
     for (const file of files) {
       const source = read(file)
-      assert.match(source, /object-contain/, file)
-      assert.match(source, /invert/, file)
-      assert.doesNotMatch(source, /aspect-square/, file)
-      assert.doesNotMatch(source, /object-cover/, file)
+      assert.match(source, /BrandWordmark/, file)
+      assert.doesNotMatch(source, /BRAND_WORDMARK_URL/, file)
     }
   })
 
-  test('uses a cropped RGBA wordmark and height-led responsive treatments', () => {
+  test('retains the historical PNG but uses responsive text treatments', () => {
     const wordmark = readBinary(
       'web/public/acu-index-site/assets/acuindex-wordmark.png'
     )
@@ -45,16 +50,22 @@ describe('ACUindex brand presentation', () => {
       'web/src/components/layout/components/system-brand.tsx'
     )
     const authLayout = read('web/src/features/auth/auth-layout.tsx')
+    const appHeader = read(
+      'web/src/components/layout/components/app-header.tsx'
+    )
+    const footer = read('web/src/components/layout/components/footer.tsx')
 
     assert.equal(wordmark.toString('ascii', 1, 4), 'PNG')
     assert.equal(wordmark.readUInt32BE(16), 1925)
     assert.equal(wordmark.readUInt32BE(20), 690)
     assert.equal(wordmark[25], 6, 'PNG must use RGBA color type')
-    assert.match(publicHeader, /scrolled \? 'h-7' : 'h-7 sm:h-8'/)
-    assert.doesNotMatch(publicHeader, /w-\[4\.75rem\][^']*object-contain/)
+    assert.match(publicHeader, /scrolled \? 'text-\[22px\]' : 'text-2xl'/)
     assert.match(systemBrand, /group-data-\[collapsible=icon\]:invisible/)
-    assert.match(authLayout, /h-9 sm:h-11/)
-    assert.doesNotMatch(authLayout, /relative h-9[^']*w-/)
+    assert.match(systemBrand, /text-\[26px\]/)
+    assert.match(appHeader, /className='md:hidden'/)
+    assert.match(authLayout, /text-\[30px\] sm:text-4xl/)
+    assert.match(footer, /items-end text-right/)
+    assert.match(footer, /BrandWordmark className='text-\[28px\]'/)
   })
 
   test('publishes the commercial placeholder and the requested navigation', () => {
@@ -66,7 +77,9 @@ describe('ACUindex brand presentation', () => {
     )
 
     assert.match(staticIndex, /<title>ACUindex · 清度<\/title>/)
-    assert.match(webRouter, /router\.GET\("\/index"/)
+    assert.match(webRouter, /\[\]string\{"\/index", "\/index\/"\}/)
+    assert.match(webRouter, /router\.GET\(path, serveCommercialIndex\)/)
+    assert.match(webRouter, /router\.HEAD\(path, serveCommercialIndex\)/)
     for (const source of [nav, fallbackNav]) {
       assert.match(
         source,
@@ -91,10 +104,28 @@ describe('ACUindex brand presentation', () => {
   test('uses only the ACUindex copyright in the visible footer', () => {
     const footer = read('web/src/components/layout/components/footer.tsx')
 
-    assert.match(footer, /to='\/index'/)
+    assert.match(footer, /href='\/index'/)
     assert.match(footer, /BRAND_NAME} · {BRAND_NAME_ZH}/)
     assert.match(footer, /AI capacity orchestration infrastructure/)
     assert.doesNotMatch(footer, /ProjectAttribution/)
     assert.doesNotMatch(footer, /QuantumNous\/new-api/)
+  })
+
+  test('uses document navigation for every standalone homepage entry', () => {
+    const files = [
+      'web/src/components/layout/components/public-header.tsx',
+      'web/src/components/layout/components/public-navigation.tsx',
+      'web/src/components/layout/components/top-nav.tsx',
+      'web/src/components/layout/components/mobile-drawer.tsx',
+      'web/src/components/layout/components/system-brand.tsx',
+      'web/src/components/layout/components/footer.tsx',
+      'web/src/features/auth/auth-layout.tsx',
+    ]
+
+    for (const file of files) {
+      const source = read(file)
+      assert.match(source, /href=(?:'\/index'|\{homeUrl\})/, file)
+      assert.doesNotMatch(source, /to=['"]\/index['"]/, file)
+    }
   })
 })

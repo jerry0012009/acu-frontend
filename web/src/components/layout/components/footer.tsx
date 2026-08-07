@@ -4,13 +4,10 @@ import { useTranslation } from 'react-i18next'
 
 import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
-import {
-  BRAND_DOCUMENT_TITLE,
-  BRAND_NAME,
-  BRAND_NAME_ZH,
-  BRAND_WORDMARK_URL,
-} from '@/lib/brand'
+import { BRAND_DOCUMENT_TITLE, BRAND_NAME, BRAND_NAME_ZH } from '@/lib/brand'
 import { cn } from '@/lib/utils'
+
+import { BrandWordmark } from './brand-wordmark'
 
 interface FooterLink {
   text: string
@@ -108,12 +105,12 @@ function BrandCopyright(props: { currentYear: number; copyright?: string }) {
   return (
     <span>
       &copy; {props.currentYear}{' '}
-      <Link
-        to='/index'
+      <a
+        href='/index'
         className='text-foreground/70 hover:text-foreground font-medium transition-colors'
       >
         {BRAND_NAME} · {BRAND_NAME_ZH}
-      </Link>
+      </a>
       . {props.copyright ?? t('footer.defaultCopyright')}
     </span>
   )
@@ -160,24 +157,6 @@ export function Footer(props: FooterProps) {
     >
       <div className='mx-auto max-w-6xl px-6 py-12 md:py-16'>
         <div className='flex flex-col justify-between gap-10 md:flex-row md:gap-16'>
-          {/* Brand column */}
-          <div className='shrink-0'>
-            <Link
-              to='/index'
-              aria-label={BRAND_DOCUMENT_TITLE}
-              className='group flex w-fit items-center'
-            >
-              <img
-                src={BRAND_WORDMARK_URL}
-                alt={BRAND_DOCUMENT_TITLE}
-                className='h-9 w-auto object-contain invert dark:invert-0'
-              />
-            </Link>
-            <p className='text-muted-foreground/60 mt-3 max-w-[200px] text-xs leading-relaxed'>
-              {t('AI capacity orchestration infrastructure')}
-            </p>
-          </div>
-
           {/* Links columns */}
           {isDemoSiteMode && displayColumns.length > 0 && (
             <div className='grid grid-cols-3 gap-8 md:gap-16'>
@@ -197,6 +176,20 @@ export function Footer(props: FooterProps) {
               ))}
             </div>
           )}
+
+          {/* Brand column */}
+          <div className='ml-auto flex shrink-0 flex-col items-end text-right'>
+            <a
+              href='/index'
+              aria-label={BRAND_DOCUMENT_TITLE}
+              className='group flex w-fit items-center'
+            >
+              <BrandWordmark className='text-[28px]' />
+            </a>
+            <p className='text-muted-foreground/60 mt-3 max-w-[200px] text-right text-xs leading-relaxed'>
+              {t('AI capacity orchestration infrastructure')}
+            </p>
+          </div>
         </div>
 
         {/* Copyright and optional legal links. */}

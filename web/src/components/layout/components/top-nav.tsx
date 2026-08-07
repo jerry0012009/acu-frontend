@@ -59,6 +59,13 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
                       >
                         {title}
                       </a>
+                    ) : href === '/index' ? (
+                      <a
+                        href='/index'
+                        className={!isActive ? 'text-muted-foreground' : ''}
+                      >
+                        {title}
+                      </a>
                     ) : (
                       <Link
                         to={href}
@@ -91,6 +98,14 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
               href={href}
               target='_blank'
               rel='noopener noreferrer'
+              className={`hover:text-primary text-sm font-medium transition-colors ${isActive ? '' : 'text-muted-foreground'}`}
+            >
+              {title}
+            </a>
+          ) : href === '/index' ? (
+            <a
+              key={`${title}-${href}`}
+              href='/index'
               className={`hover:text-primary text-sm font-medium transition-colors ${isActive ? '' : 'text-muted-foreground'}`}
             >
               {title}

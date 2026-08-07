@@ -18,7 +18,7 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import { defaultTopNavLinks } from '../config/top-nav.config'
 import type { TopNavLink } from '../types'
-import { HeaderLogo } from './header-logo'
+import { BrandWordmark } from './brand-wordmark'
 
 const AUTH_PROMPT_SECONDS = 5
 
@@ -64,7 +64,7 @@ export function PublicHeader(props: PublicHeaderProps) {
   const [authPromptSecondsLeft, setAuthPromptSecondsLeft] =
     useState(AUTH_PROMPT_SECONDS)
   const { auth } = useAuthStore()
-  const { logo: systemLogo, loading, logoLoaded } = useSystemConfig()
+  const { loading } = useSystemConfig()
   const dynamicLinks = useTopNavLinks()
   const notifications = useNotifications()
   const routerState = useRouterState()
@@ -167,8 +167,8 @@ export function PublicHeader(props: PublicHeaderProps) {
             )}
           >
             {/* Logo */}
-            <Link
-              to={homeUrl}
+            <a
+              href={homeUrl}
               aria-label={BRAND_DOCUMENT_TITLE}
               className='group flex min-w-0 shrink-0 items-center'
             >
@@ -178,26 +178,39 @@ export function PublicHeader(props: PublicHeaderProps) {
                   scrolled ? 'h-7' : 'h-7 sm:h-8'
                 )}
               >
-                {loading ? (
-                  <Skeleton className='h-full w-[4.75rem] rounded-md sm:w-[5.25rem]' />
-                ) : customLogo ? (
+                {customLogo ? (
                   customLogo
                 ) : (
-                  <HeaderLogo
-                    src={systemLogo}
-                    alt={BRAND_DOCUMENT_TITLE}
-                    loading={loading}
-                    logoLoaded={logoLoaded}
-                    className='h-full w-auto max-w-full object-contain'
+                  <BrandWordmark
+                    className={cn(
+                      'transition-[font-size] duration-300',
+                      scrolled ? 'text-[22px]' : 'text-2xl'
+                    )}
                   />
                 )}
               </div>
-            </Link>
+            </a>
 
             {/* Desktop nav */}
             <div className='hidden items-center gap-0.5 sm:flex'>
               {links.map((link, i) => {
                 const isActive = pathname === link.href
+                if (link.href === '/index') {
+                  return (
+                    <a
+                      key={i}
+                      href='/index'
+                      className={cn(
+                        'rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors duration-200',
+                        isActive
+                          ? 'text-foreground'
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      {t(link.title)}
+                    </a>
+                  )
+                }
                 if (link.external) {
                   return (
                     <a
@@ -351,6 +364,19 @@ export function PublicHeader(props: PublicHeaderProps) {
                     aria-disabled={link.disabled}
                     tabIndex={link.disabled ? -1 : undefined}
                     onClick={(event) => handleNavLinkClick(event, link, true)}
+                    className={linkClassName}
+                    style={transitionStyle}
+                  >
+                    {t(link.title)}
+                  </a>
+                )
+              }
+              if (link.href === '/index') {
+                return (
+                  <a
+                    key={i}
+                    href='/index'
+                    onClick={() => setMobileOpen(false)}
                     className={linkClassName}
                     style={transitionStyle}
                   >
