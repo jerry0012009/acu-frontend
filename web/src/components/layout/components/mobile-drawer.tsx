@@ -20,7 +20,6 @@ import type { TopNavLink } from '../types'
 interface BrandLogoProps {
   homeUrl: string
   displayLogo: React.ReactNode
-  displaySiteName: string
   loading: boolean
   logoLoaded: boolean
   onClick?: () => void
@@ -29,24 +28,18 @@ interface BrandLogoProps {
 function BrandLogo({
   homeUrl,
   displayLogo,
-  displaySiteName,
   loading,
   logoLoaded,
   onClick,
 }: BrandLogoProps) {
   return (
-    <Link
-      to={homeUrl}
-      className='flex items-center gap-2 text-xl font-bold'
-      onClick={onClick}
-    >
-      <div className='relative h-6 w-6'>
+    <Link to={homeUrl} className='flex items-center' onClick={onClick}>
+      <div className='relative h-8 w-[5.25rem] overflow-hidden [&_img]:h-full [&_img]:w-auto [&_img]:max-w-full [&_img]:object-contain'>
         {loading || !logoLoaded ? (
-          <Skeleton className='absolute inset-0 rounded-full' />
+          <Skeleton className='absolute inset-0 rounded-md' />
         ) : null}
         {displayLogo}
       </div>
-      {loading ? <Skeleton className='h-5 w-20' /> : displaySiteName}
     </Link>
   )
 }
@@ -175,7 +168,6 @@ export function MobileDrawer({
   onClose,
   homeUrl,
   displayLogo,
-  displaySiteName,
   loading,
   logoLoaded,
   mobileLinksList,
@@ -214,7 +206,6 @@ export function MobileDrawer({
                 <BrandLogo
                   homeUrl={homeUrl}
                   displayLogo={displayLogo}
-                  displaySiteName={displaySiteName}
                   loading={loading}
                   logoLoaded={logoLoaded}
                   onClick={onClose}

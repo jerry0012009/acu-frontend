@@ -4,6 +4,12 @@ import { useTranslation } from 'react-i18next'
 
 import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
+import {
+  BRAND_DOCUMENT_TITLE,
+  BRAND_NAME,
+  BRAND_NAME_ZH,
+  BRAND_WORDMARK_URL,
+} from '@/lib/brand'
 import { cn } from '@/lib/utils'
 
 interface FooterLink {
@@ -133,15 +139,7 @@ function ProjectAttribution(props: { currentYear: number; inline?: boolean }) {
 
 export function Footer(props: FooterProps) {
   const { t } = useTranslation()
-  const {
-    systemName,
-    logo: systemLogo,
-    footerHtml,
-    demoSiteEnabled,
-  } = useSystemConfig()
-
-  const displayLogo = systemLogo || props.logo || '/logo.png'
-  const displayName = systemName || props.name || 'New API'
+  const { footerHtml, demoSiteEnabled } = useSystemConfig()
   const isDemoSiteMode = Boolean(demoSiteEnabled)
   const currentYear = new Date().getFullYear()
 
@@ -236,15 +234,16 @@ export function Footer(props: FooterProps) {
         <div className='flex flex-col justify-between gap-10 md:flex-row md:gap-16'>
           {/* Brand column */}
           <div className='shrink-0'>
-            <Link to='/' className='group flex items-center gap-2.5'>
+            <Link
+              to='/'
+              aria-label={BRAND_DOCUMENT_TITLE}
+              className='group flex w-fit items-center'
+            >
               <img
-                src={displayLogo}
-                alt={displayName}
-                className='size-7 rounded-lg object-contain'
+                src={BRAND_WORDMARK_URL}
+                alt={BRAND_DOCUMENT_TITLE}
+                className='h-9 w-auto max-w-[7rem] object-contain'
               />
-              <span className='text-sm font-semibold tracking-tight'>
-                {displayName}
-              </span>
             </Link>
             <p className='text-muted-foreground/60 mt-3 max-w-[200px] text-xs leading-relaxed'>
               {t('Powerful API Management Platform')}
@@ -277,7 +276,7 @@ export function Footer(props: FooterProps) {
         <div className='border-border/30 mt-12 flex flex-col items-center justify-between gap-x-3 gap-y-2 border-t pt-6 sm:flex-row'>
           <div className='text-muted-foreground/40 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs sm:justify-start'>
             <span>
-              &copy; {currentYear} {displayName}.{' '}
+              &copy; {currentYear} {BRAND_NAME} · {BRAND_NAME_ZH}.{' '}
               {props.copyright ?? t('footer.defaultCopyright')}
             </span>
             <LegalLinks leadingSeparator />

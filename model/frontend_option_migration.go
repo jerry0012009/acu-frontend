@@ -23,6 +23,9 @@ func MigrateRetiredFrontendOptions() error {
 	}
 
 	var migrationErrors []error
+	if err := migrateLegacySystemName(); err != nil {
+		migrationErrors = append(migrationErrors, fmt.Errorf("migrate legacy system name: %w", err))
+	}
 	if err := normalizeRetiredThemeOption(); err != nil {
 		migrationErrors = append(migrationErrors, fmt.Errorf("normalize %s: %w", retiredThemeOptionKey, err))
 	}
@@ -45,6 +48,14 @@ func MigrateRetiredFrontendOptions() error {
 		migrationErrors = append(migrationErrors, err)
 	}
 	return errors.Join(migrationErrors...)
+}
+
+func migrateLegacySystemName() error {
+	return DB.Transaction(func(tx *gorm.DB) error {
+		return tx.Model(&Option{}).
+			Where("key = ? AND value = ?", "SystemName", "New API").
+			Update("value", "ACUindex").Error
+	})
 }
 
 func normalizeRetiredThemeOption() error {

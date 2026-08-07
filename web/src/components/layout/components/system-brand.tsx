@@ -1,18 +1,13 @@
 import { Link } from '@tanstack/react-router'
-import { useTranslation } from 'react-i18next'
 
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
-import { useStatus } from '@/hooks/use-status'
-import { useSystemConfig } from '@/hooks/use-system-config'
-import { cn } from '@/lib/utils'
+import { BRAND_DOCUMENT_TITLE, BRAND_WORDMARK_URL } from '@/lib/brand'
 
 type SystemBrandProps = {
-  defaultName?: string
-  defaultVersion?: string
   /**
    * Visual layout:
    * - 'sidebar': stacked card style (used inside the sidebar header).
@@ -23,38 +18,25 @@ type SystemBrandProps = {
 
 /**
  * System brand component
- * Displays current system logo + name.
- * - inline: compact pill in the top app bar; clicking navigates to home (/)
- * - sidebar: stacked card in the sidebar header (display only)
+ * Displays the ACUindex horizontal wordmark without duplicating its name.
+ * The sidebar variant hides the wordmark instead of compressing it when
+ * the sidebar enters icon-only mode.
  */
 export function SystemBrand(props: SystemBrandProps) {
-  const { t } = useTranslation()
-  const { status } = useStatus()
-  const { logo } = useSystemConfig()
-
   const variant = props.variant ?? 'sidebar'
-  const name = status?.system_name || props.defaultName || 'New API'
-  const version =
-    status?.version || props.defaultVersion || t('Unknown version')
 
   if (variant === 'inline') {
     return (
       <Link
         to='/'
-        aria-label={t('Go to home')}
-        className={cn(
-          'text-foreground inline-flex h-7 items-center gap-1.5 rounded-md px-1.5 text-sm font-medium transition-colors outline-none select-none',
-          'hover:bg-accent focus-visible:ring-ring/40 focus-visible:ring-2'
-        )}
+        aria-label={BRAND_DOCUMENT_TITLE}
+        className='hover:bg-accent focus-visible:ring-ring/40 inline-flex h-8 w-[4.75rem] items-center rounded-md px-1 transition-colors outline-none select-none focus-visible:ring-2 sm:w-[5.25rem]'
       >
-        <div className='flex size-5 items-center justify-center overflow-hidden rounded-md'>
-          <img
-            src={logo}
-            alt={t('Logo')}
-            className='size-full rounded-md object-cover'
-          />
-        </div>
-        <span className='max-w-[12rem] truncate'>{name}</span>
+        <img
+          src={BRAND_WORDMARK_URL}
+          alt={BRAND_DOCUMENT_TITLE}
+          className='h-7 w-auto max-w-full object-contain'
+        />
       </Link>
     )
   }
@@ -67,16 +49,12 @@ export function SystemBrand(props: SystemBrandProps) {
           className='hover:text-sidebar-foreground active:text-sidebar-foreground cursor-default hover:bg-transparent active:bg-transparent'
           render={<div />}
         >
-          <div className='flex aspect-square size-8 items-center justify-center overflow-hidden rounded-lg'>
+          <div className='flex h-8 w-[5.25rem] items-center group-data-[collapsible=icon]:invisible'>
             <img
-              src={logo}
-              alt={t('Logo')}
-              className='size-full rounded-lg object-cover'
+              src={BRAND_WORDMARK_URL}
+              alt={BRAND_DOCUMENT_TITLE}
+              className='h-8 w-auto max-w-full object-contain'
             />
-          </div>
-          <div className='grid flex-1 text-start text-sm leading-tight group-data-[collapsible=icon]:hidden'>
-            <span className='truncate font-semibold'>{name}</span>
-            <span className='truncate text-xs'>{version}</span>
           </div>
         </SidebarMenuButton>
       </SidebarMenuItem>
