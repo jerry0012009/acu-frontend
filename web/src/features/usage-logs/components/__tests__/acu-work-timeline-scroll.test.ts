@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
 import { Window } from 'happy-dom'
-import { readFileSync } from 'node:fs'
 
 const viewports = [
   [1366, 768],
@@ -42,7 +42,9 @@ for (const [width, height] of viewports) {
       rootWheelEvents += 1
       root.scrollTop += 240
     })
-    chart.dispatchEvent(new window.WheelEvent('wheel', { bubbles: true, deltaY: 240 }))
+    chart.dispatchEvent(
+      new window.WheelEvent('wheel', { bubbles: true, deltaY: 240 })
+    )
     assert.equal(rootWheelEvents, 1)
     assert.ok(root.scrollHeight > root.clientHeight)
     assert.ok(root.scrollTop > 0)
@@ -62,7 +64,9 @@ for (const [width, height] of viewports) {
     assert.equal(root.scrollTop, root.scrollHeight - root.clientHeight)
 
     drawer.remove()
-    chart.dispatchEvent(new window.WheelEvent('wheel', { bubbles: true, deltaY: 240 }))
+    chart.dispatchEvent(
+      new window.WheelEvent('wheel', { bubbles: true, deltaY: 240 })
+    )
     assert.equal(rootWheelEvents, 2)
     window.close()
   })

@@ -76,7 +76,11 @@ export function buildMonitorChartData(
     const { durationMs, bucketMs } = RANGE_WINDOWS[range]
     const endMs = Math.floor(nowMs / bucketMs) * bucketMs
     const startMs = endMs - durationMs
-    for (let bucketMsValue = startMs; bucketMsValue <= endMs; bucketMsValue += bucketMs) {
+    for (
+      let bucketMsValue = startMs;
+      bucketMsValue <= endMs;
+      bucketMsValue += bucketMs
+    ) {
       const bucket = new Date(bucketMsValue).toISOString()
       if (!buckets.has(bucket)) buckets.set(bucket, [])
     }

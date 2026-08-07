@@ -1,21 +1,3 @@
-/*
-Copyright (C) 2023-2026 QuantumNous
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-For commercial licensing, please contact support@quantumnous.com
-*/
 import type {
   ACUChannelHistoryRow,
   ACUChannelMonitorProfile,
@@ -121,14 +103,13 @@ export function groupACUChannels(
       } else if (eligibleProfiles.length === enabledProfiles.length) {
         state = 'healthy'
       }
-      const primaryProfile = [...eligibleProfiles]
-        .sort(
-          (left, right) =>
-            (right.requestCount ?? 0) - (left.requestCount ?? 0) ||
-            (left.profileRank ?? Number.POSITIVE_INFINITY) -
-              (right.profileRank ?? Number.POSITIVE_INFINITY) ||
-            left.executionProfileId.localeCompare(right.executionProfileId)
-        )[0]
+      const primaryProfile = [...eligibleProfiles].sort(
+        (left, right) =>
+          (right.requestCount ?? 0) - (left.requestCount ?? 0) ||
+          (left.profileRank ?? Number.POSITIVE_INFINITY) -
+            (right.profileRank ?? Number.POSITIVE_INFINITY) ||
+          left.executionProfileId.localeCompare(right.executionProfileId)
+      )[0]
       const observedBuckets = history.filter(
         (row) => row.scope_type === 'channel' && row.scope_id === channel
       )
@@ -234,7 +215,10 @@ export function groupACUChannels(
         .filter((probe) => probe.probeMode === 'full_pool')
         .map((probe) => new Date(probe.started_at).getTime())
         .filter(Number.isFinite)
-      const latestFullPoolTime = Math.max(...fullPoolTimes, Number.NEGATIVE_INFINITY)
+      const latestFullPoolTime = Math.max(
+        ...fullPoolTimes,
+        Number.NEGATIVE_INFINITY
+      )
       const recoveryProbes = channelProbes.filter(
         (probe) => probe.probeMode === 'recovery'
       )
