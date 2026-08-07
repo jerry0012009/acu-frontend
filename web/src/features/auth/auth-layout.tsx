@@ -10,15 +10,15 @@ export function AuthLayout({ children }: AuthLayoutProps) {
   return (
     <div className='relative grid h-svh max-w-none'>
       <Link
-        to='/'
+        to='/index'
         aria-label={BRAND_DOCUMENT_TITLE}
         className='absolute top-4 left-4 z-10 flex items-center transition-opacity hover:opacity-80 sm:top-8 sm:left-8'
       >
-        <div className='relative h-9 w-[5.75rem] sm:h-11 sm:w-[7.25rem]'>
+        <div className='relative h-9 sm:h-11'>
           <img
             src={BRAND_WORDMARK_URL}
             alt={BRAND_DOCUMENT_TITLE}
-            className='h-full w-auto max-w-full object-contain'
+            className='h-full w-auto object-contain invert dark:invert-0'
           />
         </div>
       </Link>

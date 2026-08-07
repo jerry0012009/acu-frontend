@@ -28,14 +28,14 @@ export function SystemBrand(props: SystemBrandProps) {
   if (variant === 'inline') {
     return (
       <Link
-        to='/'
+        to='/index'
         aria-label={BRAND_DOCUMENT_TITLE}
-        className='hover:bg-accent focus-visible:ring-ring/40 inline-flex h-8 w-[4.75rem] items-center rounded-md px-1 transition-colors outline-none select-none focus-visible:ring-2 sm:w-[5.25rem]'
+        className='hover:bg-accent focus-visible:ring-ring/40 inline-flex h-8 items-center rounded-md px-1 transition-colors outline-none select-none focus-visible:ring-2'
       >
         <img
           src={BRAND_WORDMARK_URL}
           alt={BRAND_DOCUMENT_TITLE}
-          className='h-7 w-auto max-w-full object-contain'
+          className='h-7 w-auto object-contain invert dark:invert-0'
         />
       </Link>
     )
@@ -49,11 +49,11 @@ export function SystemBrand(props: SystemBrandProps) {
           className='hover:text-sidebar-foreground active:text-sidebar-foreground cursor-default hover:bg-transparent active:bg-transparent'
           render={<div />}
         >
-          <div className='flex h-8 w-[5.25rem] items-center group-data-[collapsible=icon]:invisible'>
+          <div className='flex h-8 items-center group-data-[collapsible=icon]:invisible'>
             <img
               src={BRAND_WORDMARK_URL}
               alt={BRAND_DOCUMENT_TITLE}
-              className='h-8 w-auto max-w-full object-contain'
+              className='h-8 w-auto object-contain invert dark:invert-0'
             />
           </div>
         </SidebarMenuButton>

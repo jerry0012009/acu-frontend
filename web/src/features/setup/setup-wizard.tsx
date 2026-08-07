@@ -269,11 +269,11 @@ export function SetupWizard() {
       </div>
       <div className='container mx-auto flex max-w-5xl flex-col gap-8 px-4 sm:px-6'>
         <div className='flex flex-col items-center gap-3'>
-          <div className='relative h-14 w-[9rem]'>
+          <div className='relative h-14'>
             <img
               src={BRAND_WORDMARK_URL}
               alt={BRAND_DOCUMENT_TITLE}
-              className='h-full w-auto max-w-full object-contain'
+              className='h-full w-auto object-contain invert dark:invert-0'
             />
           </div>
           <span className='text-muted-foreground text-xs tracking-[0.3em]'>

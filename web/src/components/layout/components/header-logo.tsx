@@ -24,7 +24,7 @@ export function HeaderLogo({
       src={src}
       alt={alt}
       className={cn(
-        'h-7 w-auto max-w-full object-contain transition-opacity duration-200',
+        'h-7 w-auto max-w-full object-contain invert transition-opacity duration-200 dark:invert-0',
         !loading && logoLoaded ? 'opacity-100' : 'opacity-0',
         className
       )}

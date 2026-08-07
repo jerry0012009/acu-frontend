@@ -34,7 +34,7 @@ function BrandLogo({
 }: BrandLogoProps) {
   return (
     <Link to={homeUrl} className='flex items-center' onClick={onClick}>
-      <div className='relative h-8 w-[5.25rem] overflow-hidden [&_img]:h-full [&_img]:w-auto [&_img]:max-w-full [&_img]:object-contain'>
+      <div className='relative h-8 overflow-hidden [&_img]:h-full [&_img]:w-auto [&_img]:object-contain [&_img]:invert dark:[&_img]:invert-0'>
         {loading || !logoLoaded ? (
           <Skeleton className='absolute inset-0 rounded-md' />
         ) : null}

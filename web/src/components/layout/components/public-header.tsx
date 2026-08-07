@@ -50,7 +50,7 @@ export function PublicHeader(props: PublicHeaderProps) {
     showThemeSwitch = true,
     showLanguageSwitcher = true,
     logo: customLogo,
-    homeUrl = '/',
+    homeUrl = '/index',
     showAuthButtons = true,
     showNotifications = true,
   } = props
@@ -175,13 +175,11 @@ export function PublicHeader(props: PublicHeaderProps) {
               <div
                 className={cn(
                   'flex shrink-0 items-center transition-all duration-300 group-hover:scale-[1.03]',
-                  scrolled
-                    ? 'h-7 w-[4.75rem]'
-                    : 'h-7 w-[4.75rem] sm:h-8 sm:w-[5.25rem]'
+                  scrolled ? 'h-7' : 'h-7 sm:h-8'
                 )}
               >
                 {loading ? (
-                  <Skeleton className='h-full w-full rounded-md' />
+                  <Skeleton className='h-full w-[4.75rem] rounded-md sm:w-[5.25rem]' />
                 ) : customLogo ? (
                   customLogo
                 ) : (
