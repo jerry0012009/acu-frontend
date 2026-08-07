@@ -20,7 +20,6 @@ export type TopNavLink = {
  *   home: true,
  *   console: true,
  *   pricing: { enabled: true, requireAuth: false },
- *   rankings: { enabled: true, requireAuth: false },
  * }
  */
 export function useTopNavLinks(): TopNavLink[] {
@@ -41,8 +40,10 @@ export function useTopNavLinks(): TopNavLink[] {
 
   // Home
   if (modules?.home !== false) {
-    links.push({ title: t('Home'), href: '/' })
+    links.push({ title: t('Home'), href: '/index' })
   }
+
+  links.push({ title: t('Usage Guide'), href: '/' })
 
   // Console -> /dashboard (new console path)
   if (modules?.console !== false) {
@@ -53,14 +54,7 @@ export function useTopNavLinks(): TopNavLink[] {
   const pricing = modules?.pricing
   if (pricing && typeof pricing === 'object' && pricing.enabled) {
     const requiresAuth = pricing.requireAuth && !isAuthed
-    links.push({ title: t('Model Square'), href: '/pricing', requiresAuth })
-  }
-
-  // Rankings
-  const rankings = modules?.rankings
-  if (rankings && typeof rankings === 'object' && rankings.enabled) {
-    const requiresAuth = rankings.requireAuth && !isAuthed
-    links.push({ title: t('Rankings'), href: '/rankings', requiresAuth })
+    links.push({ title: t('Model Pricing'), href: '/pricing', requiresAuth })
   }
 
   return links
