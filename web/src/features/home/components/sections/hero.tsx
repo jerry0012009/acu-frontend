@@ -1,10 +1,9 @@
 import { CherryStudio } from '@lobehub/icons'
 import { Link } from '@tanstack/react-router'
-import { ArrowRight, BookOpen } from 'lucide-react'
+import { ArrowRight, Play } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
-import { useStatus } from '@/hooks/use-status'
 
 import { HeroTerminalDemo } from '../hero-terminal-demo'
 
@@ -13,50 +12,18 @@ interface HeroProps {
   isAuthenticated?: boolean
 }
 
-// Stylized three-dots indicator representing "More"
-const MoreIcon = () => (
-  <svg
-    className='text-muted-foreground/60 group-hover:text-foreground size-6 shrink-0 transition-colors'
-    viewBox='0 0 24 24'
-    fill='none'
-    xmlns='http://www.w3.org/2000/svg'
-  >
-    <circle cx='6' cy='12' r='2' fill='currentColor' />
-    <circle cx='12' cy='12' r='2' fill='currentColor' />
-    <circle cx='18' cy='12' r='2' fill='currentColor' />
-  </svg>
-)
-
 export function Hero(props: HeroProps) {
   const { t } = useTranslation()
-  const { status } = useStatus()
-  const docsUrl =
-    (status?.docs_link as string | undefined) || 'https://docs.newapi.pro'
 
-  const renderDocsButton = () => {
-    const isExternal = docsUrl.startsWith('http')
-    if (isExternal) {
-      return (
-        <Button
-          variant='outline'
-          className='group border-border/50 hover:border-border hover:bg-muted/50 inline-flex h-11 items-center gap-1.5 rounded-lg px-5 text-sm font-medium'
-          render={
-            <a href={docsUrl} target='_blank' rel='noopener noreferrer' />
-          }
-        >
-          <BookOpen className='text-muted-foreground/80 group-hover:text-foreground size-4 transition-colors duration-200' />
-          <span>{t('Docs')}</span>
-        </Button>
-      )
-    }
+  const renderDemoButton = () => {
     return (
       <Button
         variant='outline'
         className='group border-border/50 hover:border-border hover:bg-muted/50 inline-flex h-11 items-center gap-1.5 rounded-lg px-5 text-sm font-medium'
-        render={<Link to={docsUrl} />}
+        render={<a href='https://eu.jerrypsy.top/acu-router/' />}
       >
-        <BookOpen className='text-muted-foreground/80 group-hover:text-foreground size-4 transition-colors duration-200' />
-        <span>{t('Docs')}</span>
+        <Play className='text-muted-foreground/80 group-hover:text-foreground size-4 transition-colors duration-200' />
+        <span>{t('Product Demo')}</span>
       </Button>
     )
   }
@@ -132,7 +99,7 @@ export function Hero(props: HeroProps) {
                   {t('Enter Console')}
                   <ArrowRight className='ml-1.5 size-4 transition-transform duration-200 group-hover:translate-x-0.5' />
                 </Button>
-                {renderDocsButton()}
+                {renderDemoButton()}
               </>
             ) : (
               <>
@@ -150,7 +117,7 @@ export function Hero(props: HeroProps) {
                 >
                   {t('View Pricing')}
                 </Button>
-                {renderDocsButton()}
+                {renderDemoButton()}
               </>
             )}
           </div>
@@ -170,13 +137,13 @@ export function Hero(props: HeroProps) {
                 )}
               </p>
             </div>
-            <div className='flex flex-wrap items-center gap-3'>
+            <div className='flex flex-wrap items-center gap-2'>
               {/* Cherry Studio */}
               <a
                 href='https://cherry-ai.com'
                 target='_blank'
                 rel='noopener noreferrer'
-                className='group border-border/40 bg-muted/15 text-foreground/80 hover:border-border hover:bg-muted/30 hover:text-foreground flex items-center gap-3 rounded-full border px-5 py-2.5 text-sm font-medium shadow-[0_1px_2.5px_rgba(0,0,0,0.01)] backdrop-blur-xs transition-all duration-300 hover:scale-[1.02]'
+                className='group border-border/40 bg-muted/15 text-foreground/80 hover:border-border hover:bg-muted/30 hover:text-foreground flex h-11 items-center gap-2 rounded-full border px-3.5 text-sm font-medium shadow-[0_1px_2.5px_rgba(0,0,0,0.01)] backdrop-blur-xs transition-all duration-300 hover:scale-[1.02]'
               >
                 <CherryStudio.Color size={24} className='shrink-0' />
                 <span>Cherry Studio</span>
@@ -187,7 +154,7 @@ export function Hero(props: HeroProps) {
                 href='https://ccswitch.io'
                 target='_blank'
                 rel='noopener noreferrer'
-                className='group border-border/40 bg-muted/15 text-foreground/80 hover:border-border hover:bg-muted/30 hover:text-foreground flex items-center gap-3 rounded-full border px-5 py-2.5 text-sm font-medium shadow-[0_1px_2.5px_rgba(0,0,0,0.01)] backdrop-blur-xs transition-all duration-300 hover:scale-[1.02]'
+                className='group border-border/40 bg-muted/15 text-foreground/80 hover:border-border hover:bg-muted/30 hover:text-foreground flex h-11 items-center gap-2 rounded-full border px-3.5 text-sm font-medium shadow-[0_1px_2.5px_rgba(0,0,0,0.01)] backdrop-blur-xs transition-all duration-300 hover:scale-[1.02]'
               >
                 <img
                   src='https://ccswitch.io/favicon.png'
@@ -209,11 +176,23 @@ export function Hero(props: HeroProps) {
                 <span>CC Switch</span>
               </a>
 
-              {/* "更多" */}
-              <div className='group border-border/40 bg-muted/15 text-foreground/55 hover:border-border hover:bg-muted/30 hover:text-foreground flex cursor-default items-center gap-2.5 rounded-full border px-5 py-2.5 text-sm font-medium shadow-[0_1px_2.5px_rgba(0,0,0,0.01)] backdrop-blur-xs transition-all duration-300 hover:scale-[1.02]'>
-                <MoreIcon />
-                <span>{t('More Apps')}</span>
-              </div>
+              <a
+                href='https://openclaw.ai/'
+                target='_blank'
+                rel='noopener noreferrer'
+                className='group border-border/40 bg-muted/15 text-foreground/80 hover:border-border hover:bg-muted/30 hover:text-foreground flex h-11 items-center rounded-full border px-3.5 text-sm font-medium shadow-[0_1px_2.5px_rgba(0,0,0,0.01)] backdrop-blur-xs transition-all duration-300 hover:scale-[1.02]'
+              >
+                <span>OpenClaw</span>
+              </a>
+
+              <a
+                href='https://hermes-agent.nousresearch.com/'
+                target='_blank'
+                rel='noopener noreferrer'
+                className='group border-border/40 bg-muted/15 text-foreground/80 hover:border-border hover:bg-muted/30 hover:text-foreground flex h-11 items-center rounded-full border px-3.5 text-sm font-medium shadow-[0_1px_2.5px_rgba(0,0,0,0.01)] backdrop-blur-xs transition-all duration-300 hover:scale-[1.02]'
+              >
+                <span>Hermes</span>
+              </a>
             </div>
           </div>
         </div>

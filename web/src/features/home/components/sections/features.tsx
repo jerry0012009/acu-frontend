@@ -124,12 +124,12 @@ export function Features(_props: FeaturesProps) {
       span: 'md:col-span-2',
       icon: <Code className='size-4 text-amber-400' />,
       visual: (
-        <div className='mt-4 flex items-center gap-3'>
-          <div className='flex -space-x-2'>
+        <div className='mt-4 flex flex-wrap items-center gap-3'>
+          <div className='flex flex-wrap gap-2'>
             {['OpenAI', 'Responses', 'Claude', 'Gemini'].map((n) => (
               <div
                 key={n}
-                className='border-background from-muted to-muted/60 text-muted-foreground flex size-8 items-center justify-center rounded-full border-2 bg-gradient-to-br text-[9px] font-bold'
+                className='border-border/40 bg-muted/20 text-muted-foreground flex h-8 items-center rounded-full border px-3 text-sm font-medium'
               >
                 {n}
               </div>
