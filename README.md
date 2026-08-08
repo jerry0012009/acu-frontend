@@ -170,6 +170,7 @@ docker run --name new-api -d --restart always \
 | Category | Link |
 |------|------|
 | 🚀 Deployment Guide | [Installation Documentation](https://docs.newapi.pro/en/docs/installation) |
+| 🧭 ACUindex Production | [Versioned deployment contract](./docs/installation/acu-production.md) |
 | ⚙️ Environment Configuration | [Environment Variables](https://docs.newapi.pro/en/docs/installation/config-maintenance/environment-variables) |
 | 📡 API Documentation | [API Documentation](https://docs.newapi.pro/en/docs/api) |
 | ❓ FAQ | [FAQ](https://docs.newapi.pro/en/docs/support/faq) |
