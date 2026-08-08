@@ -74,10 +74,19 @@ const queryClient = new QueryClient({
   }),
 })
 
+// Keep the existing root deployment compatible while allowing the production
+// console to live under the public /acu namespace.
+const routerBasepath =
+  window.location.pathname === '/acu' ||
+  window.location.pathname.startsWith('/acu/')
+    ? '/acu'
+    : '/'
+
 // Create a new router instance
 const router = createRouter({
   routeTree,
   context: { queryClient },
+  basepath: routerBasepath,
   defaultPreload: false,
 })
 
