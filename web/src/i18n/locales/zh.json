@@ -5473,6 +5473,11 @@
     "ACU Conversation and compatible client functions": "ACU 对话与兼容客户端功能",
     "Task-level ACU Router experience": "任务级 ACU Router 体验",
     "ACU conversations and compatible client integrations.": "ACU 对话与兼容客户端接入。",
-    "Send tasks through ACU Auto and inspect the routed result.": "通过 ACU Auto 发送任务并查看路由结果。"
+    "Send tasks through ACU Auto and inspect the routed result.": "通过 ACU Auto 发送任务并查看路由结果。",
+    "ACU Setup": "ACU 配置",
+    "ACU client setup": "ACU 客户端配置",
+    "macOS / Linux / WSL": "macOS / Linux / WSL",
+    "Windows PowerShell": "Windows PowerShell",
+    "Reset / uninstall": "重置 / 卸载"
   }
 }

@@ -1,21 +1,60 @@
 import { Terminal } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
-const UNIX_INSTALL =
-  'curl -fsSL https://eu.jerrypsy.top/acu/claude-acu-install.sh | sh'
-const WINDOWS_INSTALL =
-  'irm https://eu.jerrypsy.top/acu/claude-acu-install.ps1 | iex'
-const MANUAL_ENV = `ANTHROPIC_BASE_URL=https://eu.jerrypsy.top/acu
-ANTHROPIC_AUTH_TOKEN=<ACU API Key>
-ANTHROPIC_CUSTOM_MODEL_OPTION=acu-auto
-ANTHROPIC_CUSTOM_MODEL_OPTION_NAME=ACU Auto
-ANTHROPIC_DEFAULT_OPUS_MODEL=acu-auto
-ANTHROPIC_DEFAULT_SONNET_MODEL=acu-auto
-ANTHROPIC_DEFAULT_HAIKU_MODEL=acu-auto
-CLAUDE_CODE_SUBAGENT_MODEL=acu-auto
-CLAUDE_CODE_MAX_CONTEXT_TOKENS=272000`
+function normalizeKey(value: string): string {
+  return value.startsWith('sk-') ? value : `sk-${value}`
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'"'"'`)}'`
+}
+
+function powerShellQuote(value: string): string {
+  return `'${value.replaceAll("'", "''")}'`
+}
+
+function buildCodexUnixInstall(tokenKey: string): string {
+  const key = shellQuote(normalizeKey(tokenKey))
+  return (
+    '{ curl -fsSL https://eu.jerrypsy.top/acu/codex-acu-install.sh || ' +
+    'curl -fsSL https://acu-api-direct.jerrypsy.top/codex-acu-install.sh || ' +
+    'curl -fsSL https://raw.githubusercontent.com/jerry0012009/ClawRouter/main/tools/codex-acu/install.sh; } ' +
+    `| ACU_API_KEY=${key} sh`
+  )
+}
+
+function buildCodexPowerShellInstall(tokenKey: string): string {
+  const key = powerShellQuote(normalizeKey(tokenKey))
+  return (
+    `$env:ACU_API_KEY=${key}; ` +
+    "try { irm 'https://eu.jerrypsy.top/acu/codex-acu-install.ps1' | iex } " +
+    "catch { try { irm 'https://acu-api-direct.jerrypsy.top/codex-acu-install.ps1' | iex } " +
+    "catch { irm 'https://raw.githubusercontent.com/jerry0012009/ClawRouter/main/tools/codex-acu/install.ps1' | iex } }"
+  )
+}
+
+function buildClaudeUnixInstall(tokenKey: string): string {
+  const key = shellQuote(normalizeKey(tokenKey))
+  return (
+    '{ curl -fsSL https://eu.jerrypsy.top/acu/claude-acu-install.sh || ' +
+    'curl -fsSL https://acu-api-direct.jerrypsy.top/claude-acu-install.sh || ' +
+    'curl -fsSL https://raw.githubusercontent.com/jerry0012009/acu-frontend/main/web/public/claude-acu-install.sh; } ' +
+    `| ACU_API_KEY=${key} sh`
+  )
+}
+
+function buildClaudePowerShellInstall(tokenKey: string): string {
+  const key = powerShellQuote(normalizeKey(tokenKey))
+  return (
+    `$env:ACU_API_KEY=${key}; ` +
+    "try { irm 'https://eu.jerrypsy.top/acu/claude-acu-install.ps1' | iex } " +
+    "catch { try { irm 'https://acu-api-direct.jerrypsy.top/claude-acu-install.ps1' | iex } " +
+    "catch { irm 'https://raw.githubusercontent.com/jerry0012009/acu-frontend/main/web/public/claude-acu-install.ps1' | iex } }"
+  )
+}
 
 function CommandRow(props: { label: string; value: string }) {
   return (
@@ -37,51 +76,65 @@ function CommandRow(props: { label: string; value: string }) {
   )
 }
 
-export function ClaudeACUSetup() {
+type ClaudeACUSetupProps = {
+  tokenKey: string
+}
+
+export function ClaudeACUSetup(props: ClaudeACUSetupProps) {
+  const { t } = useTranslation()
+  const codexUnixInstall = buildCodexUnixInstall(props.tokenKey)
+  const codexPowerShellInstall = buildCodexPowerShellInstall(props.tokenKey)
+  const claudeUnixInstall = buildClaudeUnixInstall(props.tokenKey)
+  const claudePowerShellInstall = buildClaudePowerShellInstall(props.tokenKey)
+
   return (
-    <section className='mb-4 border-b pb-4'>
-      <Tabs defaultValue='claude'>
+    <section>
+      <Tabs defaultValue='codex'>
         <div className='flex flex-wrap items-center justify-between gap-2'>
           <div className='flex items-center gap-2 text-sm font-medium'>
             <Terminal className='size-4' />
-            ACU client setup
+            {t('ACU client setup')}
           </div>
           <TabsList>
             <TabsTrigger value='codex'>Codex ACU</TabsTrigger>
             <TabsTrigger value='claude'>Claude ACU</TabsTrigger>
           </TabsList>
         </div>
-        <TabsContent value='codex' className='mt-3'>
-          <CommandRow label='Test' value='codex-acu exec "Return exactly OK"' />
+        <TabsContent value='codex' className='mt-3 space-y-3'>
+          <div className='grid min-w-0 gap-3'>
+            <CommandRow
+              label={t('macOS / Linux / WSL')}
+              value={codexUnixInstall}
+            />
+            <CommandRow
+              label={t('Windows PowerShell')}
+              value={codexPowerShellInstall}
+            />
+            <CommandRow
+              label={t('Test')}
+              value='codex-acu exec "Return exactly CODEX_ACU_OK"'
+            />
+          </div>
         </TabsContent>
         <TabsContent value='claude' className='mt-3 space-y-3'>
           <div className='grid min-w-0 gap-3 lg:grid-cols-2'>
-            <CommandRow label='macOS / Linux / WSL' value={UNIX_INSTALL} />
-            <CommandRow label='Windows PowerShell' value={WINDOWS_INSTALL} />
             <CommandRow
-              label='Test'
+              label={t('macOS / Linux / WSL')}
+              value={claudeUnixInstall}
+            />
+            <CommandRow
+              label={t('Windows PowerShell')}
+              value={claudePowerShellInstall}
+            />
+            <CommandRow
+              label={t('Test')}
               value='claude-acu -p --max-turns 1 "Return exactly CLAUDE_ACU_OK"'
             />
             <CommandRow
-              label='Reset / uninstall'
+              label={t('Reset / uninstall')}
               value='rm -rf ~/.claude-acu ~/.local/bin/claude-acu'
             />
           </div>
-          <details className='text-sm'>
-            <summary className='cursor-pointer font-medium'>
-              Manual environment variables
-            </summary>
-            <div className='bg-muted/50 mt-2 flex min-w-0 items-start gap-2 rounded-md border p-2'>
-              <pre className='min-w-0 flex-1 overflow-x-auto text-xs'>
-                {MANUAL_ENV}
-              </pre>
-              <CopyButton
-                value={MANUAL_ENV}
-                className='size-7'
-                tooltip='Copy environment variables'
-              />
-            </div>
-          </details>
         </TabsContent>
       </Tabs>
     </section>

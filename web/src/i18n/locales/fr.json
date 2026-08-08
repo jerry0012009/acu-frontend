@@ -5240,6 +5240,11 @@
     "Select at least one routing candidate": "Sélectionnez au moins un candidat de routage",
     "Candidate preferences must use allowed candidates": "Les préférences doivent concerner des candidats autorisés",
     "Base utility": "Utilité de base",
-    "Adjusted utility": "Utilité ajustée"
+    "Adjusted utility": "Utilité ajustée",
+    "ACU Setup": "Configuration ACU",
+    "ACU client setup": "Configuration du client ACU",
+    "macOS / Linux / WSL": "macOS / Linux / WSL",
+    "Windows PowerShell": "Windows PowerShell",
+    "Reset / uninstall": "Réinitialiser / désinstaller"
   }
 }

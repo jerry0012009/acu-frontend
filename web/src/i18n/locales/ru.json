@@ -5240,6 +5240,11 @@
     "Select at least one routing candidate": "Выберите хотя бы одного кандидата маршрутизации",
     "Candidate preferences must use allowed candidates": "Предпочтения можно задавать только разрешённым кандидатам",
     "Base utility": "Базовая полезность",
-    "Adjusted utility": "Скорректированная полезность"
+    "Adjusted utility": "Скорректированная полезность",
+    "ACU Setup": "Настройка ACU",
+    "ACU client setup": "Настройка клиента ACU",
+    "macOS / Linux / WSL": "macOS / Linux / WSL",
+    "Windows PowerShell": "Windows PowerShell",
+    "Reset / uninstall": "Сбросить / удалить"
   }
 }

@@ -12,6 +12,7 @@
 | 模型定价 | `https://eu.jerrypsy.top/acu/pricing` | `127.0.0.1:3200` |
 | Codex ACU Responses | `https://acu-api-direct.jerrypsy.top/v1` | New API `/v1/responses` |
 | Claude ACU Messages | `https://eu.jerrypsy.top/acu` | New API `/v1/messages` |
+| Codex release mirror | `https://acu-api-direct.jerrypsy.top/codex-releases/` | ACU host static cache |
 | Router Demo | `https://eu.jerrypsy.top/acu-router/` | `127.0.0.1:8402` |
 
 New API 的浏览器 Router 会在地址以 `/acu` 开头时自动使用 `/acu` base path；根路径部署仍保持兼容。浏览器 API 请求和构建资源仍使用根绝对路径 `/api/` 与 `/static/`，由版本化 Nginx snippet 精确代理。不要通过字符串替换构建产物来增加前缀。
@@ -94,13 +95,34 @@ model = "acu-auto"
 wire_api = "responses"
 ```
 
-Claude ACU 的页面安装命令：
+Codex ACU 的用户安装命令由控制台按 Token 动态生成，Unix 命令形态为：
 
 ```bash
-curl -fsSL https://eu.jerrypsy.top/acu/claude-acu-install.sh | sh
+{ curl -fsSL https://eu.jerrypsy.top/acu/codex-acu-install.sh || \
+  curl -fsSL https://acu-api-direct.jerrypsy.top/codex-acu-install.sh || \
+  curl -fsSL https://raw.githubusercontent.com/jerry0012009/ClawRouter/main/tools/codex-acu/install.sh; } \
+  | ACU_API_KEY='sk-用户Token' sh
 ```
 
-安装器固定 `ANTHROPIC_BASE_URL=https://eu.jerrypsy.top/acu`、`model=acu-auto` 和 `CLAUDE_CODE_MAX_CONTEXT_TOKENS=272000`。禁止恢复 `:8443` 地址；8443 只保留临时兼容，不是客户文档入口。
+安装器在私有 `codex-acu` 目录中维护最新版 Codex，不会覆盖用户已有的
+`codex`。安装时先尝试 npm 官方 Registry 和 `registry.npmmirror.com`，
+再回退 direct/public ACU release mirror 与 OpenAI standalone installer。镜像由
+ACU host 的 systemd timer 每 6 小时更新，下载后校验 upstream SHA-256，
+保留最近三个版本。它会在 direct Responses 入口与 `/acu/v1` 备用入口之间
+选择可用地址，保存独立 `CODEX_HOME` 和本地凭据，并执行一次真实 Codex ACU
+验收。
+
+Claude ACU 的页面安装命令（控制台会生成带 Token 和多地域回退的完整命令）：
+
+```bash
+curl -fsSL https://eu.jerrypsy.top/acu/claude-acu-install.sh | ACU_API_KEY='sk-用户Token' sh
+```
+
+安装器会在 `https://eu.jerrypsy.top/acu` 与 direct 域名之间实际探测可用
+Messages 入口，然后保存 `ANTHROPIC_BASE_URL`、`model=acu-auto` 和
+`CLAUDE_CODE_MAX_CONTEXT_TOKENS=272000`。没有 Claude Code 时优先从 npm /
+npmmirror 安装，失败后使用 Anthropic standalone installer。禁止恢复 `:8443`
+地址；8443 只保留临时兼容，不是客户文档入口。
 
 ## 6. 发布验收
 
@@ -112,6 +134,11 @@ curl -fsS https://eu.jerrypsy.top/api/status
 curl -fsS https://acu-api-direct.jerrypsy.top/healthz
 curl -fsS https://eu.jerrypsy.top/acu/claude-acu-install.sh | \
   grep 'ANTHROPIC_BASE_URL="https://eu.jerrypsy.top/acu"'
+curl -fsS https://eu.jerrypsy.top/acu/codex-acu-install.sh | \
+  grep 'registry.npmmirror.com'
+curl -fsS https://acu-api-direct.jerrypsy.top/codex-acu-install.sh | \
+  grep 'ACU_API_KEY'
+curl -fsS https://acu-api-direct.jerrypsy.top/codex-releases/version.json
 ```
 
 再分别执行一条最小 `codex-acu` 和 `claude-acu` 请求。HTTP 200 只能证明入口存在，真实客户端完成才能证明 Responses / Messages 协议和 Token 路由均可用。

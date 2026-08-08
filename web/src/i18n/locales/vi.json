@@ -5240,6 +5240,11 @@
     "Select at least one routing candidate": "Chọn ít nhất một ứng viên định tuyến",
     "Candidate preferences must use allowed candidates": "Chỉ được đặt ưu tiên cho ứng viên đã cho phép",
     "Base utility": "Lợi ích cơ sở",
-    "Adjusted utility": "Lợi ích đã điều chỉnh"
+    "Adjusted utility": "Lợi ích đã điều chỉnh",
+    "ACU Setup": "Thiết lập ACU",
+    "ACU client setup": "Thiết lập ứng dụng ACU",
+    "macOS / Linux / WSL": "macOS / Linux / WSL",
+    "Windows PowerShell": "Windows PowerShell",
+    "Reset / uninstall": "Đặt lại / gỡ cài đặt"
   }
 }

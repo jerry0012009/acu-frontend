@@ -1,0 +1,198 @@
+#!/usr/bin/env sh
+set -eu
+
+file_mode() {
+  if stat -c '%a' "$1" >/dev/null 2>&1; then
+    stat -c '%a' "$1"
+  else
+    stat -f '%Lp' "$1"
+  fi
+}
+
+file_owner() {
+  if stat -c '%u' "$1" >/dev/null 2>&1; then
+    stat -c '%u' "$1"
+  else
+    stat -f '%u' "$1"
+  fi
+}
+
+file_sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
+  else
+    openssl dgst -sha256 "$1" | sed 's/^.*= //'
+  fi
+}
+
+workspace_gate() {
+  workspace_dir=$1
+  workspace_dir=$(CDPATH= cd -- "$workspace_dir" 2>/dev/null && pwd) || {
+    echo "codex-acu workspace gate: directory does not exist: $1" >&2
+    exit 3
+  }
+  test "$(file_owner "$workspace_dir")" = "$(id -u)" || {
+    echo "codex-acu workspace gate: current user does not own $workspace_dir" >&2
+    exit 3
+  }
+  test -w "$workspace_dir" || {
+    echo "codex-acu workspace gate: directory is not writable: $workspace_dir" >&2
+    exit 3
+  }
+  probe="$workspace_dir/.codex-acu-write-probe.$$"
+  (umask 077; : > "$probe") 2>/dev/null || {
+    echo "codex-acu workspace gate: probe file could not be created" >&2
+    exit 3
+  }
+  rm -f "$probe" || {
+    echo "codex-acu workspace gate: probe file could not be removed" >&2
+    exit 3
+  }
+  git -C "$workspace_dir" rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
+    echo "codex-acu workspace gate: directory is not a Git repository" >&2
+    exit 3
+  }
+}
+
+endpoint_available() {
+  endpoint=$1
+  command -v curl >/dev/null 2>&1 || return 1
+  curl -fsS --connect-timeout 5 --max-time 12 \
+    -H "Authorization: Bearer $ACU_API_KEY" \
+    "$endpoint/models" >/dev/null
+}
+
+resolve_endpoint() {
+  configured=$1
+  if [ "${CODEX_ACU_SKIP_ENDPOINT_PREFLIGHT:-0}" = "1" ]; then
+    printf '%s\n' "$configured"
+    return
+  fi
+  for candidate in \
+    "$configured" \
+    "https://acu-api-direct.jerrypsy.top/v1" \
+    "https://eu.jerrypsy.top/acu/v1"; do
+    if endpoint_available "$candidate"; then
+      printf '%s\n' "$candidate"
+      return
+    fi
+  done
+  printf '%s\n' "$configured"
+}
+
+acu_home=${CODEX_ACU_HOME:-${XDG_DATA_HOME:-${HOME}/.local/share}/codex-acu}
+credential_file="$acu_home/credentials"
+native_codex_file="$acu_home/native-codex-path"
+if [ ! -d "$acu_home" ] || [ ! -f "$acu_home/config.toml" ]; then
+  echo "codex-acu is not configured; run the codex-acu installer first" >&2
+  exit 1
+fi
+native_codex=$(sed -n '1p' "$native_codex_file" 2>/dev/null || true)
+if [ -z "$native_codex" ] || [ ! -x "$native_codex" ]; then
+  native_codex=$(command -v codex 2>/dev/null || true)
+fi
+[ -n "$native_codex" ] || { echo "native Codex binary is missing; rerun the installer" >&2; exit 1; }
+
+case "${1:-}" in
+  --version|-V) exec "$native_codex" --version ;;
+  home) printf '%s\n' "$acu_home"; exit 0 ;;
+  workspace)
+    workspace_gate "${2:-$PWD}"
+    echo "workspace: writable Git repository (${2:-$PWD})"
+    exit 0
+    ;;
+  credentials)
+    case "${2:-status}" in
+      status)
+        test -s "$credential_file" || { echo "credential: not configured ($credential_file)"; exit 1; }
+        echo "credential: configured ($credential_file)"
+        ;;
+      set)
+        umask 077
+        printf 'ACU API Key: ' >&2
+        if [ -t 0 ]; then stty -echo; fi
+        IFS= read -r new_key
+        if [ -t 0 ]; then stty echo; printf '\n' >&2; fi
+        case "$new_key" in sk-?*) ;; *) echo "key must start with sk-" >&2; exit 2 ;; esac
+        credential_tmp="$credential_file.tmp"
+        printf '%s\n' "$new_key" > "$credential_tmp"
+        chmod 600 "$credential_tmp"
+        mv "$credential_tmp" "$credential_file"
+        echo "credential updated"
+        ;;
+      clear)
+        if [ -f "$credential_file" ]; then rm -f "$credential_file"; fi
+        echo "credential cleared"
+        ;;
+      *) echo "usage: codex-acu credentials [status|set|clear]" >&2; exit 2 ;;
+    esac
+    exit 0
+    ;;
+esac
+
+test -s "$credential_file" || { echo "ACU credential is missing; rerun the installer" >&2; exit 1; }
+IFS= read -r ACU_API_KEY < "$credential_file"
+case "$ACU_API_KEY" in sk-?*) ;; *) echo "invalid ACU credential" >&2; exit 1 ;; esac
+export CODEX_HOME="$acu_home"
+export ACU_API_KEY
+
+configured_base_url=$(sed -n 's/^base_url = "\(https:\/\/.*\/v1\)"$/\1/p' "$acu_home/config.toml")
+test -n "$configured_base_url" || { echo "invalid Base URL" >&2; exit 1; }
+effective_base_url=$(resolve_endpoint "$configured_base_url")
+
+case "${1:-}" in
+  doctor)
+    test "$(file_mode "$acu_home")" = "700" || { echo "invalid CODEX_HOME permissions" >&2; exit 1; }
+    test "$(file_mode "$credential_file")" = "600" || { echo "invalid credential permissions" >&2; exit 1; }
+    grep -q '^model = "acu-auto"$' "$acu_home/config.toml"
+    grep -q '^model_context_window = 272000$' "$acu_home/config.toml"
+    grep -q '^model_auto_compact_token_limit = 258400$' "$acu_home/config.toml"
+    grep -q '^model_auto_compact_token_limit_scope = "total"$' "$acu_home/config.toml"
+    catalog_file=$(sed -n 's/^model_catalog_json = "\([^"]*\)"$/\1/p' "$acu_home/config.toml")
+    test -r "$catalog_file" || { echo "model catalog is not readable" >&2; exit 1; }
+    grep -q '"slug": "acu-auto"' "$catalog_file" || { echo "acu-auto model metadata is missing" >&2; exit 1; }
+    provider=$(sed -n 's/^model_provider = "\([^"]*\)"$/\1/p' "$acu_home/config.toml")
+    test "$provider" = "acu-founder-alpha" || { echo "invalid model provider" >&2; exit 1; }
+    native_config=${CODEX_NATIVE_HOME:-${HOME}/.codex}/config.toml
+    native_hash_file="$acu_home/native-config.sha256"
+    native_unchanged=no
+    if [ -f "$native_hash_file" ] && [ -f "$native_config" ]; then
+      current_native_hash=$(file_sha256 "$native_config")
+      recorded_native_hash=$(sed -n '1p' "$native_hash_file")
+      if [ "$current_native_hash" = "$recorded_native_hash" ]; then native_unchanged=yes; fi
+    elif [ -f "$native_hash_file" ] && [ "$(sed -n '1p' "$native_hash_file")" = "MISSING" ]; then
+      [ ! -f "$native_config" ] && native_unchanged=yes
+    fi
+    network_status=unreachable
+    if endpoint_available "$effective_base_url"; then network_status=reachable; fi
+    echo "codex-acu: healthy"
+    echo "Codex version: $("$native_codex" --version)"
+    echo "CODEX_HOME: $acu_home"
+    echo "base_url: $effective_base_url"
+    echo "endpoint: $network_status"
+    echo "model_provider: $provider"
+    echo "effective model: acu-auto"
+    echo "model catalog: $catalog_file"
+    echo "reasoning effort: medium"
+    echo "credential loaded: yes"
+    echo "native ~/.codex unchanged: $native_unchanged"
+    exit 0
+    ;;
+esac
+
+for argument in "$@"; do
+  case "$argument" in
+    -m|--model|--model=*|model=*|model_provider=*)
+      echo "codex-acu fixes model=acu-auto and provider=acu-founder-alpha; explicit model overrides are not allowed" >&2
+      exit 2
+      ;;
+  esac
+done
+exec "$native_codex" \
+  -m acu-auto \
+  -c 'model_provider="acu-founder-alpha"' \
+  -c 'model_reasoning_effort="medium"' \
+  -c "model_providers.acu-founder-alpha.base_url=\"$effective_base_url\"" \
+  "$@"

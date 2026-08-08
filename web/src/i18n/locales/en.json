@@ -5454,6 +5454,11 @@
     "ACU Conversation and compatible client functions": "ACU Conversation and compatible client functions",
     "Task-level ACU Router experience": "Task-level ACU Router experience",
     "ACU conversations and compatible client integrations.": "ACU conversations and compatible client integrations.",
-    "Send tasks through ACU Auto and inspect the routed result.": "Send tasks through ACU Auto and inspect the routed result."
+    "Send tasks through ACU Auto and inspect the routed result.": "Send tasks through ACU Auto and inspect the routed result.",
+    "ACU Setup": "ACU Setup",
+    "ACU client setup": "ACU client setup",
+    "macOS / Linux / WSL": "macOS / Linux / WSL",
+    "Windows PowerShell": "Windows PowerShell",
+    "Reset / uninstall": "Reset / uninstall"
   }
 }

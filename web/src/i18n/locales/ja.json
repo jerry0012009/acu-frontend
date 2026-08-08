@@ -5240,6 +5240,11 @@
     "Select at least one routing candidate": "ルーティング候補を1つ以上選択してください",
     "Candidate preferences must use allowed candidates": "優先度は許可された候補にのみ設定できます",
     "Base utility": "基本効用",
-    "Adjusted utility": "調整後効用"
+    "Adjusted utility": "調整後効用",
+    "ACU Setup": "ACU 設定",
+    "ACU client setup": "ACU クライアント設定",
+    "macOS / Linux / WSL": "macOS / Linux / WSL",
+    "Windows PowerShell": "Windows PowerShell",
+    "Reset / uninstall": "リセット / アンインストール"
   }
 }
