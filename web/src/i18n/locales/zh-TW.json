@@ -5269,6 +5269,7 @@
     "ACU client setup": "ACU 用戶端設定",
     "macOS / Linux / WSL": "macOS / Linux / WSL",
     "Windows PowerShell": "Windows PowerShell",
+    "Windows Command Prompt": "Windows 命令提示字元",
     "Reset / uninstall": "重設 / 解除安裝"
   }
 }

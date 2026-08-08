@@ -104,6 +104,18 @@ Codex ACU 的用户安装命令由控制台按 Token 动态生成，Unix 命令�
   | ACU_API_KEY='sk-用户Token' sh
 ```
 
+Windows PowerShell：
+
+```powershell
+$env:ACU_API_KEY='sk-用户Token'; try { irm 'https://eu.jerrypsy.top/acu/codex-acu-install.ps1' | iex } catch { try { irm 'https://acu-api-direct.jerrypsy.top/codex-acu-install.ps1' | iex } catch { irm 'https://raw.githubusercontent.com/jerry0012009/ClawRouter/main/tools/codex-acu/install.ps1' | iex } }
+```
+
+Windows Command Prompt（`C:\>`）：
+
+```bat
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$env:ACU_API_KEY='sk-用户Token'; try { irm 'https://eu.jerrypsy.top/acu/codex-acu-install.ps1' | iex } catch { try { irm 'https://acu-api-direct.jerrypsy.top/codex-acu-install.ps1' | iex } catch { irm 'https://raw.githubusercontent.com/jerry0012009/ClawRouter/main/tools/codex-acu/install.ps1' | iex } }"
+```
+
 安装器在私有 `codex-acu` 目录中维护最新版 Codex，不会覆盖用户已有的
 `codex`。安装时先尝试 npm 官方 Registry 和 `registry.npmmirror.com`，
 再回退 direct/public ACU release mirror 与 OpenAI standalone installer。镜像由
@@ -116,6 +128,19 @@ Claude ACU 的页面安装命令（控制台会生成带 Token 和多地域回�
 
 ```bash
 curl -fsSL https://eu.jerrypsy.top/acu/claude-acu-install.sh | ACU_API_KEY='sk-用户Token' sh
+```
+
+上面的 `curl ... | ACU_API_KEY=... sh` 仅适用于 macOS、Linux 和 WSL。
+Windows PowerShell 应使用：
+
+```powershell
+$env:ACU_API_KEY='sk-用户Token'; try { irm 'https://eu.jerrypsy.top/acu/claude-acu-install.ps1' | iex } catch { try { irm 'https://acu-api-direct.jerrypsy.top/claude-acu-install.ps1' | iex } catch { irm 'https://raw.githubusercontent.com/jerry0012009/acu-frontend/main/web/public/claude-acu-install.ps1' | iex } }
+```
+
+Windows Command Prompt（`C:\>`）应使用：
+
+```bat
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$env:ACU_API_KEY='sk-用户Token'; try { irm 'https://eu.jerrypsy.top/acu/claude-acu-install.ps1' | iex } catch { try { irm 'https://acu-api-direct.jerrypsy.top/claude-acu-install.ps1' | iex } catch { irm 'https://raw.githubusercontent.com/jerry0012009/acu-frontend/main/web/public/claude-acu-install.ps1' | iex } }"
 ```
 
 安装器会在 `https://eu.jerrypsy.top/acu` 与 direct 域名之间实际探测可用

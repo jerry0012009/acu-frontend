@@ -117,6 +117,12 @@ test('ACU setup commands include the resolved token and regional installer sourc
   assert.match(setupSource, /normalizeKey\(tokenKey\)/)
   assert.match(setupSource, /ACU_API_KEY=\$\{key\} sh/)
   assert.match(setupSource, /\$env:ACU_API_KEY=\$\{key\}/)
+  assert.match(setupSource, /buildWindowsCommandPromptInstall/)
+  assert.match(
+    setupSource,
+    /powershell\.exe -NoProfile -ExecutionPolicy Bypass -Command/
+  )
+  assert.match(setupSource, /Windows Command Prompt/)
   assert.match(setupSource, /eu\.jerrypsy\.top\/acu\/codex-acu-install\.sh/)
   assert.match(
     setupSource,

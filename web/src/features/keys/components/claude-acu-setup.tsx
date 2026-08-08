@@ -16,6 +16,10 @@ function powerShellQuote(value: string): string {
   return `'${value.replaceAll("'", "''")}'`
 }
 
+function buildWindowsCommandPromptInstall(powerShellCommand: string): string {
+  return `powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "${powerShellCommand}"`
+}
+
 function buildCodexUnixInstall(tokenKey: string): string {
   const key = shellQuote(normalizeKey(tokenKey))
   return (
@@ -84,8 +88,14 @@ export function ClaudeACUSetup(props: ClaudeACUSetupProps) {
   const { t } = useTranslation()
   const codexUnixInstall = buildCodexUnixInstall(props.tokenKey)
   const codexPowerShellInstall = buildCodexPowerShellInstall(props.tokenKey)
+  const codexCommandPromptInstall = buildWindowsCommandPromptInstall(
+    codexPowerShellInstall
+  )
   const claudeUnixInstall = buildClaudeUnixInstall(props.tokenKey)
   const claudePowerShellInstall = buildClaudePowerShellInstall(props.tokenKey)
+  const claudeCommandPromptInstall = buildWindowsCommandPromptInstall(
+    claudePowerShellInstall
+  )
 
   return (
     <section>
@@ -111,6 +121,10 @@ export function ClaudeACUSetup(props: ClaudeACUSetupProps) {
               value={codexPowerShellInstall}
             />
             <CommandRow
+              label={t('Windows Command Prompt')}
+              value={codexCommandPromptInstall}
+            />
+            <CommandRow
               label={t('Test')}
               value='codex-acu exec "Return exactly CODEX_ACU_OK"'
             />
@@ -125,6 +139,10 @@ export function ClaudeACUSetup(props: ClaudeACUSetupProps) {
             <CommandRow
               label={t('Windows PowerShell')}
               value={claudePowerShellInstall}
+            />
+            <CommandRow
+              label={t('Windows Command Prompt')}
+              value={claudeCommandPromptInstall}
             />
             <CommandRow
               label={t('Test')}

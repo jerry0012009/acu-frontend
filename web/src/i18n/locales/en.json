@@ -5459,6 +5459,7 @@
     "ACU client setup": "ACU client setup",
     "macOS / Linux / WSL": "macOS / Linux / WSL",
     "Windows PowerShell": "Windows PowerShell",
+    "Windows Command Prompt": "Windows Command Prompt",
     "Reset / uninstall": "Reset / uninstall"
   }
 }
