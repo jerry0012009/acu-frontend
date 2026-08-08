@@ -80,6 +80,9 @@ func SetRelayRouter(router *gin.Engine) {
 		})
 	}
 	{
+		// Anthropic token counting is local and does not require channel distribution.
+		relayV1Router.POST("/messages/count_tokens", controller.CountClaudeTokens)
+
 		//http router
 		httpRouter := relayV1Router.Group("")
 		httpRouter.Use(middleware.Distribute())

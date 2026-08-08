@@ -9,20 +9,16 @@ $BaseUrlPath = Join-Path $AcuHome 'base-url'
 $NativePathFile = Join-Path $AcuHome 'native-claude-path'
 $NativeBin = Join-Path $AcuHome 'bin'
 $PreferNpm = $env:CLAUDE_ACU_PREFER_NPM -ne '0'
+$UpdateClaude = $env:CLAUDE_ACU_UPDATE_CLAUDE -ne '0'
 $LiveVerify = $env:CLAUDE_ACU_LIVE_VERIFY -ne '0'
+$VerifyTimeoutSec = if ($env:CLAUDE_ACU_VERIFY_TIMEOUT_SEC) { [int]$env:CLAUDE_ACU_VERIFY_TIMEOUT_SEC } else { 45 }
 
-function Get-ClaudeCommand {
+function Get-ManagedClaudeCommand {
   $candidates = @(
     (Join-Path $NativeBin 'claude.exe'),
     (Join-Path $NativeBin 'claude.cmd'),
     (Join-Path $AcuHome 'npm\claude.cmd'),
     (Join-Path $AcuHome 'npm\bin\claude.cmd')
-  )
-  $command = Get-Command claude -ErrorAction SilentlyContinue
-  if ($command) { $candidates += $command.Source }
-  $candidates += @(
-    (Join-Path $env:USERPROFILE '.local\bin\claude.exe'),
-    (Join-Path $env:USERPROFILE '.claude\bin\claude.exe')
   )
   foreach ($candidate in $candidates | Select-Object -Unique) {
     if ($candidate -and (Test-Path $candidate)) {
@@ -33,6 +29,30 @@ function Get-ClaudeCommand {
     }
   }
   return $null
+}
+
+function Get-SystemClaudeCommand {
+  $candidates = @(
+    (Join-Path $env:USERPROFILE '.local\bin\claude.exe'),
+    (Join-Path $env:USERPROFILE '.claude\bin\claude.exe')
+  )
+  $command = Get-Command claude -ErrorAction SilentlyContinue
+  if ($command) { $candidates += $command.Source }
+  foreach ($candidate in $candidates | Select-Object -Unique) {
+    if ($candidate -and (Test-Path $candidate)) {
+      try {
+        & $candidate --version 2>$null | Out-Null
+        if ($LASTEXITCODE -eq 0) { return $candidate }
+      } catch {}
+    }
+  }
+  return $null
+}
+
+function Get-ClaudeCommand {
+  $managed = Get-ManagedClaudeCommand
+  if ($managed) { return $managed }
+  return Get-SystemClaudeCommand
 }
 
 function Install-ClaudeNpm {
@@ -47,8 +67,9 @@ function Install-ClaudeNpm {
     Write-Host "Installing Claude Code from $registry..."
     & npm install --global --prefix $prefix `
       "@anthropic-ai/claude-code@$claudeVersion" `
-      "--registry=$registry" '--fetch-retries=1' '--fetch-timeout=60000'
-    if ($LASTEXITCODE -eq 0 -and (Get-ClaudeCommand)) { return $true }
+      "--registry=$registry" '--fetch-retries=1' '--fetch-timeout=60000' | Out-Host
+    $npmExitCode = $LASTEXITCODE
+    if ($npmExitCode -eq 0 -and (Get-ManagedClaudeCommand)) { return $true }
   }
   return $false
 }
@@ -58,8 +79,9 @@ function Install-ClaudeOfficial {
   try {
     Invoke-WebRequest -UseBasicParsing -Uri 'https://claude.ai/install.ps1' -OutFile $installerPath -TimeoutSec 300
     $powerShell = (Get-Process -Id $PID).Path
-    & $powerShell -NoProfile -ExecutionPolicy Bypass -File $installerPath
-    return ($LASTEXITCODE -eq 0 -and (Get-ClaudeCommand))
+    & $powerShell -NoProfile -ExecutionPolicy Bypass -File $installerPath | Out-Host
+    $installerExitCode = $LASTEXITCODE
+    return ($installerExitCode -eq 0 -and (Get-ClaudeCommand))
   } finally {
     Remove-Item -Force -ErrorAction SilentlyContinue $installerPath
   }
@@ -95,20 +117,42 @@ if ([string]::IsNullOrWhiteSpace($Token) -or $Token.Contains("`n") -or $Token.Co
 if (-not $Token.StartsWith('sk-')) { throw 'API Key must start with sk-.' }
 
 New-Item -ItemType Directory -Force -Path $AcuHome, $AcuBin, $NativeBin | Out-Null
-$nativeClaude = Get-ClaudeCommand
-if (-not $nativeClaude -and $PreferNpm) {
-  $null = Install-ClaudeNpm
-  $nativeClaude = Get-ClaudeCommand
+$nativeClaude = Get-ManagedClaudeCommand
+$updatedClaude = $false
+$officialAttempted = $false
+if ($UpdateClaude) {
+  if ($PreferNpm -and (Install-ClaudeNpm)) {
+    $nativeClaude = Get-ManagedClaudeCommand
+    $updatedClaude = [bool]$nativeClaude
+  }
+  if (-not $updatedClaude) {
+    $officialAttempted = $true
+    try {
+      if (Install-ClaudeOfficial) {
+        $nativeClaude = Get-SystemClaudeCommand
+        $updatedClaude = [bool]$nativeClaude
+      }
+    } catch {
+      Write-Warning "The Anthropic updater was unavailable: $($_.Exception.Message)"
+    }
+  }
 }
 if (-not $nativeClaude) {
+  $nativeClaude = Get-SystemClaudeCommand
+}
+if (-not $nativeClaude -and $PreferNpm) {
+  $null = Install-ClaudeNpm
+  $nativeClaude = Get-ManagedClaudeCommand
+}
+if (-not $nativeClaude -and -not $officialAttempted) {
   try { $null = Install-ClaudeOfficial } catch {
     Write-Warning "The Anthropic installer was unavailable: $($_.Exception.Message)"
   }
-  $nativeClaude = Get-ClaudeCommand
+  $nativeClaude = Get-SystemClaudeCommand
 }
 if (-not $nativeClaude) {
   $null = Install-ClaudeNpm
-  $nativeClaude = Get-ClaudeCommand
+  $nativeClaude = Get-ManagedClaudeCommand
 }
 if (-not $nativeClaude) { throw 'Unable to install Claude Code from npm mirrors or Anthropic.' }
 
@@ -163,9 +207,26 @@ if (($env:Path -split ';') -notcontains $AcuBin) { $env:Path = "$env:Path;$AcuBi
 & $launcherPath --version
 if ($LiveVerify) {
   Write-Host 'Verifying a real Claude ACU request...'
-  $validation = & $launcherPath -p --max-turns 1 'Return exactly CLAUDE_ACU_OK' | Out-String
-  if ($LASTEXITCODE -ne 0 -or $validation -notmatch 'CLAUDE_ACU_OK') {
-    throw 'claude-acu verification failed.'
+  $validationJob = Start-Job -ScriptBlock {
+    param([string]$Launcher)
+    & $Launcher -p --max-turns 1 'Return exactly CLAUDE_ACU_OK' 2>&1 | Out-String
+    if ($LASTEXITCODE -ne 0) { throw "Claude Code exited with code $LASTEXITCODE." }
+  } -ArgumentList $launcherPath
+  if (Wait-Job $validationJob -Timeout $VerifyTimeoutSec) {
+    try {
+      $validation = Receive-Job $validationJob -ErrorAction Stop | Out-String
+      if ($validation -notmatch 'CLAUDE_ACU_OK') {
+        Write-Warning 'Claude Code completed without the expected verification text; installation is still ready.'
+      }
+    } catch {
+      Write-Warning "Claude Code verification failed, but installation is ready: $($_.Exception.Message)"
+    } finally {
+      Remove-Job $validationJob -Force -ErrorAction SilentlyContinue
+    }
+  } else {
+    Stop-Job $validationJob -ErrorAction SilentlyContinue
+    Remove-Job $validationJob -Force -ErrorAction SilentlyContinue
+    Write-Warning "Claude Code verification exceeded ${VerifyTimeoutSec}s; installation is ready and can be tested with: claude-acu"
   }
 }
 

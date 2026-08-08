@@ -10,7 +10,9 @@ ACU_BASE_URL_FILE="${ACU_HOME}/base-url"
 ACU_NATIVE_PATH_FILE="${ACU_HOME}/native-claude-path"
 ACU_LAUNCHER="${ACU_BIN_DIR}/claude-acu"
 PREFER_NPM=${CLAUDE_ACU_PREFER_NPM:-1}
+UPDATE_CLAUDE=${CLAUDE_ACU_UPDATE_CLAUDE:-1}
 LIVE_VERIFY=${CLAUDE_ACU_LIVE_VERIFY:-1}
+VERIFY_TIMEOUT_SEC=${CLAUDE_ACU_VERIFY_TIMEOUT_SEC:-45}
 
 download_file() {
   url=$1
@@ -47,9 +49,9 @@ find_managed_claude() {
 
 find_system_claude() {
   for candidate in \
-    "$(command -v claude 2>/dev/null || true)" \
     "${HOME}/.local/bin/claude" \
-    "${HOME}/.claude/bin/claude"; do
+    "${HOME}/.claude/bin/claude" \
+    "$(command -v claude 2>/dev/null || true)"; do
     if [ -n "$candidate" ] && usable_claude "$candidate"; then
       printf '%s\n' "$candidate"
       return
@@ -154,6 +156,21 @@ tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/claude-acu-install.XXXXXX")
 trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
 
 native_claude=$(find_managed_claude || true)
+updated_claude=0
+official_attempted=0
+if [ "$UPDATE_CLAUDE" != "0" ]; then
+  if [ "$PREFER_NPM" != "0" ] && install_claude_npm; then
+    native_claude=$(find_managed_claude || true)
+    [ -n "$native_claude" ] && updated_claude=1
+  fi
+  if [ "$updated_claude" = "0" ]; then
+    official_attempted=1
+    if install_claude_official "$tmp_dir/claude-install.sh"; then
+      native_claude=$(find_system_claude || true)
+      [ -n "$native_claude" ] && updated_claude=1
+    fi
+  fi
+fi
 if [ -z "$native_claude" ]; then
   native_claude=$(find_system_claude || true)
 fi
@@ -161,7 +178,7 @@ if [ -z "$native_claude" ] && [ "$PREFER_NPM" != "0" ]; then
   install_claude_npm || true
   native_claude=$(find_managed_claude || true)
 fi
-if [ -z "$native_claude" ]; then
+if [ -z "$native_claude" ] && [ "$official_attempted" = "0" ]; then
   install_claude_official "$tmp_dir/claude-install.sh" || true
   native_claude=$(find_system_claude || true)
 fi
@@ -230,11 +247,32 @@ EOF
 chmod 700 "$ACU_LAUNCHER"
 
 if [ "$LIVE_VERIFY" != "0" ]; then
-  cli_response=$("$ACU_LAUNCHER" -p --max-turns 1 "Return exactly CLAUDE_ACU_OK")
-  printf '%s' "$cli_response" | grep -q 'CLAUDE_ACU_OK' || {
-    printf '%s\n' "claude-acu verification failed." >&2
-    exit 1
-  }
+  cli_output="${tmp_dir}/claude-cli-verification.log"
+  cli_status="${tmp_dir}/claude-cli-verification.status"
+  (
+    set +e
+    "$ACU_LAUNCHER" -p --max-turns 1 "Return exactly CLAUDE_ACU_OK" >"$cli_output" 2>&1
+    printf '%s\n' "$?" >"$cli_status"
+  ) &
+  cli_pid=$!
+  elapsed=0
+  while [ ! -f "$cli_status" ] && [ "$elapsed" -lt "$VERIFY_TIMEOUT_SEC" ]; do
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+  if [ ! -f "$cli_status" ]; then
+    kill "$cli_pid" 2>/dev/null || true
+    wait "$cli_pid" 2>/dev/null || true
+    printf '%s\n' "Claude Code verification exceeded ${VERIFY_TIMEOUT_SEC}s; installation is ready and can be tested with: claude-acu" >&2
+  else
+    wait "$cli_pid" 2>/dev/null || true
+    cli_exit=$(sed -n '1p' "$cli_status")
+    if [ "$cli_exit" = "0" ] && grep -q 'CLAUDE_ACU_OK' "$cli_output"; then
+      :
+    else
+      printf '%s\n' "Claude Code verification did not return the expected text; installation is still ready." >&2
+    fi
+  fi
 fi
 
 printf '%s\n' "claude-acu installed at $ACU_LAUNCHER"

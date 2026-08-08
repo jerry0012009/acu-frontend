@@ -50,6 +50,8 @@ test('Unix installer is syntactically valid and keeps the credential local', () 
   assert.doesNotMatch(shellInstaller, /:8443/)
   assert.match(shellInstaller, /ACU_NATIVE_PATH_FILE=.*native-claude-path/)
   assert.match(shellInstaller, /exec "\$NATIVE_CLAUDE" --model acu-auto/)
+  assert.match(shellInstaller, /CLAUDE_ACU_UPDATE_CLAUDE/)
+  assert.match(shellInstaller, /CLAUDE_ACU_VERIFY_TIMEOUT_SEC/)
   assert.match(shellInstaller, /register_path\(\)/)
   assert.doesNotMatch(shellInstaller, /\?[^\n]*ACU_TOKEN/)
 })
@@ -67,6 +69,9 @@ test('PowerShell installer uses a private config and never puts the key in a URL
   assert.doesNotMatch(powerShellInstaller, /:8443/)
   assert.match(powerShellInstaller, /\$NativeClaude.*native-claude-path/)
   assert.match(powerShellInstaller, /& \$NativeClaude --model acu-auto/)
+  assert.match(powerShellInstaller, /CLAUDE_ACU_UPDATE_CLAUDE/)
+  assert.match(powerShellInstaller, /CLAUDE_ACU_VERIFY_TIMEOUT_SEC/)
+  assert.match(powerShellInstaller, /Start-Job/)
   assert.match(powerShellInstaller, /SetEnvironmentVariable\('Path'/)
   assert.doesNotMatch(powerShellInstaller, /\?[^\n]*\$Token/)
 })
@@ -155,6 +160,19 @@ esac
   )
   chmodSync(fakeCurl, 0o755)
 
+  const oldSystemClaude = join(fakeBin, 'claude')
+  writeFileSync(
+    oldSystemClaude,
+    `#!/bin/sh
+if [ "\${1:-}" = "--version" ]; then
+  printf '%s\\n' '2.0.54 (Claude Code)'
+else
+  printf '%s\\n' 'OLD_SYSTEM_CLAUDE'
+fi
+`
+  )
+  chmodSync(oldSystemClaude, 0o755)
+
   const fakeNpm = join(fakeBin, 'npm')
   writeFileSync(
     fakeNpm,
@@ -209,6 +227,10 @@ chmod 755 "$prefix/bin/claude"
   assert.equal(
     readFileSync(join(acuHome, 'base-url'), 'utf8'),
     'https://eu.jerrypsy.top/acu\n'
+  )
+  assert.equal(
+    readFileSync(join(acuHome, 'native-claude-path'), 'utf8'),
+    `${join(acuHome, 'npm/bin/claude')}\n`
   )
   assert.match(
     readFileSync(npmLog, 'utf8'),
