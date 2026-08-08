@@ -11,6 +11,7 @@ $NativeBin = Join-Path $AcuHome 'bin'
 $PreferNpm = $env:CLAUDE_ACU_PREFER_NPM -ne '0'
 $UpdateClaude = $env:CLAUDE_ACU_UPDATE_CLAUDE -ne '0'
 $LiveVerify = $env:CLAUDE_ACU_LIVE_VERIFY -ne '0'
+$CliVerify = $env:CLAUDE_ACU_CLI_VERIFY -eq '1'
 $VerifyTimeoutSec = if ($env:CLAUDE_ACU_VERIFY_TIMEOUT_SEC) { [int]$env:CLAUDE_ACU_VERIFY_TIMEOUT_SEC } else { 45 }
 
 function Get-ManagedClaudeCommand {
@@ -55,8 +56,17 @@ function Get-ClaudeCommand {
   return Get-SystemClaudeCommand
 }
 
+function Get-NpmCommand {
+  foreach ($name in @('npm.cmd', 'npm.exe', 'npm')) {
+    $command = Get-Command $name -ErrorAction SilentlyContinue
+    if ($command -and $command.Source) { return $command.Source }
+  }
+  return $null
+}
+
 function Install-ClaudeNpm {
-  if (-not (Get-Command npm -ErrorAction SilentlyContinue)) { return $false }
+  $npmCommand = Get-NpmCommand
+  if (-not $npmCommand) { return $false }
   $prefix = Join-Path $AcuHome 'npm'
   $claudeVersion = if ($env:CLAUDE_ACU_CLAUDE_VERSION) { $env:CLAUDE_ACU_CLAUDE_VERSION } else { 'latest' }
   New-Item -ItemType Directory -Force -Path $prefix | Out-Null
@@ -65,9 +75,16 @@ function Install-ClaudeNpm {
   $registries += @('https://registry.npmjs.org', 'https://registry.npmmirror.com')
   foreach ($registry in $registries | Select-Object -Unique) {
     Write-Host "Installing Claude Code from $registry..."
-    & npm install --global --prefix $prefix `
-      "@anthropic-ai/claude-code@$claudeVersion" `
-      "--registry=$registry" '--fetch-retries=1' '--fetch-timeout=60000' | Out-Host
+    $npmArguments = @(
+      'install',
+      '--global',
+      '--prefix', $prefix,
+      "@anthropic-ai/claude-code@$claudeVersion",
+      "--registry=$registry",
+      '--fetch-retries=1',
+      '--fetch-timeout=60000'
+    )
+    & $npmCommand @npmArguments 2>&1 | Out-Host
     $npmExitCode = $LASTEXITCODE
     if ($npmExitCode -eq 0 -and (Get-ManagedClaudeCommand)) { return $true }
   }
@@ -79,9 +96,14 @@ function Install-ClaudeOfficial {
   try {
     Invoke-WebRequest -UseBasicParsing -Uri 'https://claude.ai/install.ps1' -OutFile $installerPath -TimeoutSec 300
     $powerShell = (Get-Process -Id $PID).Path
-    & $powerShell -NoProfile -ExecutionPolicy Bypass -File $installerPath | Out-Host
-    $installerExitCode = $LASTEXITCODE
-    return ($installerExitCode -eq 0 -and (Get-ClaudeCommand))
+    $installerArguments = @(
+      '-NoProfile',
+      '-ExecutionPolicy', 'Bypass',
+      '-File', "`"$installerPath`""
+    )
+    $process = Start-Process -FilePath $powerShell -ArgumentList $installerArguments `
+      -NoNewWindow -Wait -PassThru
+    return ($process.ExitCode -eq 0 -and (Get-ClaudeCommand))
   } finally {
     Remove-Item -Force -ErrorAction SilentlyContinue $installerPath
   }
@@ -119,40 +141,32 @@ if (-not $Token.StartsWith('sk-')) { throw 'API Key must start with sk-.' }
 New-Item -ItemType Directory -Force -Path $AcuHome, $AcuBin, $NativeBin | Out-Null
 $nativeClaude = Get-ManagedClaudeCommand
 $updatedClaude = $false
-$officialAttempted = $false
+$npmAttempted = $false
 if ($UpdateClaude) {
-  if ($PreferNpm -and (Install-ClaudeNpm)) {
-    $nativeClaude = Get-ManagedClaudeCommand
-    $updatedClaude = [bool]$nativeClaude
+  if ($PreferNpm) {
+    $npmAttempted = $true
+    if (Install-ClaudeNpm) {
+      $nativeClaude = Get-ManagedClaudeCommand
+      $updatedClaude = [bool]$nativeClaude
+    }
   }
   if (-not $updatedClaude) {
-    $officialAttempted = $true
-    try {
-      if (Install-ClaudeOfficial) {
-        $nativeClaude = Get-SystemClaudeCommand
-        $updatedClaude = [bool]$nativeClaude
-      }
-    } catch {
-      Write-Warning "The Anthropic updater was unavailable: $($_.Exception.Message)"
-    }
+    $nativeClaude = Get-SystemClaudeCommand
+    $updatedClaude = [bool]$nativeClaude
   }
 }
 if (-not $nativeClaude) {
   $nativeClaude = Get-SystemClaudeCommand
 }
-if (-not $nativeClaude -and $PreferNpm) {
+if (-not $nativeClaude -and $PreferNpm -and -not $npmAttempted) {
   $null = Install-ClaudeNpm
   $nativeClaude = Get-ManagedClaudeCommand
 }
-if (-not $nativeClaude -and -not $officialAttempted) {
+if (-not $nativeClaude) {
   try { $null = Install-ClaudeOfficial } catch {
     Write-Warning "The Anthropic installer was unavailable: $($_.Exception.Message)"
   }
   $nativeClaude = Get-SystemClaudeCommand
-}
-if (-not $nativeClaude) {
-  $null = Install-ClaudeNpm
-  $nativeClaude = Get-ManagedClaudeCommand
 }
 if (-not $nativeClaude) { throw 'Unable to install Claude Code from npm mirrors or Anthropic.' }
 
@@ -204,7 +218,7 @@ $cmd = "@echo off`r`npowershell.exe -NoProfile -ExecutionPolicy Bypass -File `"%
 if (($env:Path -split ';') -notcontains $AcuBin) { $env:Path = "$env:Path;$AcuBin" }
 
 & $launcherPath --version
-if ($LiveVerify) {
+if ($LiveVerify -and $CliVerify) {
   Write-Host 'Verifying a real Claude ACU request...'
   $validationJob = Start-Job -ScriptBlock {
     param([string]$Launcher)

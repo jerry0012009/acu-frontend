@@ -12,6 +12,7 @@ ACU_LAUNCHER="${ACU_BIN_DIR}/claude-acu"
 PREFER_NPM=${CLAUDE_ACU_PREFER_NPM:-1}
 UPDATE_CLAUDE=${CLAUDE_ACU_UPDATE_CLAUDE:-1}
 LIVE_VERIFY=${CLAUDE_ACU_LIVE_VERIFY:-1}
+CLI_VERIFY=${CLAUDE_ACU_CLI_VERIFY:-0}
 VERIFY_TIMEOUT_SEC=${CLAUDE_ACU_VERIFY_TIMEOUT_SEC:-45}
 
 download_file() {
@@ -157,34 +158,30 @@ trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
 
 native_claude=$(find_managed_claude || true)
 updated_claude=0
-official_attempted=0
+npm_attempted=0
 if [ "$UPDATE_CLAUDE" != "0" ]; then
-  if [ "$PREFER_NPM" != "0" ] && install_claude_npm; then
-    native_claude=$(find_managed_claude || true)
-    [ -n "$native_claude" ] && updated_claude=1
-  fi
-  if [ "$updated_claude" = "0" ]; then
-    official_attempted=1
-    if install_claude_official "$tmp_dir/claude-install.sh"; then
-      native_claude=$(find_system_claude || true)
+  if [ "$PREFER_NPM" != "0" ]; then
+    npm_attempted=1
+    if install_claude_npm; then
+      native_claude=$(find_managed_claude || true)
       [ -n "$native_claude" ] && updated_claude=1
     fi
   fi
+  if [ "$updated_claude" = "0" ]; then
+    native_claude=$(find_system_claude || true)
+    [ -n "$native_claude" ] && updated_claude=1
+  fi
 fi
 if [ -z "$native_claude" ]; then
   native_claude=$(find_system_claude || true)
 fi
-if [ -z "$native_claude" ] && [ "$PREFER_NPM" != "0" ]; then
+if [ -z "$native_claude" ] && [ "$PREFER_NPM" != "0" ] && [ "$npm_attempted" = "0" ]; then
   install_claude_npm || true
   native_claude=$(find_managed_claude || true)
 fi
-if [ -z "$native_claude" ] && [ "$official_attempted" = "0" ]; then
+if [ -z "$native_claude" ]; then
   install_claude_official "$tmp_dir/claude-install.sh" || true
   native_claude=$(find_system_claude || true)
-fi
-if [ -z "$native_claude" ]; then
-  install_claude_npm || true
-  native_claude=$(find_managed_claude || true)
 fi
 [ -n "$native_claude" ] || {
   printf '%s\n' "Unable to install Claude Code from npm mirrors or Anthropic." >&2
@@ -245,7 +242,7 @@ exec "$NATIVE_CLAUDE" --model acu-auto "$@"
 EOF
 chmod 700 "$ACU_LAUNCHER"
 
-if [ "$LIVE_VERIFY" != "0" ]; then
+if [ "$LIVE_VERIFY" != "0" ] && [ "$CLI_VERIFY" = "1" ]; then
   cli_output="${tmp_dir}/claude-cli-verification.log"
   cli_status="${tmp_dir}/claude-cli-verification.status"
   (

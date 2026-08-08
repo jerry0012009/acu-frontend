@@ -147,8 +147,10 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$env:ACU_API_KEY='sk
 Messages 入口，然后保存 `ANTHROPIC_BASE_URL` 和 `model=acu-auto`，保留
 Claude Code 自身的模型默认上下文上限。默认在私有 `claude-acu` 目录中从
 npm / npmmirror 安装或更新最新版 Claude Code；npm 不可用时回退 Anthropic
-standalone installer，最后才复用系统版本。安装末尾的 CLI 验证最多等待 45 秒，
-超时只提示而不会撤销已写入的配置。需要保留已有 Claude 版本时可设置
+standalone installer；如果本机已有 Claude，则直接复用系统版本以保证安装完成。
+安装器默认只做 HTTP ACU 验证，不启动可能受本机网络影响的 CLI 试跑；需要执行
+CLI 验证时设置 `CLAUDE_ACU_CLI_VERIFY=1`，最多等待 45 秒，超时只提示而不会撤销
+已写入的配置。需要保留已有 Claude 版本时可设置
 `CLAUDE_ACU_UPDATE_CLAUDE=0`，需要调整等待时间时可设置
 `CLAUDE_ACU_VERIFY_TIMEOUT_SEC`。禁止恢复 `:8443` 地址；8443 只保留临时兼容，
 不是客户文档入口。
