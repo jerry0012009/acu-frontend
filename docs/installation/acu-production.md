@@ -144,8 +144,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$env:ACU_API_KEY='sk
 ```
 
 安装器会在 `https://eu.jerrypsy.top/acu` 与 direct 域名之间实际探测可用
-Messages 入口，然后保存 `ANTHROPIC_BASE_URL`、`model=acu-auto` 和
-`CLAUDE_CODE_MAX_CONTEXT_TOKENS=272000`。默认在私有 `claude-acu` 目录中从
+Messages 入口，然后保存 `ANTHROPIC_BASE_URL` 和 `model=acu-auto`，保留
+Claude Code 自身的模型默认上下文上限。默认在私有 `claude-acu` 目录中从
 npm / npmmirror 安装或更新最新版 Claude Code；npm 不可用时回退 Anthropic
 standalone installer，最后才复用系统版本。安装末尾的 CLI 验证最多等待 45 秒，
 超时只提示而不会撤销已写入的配置。需要保留已有 Claude 版本时可设置
