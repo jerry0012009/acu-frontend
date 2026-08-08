@@ -47,6 +47,7 @@ export ANTHROPIC_DEFAULT_OPUS_MODEL="acu-auto"
 export ANTHROPIC_DEFAULT_SONNET_MODEL="acu-auto"
 export ANTHROPIC_DEFAULT_HAIKU_MODEL="acu-auto"
 export CLAUDE_CODE_SUBAGENT_MODEL="acu-auto"
+export CLAUDE_CODE_MAX_CONTEXT_TOKENS="272000"
 exec claude --model acu-auto "$@"
 EOF
 chmod 700 "${ACU_LAUNCHER}"

@@ -36,6 +36,7 @@ $env:ANTHROPIC_DEFAULT_OPUS_MODEL = 'acu-auto'
 $env:ANTHROPIC_DEFAULT_SONNET_MODEL = 'acu-auto'
 $env:ANTHROPIC_DEFAULT_HAIKU_MODEL = 'acu-auto'
 $env:CLAUDE_CODE_SUBAGENT_MODEL = 'acu-auto'
+$env:CLAUDE_CODE_MAX_CONTEXT_TOKENS = '272000'
 & claude --model acu-auto @args
 exit $LASTEXITCODE
 '@
