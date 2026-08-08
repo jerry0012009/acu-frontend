@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 
-$AcuBaseUrl = 'https://eu.jerrypsy.top:8443'
+$AcuBaseUrl = 'https://eu.jerrypsy.top/acu'
 $AcuHome = Join-Path $env:USERPROFILE '.claude-acu'
 $AcuConfig = Join-Path $AcuHome 'config'
 $AcuBin = Join-Path $env:LOCALAPPDATA 'Programs\claude-acu'
@@ -28,7 +28,7 @@ $Launcher = @'
 $ErrorActionPreference = 'Stop'
 $AcuHome = Join-Path $env:USERPROFILE '.claude-acu'
 $env:CLAUDE_CONFIG_DIR = Join-Path $AcuHome 'config'
-$env:ANTHROPIC_BASE_URL = 'https://eu.jerrypsy.top:8443'
+$env:ANTHROPIC_BASE_URL = 'https://eu.jerrypsy.top/acu'
 $env:ANTHROPIC_AUTH_TOKEN = [System.IO.File]::ReadAllText((Join-Path $AcuHome 'credential')).Trim()
 $env:ANTHROPIC_CUSTOM_MODEL_OPTION = 'acu-auto'
 $env:ANTHROPIC_CUSTOM_MODEL_OPTION_NAME = 'ACU Auto'

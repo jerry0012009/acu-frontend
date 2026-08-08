@@ -4,10 +4,10 @@ import { CopyButton } from '@/components/copy-button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const UNIX_INSTALL =
-  'curl -fsSL https://eu.jerrypsy.top:8443/claude-acu-install.sh | sh'
+  'curl -fsSL https://eu.jerrypsy.top/acu/claude-acu-install.sh | sh'
 const WINDOWS_INSTALL =
-  'irm https://eu.jerrypsy.top:8443/claude-acu-install.ps1 | iex'
-const MANUAL_ENV = `ANTHROPIC_BASE_URL=https://eu.jerrypsy.top:8443
+  'irm https://eu.jerrypsy.top/acu/claude-acu-install.ps1 | iex'
+const MANUAL_ENV = `ANTHROPIC_BASE_URL=https://eu.jerrypsy.top/acu
 ANTHROPIC_AUTH_TOKEN=<ACU API Key>
 ANTHROPIC_CUSTOM_MODEL_OPTION=acu-auto
 ANTHROPIC_CUSTOM_MODEL_OPTION_NAME=ACU Auto

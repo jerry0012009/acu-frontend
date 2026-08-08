@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-ACU_BASE_URL="https://eu.jerrypsy.top:8443"
+ACU_BASE_URL="https://eu.jerrypsy.top/acu"
 ACU_HOME="${HOME}/.claude-acu"
 ACU_BIN_DIR="${HOME}/.local/bin"
 ACU_CREDENTIAL="${ACU_HOME}/credential"
@@ -39,7 +39,7 @@ set -eu
 ACU_HOME="${HOME}/.claude-acu"
 ACU_TOKEN="$(cat "${ACU_HOME}/credential")"
 export CLAUDE_CONFIG_DIR="${ACU_HOME}/config"
-export ANTHROPIC_BASE_URL="https://eu.jerrypsy.top:8443"
+export ANTHROPIC_BASE_URL="https://eu.jerrypsy.top/acu"
 export ANTHROPIC_AUTH_TOKEN="${ACU_TOKEN}"
 export ANTHROPIC_CUSTOM_MODEL_OPTION="acu-auto"
 export ANTHROPIC_CUSTOM_MODEL_OPTION_NAME="ACU Auto"
