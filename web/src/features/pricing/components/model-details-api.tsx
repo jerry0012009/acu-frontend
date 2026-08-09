@@ -21,6 +21,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useStatus } from '@/hooks/use-status'
+import { resolveServerAddress } from '@/lib/server-address'
 
 import {
   buildRateLimits,
@@ -435,11 +436,7 @@ function CodeSamplesSection(props: {
       (status as Record<string, unknown> | null)?.serverAddress ??
       (status?.data as Record<string, unknown> | undefined)?.server_address ??
       (status?.data as Record<string, unknown> | undefined)?.serverAddress
-    if (candidate && typeof candidate === 'string') {
-      return candidate.replace(/\/$/, '')
-    }
-    if (typeof window !== 'undefined') return window.location.origin
-    return 'https://api.example.com'
+    return resolveServerAddress(candidate)
   }, [status])
 
   const endpoints = useMemo(() => {
