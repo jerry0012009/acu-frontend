@@ -9,6 +9,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const acuUsageHourBucket = "created_at - (created_at % 3600)"
+
 // QuotaData 柱状图数据
 type QuotaData struct {
 	Id        int    `json:"id"`
@@ -206,14 +208,14 @@ func appendACUQuotaData(quotaDatas []*QuotaData, userID int, startTime int64, en
 		return quotaDatas, nil
 	}
 	query := DB.Table("acu_usage_finalizes").
-		Select("user_id, actual_model as model_name, created_at, count(*) as count, sum(final_quota) as quota, sum(input_tokens + output_tokens) as token_used").
+		Select("user_id, actual_model as model_name, "+acuUsageHourBucket+" as created_at, count(*) as count, sum(final_quota) as quota, sum(input_tokens + output_tokens) as token_used").
 		Where("status = ? AND created_at >= ? AND created_at <= ?", ACUFinalizeStatusFinalized, startTime, endTime)
 	if userID > 0 {
 		query = query.Where("user_id = ?", userID)
 	}
 
 	var acuDatas []*QuotaData
-	if err := query.Group("user_id, actual_model, created_at").Find(&acuDatas).Error; err != nil {
+	if err := query.Group("user_id, actual_model, " + acuUsageHourBucket).Find(&acuDatas).Error; err != nil {
 		return nil, err
 	}
 	if len(acuDatas) == 0 {
