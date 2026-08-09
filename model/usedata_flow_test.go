@@ -132,6 +132,58 @@ func TestGetFlowQuotaDataUsesQuotaDataRoleSpecificDimensions(t *testing.T) {
 	require.Equal(t, 175, selfRows[0].Quota)
 }
 
+func TestGetFlowQuotaDataIncludesFinalizedACUUsage(t *testing.T) {
+	truncateTables(t)
+	require.NoError(t, DB.AutoMigrate(&ACUUsageFinalize{}))
+	seedFlowLookupData(t)
+	require.NoError(t, DB.Create(&User{
+		Id:       1,
+		Username: "alice",
+		Status:   common.UserStatusEnabled,
+	}).Error)
+	require.NoError(t, DB.Create(&ACUUsageFinalize{
+		UserId:       1,
+		TokenId:      11,
+		ActualModel:  "acu-model",
+		Provider:     "lucen",
+		Channel:      "cx014",
+		InputTokens:  100,
+		OutputTokens: 20,
+		FinalQuota:   600,
+		Status:       ACUFinalizeStatusFinalized,
+		CreatedAt:    1500,
+	}).Error)
+
+	rootRows, err := GetFlowQuotaData(900, 2000, "", 0, common.RoleRootUser)
+	require.NoError(t, err)
+	require.Len(t, rootRows, 1)
+	require.Equal(t, 1, rootRows[0].UserID)
+	require.Equal(t, "acu-router", rootRows[0].NodeName)
+	require.Equal(t, 11, rootRows[0].TokenID)
+	require.Equal(t, "acu-auto", rootRows[0].UseGroup)
+	require.Equal(t, "acu-model", rootRows[0].ModelName)
+	require.Equal(t, "lucen/cx014", rootRows[0].ChannelName)
+	require.Equal(t, 120, rootRows[0].TokenUsed)
+	require.Equal(t, 600, rootRows[0].Quota)
+
+	adminRows, err := GetFlowQuotaData(900, 2000, "alice", 0, common.RoleAdminUser)
+	require.NoError(t, err)
+	require.Len(t, adminRows, 1)
+	require.Equal(t, "alice", adminRows[0].Username)
+	require.Empty(t, adminRows[0].NodeName)
+	require.Zero(t, adminRows[0].TokenID)
+	require.Equal(t, "lucen/cx014", adminRows[0].ChannelName)
+
+	selfRows, err := GetFlowQuotaData(900, 2000, "", 1, 1)
+	require.NoError(t, err)
+	require.Len(t, selfRows, 1)
+	require.Empty(t, selfRows[0].Username)
+	require.Empty(t, selfRows[0].ChannelName)
+	require.Equal(t, 11, selfRows[0].TokenID)
+	require.Equal(t, "acu-auto", selfRows[0].UseGroup)
+	require.Equal(t, 600, selfRows[0].Quota)
+}
+
 func TestLogQuotaDataSplitsRowsByUseGroupTokenChannelAndNode(t *testing.T) {
 	truncateTables(t)
 	CacheQuotaDataLock.Lock()

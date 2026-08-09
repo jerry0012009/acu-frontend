@@ -202,6 +202,9 @@ func GetAllQuotaDates(startTime int64, endTime int64, username string) (quotaDat
 // contract. ACU settlement already charges the wallet and token, so this is
 // reporting-only and deliberately does not call any quota mutation path.
 func appendACUQuotaData(quotaDatas []*QuotaData, userID int, startTime int64, endTime int64) ([]*QuotaData, error) {
+	if !DB.Migrator().HasTable("acu_usage_finalizes") {
+		return quotaDatas, nil
+	}
 	query := DB.Table("acu_usage_finalizes").
 		Select("user_id, actual_model as model_name, created_at, count(*) as count, sum(final_quota) as quota, sum(input_tokens + output_tokens) as token_used").
 		Where("status = ? AND created_at >= ? AND created_at <= ?", ACUFinalizeStatusFinalized, startTime, endTime)

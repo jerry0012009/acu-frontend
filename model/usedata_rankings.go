@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/QuantumNous/new-api/common"
 	"gorm.io/gorm"
@@ -27,8 +28,24 @@ func GetRankingQuotaTotals(startTime int64, endTime int64) ([]RankingQuotaTotal,
 		Having("sum(token_used) > 0").
 		Order("total_tokens DESC")
 	query = applyRankingQuotaTimeRange(query, startTime, endTime)
-	err := query.Find(&rows).Error
-	return rows, err
+	if err := query.Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	if !DB.Migrator().HasTable("acu_usage_finalizes") {
+		return rows, nil
+	}
+
+	var acuRows []RankingQuotaTotal
+	acuQuery := DB.Table("acu_usage_finalizes").
+		Select("actual_model as model_name, sum(input_tokens + output_tokens) as total_tokens").
+		Where("status = ? AND actual_model <> ''", ACUFinalizeStatusFinalized).
+		Group("actual_model").
+		Having("sum(input_tokens + output_tokens) > 0")
+	acuQuery = applyRankingQuotaTimeRange(acuQuery, startTime, endTime)
+	if err := acuQuery.Find(&acuRows).Error; err != nil {
+		return nil, err
+	}
+	return mergeRankingQuotaTotals(rows, acuRows), nil
 }
 
 func GetRankingQuotaBuckets(startTime int64, endTime int64, bucketSize int64) ([]RankingQuotaBucket, error) {
@@ -44,8 +61,81 @@ func GetRankingQuotaBuckets(startTime int64, endTime int64, bucketSize int64) ([
 		Having("sum(token_used) > 0").
 		Order("bucket ASC")
 	query = applyRankingQuotaTimeRange(query, startTime, endTime)
-	err := query.Find(&rows).Error
-	return rows, err
+	if err := query.Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	if !DB.Migrator().HasTable("acu_usage_finalizes") {
+		return rows, nil
+	}
+
+	acuBucketExpr := rankingBucketExpr(bucketSize)
+	var acuRows []RankingQuotaBucket
+	acuQuery := DB.Table("acu_usage_finalizes").
+		Select(fmt.Sprintf("actual_model as model_name, %s as bucket, sum(input_tokens + output_tokens) as tokens", acuBucketExpr)).
+		Where("status = ? AND actual_model <> ''", ACUFinalizeStatusFinalized).
+		Group(fmt.Sprintf("actual_model, %s", acuBucketExpr)).
+		Having("sum(input_tokens + output_tokens) > 0").
+		Order("bucket ASC")
+	acuQuery = applyRankingQuotaTimeRange(acuQuery, startTime, endTime)
+	if err := acuQuery.Find(&acuRows).Error; err != nil {
+		return nil, err
+	}
+	return mergeRankingQuotaBuckets(rows, acuRows), nil
+}
+
+func mergeRankingQuotaTotals(groups ...[]RankingQuotaTotal) []RankingQuotaTotal {
+	byModel := make(map[string]int64)
+	for _, group := range groups {
+		for _, row := range group {
+			if row.ModelName == "" || row.TotalTokens <= 0 {
+				continue
+			}
+			byModel[row.ModelName] += row.TotalTokens
+		}
+	}
+	rows := make([]RankingQuotaTotal, 0, len(byModel))
+	for modelName, totalTokens := range byModel {
+		rows = append(rows, RankingQuotaTotal{ModelName: modelName, TotalTokens: totalTokens})
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].TotalTokens == rows[j].TotalTokens {
+			return rows[i].ModelName < rows[j].ModelName
+		}
+		return rows[i].TotalTokens > rows[j].TotalTokens
+	})
+	return rows
+}
+
+func mergeRankingQuotaBuckets(groups ...[]RankingQuotaBucket) []RankingQuotaBucket {
+	type bucketKey struct {
+		model  string
+		bucket int64
+	}
+	byKey := make(map[bucketKey]int64)
+	for _, group := range groups {
+		for _, row := range group {
+			if row.ModelName == "" || row.Tokens <= 0 {
+				continue
+			}
+			key := bucketKey{model: row.ModelName, bucket: row.Bucket}
+			byKey[key] += row.Tokens
+		}
+	}
+	rows := make([]RankingQuotaBucket, 0, len(byKey))
+	for key, tokens := range byKey {
+		rows = append(rows, RankingQuotaBucket{
+			ModelName: key.model,
+			Bucket:    key.bucket,
+			Tokens:    tokens,
+		})
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].Bucket == rows[j].Bucket {
+			return rows[i].ModelName < rows[j].ModelName
+		}
+		return rows[i].Bucket < rows[j].Bucket
+	})
+	return rows
 }
 
 func rankingBucketExpr(bucketSize int64) string {

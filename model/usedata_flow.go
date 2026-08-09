@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"gorm.io/gorm"
@@ -51,6 +52,10 @@ func getSelfFlowQuotaData(startTime int64, endTime int64, userID int) ([]*FlowQu
 	if err != nil {
 		return nil, err
 	}
+	rows, err = appendACUFlowQuotaData(rows, startTime, endTime, userID, "", common.RoleCommonUser)
+	if err != nil {
+		return nil, err
+	}
 	return rows, fillFlowTokenNames(rows)
 }
 
@@ -65,6 +70,10 @@ func getAdminFlowQuotaData(startTime int64, endTime int64, username string) ([]*
 		Group("user_id, username, use_group, model_name, channel_id").
 		Order("quota DESC").
 		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	rows, err = appendACUFlowQuotaData(rows, startTime, endTime, 0, username, common.RoleAdminUser)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +97,133 @@ func getRootFlowQuotaData(startTime int64, endTime int64, username string) ([]*F
 	if err := fillFlowTokenNames(rows); err != nil {
 		return rows, err
 	}
+	rows, err = appendACUFlowQuotaData(rows, startTime, endTime, 0, username, common.RoleRootUser)
+	if err != nil {
+		return nil, err
+	}
+	if err := fillFlowTokenNames(rows); err != nil {
+		return rows, err
+	}
 	return rows, fillFlowChannelNames(rows)
+}
+
+type acuFlowQuotaData struct {
+	UserID    int    `gorm:"column:user_id"`
+	TokenID   int    `gorm:"column:token_id"`
+	ModelName string `gorm:"column:model_name"`
+	Provider  string `gorm:"column:provider"`
+	Channel   string `gorm:"column:channel"`
+	Count     int    `gorm:"column:count"`
+	Quota     int    `gorm:"column:quota"`
+	TokenUsed int    `gorm:"column:token_used"`
+}
+
+// appendACUFlowQuotaData exposes finalized ACU requests through the existing
+// flow-data contract. ACU requests already charge the wallet during settlement;
+// this function is reporting-only and never mutates quota or usage logs.
+func appendACUFlowQuotaData(
+	rows []*FlowQuotaData,
+	startTime int64,
+	endTime int64,
+	userID int,
+	username string,
+	role int,
+) ([]*FlowQuotaData, error) {
+	if !DB.Migrator().HasTable("acu_usage_finalizes") {
+		return rows, nil
+	}
+	if userID <= 0 && username != "" {
+		var user User
+		if err := DB.Select("id").Where("username = ?", username).First(&user).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return rows, nil
+			}
+			return nil, err
+		}
+		userID = user.Id
+	}
+
+	query := DB.Table("acu_usage_finalizes").
+		Select("user_id, token_id, actual_model as model_name, provider, channel, count(*) as count, sum(final_quota) as quota, sum(input_tokens + output_tokens) as token_used").
+		Where("status = ? AND created_at >= ? AND created_at <= ?", ACUFinalizeStatusFinalized, startTime, endTime)
+	if userID > 0 {
+		query = query.Where("user_id = ?", userID)
+	}
+
+	var acuRows []*acuFlowQuotaData
+	if err := query.
+		Group("user_id, token_id, actual_model, provider, channel").
+		Order("quota DESC").
+		Find(&acuRows).Error; err != nil {
+		return nil, err
+	}
+	if len(acuRows) == 0 {
+		return rows, nil
+	}
+
+	userIDs := make([]int, 0, len(acuRows))
+	seenUserIDs := make(map[int]struct{}, len(acuRows))
+	for _, acuRow := range acuRows {
+		if _, ok := seenUserIDs[acuRow.UserID]; ok {
+			continue
+		}
+		seenUserIDs[acuRow.UserID] = struct{}{}
+		userIDs = append(userIDs, acuRow.UserID)
+	}
+	var users []User
+	if err := DB.Select("id, username").Where("id IN ?", userIDs).Find(&users).Error; err != nil {
+		return nil, err
+	}
+	usernameByID := make(map[int]string, len(users))
+	for _, user := range users {
+		usernameByID[user.Id] = user.Username
+	}
+
+	for _, acuRow := range acuRows {
+		item := &FlowQuotaData{
+			UserID:      acuRow.UserID,
+			Username:    usernameByID[acuRow.UserID],
+			NodeName:    "acu-router",
+			TokenID:     acuRow.TokenID,
+			UseGroup:    "acu-auto",
+			ModelName:   acuRow.ModelName,
+			TokenUsed:   acuRow.TokenUsed,
+			Count:       acuRow.Count,
+			Quota:       acuRow.Quota,
+			ChannelName: formatACUFlowChannel(acuRow.Provider, acuRow.Channel),
+		}
+		switch {
+		case role >= common.RoleRootUser:
+			// Keep all dimensions for root users.
+		case role >= common.RoleAdminUser:
+			// Admin flow intentionally does not expose token/node dimensions.
+			item.NodeName = ""
+			item.TokenID = 0
+		default:
+			// Self flow intentionally does not expose user/node/channel dimensions.
+			item.UserID = 0
+			item.Username = ""
+			item.NodeName = ""
+			item.ChannelName = ""
+		}
+		rows = append(rows, item)
+	}
+	return rows, nil
+}
+
+func formatACUFlowChannel(provider, channel string) string {
+	provider = strings.TrimSpace(provider)
+	channel = strings.TrimSpace(channel)
+	switch {
+	case provider == "" && channel == "":
+		return "acu-router"
+	case provider == "":
+		return channel
+	case channel == "":
+		return provider
+	default:
+		return provider + "/" + channel
+	}
 }
 
 func fillFlowTokenNames(rows []*FlowQuotaData) error {
