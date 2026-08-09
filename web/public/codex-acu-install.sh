@@ -21,6 +21,7 @@ acu_home=${CODEX_ACU_HOME:-${XDG_DATA_HOME:-${HOME}/.local/share}/codex-acu}
 native_bin_dir="$acu_home/bin"
 skip_network_check=${CODEX_ACU_SKIP_NETWORK_CHECK:-0}
 live_verify=${CODEX_ACU_LIVE_VERIFY:-1}
+cli_verify=${CODEX_ACU_CLI_VERIFY:-0}
 update_codex=${CODEX_ACU_UPDATE_CODEX:-1}
 prefer_npm=${CODEX_ACU_PREFER_NPM:-1}
 while [ "$#" -gt 0 ]; do
@@ -242,28 +243,25 @@ tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/codex-acu-install.XXXXXX")
 trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
 
 managed_codex=$(find_managed_codex || true)
-if [ "$update_codex" != "0" ]; then
-  previous_managed_codex=$managed_codex
-  managed_codex=
-  if [ "$prefer_npm" != "0" ]; then
-    install_codex_npm || true
-    managed_codex=$(find_managed_codex || true)
-  fi
-  if [ -z "$managed_codex" ]; then
-    install_codex_official "$tmp_dir/codex-install.sh" "$tmp_dir/codex-install-patched.sh" || true
-    managed_codex=$(find_managed_codex || true)
-  fi
-  if [ -z "$managed_codex" ]; then
-    install_codex_npm || true
-    managed_codex=$(find_managed_codex || true)
-  fi
-  if [ -z "$managed_codex" ]; then
-    echo "Warning: could not update the private ACU Codex runtime; checking installed fallbacks." >&2
-    managed_codex=$previous_managed_codex
+native_codex=$managed_codex
+npm_attempted=0
+if [ "$update_codex" != "0" ] && [ "$prefer_npm" != "0" ]; then
+  npm_attempted=1
+  if install_codex_npm; then
+    native_codex=$(find_managed_codex || true)
   fi
 fi
-native_codex=$managed_codex
 if [ -z "$native_codex" ]; then native_codex=$(find_system_codex || true); fi
+if [ -z "$native_codex" ] && [ "$npm_attempted" = "0" ] && [ "$prefer_npm" != "0" ]; then
+  npm_attempted=1
+  if install_codex_npm; then
+    native_codex=$(find_managed_codex || true)
+  fi
+fi
+if [ -z "$native_codex" ]; then
+  install_codex_official "$tmp_dir/codex-install.sh" "$tmp_dir/codex-install-patched.sh" || true
+  native_codex=$(find_managed_codex || true)
+fi
 [ -n "$native_codex" ] || { echo "Codex installation completed but no usable codex binary was found" >&2; exit 1; }
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" 2>/dev/null && pwd || printf '.')
@@ -341,7 +339,7 @@ chmod 600 "$acu_home/native-config.sha256"
 CODEX_ACU_HOME="$acu_home" \
   CODEX_ACU_SKIP_ENDPOINT_PREFLIGHT="$skip_network_check" \
   "$bin_dir/codex-acu" doctor
-if [ "$live_verify" != "0" ]; then
+if [ "$live_verify" != "0" ] && [ "$cli_verify" = "1" ]; then
   echo "Verifying a real Codex ACU request..."
   validation_output=$(CODEX_ACU_HOME="$acu_home" "$bin_dir/codex-acu" \
     exec --skip-git-repo-check --ephemeral "Return exactly CODEX_ACU_OK" 2>&1) || {

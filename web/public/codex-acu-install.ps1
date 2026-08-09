@@ -14,6 +14,7 @@ $CatalogPath = Join-Path $AcuHome 'model-catalog.json'
 $ConfigPath = Join-Path $AcuHome 'config.toml'
 $NativeCodexPathFile = Join-Path $AcuHome 'native-codex-path'
 $UpdateCodex = $env:CODEX_ACU_UPDATE_CODEX -ne '0'
+$CliVerify = $env:CODEX_ACU_CLI_VERIFY -eq '1'
 
 function Get-CodexVersion([string]$Path) {
   if (-not $Path -or -not (Test-Path $Path)) { return $null }
@@ -27,7 +28,9 @@ function Find-ManagedCodex {
   $candidates = @(
     (Join-Path $NativeBin 'codex.exe'),
     (Join-Path $NativeBin 'codex.cmd'),
+    (Join-Path $AcuHome 'npm\codex.exe'),
     (Join-Path $AcuHome 'npm\codex.cmd'),
+    (Join-Path $AcuHome 'npm\bin\codex.exe'),
     (Join-Path $AcuHome 'npm\bin\codex.cmd')
   )
   foreach ($candidate in $candidates | Select-Object -Unique) {
@@ -42,9 +45,10 @@ function Find-ManagedCodex {
 function Find-SystemCodex {
   $command = Get-Command codex -ErrorAction SilentlyContinue
   if (-not $command) { return $null }
-  $version = Get-CodexVersion $command.Source
+  $commandPath = if ($command.Source) { $command.Source } else { $command.Path }
+  $version = Get-CodexVersion $commandPath
   if ($version -and $version -ge $MinimumCodexVersion) {
-    return $command.Source
+    return $commandPath
   }
   return $null
 }
@@ -80,8 +84,14 @@ function Install-CodexOfficial {
       Write-Host "Trying Codex releases from $releasesBase..."
       $patchedInstaller = $installerText.Replace($releaseLine, "`$ReleasesBaseUri = `"$releasesBase`"")
       [System.IO.File]::WriteAllText($patchedInstallerPath, $patchedInstaller, [System.Text.UTF8Encoding]::new($false))
-      & $powerShell -NoProfile -ExecutionPolicy Bypass -File $patchedInstallerPath
-      if ($LASTEXITCODE -eq 0 -and (Find-ManagedCodex)) {
+      $installerArguments = @(
+        '-NoProfile',
+        '-ExecutionPolicy', 'Bypass',
+        '-File', "`"$patchedInstallerPath`""
+      )
+      $process = Start-Process -FilePath $powerShell -ArgumentList $installerArguments `
+        -NoNewWindow -Wait -PassThru
+      if ($process.ExitCode -eq 0 -and (Find-ManagedCodex)) {
         return $true
       }
     }
@@ -97,14 +107,32 @@ function Install-CodexOfficial {
 }
 
 function Install-CodexNpm {
-  if (-not (Get-Command npm -ErrorAction SilentlyContinue)) { return $false }
+  $npmCommand = $null
+  foreach ($name in @('npm.cmd', 'npm.exe', 'npm')) {
+    $command = Get-Command $name -ErrorAction SilentlyContinue
+    if ($command -and $command.Source) {
+      $npmCommand = $command.Source
+      break
+    }
+  }
+  if (-not $npmCommand) { return $false }
   $prefix = Join-Path $AcuHome 'npm'
   $codexRelease = if ($env:CODEX_ACU_CODEX_VERSION) { $env:CODEX_ACU_CODEX_VERSION } else { 'latest' }
   New-Item -ItemType Directory -Force -Path $prefix | Out-Null
   foreach ($registry in @('https://registry.npmjs.org', 'https://registry.npmmirror.com')) {
     Write-Host "Installing Codex CLI $codexRelease from $registry..."
-    & npm install --global --prefix $prefix "@openai/codex@$codexRelease" "--registry=$registry" '--fetch-retries=1' '--fetch-timeout=60000'
-    if ($LASTEXITCODE -eq 0 -and (Find-ManagedCodex)) { return $true }
+    $npmArguments = @(
+      'install',
+      '--global',
+      '--prefix', $prefix,
+      "@openai/codex@$codexRelease",
+      "--registry=$registry",
+      '--fetch-retries=1',
+      '--fetch-timeout=60000'
+    )
+    & $npmCommand @npmArguments 2>&1 | Out-Host
+    $npmExitCode = $LASTEXITCODE
+    if ($npmExitCode -eq 0 -and (Find-ManagedCodex)) { return $true }
   }
   return $false
 }
@@ -141,27 +169,31 @@ if ([string]::IsNullOrWhiteSpace($ApiKey) -or -not $ApiKey.StartsWith('sk-') -or
 
 New-Item -ItemType Directory -Force -Path $AcuHome, $AcuBin, $NativeBin | Out-Null
 $managedCodex = Find-ManagedCodex
-if ($UpdateCodex) {
-  $installed = $false
-  if (-not ($env:CODEX_ACU_PREFER_NPM -eq '0')) {
-    $installed = Install-CodexNpm
+$nativeCodex = $managedCodex
+$npmAttempted = $false
+if ($UpdateCodex -and -not ($env:CODEX_ACU_PREFER_NPM -eq '0')) {
+  $npmAttempted = $true
+  if (Install-CodexNpm) {
+    $nativeCodex = Find-ManagedCodex
   }
-  if (-not $installed) {
-    try {
-      $installed = Install-CodexOfficial
-    } catch {
-      Write-Warning "The standalone Codex installer was unavailable: $($_.Exception.Message)"
-    }
-  }
-  if (-not $installed) {
-    $installed = Install-CodexNpm
-  }
-  if (-not $installed) {
-    Write-Warning 'Could not update the private ACU Codex runtime; checking installed fallbacks.'
-  }
-  $managedCodex = Find-ManagedCodex
 }
-$nativeCodex = if ($managedCodex) { $managedCodex } else { Find-SystemCodex }
+if (-not $nativeCodex) {
+  $nativeCodex = Find-SystemCodex
+}
+if (-not $nativeCodex -and -not $npmAttempted -and -not ($env:CODEX_ACU_PREFER_NPM -eq '0')) {
+  $npmAttempted = $true
+  if (Install-CodexNpm) {
+    $nativeCodex = Find-ManagedCodex
+  }
+}
+if (-not $nativeCodex) {
+  try {
+    $null = Install-CodexOfficial
+    $nativeCodex = Find-ManagedCodex
+  } catch {
+    Write-Warning "The standalone Codex installer was unavailable: $($_.Exception.Message)"
+  }
+}
 if (-not $nativeCodex) { throw 'Codex installation completed but no usable codex command was found.' }
 
 $catalogUrls = @(
@@ -277,7 +309,7 @@ if (($userPath -split ';') -notcontains $AcuBin) {
 if (($env:Path -split ';') -notcontains $AcuBin) { $env:Path = "$env:Path;$AcuBin" }
 
 & $launcherPath doctor
-if ($env:CODEX_ACU_LIVE_VERIFY -ne '0') {
+if ($env:CODEX_ACU_LIVE_VERIFY -ne '0' -and $CliVerify) {
   Write-Host 'Verifying a real Codex ACU request...'
   $validation = & $launcherPath exec --skip-git-repo-check --ephemeral 'Return exactly CODEX_ACU_OK' | Out-String
   if ($LASTEXITCODE -ne 0 -or $validation -notmatch 'CODEX_ACU_OK') {

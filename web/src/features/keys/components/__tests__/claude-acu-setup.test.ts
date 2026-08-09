@@ -114,11 +114,14 @@ test('Codex installers install the latest CLI with China and overseas fallbacks'
   )
   assert.match(codexPowerShellInstaller, /registry\.npmmirror\.com/)
   assert.match(codexPowerShellInstaller, /codex-releases/)
+  assert.match(codexPowerShellInstaller, /'npm\.cmd'.*'npm\.exe'.*'npm'/)
+  assert.match(codexPowerShellInstaller, /Join-Path \$AcuHome 'npm\\codex\.cmd'/)
   assert.match(
     codexPowerShellInstaller,
     /\$NativeBin = Join-Path \$AcuHome 'bin'/
   )
   assert.match(codexPowerShellInstaller, /\$env:ACU_API_KEY/)
+  assert.match(codexPowerShellInstaller, /CODEX_ACU_CLI_VERIFY/)
   assert.match(codexPowerShellInstaller, /CODEX_ACU_OK/)
 })
 
