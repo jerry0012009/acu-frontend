@@ -146,7 +146,14 @@ func GetQuotaDataByUsername(username string, startTime int64, endTime int64) (qu
 		Where("username = ? and created_at >= ? and created_at <= ?", username, startTime, endTime).
 		Group("user_id, username, model_name, created_at").
 		Find(&quotaDatas).Error
-	return quotaDatas, err
+	if err != nil {
+		return nil, err
+	}
+	var user User
+	if err := DB.Select("id, username").Where("username = ?", username).First(&user).Error; err != nil {
+		return quotaDatas, nil
+	}
+	return appendACUQuotaData(quotaDatas, user.Id, startTime, endTime)
 }
 
 func GetQuotaDataByUserId(userId int, startTime int64, endTime int64) (quotaData []*QuotaData, err error) {
@@ -157,7 +164,10 @@ func GetQuotaDataByUserId(userId int, startTime int64, endTime int64) (quotaData
 		Where("user_id = ? and created_at >= ? and created_at <= ?", userId, startTime, endTime).
 		Group("user_id, username, model_name, created_at").
 		Find(&quotaDatas).Error
-	return quotaDatas, err
+	if err != nil {
+		return nil, err
+	}
+	return appendACUQuotaData(quotaDatas, userId, startTime, endTime)
 }
 
 func GetQuotaDataGroupByUser(startTime int64, endTime int64) (quotaData []*QuotaData, err error) {
@@ -167,7 +177,10 @@ func GetQuotaDataGroupByUser(startTime int64, endTime int64) (quotaData []*Quota
 		Where("created_at >= ? and created_at <= ?", startTime, endTime).
 		Group("username, created_at").
 		Find(&quotaDatas).Error
-	return quotaDatas, err
+	if err != nil {
+		return nil, err
+	}
+	return appendACUQuotaData(quotaDatas, 0, startTime, endTime)
 }
 
 func GetAllQuotaDates(startTime int64, endTime int64, username string) (quotaData []*QuotaData, err error) {
@@ -179,5 +192,59 @@ func GetAllQuotaDates(startTime int64, endTime int64, username string) (quotaDat
 	// only select model_name, sum(count) as count, sum(quota) as quota, model_name, created_at from quota_data group by model_name, created_at;
 	//err = DB.Table("quota_data").Where("created_at >= ? and created_at <= ?", startTime, endTime).Find(&quotaDatas).Error
 	err = DB.Table("quota_data").Select("model_name, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used, created_at").Where("created_at >= ? and created_at <= ?", startTime, endTime).Group("model_name, created_at").Find(&quotaDatas).Error
-	return quotaDatas, err
+	if err != nil {
+		return nil, err
+	}
+	return appendACUQuotaData(quotaDatas, 0, startTime, endTime)
+}
+
+// appendACUQuotaData keeps ACU usage visible in the existing dashboard data
+// contract. ACU settlement already charges the wallet and token, so this is
+// reporting-only and deliberately does not call any quota mutation path.
+func appendACUQuotaData(quotaDatas []*QuotaData, userID int, startTime int64, endTime int64) ([]*QuotaData, error) {
+	query := DB.Table("acu_usage_finalizes").
+		Select("user_id, actual_model as model_name, created_at, count(*) as count, sum(final_quota) as quota, sum(input_tokens + output_tokens) as token_used").
+		Where("status = ? AND created_at >= ? AND created_at <= ?", ACUFinalizeStatusFinalized, startTime, endTime)
+	if userID > 0 {
+		query = query.Where("user_id = ?", userID)
+	}
+
+	var acuDatas []*QuotaData
+	if err := query.Group("user_id, actual_model, created_at").Find(&acuDatas).Error; err != nil {
+		return nil, err
+	}
+	if len(acuDatas) == 0 {
+		return quotaDatas, nil
+	}
+	if userID > 0 {
+		user, err := GetUserById(userID, false)
+		if err != nil {
+			return nil, err
+		}
+		for _, item := range acuDatas {
+			item.Username = user.Username
+		}
+	} else {
+		userIDs := make([]int, 0, len(acuDatas))
+		seen := make(map[int]struct{})
+		for _, item := range acuDatas {
+			if _, ok := seen[item.UserID]; ok {
+				continue
+			}
+			seen[item.UserID] = struct{}{}
+			userIDs = append(userIDs, item.UserID)
+		}
+		var users []User
+		if err := DB.Select("id, username").Where("id IN ?", userIDs).Find(&users).Error; err != nil {
+			return nil, err
+		}
+		names := make(map[int]string, len(users))
+		for _, user := range users {
+			names[user.Id] = user.Username
+		}
+		for _, item := range acuDatas {
+			item.Username = names[item.UserID]
+		}
+	}
+	return append(quotaDatas, acuDatas...), nil
 }

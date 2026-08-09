@@ -26,7 +26,7 @@ func setupACUFinalizeTestDB(t *testing.T) {
 	dsn := fmt.Sprintf("file:acu-finalize-%d?mode=memory&cache=shared", time.Now().UnixNano())
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.Log{}, &model.ACUUsageFinalize{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.Log{}, &model.QuotaData{}, &model.ACUUsageFinalize{}))
 	model.DB, model.LOG_DB = db, db
 	common.RedisEnabled = false
 	common.LogConsumeEnabled = true
@@ -151,6 +151,10 @@ func TestFinalizeACUUsageChargesAndUpdatesLogExactlyOnce(t *testing.T) {
 	require.Equal(t, 100, logEntry.PromptTokens)
 	require.Equal(t, 30, logEntry.CompletionTokens)
 	require.Contains(t, logEntry.Other, `"actual_channel":"closeai-anthropic-primary"`)
+	data, err := model.GetQuotaDataByUserId(user.Id, 0, time.Now().Unix()+1)
+	require.NoError(t, err)
+	require.Len(t, data, 1)
+	require.Equal(t, 500, data[0].Quota)
 }
 
 func TestFinalizeACUUsageRejectsIdempotencyPayloadMismatchWithoutSecondCharge(t *testing.T) {

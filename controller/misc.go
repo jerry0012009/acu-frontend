@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -69,7 +70,7 @@ func GetStatus(c *gin.Context) {
 		"footer_html":                 common.Footer,
 		"wechat_qrcode":               common.WeChatAccountQRCodeImageURL,
 		"wechat_login":                common.WeChatAuthEnabled,
-		"server_address":              system_setting.ServerAddress,
+		"server_address":              publicServerAddress(c),
 		"turnstile_check":             common.TurnstileCheckEnabled,
 		"turnstile_site_key":          common.TurnstileSiteKey,
 		"docs_link":                   operation_setting.GetGeneralSetting().DocsLink,
@@ -169,6 +170,32 @@ func GetStatus(c *gin.Context) {
 		"data":    data,
 	})
 	return
+}
+
+func publicServerAddress(c *gin.Context) string {
+	configured := strings.TrimRight(strings.TrimSpace(system_setting.ServerAddress), "/")
+	if configured != "" {
+		if parsed, err := url.Parse(configured); err == nil {
+			hostname := strings.ToLower(parsed.Hostname())
+			if hostname != "localhost" && hostname != "127.0.0.1" && hostname != "::1" {
+				return configured
+			}
+		}
+	}
+
+	host := c.GetHeader("X-Forwarded-Host")
+	if host == "" {
+		host = c.Request.Host
+	}
+	proto := c.GetHeader("X-Forwarded-Proto")
+	if proto == "" {
+		proto = "http"
+		if c.Request.TLS != nil {
+			proto = "https"
+		}
+	}
+	prefix := strings.TrimRight(c.GetHeader("X-Forwarded-Prefix"), "/")
+	return fmt.Sprintf("%s://%s%s", proto, host, prefix)
 }
 
 func GetNotice(c *gin.Context) {

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,4 +45,19 @@ func TestGetStatusAdvertisesDefaultDashboard(t *testing.T) {
 	require.NoError(t, common.Unmarshal(response.Body.Bytes(), &payload))
 	assert.True(t, payload.Success)
 	assert.Equal(t, "default", payload.Data["theme"])
+}
+
+func TestPublicServerAddressUsesForwardedConsoleOriginForLocalhostConfig(t *testing.T) {
+	previous := system_setting.ServerAddress
+	system_setting.ServerAddress = "http://localhost:3000"
+	t.Cleanup(func() { system_setting.ServerAddress = previous })
+
+	response := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(response)
+	context.Request = httptest.NewRequest(http.MethodGet, "/acu/api/status", nil)
+	context.Request.Header.Set("X-Forwarded-Host", "eu.example.test")
+	context.Request.Header.Set("X-Forwarded-Proto", "https")
+	context.Request.Header.Set("X-Forwarded-Prefix", "/acu")
+
+	assert.Equal(t, "https://eu.example.test/acu", publicServerAddress(context))
 }
