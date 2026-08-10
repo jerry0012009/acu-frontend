@@ -15,6 +15,12 @@ $ConfigPath = Join-Path $AcuHome 'config.toml'
 $NativeCodexPathFile = Join-Path $AcuHome 'native-codex-path'
 $UpdateCodex = $env:CODEX_ACU_UPDATE_CODEX -ne '0'
 $CliVerify = $env:CODEX_ACU_CLI_VERIFY -eq '1'
+$RequestedBaseUrl = $env:CODEX_ACU_BASE_URL
+$RunningOnWindows = $env:OS -eq 'Windows_NT'
+
+if ($RequestedBaseUrl -and $RequestedBaseUrl -notmatch '^https://.+/v1$') {
+  throw 'CODEX_ACU_BASE_URL must be an HTTPS URL ending in /v1.'
+}
 
 function Get-CodexVersion([string]$Path) {
   if (-not $Path -or -not (Test-Path $Path)) { return $null }
@@ -159,9 +165,15 @@ function Test-AcuEndpoint([string]$Endpoint, [string]$ApiKey) {
   }
 }
 
-$ApiKey = $env:ACU_API_KEY
-if ([string]::IsNullOrWhiteSpace($ApiKey) -and (Test-Path $CredentialPath)) {
-  $ApiKey = [System.IO.File]::ReadAllText($CredentialPath).Trim()
+$ExistingApiKey = if (Test-Path $CredentialPath) {
+  [System.IO.File]::ReadAllText($CredentialPath).Trim()
+} else {
+  $null
+}
+$ApiKey = if ([string]::IsNullOrWhiteSpace($env:ACU_API_KEY)) {
+  $ExistingApiKey
+} else {
+  $env:ACU_API_KEY
 }
 if ([string]::IsNullOrWhiteSpace($ApiKey) -or -not $ApiKey.StartsWith('sk-') -or $ApiKey.Contains("`n") -or $ApiKey.Contains("`r")) {
   throw "ACU_API_KEY must be provided in the install command and start with sk-."
@@ -203,14 +215,28 @@ $catalogUrls = @(
 )
 Download-First $catalogUrls $CatalogPath
 
-[System.IO.File]::WriteAllText($CredentialPath, $ApiKey, [System.Text.UTF8Encoding]::new($false))
-& icacls $CredentialPath /inheritance:r /grant:r "$($env:USERNAME):(R,W)" | Out-Null
+if ([string]::IsNullOrWhiteSpace($ExistingApiKey) -or $ApiKey -ne $ExistingApiKey) {
+  [System.IO.File]::WriteAllText($CredentialPath, $ApiKey, [System.Text.UTF8Encoding]::new($false))
+}
+if ($RunningOnWindows) {
+  & icacls $CredentialPath /inheritance:r /grant:r "$($env:USERNAME):(R,W)" | Out-Null
+}
 
-$baseUrl = $null
-foreach ($candidate in @($PrimaryBaseUrl, $FallbackBaseUrl)) {
-  if (Test-AcuEndpoint $candidate $ApiKey) {
-    $baseUrl = $candidate
-    break
+$existingBaseUrl = $null
+if (Test-Path $ConfigPath) {
+  $existingConfig = [System.IO.File]::ReadAllText($ConfigPath)
+  $existingMatch = [regex]::Match($existingConfig, '(?m)^base_url = "(https://[^"\r\n]+/v1)"$')
+  if ($existingMatch.Success) {
+    $existingBaseUrl = $existingMatch.Groups[1].Value
+  }
+}
+$baseUrl = if ($RequestedBaseUrl) { $RequestedBaseUrl } else { $existingBaseUrl }
+if (-not $baseUrl) {
+  foreach ($candidate in @($PrimaryBaseUrl, $FallbackBaseUrl)) {
+    if (Test-AcuEndpoint $candidate $ApiKey) {
+      $baseUrl = $candidate
+      break
+    }
   }
 }
 if (-not $baseUrl) { throw 'Neither ACU Responses endpoint is reachable with this API Key.' }
@@ -324,7 +350,7 @@ $cmd = "@echo off`r`npowershell.exe -NoProfile -ExecutionPolicy Bypass -File `"%
 [System.IO.File]::WriteAllText((Join-Path $AcuBin 'codex-acu.cmd'), $cmd, [System.Text.UTF8Encoding]::new($false))
 
 $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-if (($userPath -split ';') -notcontains $AcuBin) {
+if ($RunningOnWindows -and ($userPath -split ';') -notcontains $AcuBin) {
   $newPath = if ([string]::IsNullOrWhiteSpace($userPath)) { $AcuBin } else { "$userPath;$AcuBin" }
   [Environment]::SetEnvironmentVariable('Path', $newPath, 'User')
 }

@@ -264,19 +264,33 @@ if [ -z "$native_codex" ]; then
 fi
 [ -n "$native_codex" ] || { echo "Codex installation completed but no usable codex binary was found" >&2; exit 1; }
 
-script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" 2>/dev/null && pwd || printf '.')
-download_asset "$script_dir/codex-acu" "codex-acu" "codex-acu" "$tmp_dir/codex-acu"
-download_asset "$script_dir/model-catalog.json" "codex-acu-model-catalog.json" "model-catalog.json" "$tmp_dir/model-catalog.json"
+script_dir=
+case "$0" in
+  */*|install.sh)
+    if [ -f "$0" ]; then
+      script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" 2>/dev/null && pwd || true)
+    fi
+    ;;
+esac
+local_launcher=
+local_catalog=
+if [ -n "$script_dir" ]; then
+  local_launcher="$script_dir/codex-acu"
+  local_catalog="$script_dir/model-catalog.json"
+fi
+download_asset "$local_launcher" "codex-acu" "codex-acu" "$tmp_dir/codex-acu"
+download_asset "$local_catalog" "codex-acu-model-catalog.json" "model-catalog.json" "$tmp_dir/model-catalog.json"
 chmod 755 "$tmp_dir/codex-acu"
 chmod 600 "$tmp_dir/model-catalog.json"
 mv "$tmp_dir/codex-acu" "$bin_dir/codex-acu"
 mv "$tmp_dir/model-catalog.json" "$acu_home/model-catalog.json"
 
-api_key=${ACU_API_KEY:-}
 credential_file="$acu_home/credentials"
-if [ -z "$api_key" ] && [ -s "$credential_file" ]; then
-  IFS= read -r api_key < "$credential_file"
+existing_api_key=
+if [ -s "$credential_file" ]; then
+  existing_api_key=$(sed -n '1p' "$credential_file")
 fi
+api_key=${ACU_API_KEY:-$existing_api_key}
 case "$api_key" in
   sk-?*) ;;
   *)
@@ -289,11 +303,21 @@ case "$api_key" in
   *'
 '*) echo "ACU_API_KEY must be a single line" >&2; exit 2 ;;
 esac
-credential_tmp="$acu_home/credentials.tmp"
-(umask 077; printf '%s\n' "$api_key" > "$credential_tmp")
-chmod 600 "$credential_tmp"
-mv "$credential_tmp" "$credential_file"
+if [ -n "$existing_api_key" ] && [ "$api_key" = "$existing_api_key" ]; then
+  chmod 600 "$credential_file"
+else
+  credential_tmp="$acu_home/credentials.tmp"
+  (umask 077; printf '%s\n' "$api_key" > "$credential_tmp")
+  chmod 600 "$credential_tmp"
+  mv "$credential_tmp" "$credential_file"
+fi
 
+if [ -z "$base_url" ]; then
+  existing_base_url=$(sed -n 's/^base_url = "\(https:\/\/[^"]*\/v1\)"$/\1/p' "$acu_home/config.toml" 2>/dev/null | head -n 1)
+  if [ -n "$existing_base_url" ]; then
+    base_url=$existing_base_url
+  fi
+fi
 if [ -z "$base_url" ]; then
   for candidate in "$DEFAULT_BASE_URL" "$FALLBACK_BASE_URL"; do
     if endpoint_available "$candidate" "$api_key"; then

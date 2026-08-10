@@ -14,6 +14,7 @@ $UpdateClaude = $env:CLAUDE_ACU_UPDATE_CLAUDE -ne '0'
 $LiveVerify = $env:CLAUDE_ACU_LIVE_VERIFY -ne '0'
 $CliVerify = $env:CLAUDE_ACU_CLI_VERIFY -eq '1'
 $VerifyTimeoutSec = if ($env:CLAUDE_ACU_VERIFY_TIMEOUT_SEC) { [int]$env:CLAUDE_ACU_VERIFY_TIMEOUT_SEC } else { 45 }
+$RunningOnWindows = $env:OS -eq 'Windows_NT'
 
 function Get-ManagedClaudeCommand {
   $candidates = @(
@@ -126,9 +127,15 @@ function Test-MessagesEndpoint([string]$Endpoint, [string]$Token) {
   }
 }
 
-$Token = $env:ACU_API_KEY
-if ([string]::IsNullOrWhiteSpace($Token) -and (Test-Path $CredentialPath)) {
-  $Token = [System.IO.File]::ReadAllText($CredentialPath).Trim()
+$ExistingToken = if (Test-Path $CredentialPath) {
+  [System.IO.File]::ReadAllText($CredentialPath).Trim()
+} else {
+  $null
+}
+$Token = if ([string]::IsNullOrWhiteSpace($env:ACU_API_KEY)) {
+  $ExistingToken
+} else {
+  $env:ACU_API_KEY
 }
 if ([string]::IsNullOrWhiteSpace($Token)) {
   $SecureToken = Read-Host 'Paste your ACU API Key' -AsSecureString
@@ -171,19 +178,39 @@ if (-not $nativeClaude) {
 }
 if (-not $nativeClaude) { throw 'Unable to install Claude Code from npm mirrors or Anthropic.' }
 
+$existingBaseUrl = if (Test-Path $BaseUrlPath) {
+  [System.IO.File]::ReadAllText($BaseUrlPath).Trim()
+} else {
+  $null
+}
+if ($existingBaseUrl -in @('https://eu.jerrypsy.top/acu', 'https://eu.jerrypsy.top/acu/') -or
+    ($existingBaseUrl -and $existingBaseUrl -notmatch '^https://')) {
+  $existingBaseUrl = $null
+}
+if ($env:CLAUDE_ACU_BASE_URL -and $env:CLAUDE_ACU_BASE_URL -notmatch '^https://') {
+  throw 'CLAUDE_ACU_BASE_URL must be an HTTPS URL.'
+}
+
 $baseUrl = $null
-$baseCandidates = @()
-if ($env:CLAUDE_ACU_BASE_URL) { $baseCandidates += $env:CLAUDE_ACU_BASE_URL }
-$baseCandidates += @($AcuPublicBaseUrl, $AcuDirectBaseUrl)
-foreach ($candidate in $baseCandidates | Select-Object -Unique) {
-  if (-not $LiveVerify -or (Test-MessagesEndpoint $candidate $Token)) {
-    $baseUrl = $candidate
-    break
+if ($env:CLAUDE_ACU_BASE_URL) {
+  if (-not $LiveVerify -or (Test-MessagesEndpoint $env:CLAUDE_ACU_BASE_URL $Token)) {
+    $baseUrl = $env:CLAUDE_ACU_BASE_URL
+  }
+} elseif ($existingBaseUrl) {
+  $baseUrl = $existingBaseUrl
+} else {
+  foreach ($candidate in @($AcuPublicBaseUrl, $AcuDirectBaseUrl)) {
+    if (-not $LiveVerify -or (Test-MessagesEndpoint $candidate $Token)) {
+      $baseUrl = $candidate
+      break
+    }
   }
 }
 if (-not $baseUrl) { throw 'Neither ACU Messages endpoint completed validation.' }
 
-[System.IO.File]::WriteAllText($CredentialPath, $Token, [System.Text.UTF8Encoding]::new($false))
+if ([string]::IsNullOrWhiteSpace($ExistingToken) -or $Token -ne $ExistingToken) {
+  [System.IO.File]::WriteAllText($CredentialPath, $Token, [System.Text.UTF8Encoding]::new($false))
+}
 [System.IO.File]::WriteAllText($BaseUrlPath, $baseUrl, [System.Text.UTF8Encoding]::new($false))
 [System.IO.File]::WriteAllText($NativePathFile, $nativeClaude, [System.Text.UTF8Encoding]::new($false))
 [System.IO.File]::WriteAllText(
@@ -191,7 +218,9 @@ if (-not $baseUrl) { throw 'Neither ACU Messages endpoint completed validation.'
   '{"availableModels":["acu-auto","claude-opus-4-8","claude-sonnet-5","claude-fable-5"]}',
   [System.Text.UTF8Encoding]::new($false)
 )
-& icacls $CredentialPath /inheritance:r /grant:r "$($env:USERNAME):(R,W)" | Out-Null
+if ($RunningOnWindows) {
+  & icacls $CredentialPath /inheritance:r /grant:r "$($env:USERNAME):(R,W)" | Out-Null
+}
 
 $launcher = @'
 $ErrorActionPreference = 'Stop'
@@ -247,12 +276,11 @@ $launcherPath = Join-Path $AcuBin 'claude-acu.ps1'
 $cmd = "@echo off`r`npowershell.exe -NoProfile -ExecutionPolicy Bypass -File `"%~dp0claude-acu.ps1`" %*`r`n"
 [System.IO.File]::WriteAllText((Join-Path $AcuBin 'claude-acu.cmd'), $cmd, [System.Text.UTF8Encoding]::new($false))
 
-[Environment]::SetEnvironmentVariable('Path', (
-  @(
-    [Environment]::GetEnvironmentVariable('Path', 'User'),
-    $AcuBin
-  ) | Where-Object { $_ -and $_.Trim() } | Select-Object -Unique
-) -join ';', 'User')
+$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+if ($RunningOnWindows -and ($userPath -split ';') -notcontains $AcuBin) {
+  $newPath = if ([string]::IsNullOrWhiteSpace($userPath)) { $AcuBin } else { "$userPath;$AcuBin" }
+  [Environment]::SetEnvironmentVariable('Path', $newPath, 'User')
+}
 if (($env:Path -split ';') -notcontains $AcuBin) { $env:Path = "$env:Path;$AcuBin" }
 
 & $launcherPath --version

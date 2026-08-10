@@ -186,7 +186,7 @@ case "${1:-}" in
 esac
 
 test -s "$credential_file" || { echo "ACU credential is missing; rerun the installer" >&2; exit 1; }
-IFS= read -r ACU_API_KEY < "$credential_file"
+ACU_API_KEY=$(sed -n '1p' "$credential_file")
 case "$ACU_API_KEY" in sk-?*) ;; *) echo "invalid ACU credential" >&2; exit 1 ;; esac
 export CODEX_HOME="$acu_home"
 export ACU_API_KEY

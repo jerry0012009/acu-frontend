@@ -381,3 +381,131 @@ chmod 755 "$prefix/bin/claude"
   )
   assert.doesNotMatch(claudeCalls, /sk-claude-test/)
 })
+
+test('Claude Unix installer upgrades old settings without replacing credential or Base URL', () => {
+  const root = mkdtempSync(join(tmpdir(), 'claude-acu-upgrade-'))
+  const fakeBin = join(root, 'bin')
+  const acuHome = join(root, 'acu-home')
+  const installBin = join(root, 'install-bin')
+  const settingsDir = join(acuHome, 'config')
+  const nativeConfigDir = join(root, '.claude')
+  mkdirSync(fakeBin, { recursive: true })
+  mkdirSync(settingsDir, { recursive: true })
+  mkdirSync(installBin, { recursive: true })
+  mkdirSync(nativeConfigDir, { recursive: true })
+  writeFileSync(join(root, '.profile'), '')
+  writeFileSync(join(nativeConfigDir, 'settings.json'), '{"native":true}\n')
+
+  const fakeClaude = join(fakeBin, 'claude')
+  writeFileSync(
+    fakeClaude,
+    `#!/bin/sh
+if [ "\${1:-}" = "--version" ]; then
+  printf '%s\\n' '2.1.226 (Claude Code)'
+  exit 0
+fi
+printf '%s\\n' "$ANTHROPIC_BASE_URL|$*"
+`
+  )
+  chmodSync(fakeClaude, 0o755)
+
+  const oldCredential = 'sk-existing-claude'
+  const oldBaseUrl = 'https://existing.messages.example'
+  writeFileSync(join(acuHome, 'credential'), oldCredential)
+  writeFileSync(join(acuHome, 'base-url'), oldBaseUrl)
+  writeFileSync(
+    join(settingsDir, 'acu-model-settings.json'),
+    '{"availableModels":["acu-auto"]}\n'
+  )
+  writeFileSync(
+    join(installBin, 'claude-acu'),
+    'ANTHROPIC_DEFAULT_HAIKU_MODEL="acu-auto"\n'
+  )
+
+  const env = {
+    ...process.env,
+    PATH: `${fakeBin}:/usr/bin:/bin`,
+    HOME: root,
+    CLAUDE_ACU_HOME: acuHome,
+    CLAUDE_ACU_BIN_DIR: installBin,
+    CLAUDE_ACU_UPDATE_CLAUDE: '0',
+    CLAUDE_ACU_PREFER_NPM: '0',
+    CLAUDE_ACU_LIVE_VERIFY: '0',
+    CLAUDE_ACU_CLI_VERIFY: '0',
+    ACU_API_KEY: '',
+    SHELL: '/bin/sh',
+  }
+  const installerPath = new URL(
+    '../../../../../public/claude-acu-install.sh',
+    import.meta.url
+  ).pathname
+  const runInstaller = () =>
+    spawnSync('sh', [installerPath], {
+      env,
+      encoding: 'utf8',
+    })
+
+  const first = runInstaller()
+  assert.equal(first.status, 0, first.stderr)
+  const firstLauncher = readFileSync(join(installBin, 'claude-acu'), 'utf8')
+  const firstSettings = readFileSync(
+    join(settingsDir, 'acu-model-settings.json'),
+    'utf8'
+  )
+  const firstNativePath = readFileSync(
+    join(acuHome, 'native-claude-path'),
+    'utf8'
+  )
+  assert.equal(readFileSync(join(acuHome, 'credential'), 'utf8'), oldCredential)
+  assert.equal(
+    readFileSync(join(acuHome, 'base-url'), 'utf8'),
+    `${oldBaseUrl}\n`
+  )
+  assert.deepEqual(JSON.parse(firstSettings), {
+    availableModels: [
+      'acu-auto',
+      'claude-opus-4-8',
+      'claude-sonnet-5',
+      'claude-fable-5',
+    ],
+  })
+  assert.doesNotMatch(firstSettings, /haiku/i)
+  assert.match(firstLauncher, /unset ANTHROPIC_DEFAULT_HAIKU_MODEL/)
+  assert.doesNotMatch(firstLauncher, /ANTHROPIC_DEFAULT_HAIKU_MODEL="acu-auto"/)
+  assert.equal(
+    readFileSync(join(nativeConfigDir, 'settings.json'), 'utf8'),
+    '{"native":true}\n'
+  )
+
+  const second = runInstaller()
+  assert.equal(second.status, 0, second.stderr)
+  assert.equal(
+    readFileSync(join(installBin, 'claude-acu'), 'utf8'),
+    firstLauncher
+  )
+  assert.equal(
+    readFileSync(join(settingsDir, 'acu-model-settings.json'), 'utf8'),
+    firstSettings
+  )
+  assert.equal(
+    readFileSync(join(acuHome, 'native-claude-path'), 'utf8'),
+    firstNativePath
+  )
+  assert.equal(readFileSync(join(acuHome, 'credential'), 'utf8'), oldCredential)
+  assert.equal(
+    readFileSync(join(root, '.profile'), 'utf8').split(installBin).length - 1,
+    1
+  )
+
+  const launcher = join(installBin, 'claude-acu')
+  const explicit = spawnSync(
+    launcher,
+    ['--model', 'claude-fable-5', '-p', 'test task'],
+    {
+      env,
+      encoding: 'utf8',
+    }
+  )
+  assert.equal(explicit.status, 0, explicit.stderr)
+  assert.match(explicit.stdout, /--model claude-fable-5/)
+})

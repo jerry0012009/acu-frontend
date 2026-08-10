@@ -127,10 +127,11 @@ register_path() {
   fi
 }
 
-ACU_TOKEN=${ACU_API_KEY:-}
-if [ -z "$ACU_TOKEN" ] && [ -s "$ACU_CREDENTIAL" ]; then
-  IFS= read -r ACU_TOKEN < "$ACU_CREDENTIAL"
+existing_token=
+if [ -s "$ACU_CREDENTIAL" ]; then
+  existing_token=$(sed -n '1p' "$ACU_CREDENTIAL")
 fi
+ACU_TOKEN=${ACU_API_KEY:-$existing_token}
 if [ -z "$ACU_TOKEN" ]; then
   printf '%s' "Paste your ACU API Key: "
   if [ -r /dev/tty ]; then
@@ -191,11 +192,32 @@ fi
 
 validation_response=
 acu_base_url=
-if [ "$LIVE_VERIFY" = "0" ]; then
-  acu_base_url=${CLAUDE_ACU_BASE_URL:-$ACU_PUBLIC_BASE_URL}
+existing_base_url=
+if [ -s "$ACU_BASE_URL_FILE" ]; then
+  existing_base_url=$(sed -n '1p' "$ACU_BASE_URL_FILE")
+fi
+case "$existing_base_url" in
+  https://eu.jerrypsy.top/acu|https://eu.jerrypsy.top/acu/) existing_base_url= ;;
+  https://*) ;;
+  *) existing_base_url= ;;
+esac
+if [ -n "${CLAUDE_ACU_BASE_URL:-}" ]; then
+  case "$CLAUDE_ACU_BASE_URL" in
+    https://*) ;;
+    *) printf '%s\n' "CLAUDE_ACU_BASE_URL must be an HTTPS URL." >&2; exit 2 ;;
+  esac
+  if [ "$LIVE_VERIFY" = "0" ]; then
+    acu_base_url=$CLAUDE_ACU_BASE_URL
+  elif validation_response=$(validate_messages "$CLAUDE_ACU_BASE_URL" "$ACU_TOKEN" 2>/dev/null) &&
+    printf '%s' "$validation_response" | grep -q 'CLAUDE_ACU_OK'; then
+    acu_base_url=$CLAUDE_ACU_BASE_URL
+  fi
+elif [ -n "$existing_base_url" ]; then
+  acu_base_url=$existing_base_url
+elif [ "$LIVE_VERIFY" = "0" ]; then
+  acu_base_url=$ACU_PUBLIC_BASE_URL
 else
   for candidate in \
-    "${CLAUDE_ACU_BASE_URL:-}" \
     "$ACU_PUBLIC_BASE_URL" \
     "$ACU_DIRECT_BASE_URL"; do
     [ -n "$candidate" ] || continue
@@ -214,11 +236,18 @@ fi
 credential_tmp="${ACU_CREDENTIAL}.tmp"
 base_url_tmp="${ACU_BASE_URL_FILE}.tmp"
 native_path_tmp="${ACU_NATIVE_PATH_FILE}.tmp"
-(umask 077; printf '%s\n' "$ACU_TOKEN" > "$credential_tmp")
+if [ -z "$existing_token" ] || [ "$ACU_TOKEN" != "$existing_token" ]; then
+  (umask 077; printf '%s\n' "$ACU_TOKEN" > "$credential_tmp")
+fi
 (umask 077; printf '%s\n' "$acu_base_url" > "$base_url_tmp")
 (umask 077; printf '%s\n' "$native_claude" > "$native_path_tmp")
-chmod 600 "$credential_tmp" "$base_url_tmp" "$native_path_tmp"
-mv "$credential_tmp" "$ACU_CREDENTIAL"
+if [ -f "$credential_tmp" ]; then
+  chmod 600 "$credential_tmp"
+  mv "$credential_tmp" "$ACU_CREDENTIAL"
+else
+  chmod 600 "$ACU_CREDENTIAL"
+fi
+chmod 600 "$base_url_tmp" "$native_path_tmp"
 mv "$base_url_tmp" "$ACU_BASE_URL_FILE"
 mv "$native_path_tmp" "$ACU_NATIVE_PATH_FILE"
 
