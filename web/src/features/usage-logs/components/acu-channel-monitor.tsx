@@ -444,34 +444,54 @@ function RouterConfigurationTab(props: {
   const [policyDraft, setPolicyDraft] = useState<ACUGlobalRoutingPolicy>()
   const [utilityDraft, setUtilityDraft] =
     useState<ACURoutingUtilityConfig>()
+  const refetchSavedConfiguration = async () => {
+    await Promise.all([
+      queryClient.refetchQueries({
+        queryKey: ['acu-global-routing-policy'],
+      }),
+      queryClient.refetchQueries({
+        queryKey: ['acu-routing-utility-config'],
+      }),
+    ])
+  }
   const saveMutation = useMutation({
     mutationFn: async (input: {
       policy: ACUGlobalRoutingPolicy
       utilityConfig: ACURoutingUtilityConfig
     }) => {
+      let policySaved = false
       await updateACUGlobalRoutingPolicy(input.policy)
-      await updateACURoutingUtilityConfig(input.utilityConfig)
+      policySaved = true
+      try {
+        await updateACURoutingUtilityConfig(input.utilityConfig)
+      } catch (error) {
+        const saveError =
+          error instanceof Error ? error : new Error(String(error))
+        Object.assign(saveError, { partialUpdate: policySaved })
+        throw saveError
+      }
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ['acu-global-routing-policy'],
-      })
-      await queryClient.invalidateQueries({
-        queryKey: ['acu-routing-utility-config'],
-      })
-      await queryClient.refetchQueries({
-        queryKey: ['acu-global-routing-policy'],
-      })
-      await queryClient.refetchQueries({
-        queryKey: ['acu-routing-utility-config'],
-      })
+      await refetchSavedConfiguration()
       await queryClient.invalidateQueries({ queryKey: ['acu-model-pool'] })
       setPolicyDraft(undefined)
       setUtilityDraft(undefined)
       setEditing(false)
       toast.success(t('ACU Router configuration updated'))
     },
-    onError: () => toast.error(t('ACU Router configuration update failed')),
+    onError: async (error) => {
+      await refetchSavedConfiguration()
+      const partialUpdate =
+        error instanceof Error &&
+        (error as Error & { partialUpdate?: boolean }).partialUpdate
+      toast.error(
+        t(
+          partialUpdate
+            ? 'ACU Router configuration partially updated; current server configuration reloaded'
+            : 'ACU Router configuration update failed; current server configuration reloaded'
+        )
+      )
+    },
   })
   const beginEditing = () => {
     if (!savedPolicy || !savedUtilityConfig) return

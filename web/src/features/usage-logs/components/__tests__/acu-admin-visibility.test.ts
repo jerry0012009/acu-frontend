@@ -45,3 +45,19 @@ test('root Router configuration is lazy and keeps saved state separate from draf
   assert.match(monitorSource, /structuredClone\(savedUtilityConfig\)/)
   assert.match(monitorSource, /currently unavailable/)
 })
+
+test('router configuration refetches saved state after success or partial failure', () => {
+  assert.match(monitorSource, /const refetchSavedConfiguration = async \(\) =>/)
+  assert.match(
+    monitorSource,
+    /onSuccess: async \(\) => \{[\s\S]{0,180}await refetchSavedConfiguration\(\)/
+  )
+  assert.match(
+    monitorSource,
+    /onError: async \(error\) => \{[\s\S]{0,220}await refetchSavedConfiguration\(\)/
+  )
+  assert.match(
+    monitorSource,
+    /ACU Router configuration partially updated; current server configuration reloaded/
+  )
+})
