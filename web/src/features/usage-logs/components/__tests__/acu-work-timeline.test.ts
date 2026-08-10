@@ -353,6 +353,9 @@ test('tooltip exposes request order, task step, exact time, and thinking effort'
   assert.ok(html?.includes('8'))
   assert.ok(html?.includes(formatTimelineTimestamp(timelineItem.timestamp)))
   assert.ok(html?.includes('medium'))
+  assert.ok(html?.includes('Implementation'))
+  assert.ok(html?.includes('0'))
+  assert.ok(html?.includes('72.0'))
 })
 
 test('execution tooltip tolerates null judge attempts from the API', () => {
