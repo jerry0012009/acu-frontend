@@ -5246,6 +5246,10 @@
     "macOS / Linux / WSL": "macOS / Linux / WSL",
     "Windows PowerShell": "Windows PowerShell",
     "Windows Command Prompt": "Command Prompt Windows",
-    "Reset / uninstall": "Đặt lại / gỡ cài đặt"
+    "Reset / uninstall": "Đặt lại / gỡ cài đặt",
+    "Buy a redemption code": "Mua mã nạp tiền",
+    "Purchase from the ACU store, then enter the code above to add funds.": "Mua tại cửa hàng ACU, sau đó nhập mã ở trên để nạp số dư.",
+    "Buy a redemption code (opens in a new tab)": "Mua mã nạp tiền (mở trong thẻ mới)",
+    "Buy now": "Mua ngay"
   }
 }

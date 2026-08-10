@@ -5246,6 +5246,10 @@
     "macOS / Linux / WSL": "macOS / Linux / WSL",
     "Windows PowerShell": "Windows PowerShell",
     "Windows Command Prompt": "Invite de commandes Windows",
-    "Reset / uninstall": "Réinitialiser / désinstaller"
+    "Reset / uninstall": "Réinitialiser / désinstaller",
+    "Buy a redemption code": "Acheter un code de recharge",
+    "Purchase from the ACU store, then enter the code above to add funds.": "Achetez-le dans la boutique ACU, puis saisissez le code ci-dessus pour créditer votre compte.",
+    "Buy a redemption code (opens in a new tab)": "Acheter un code de recharge (s’ouvre dans un nouvel onglet)",
+    "Buy now": "Acheter"
   }
 }

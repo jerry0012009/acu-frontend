@@ -5500,6 +5500,10 @@
     "macOS / Linux / WSL": "macOS / Linux / WSL",
     "Windows PowerShell": "Windows PowerShell",
     "Windows Command Prompt": "Windows 命令提示符",
-    "Reset / uninstall": "重置 / 卸载"
+    "Reset / uninstall": "重置 / 卸载",
+    "Buy a redemption code": "购买兑换码",
+    "Purchase from the ACU store, then enter the code above to add funds.": "在 ACU 商店购买后，将兑换码填入上方即可充值。",
+    "Buy a redemption code (opens in a new tab)": "购买兑换码（将在新标签页中打开）",
+    "Buy now": "去购买"
   }
 }

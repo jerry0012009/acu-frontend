@@ -5246,6 +5246,10 @@
     "macOS / Linux / WSL": "macOS / Linux / WSL",
     "Windows PowerShell": "Windows PowerShell",
     "Windows Command Prompt": "Командная строка Windows",
-    "Reset / uninstall": "Сбросить / удалить"
+    "Reset / uninstall": "Сбросить / удалить",
+    "Buy a redemption code": "Купить код пополнения",
+    "Purchase from the ACU store, then enter the code above to add funds.": "Купите код в магазине ACU, затем введите его выше, чтобы пополнить баланс.",
+    "Buy a redemption code (opens in a new tab)": "Купить код пополнения (откроется в новой вкладке)",
+    "Buy now": "Купить"
   }
 }

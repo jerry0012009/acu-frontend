@@ -5246,6 +5246,10 @@
     "macOS / Linux / WSL": "macOS / Linux / WSL",
     "Windows PowerShell": "Windows PowerShell",
     "Windows Command Prompt": "Windows コマンド プロンプト",
-    "Reset / uninstall": "リセット / アンインストール"
+    "Reset / uninstall": "リセット / アンインストール",
+    "Buy a redemption code": "引き換えコードを購入",
+    "Purchase from the ACU store, then enter the code above to add funds.": "ACUストアで購入後、上の欄にコードを入力して残高を追加できます。",
+    "Buy a redemption code (opens in a new tab)": "引き換えコードを購入（新しいタブで開きます）",
+    "Buy now": "購入する"
   }
 }

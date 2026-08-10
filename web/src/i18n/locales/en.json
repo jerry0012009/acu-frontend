@@ -5481,6 +5481,10 @@
     "macOS / Linux / WSL": "macOS / Linux / WSL",
     "Windows PowerShell": "Windows PowerShell",
     "Windows Command Prompt": "Windows Command Prompt",
-    "Reset / uninstall": "Reset / uninstall"
+    "Reset / uninstall": "Reset / uninstall",
+    "Buy a redemption code": "Buy a redemption code",
+    "Purchase from the ACU store, then enter the code above to add funds.": "Purchase from the ACU store, then enter the code above to add funds.",
+    "Buy a redemption code (opens in a new tab)": "Buy a redemption code (opens in a new tab)",
+    "Buy now": "Buy now"
   }
 }

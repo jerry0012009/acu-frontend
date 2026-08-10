@@ -5291,6 +5291,10 @@
     "macOS / Linux / WSL": "macOS / Linux / WSL",
     "Windows PowerShell": "Windows PowerShell",
     "Windows Command Prompt": "Windows 命令提示字元",
-    "Reset / uninstall": "重設 / 解除安裝"
+    "Reset / uninstall": "重設 / 解除安裝",
+    "Buy a redemption code": "購買兌換碼",
+    "Purchase from the ACU store, then enter the code above to add funds.": "在 ACU 商店購買後，將兌換碼填入上方即可儲值。",
+    "Buy a redemption code (opens in a new tab)": "購買兌換碼（將在新分頁中開啟）",
+    "Buy now": "前往購買"
   }
 }
