@@ -64,6 +64,59 @@ endpoint_available() {
     "$endpoint/models" >/dev/null
 }
 
+allowed_model() {
+  case "$1" in
+    acu-auto|gpt-5.6-luna|gpt-5.6-terra|gpt-5.6-sol) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+validate_model_args() {
+  selected_model=
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      -m|--model)
+        [ "$#" -gt 1 ] || { echo "$1 requires a model slug" >&2; exit 2; }
+        selected_model=$2
+        allowed_model "$selected_model" || {
+          echo "unsupported ACU model: $selected_model" >&2
+          echo "allowed models: acu-auto, gpt-5.6-luna, gpt-5.6-terra, gpt-5.6-sol" >&2
+          exit 2
+        }
+        shift 2
+        ;;
+      --model=*)
+        selected_model=${1#--model=}
+        allowed_model "$selected_model" || {
+          echo "unsupported ACU model: $selected_model" >&2
+          echo "allowed models: acu-auto, gpt-5.6-luna, gpt-5.6-terra, gpt-5.6-sol" >&2
+          exit 2
+        }
+        shift
+        ;;
+      -c)
+        [ "$#" -gt 1 ] || { echo "-c requires a config override" >&2; exit 2; }
+        case "$2" in
+          model=*|model_provider=*|model_providers.*=*|base_url=*|wire_api=*|env_key=*)
+            echo "provider and endpoint overrides are not allowed by codex-acu" >&2
+            exit 2
+            ;;
+        esac
+        shift 2
+        ;;
+      model=*|model_provider=*|model_providers.*=*|base_url=*|wire_api=*|env_key=*)
+        echo "provider and endpoint overrides are not allowed by codex-acu" >&2
+        exit 2
+        ;;
+      --oss|--local-provider|-p|--profile)
+        echo "$1 is not allowed by codex-acu" >&2
+        exit 2
+        ;;
+      *) shift ;;
+    esac
+  done
+}
+
 resolve_endpoint() {
   configured=$1
   if [ "${CODEX_ACU_SKIP_ENDPOINT_PREFLIGHT:-0}" = "1" ]; then
@@ -153,6 +206,12 @@ case "${1:-}" in
     catalog_file=$(sed -n 's/^model_catalog_json = "\([^"]*\)"$/\1/p' "$acu_home/config.toml")
     test -r "$catalog_file" || { echo "model catalog is not readable" >&2; exit 1; }
     grep -q '"slug": "acu-auto"' "$catalog_file" || { echo "acu-auto model metadata is missing" >&2; exit 1; }
+    for model in gpt-5.6-luna gpt-5.6-terra gpt-5.6-sol; do
+      grep -q "\"slug\": \"$model\"" "$catalog_file" || {
+        echo "$model model metadata is missing" >&2
+        exit 1
+      }
+    done
     provider=$(sed -n 's/^model_provider = "\([^"]*\)"$/\1/p' "$acu_home/config.toml")
     test "$provider" = "acu-founder-alpha" || { echo "invalid model provider" >&2; exit 1; }
     native_config=${CODEX_NATIVE_HOME:-${HOME}/.codex}/config.toml
@@ -182,17 +241,21 @@ case "${1:-}" in
     ;;
 esac
 
-for argument in "$@"; do
-  case "$argument" in
-    -m|--model|--model=*|model=*|model_provider=*)
-      echo "codex-acu fixes model=acu-auto and provider=acu-founder-alpha; explicit model overrides are not allowed" >&2
-      exit 2
-      ;;
-  esac
-done
+validate_model_args "$@"
+provider_config='model_provider="acu-founder-alpha"'
+base_url_config="model_providers.acu-founder-alpha.base_url=\"$effective_base_url\""
+if [ -n "$selected_model" ]; then
+  exec "$native_codex" \
+    -c 'model_reasoning_effort="medium"' \
+    -c "$provider_config" \
+    -c "$base_url_config" \
+    -c 'model_providers.acu-founder-alpha.wire_api="responses"' \
+    "$@"
+fi
 exec "$native_codex" \
-  -m acu-auto \
-  -c 'model_provider="acu-founder-alpha"' \
   -c 'model_reasoning_effort="medium"' \
-  -c "model_providers.acu-founder-alpha.base_url=\"$effective_base_url\"" \
+  -c "$provider_config" \
+  -c "$base_url_config" \
+  -c 'model_providers.acu-founder-alpha.wire_api="responses"' \
+  -m acu-auto \
   "$@"

@@ -242,6 +242,10 @@ $ConfigPath = Join-Path $AcuHome 'config.toml'
 $NativeCodexPath = [System.IO.File]::ReadAllText((Join-Path $AcuHome 'native-codex-path')).Trim()
 if (-not (Test-Path $NativeCodexPath)) { throw 'Native Codex binary is missing; rerun the installer.' }
 
+function Test-AllowedModel([string]$Model) {
+  return $Model -in @('acu-auto', 'gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol')
+}
+
 if ($args.Count -gt 0 -and @('--version', '-V') -contains $args[0]) {
   & $NativeCodexPath --version
   exit $LASTEXITCODE
@@ -282,18 +286,36 @@ if ($args.Count -gt 0 -and $args[0] -eq 'doctor') {
   exit 0
 }
 
-foreach ($argument in $args) {
-  if ($argument -in @('-m', '--model') -or $argument.StartsWith('--model=') -or $argument.StartsWith('model=') -or $argument.StartsWith('model_provider=')) {
-    throw 'codex-acu fixes model=acu-auto and provider=acu-founder-alpha; explicit model overrides are not allowed.'
+for ($index = 0; $index -lt $args.Count; $index++) {
+  $argument = $args[$index]
+  if ($argument -in @('-m', '--model')) {
+    if ($index + 1 -ge $args.Count -or -not (Test-AllowedModel $args[$index + 1])) {
+      throw "unsupported ACU model: $($args[$index + 1])"
+    }
+    $index++
+  } elseif ($argument.StartsWith('--model=')) {
+    if (-not (Test-AllowedModel $argument.Substring(8))) {
+      throw "unsupported ACU model: $($argument.Substring(8))"
+    }
+  } elseif ($argument -in @('--oss', '--local-provider', '-p', '--profile') -or
+      $argument.StartsWith('model=') -or $argument.StartsWith('model_provider=') -or
+      $argument.StartsWith('model_providers.') -or
+      $argument.StartsWith('base_url=') -or $argument.StartsWith('wire_api=') -or $argument.StartsWith('env_key=')) {
+    throw 'provider and endpoint overrides are not allowed by codex-acu.'
   }
 }
 
-& $NativeCodexPath `
-  -m 'acu-auto' `
-  -c 'model_provider="acu-founder-alpha"' `
-  -c 'model_reasoning_effort="medium"' `
-  -c "model_providers.acu-founder-alpha.base_url=`"$effectiveBaseUrl`"" `
-  @args
+$nativeArgs = @(
+  '-c', 'model_reasoning_effort="medium"',
+  '-c', 'model_provider="acu-founder-alpha"',
+  '-c', "model_providers.acu-founder-alpha.base_url=`"$effectiveBaseUrl`"",
+  '-c', 'model_providers.acu-founder-alpha.wire_api="responses"'
+)
+if (-not ($args -contains '-m' -or $args -contains '--model' -or $args -match '^--model=')) {
+  $nativeArgs += @('-m', 'acu-auto')
+}
+$nativeArgs += $args
+& $NativeCodexPath @nativeArgs
 exit $LASTEXITCODE
 '@
 $launcherPath = Join-Path $AcuBin 'codex-acu.ps1'

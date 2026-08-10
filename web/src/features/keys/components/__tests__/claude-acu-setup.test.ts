@@ -27,6 +27,24 @@ const codexPowerShellInstaller = readFileSync(
   new URL('../../../../../public/codex-acu-install.ps1', import.meta.url),
   'utf8'
 )
+const codexLauncher = readFileSync(
+  new URL('../../../../../public/codex-acu', import.meta.url),
+  'utf8'
+)
+const codexModelCatalog = JSON.parse(
+  readFileSync(
+    new URL(
+      '../../../../../public/codex-acu-model-catalog.json',
+      import.meta.url
+    ),
+    'utf8'
+  )
+) as {
+  models: Array<{
+    slug: string
+    supported_reasoning_levels: Array<{ effort: string }>
+  }>
+}
 const setupSource = readFileSync(
   new URL('../claude-acu-setup.tsx', import.meta.url),
   'utf8'
@@ -49,7 +67,19 @@ test('Unix installer is syntactically valid and keeps the credential local', () 
   assert.match(shellInstaller, /https:\/\/api\.acucompute\.com/)
   assert.doesNotMatch(shellInstaller, /:8443/)
   assert.match(shellInstaller, /ACU_NATIVE_PATH_FILE=.*native-claude-path/)
-  assert.match(shellInstaller, /exec "\$NATIVE_CLAUDE" --model acu-auto/)
+  assert.match(shellInstaller, /"availableModels"/)
+  assert.match(shellInstaller, /ANTHROPIC_DEFAULT_OPUS_MODEL="claude-opus-4-8"/)
+  assert.match(
+    shellInstaller,
+    /ANTHROPIC_DEFAULT_SONNET_MODEL="claude-sonnet-5"/
+  )
+  assert.match(shellInstaller, /ANTHROPIC_DEFAULT_FABLE_MODEL="claude-fable-5"/)
+  assert.match(
+    shellInstaller,
+    /exec "\$NATIVE_CLAUDE" --settings "\$MODEL_SETTINGS" --model acu-auto/
+  )
+  assert.match(shellInstaller, /unsupported Claude ACU model/)
+  assert.match(shellInstaller, /unset CLAUDE_CODE_SUBAGENT_MODEL/)
   assert.match(shellInstaller, /CLAUDE_ACU_UPDATE_CLAUDE/)
   assert.match(shellInstaller, /CLAUDE_ACU_CLI_VERIFY/)
   assert.match(shellInstaller, /CLAUDE_ACU_VERIFY_TIMEOUT_SEC/)
@@ -71,7 +101,26 @@ test('PowerShell installer uses a private config and never puts the key in a URL
   assert.match(powerShellInstaller, /https:\/\/api\.acucompute\.com/)
   assert.doesNotMatch(powerShellInstaller, /:8443/)
   assert.match(powerShellInstaller, /\$NativeClaude.*native-claude-path/)
-  assert.match(powerShellInstaller, /& \$NativeClaude --model acu-auto/)
+  assert.match(powerShellInstaller, /acu-model-settings\.json/)
+  assert.match(powerShellInstaller, /Join-Path \$AcuHome 'config'\), \$AcuBin/)
+  assert.match(
+    powerShellInstaller,
+    /\$env:ANTHROPIC_DEFAULT_OPUS_MODEL = 'claude-opus-4-8'/
+  )
+  assert.match(
+    powerShellInstaller,
+    /\$env:ANTHROPIC_DEFAULT_SONNET_MODEL = 'claude-sonnet-5'/
+  )
+  assert.match(
+    powerShellInstaller,
+    /\$env:ANTHROPIC_DEFAULT_FABLE_MODEL = 'claude-fable-5'/
+  )
+  assert.match(powerShellInstaller, /\$nativeArgs = @\('--settings'/)
+  assert.match(powerShellInstaller, /unsupported Claude ACU model/)
+  assert.match(
+    powerShellInstaller,
+    /Remove-Item Env:CLAUDE_CODE_SUBAGENT_MODEL/
+  )
   assert.match(powerShellInstaller, /CLAUDE_ACU_UPDATE_CLAUDE/)
   assert.match(powerShellInstaller, /CLAUDE_ACU_CLI_VERIFY/)
   assert.match(powerShellInstaller, /CLAUDE_ACU_VERIFY_TIMEOUT_SEC/)
@@ -126,6 +175,28 @@ test('Codex installers install the latest CLI with China and overseas fallbacks'
   assert.match(codexPowerShellInstaller, /\$env:ACU_API_KEY/)
   assert.match(codexPowerShellInstaller, /CODEX_ACU_CLI_VERIFY/)
   assert.match(codexPowerShellInstaller, /CODEX_ACU_OK/)
+  assert.match(
+    codexLauncher,
+    /acu-auto\|gpt-5\.6-luna\|gpt-5\.6-terra\|gpt-5\.6-sol/
+  )
+  assert.match(codexLauncher, /model=\*\|model_provider=\*/)
+  assert.match(codexLauncher, /model_provider="acu-founder-alpha"/)
+  assert.match(codexLauncher, /model_reasoning_effort="medium"/)
+  assert.deepEqual(
+    codexModelCatalog.models.map(({ slug }) => slug),
+    ['acu-auto', 'gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol']
+  )
+  assert.deepEqual(
+    codexModelCatalog.models.map(({ supported_reasoning_levels }) =>
+      supported_reasoning_levels.map(({ effort }) => effort)
+    ),
+    [
+      ['low', 'medium', 'high', 'xhigh'],
+      ['low', 'medium', 'high', 'max'],
+      ['low', 'medium', 'high', 'max'],
+      ['low', 'medium', 'high', 'xhigh'],
+    ]
+  )
 })
 
 test('ACU setup commands include the resolved token and regional installer sources', () => {
@@ -155,7 +226,9 @@ test('Claude Unix installer can complete through a private npm prefix and ACU en
   const root = mkdtempSync(join(tmpdir(), 'claude-acu-install-'))
   const fakeBin = join(root, 'bin')
   const npmLog = join(root, 'npm.log')
+  const claudeLog = join(root, 'claude.log')
   const acuHome = join(root, 'acu-home')
+  const installBin = join(root, 'install-bin')
   mkdirSync(fakeBin, { recursive: true })
 
   const fakeCurl = join(fakeBin, 'curl')
@@ -202,6 +275,7 @@ cat > "$prefix/bin/claude" <<'EOF'
 if [ "\${1:-}" = "--version" ]; then
   printf '%s\\n' 'Claude Code 1.0.0'
 else
+  printf '%s\\n' "$ANTHROPIC_BASE_URL|$*" >> "${claudeLog}"
   printf '%s\\n' 'CLAUDE_ACU_OK'
 fi
 EOF
@@ -223,7 +297,7 @@ chmod 755 "$prefix/bin/claude"
         HOME: root,
         ACU_API_KEY: 'sk-claude-test',
         CLAUDE_ACU_HOME: acuHome,
-        CLAUDE_ACU_BIN_DIR: join(root, 'install-bin'),
+        CLAUDE_ACU_BIN_DIR: installBin,
       },
       encoding: 'utf8',
     }
@@ -242,6 +316,19 @@ chmod 755 "$prefix/bin/claude"
     readFileSync(join(acuHome, 'native-claude-path'), 'utf8'),
     `${join(acuHome, 'npm/bin/claude')}\n`
   )
+  assert.deepEqual(
+    JSON.parse(
+      readFileSync(join(acuHome, 'config', 'acu-model-settings.json'), 'utf8')
+    ),
+    {
+      availableModels: [
+        'acu-auto',
+        'claude-opus-4-8',
+        'claude-sonnet-5',
+        'claude-fable-5',
+      ],
+    }
+  )
   assert.match(
     readFileSync(npmLog, 'utf8'),
     /@anthropic-ai\/claude-code@latest/
@@ -250,4 +337,47 @@ chmod 755 "$prefix/bin/claude"
     readFileSync(npmLog, 'utf8'),
     /registry=https:\/\/registry\.npmjs\.org/
   )
+
+  const launcher = join(installBin, 'claude-acu')
+  const launcherEnv = {
+    ...process.env,
+    HOME: root,
+    CLAUDE_ACU_HOME: acuHome,
+  }
+  const defaultLaunch = spawnSync(launcher, ['-p', 'test task'], {
+    env: launcherEnv,
+    encoding: 'utf8',
+  })
+  assert.equal(defaultLaunch.status, 0, defaultLaunch.stderr)
+  const explicitLaunch = spawnSync(
+    launcher,
+    ['--model', 'claude-opus-4-8', '-p', 'test task'],
+    {
+      env: launcherEnv,
+      encoding: 'utf8',
+    }
+  )
+  assert.equal(explicitLaunch.status, 0, explicitLaunch.stderr)
+  const invalidLaunch = spawnSync(launcher, ['--model', 'claude-unknown'], {
+    env: launcherEnv,
+    encoding: 'utf8',
+  })
+  assert.equal(invalidLaunch.status, 2)
+  assert.match(invalidLaunch.stderr, /unsupported Claude ACU model/)
+
+  const claudeCalls = readFileSync(claudeLog, 'utf8')
+  const settingsPath = join(acuHome, 'config', 'acu-model-settings.json')
+  assert.match(
+    claudeCalls,
+    new RegExp(
+      `https://api\\.acucompute\\.com\\|--settings ${settingsPath} --model acu-auto -p test task`
+    )
+  )
+  assert.match(
+    claudeCalls,
+    new RegExp(
+      `https://api\\.acucompute\\.com\\|--settings ${settingsPath} --model claude-opus-4-8 -p test task`
+    )
+  )
+  assert.doesNotMatch(claudeCalls, /sk-claude-test/)
 })

@@ -7,6 +7,7 @@ $AcuBin = if ($env:CLAUDE_ACU_BIN_DIR) { $env:CLAUDE_ACU_BIN_DIR } else { Join-P
 $CredentialPath = Join-Path $AcuHome 'credential'
 $BaseUrlPath = Join-Path $AcuHome 'base-url'
 $NativePathFile = Join-Path $AcuHome 'native-claude-path'
+$ModelSettingsPath = Join-Path $AcuHome 'config\acu-model-settings.json'
 $NativeBin = Join-Path $AcuHome 'bin'
 $PreferNpm = $env:CLAUDE_ACU_PREFER_NPM -ne '0'
 $UpdateClaude = $env:CLAUDE_ACU_UPDATE_CLAUDE -ne '0'
@@ -138,7 +139,7 @@ if ([string]::IsNullOrWhiteSpace($Token) -or $Token.Contains("`n") -or $Token.Co
 }
 if (-not $Token.StartsWith('sk-')) { throw 'API Key must start with sk-.' }
 
-New-Item -ItemType Directory -Force -Path $AcuHome, $AcuBin, $NativeBin | Out-Null
+New-Item -ItemType Directory -Force -Path $AcuHome, (Join-Path $AcuHome 'config'), $AcuBin, $NativeBin | Out-Null
 $nativeClaude = Get-ManagedClaudeCommand
 $updatedClaude = $false
 $npmAttempted = $false
@@ -185,23 +186,60 @@ if (-not $baseUrl) { throw 'Neither ACU Messages endpoint completed validation.'
 [System.IO.File]::WriteAllText($CredentialPath, $Token, [System.Text.UTF8Encoding]::new($false))
 [System.IO.File]::WriteAllText($BaseUrlPath, $baseUrl, [System.Text.UTF8Encoding]::new($false))
 [System.IO.File]::WriteAllText($NativePathFile, $nativeClaude, [System.Text.UTF8Encoding]::new($false))
+[System.IO.File]::WriteAllText(
+  $ModelSettingsPath,
+  '{"availableModels":["acu-auto","claude-opus-4-8","claude-sonnet-5","claude-fable-5"]}',
+  [System.Text.UTF8Encoding]::new($false)
+)
 & icacls $CredentialPath /inheritance:r /grant:r "$($env:USERNAME):(R,W)" | Out-Null
 
 $launcher = @'
 $ErrorActionPreference = 'Stop'
 $AcuHome = if ($env:CLAUDE_ACU_HOME) { $env:CLAUDE_ACU_HOME } else { Join-Path $env:USERPROFILE '.claude-acu' }
 $NativeClaude = [System.IO.File]::ReadAllText((Join-Path $AcuHome 'native-claude-path')).Trim()
+$ModelSettings = Join-Path $AcuHome 'config\acu-model-settings.json'
 $env:CLAUDE_CONFIG_DIR = Join-Path $AcuHome 'config'
 $env:ANTHROPIC_BASE_URL = [System.IO.File]::ReadAllText((Join-Path $AcuHome 'base-url')).Trim()
 $env:ANTHROPIC_AUTH_TOKEN = [System.IO.File]::ReadAllText((Join-Path $AcuHome 'credential')).Trim()
 $env:ANTHROPIC_CUSTOM_MODEL_OPTION = 'acu-auto'
-$env:ANTHROPIC_CUSTOM_MODEL_OPTION_NAME = 'ACU Auto'
-$env:ANTHROPIC_DEFAULT_OPUS_MODEL = 'acu-auto'
-$env:ANTHROPIC_DEFAULT_SONNET_MODEL = 'acu-auto'
-$env:ANTHROPIC_DEFAULT_HAIKU_MODEL = 'acu-auto'
-$env:CLAUDE_CODE_SUBAGENT_MODEL = 'acu-auto'
+$env:ANTHROPIC_CUSTOM_MODEL_OPTION_NAME = 'ACU Auto (Recommended)'
+$env:ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION = 'ACU Auto value routing'
+$env:ANTHROPIC_DEFAULT_OPUS_MODEL = 'claude-opus-4-8'
+$env:ANTHROPIC_DEFAULT_OPUS_MODEL_NAME = 'Claude Opus 4.8'
+$env:ANTHROPIC_DEFAULT_OPUS_MODEL_DESCRIPTION = 'Claude Opus 4.8 via ACU Messages'
+$env:ANTHROPIC_DEFAULT_SONNET_MODEL = 'claude-sonnet-5'
+$env:ANTHROPIC_DEFAULT_SONNET_MODEL_NAME = 'Claude Sonnet 5'
+$env:ANTHROPIC_DEFAULT_SONNET_MODEL_DESCRIPTION = 'Claude Sonnet 5 via ACU Messages'
+$env:ANTHROPIC_DEFAULT_FABLE_MODEL = 'claude-fable-5'
+$env:ANTHROPIC_DEFAULT_FABLE_MODEL_NAME = 'Claude Fable 5'
+$env:ANTHROPIC_DEFAULT_FABLE_MODEL_DESCRIPTION = 'Claude Fable 5 via ACU Messages'
+Remove-Item Env:ANTHROPIC_DEFAULT_HAIKU_MODEL -ErrorAction SilentlyContinue
+Remove-Item Env:ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME -ErrorAction SilentlyContinue
+Remove-Item Env:ANTHROPIC_DEFAULT_HAIKU_MODEL_DESCRIPTION -ErrorAction SilentlyContinue
+Remove-Item Env:CLAUDE_CODE_SUBAGENT_MODEL -ErrorAction SilentlyContinue
 if (-not (Test-Path $NativeClaude)) { throw 'Native Claude Code is missing; rerun the installer.' }
-& $NativeClaude --model acu-auto @args
+
+$allowedModels = @('acu-auto', 'claude-opus-4-8', 'claude-sonnet-5', 'claude-fable-5', 'opus', 'sonnet', 'fable')
+$selectedModel = $null
+for ($index = 0; $index -lt $args.Count; $index++) {
+  if ($args[$index] -eq '--model') {
+    if ($index + 1 -ge $args.Count -or $allowedModels -notcontains $args[$index + 1]) {
+      throw "unsupported Claude ACU model: $($args[$index + 1])"
+    }
+    $selectedModel = $args[$index + 1]
+    $index++
+  } elseif ($args[$index].StartsWith('--model=')) {
+    $selectedModel = $args[$index].Substring(8)
+    if ($allowedModels -notcontains $selectedModel) {
+      throw "unsupported Claude ACU model: $selectedModel"
+    }
+  }
+}
+
+$nativeArgs = @('--settings', $ModelSettings)
+if (-not $selectedModel) { $nativeArgs += @('--model', 'acu-auto') }
+$nativeArgs += $args
+& $NativeClaude @nativeArgs
 exit $LASTEXITCODE
 '@
 $launcherPath = Join-Path $AcuBin 'claude-acu.ps1'

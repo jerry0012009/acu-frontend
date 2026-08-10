@@ -8,6 +8,7 @@ ACU_BIN_DIR=${CLAUDE_ACU_BIN_DIR:-"${HOME}/.local/bin"}
 ACU_CREDENTIAL="${ACU_HOME}/credential"
 ACU_BASE_URL_FILE="${ACU_HOME}/base-url"
 ACU_NATIVE_PATH_FILE="${ACU_HOME}/native-claude-path"
+ACU_MODEL_SETTINGS_FILE="${ACU_HOME}/config/acu-model-settings.json"
 ACU_LAUNCHER="${ACU_BIN_DIR}/claude-acu"
 PREFER_NPM=${CLAUDE_ACU_PREFER_NPM:-1}
 UPDATE_CLAUDE=${CLAUDE_ACU_UPDATE_CLAUDE:-1}
@@ -221,6 +222,20 @@ mv "$credential_tmp" "$ACU_CREDENTIAL"
 mv "$base_url_tmp" "$ACU_BASE_URL_FILE"
 mv "$native_path_tmp" "$ACU_NATIVE_PATH_FILE"
 
+model_settings_tmp="${ACU_MODEL_SETTINGS_FILE}.tmp"
+cat >"$model_settings_tmp" <<'EOF'
+{
+  "availableModels": [
+    "acu-auto",
+    "claude-opus-4-8",
+    "claude-sonnet-5",
+    "claude-fable-5"
+  ]
+}
+EOF
+chmod 600 "$model_settings_tmp"
+mv "$model_settings_tmp" "$ACU_MODEL_SETTINGS_FILE"
+
 cat >"${ACU_LAUNCHER}" <<'EOF'
 #!/usr/bin/env sh
 set -eu
@@ -228,17 +243,68 @@ ACU_HOME=${CLAUDE_ACU_HOME:-"${HOME}/.claude-acu"}
 ACU_TOKEN=$(sed -n '1p' "${ACU_HOME}/credential")
 ACU_BASE_URL=$(sed -n '1p' "${ACU_HOME}/base-url")
 NATIVE_CLAUDE=$(sed -n '1p' "${ACU_HOME}/native-claude-path")
+MODEL_SETTINGS="${ACU_HOME}/config/acu-model-settings.json"
 [ -x "$NATIVE_CLAUDE" ] || { printf '%s\n' "Native Claude Code is missing; rerun the installer." >&2; exit 1; }
+[ -r "$MODEL_SETTINGS" ] || { printf '%s\n' "Claude ACU model settings are missing; rerun the installer." >&2; exit 1; }
+
+allowed_model() {
+  case "$1" in
+    acu-auto|claude-opus-4-8|claude-sonnet-5|claude-fable-5|opus|sonnet|fable) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+validate_model_args() {
+  selected_model=
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --model)
+        [ "$#" -gt 1 ] || { printf '%s\n' "--model requires a model ID" >&2; exit 2; }
+        selected_model=$2
+        allowed_model "$selected_model" || {
+          printf '%s\n' "unsupported Claude ACU model: $selected_model" >&2
+          printf '%s\n' "allowed models: acu-auto, claude-opus-4-8, claude-sonnet-5, claude-fable-5" >&2
+          exit 2
+        }
+        shift 2
+        ;;
+      --model=*)
+        selected_model=${1#--model=}
+        allowed_model "$selected_model" || {
+          printf '%s\n' "unsupported Claude ACU model: $selected_model" >&2
+          printf '%s\n' "allowed models: acu-auto, claude-opus-4-8, claude-sonnet-5, claude-fable-5" >&2
+          exit 2
+        }
+        shift
+        ;;
+      *) shift ;;
+    esac
+  done
+}
+
 export CLAUDE_CONFIG_DIR="${ACU_HOME}/config"
 export ANTHROPIC_BASE_URL="$ACU_BASE_URL"
 export ANTHROPIC_AUTH_TOKEN="$ACU_TOKEN"
 export ANTHROPIC_CUSTOM_MODEL_OPTION="acu-auto"
-export ANTHROPIC_CUSTOM_MODEL_OPTION_NAME="ACU Auto"
-export ANTHROPIC_DEFAULT_OPUS_MODEL="acu-auto"
-export ANTHROPIC_DEFAULT_SONNET_MODEL="acu-auto"
-export ANTHROPIC_DEFAULT_HAIKU_MODEL="acu-auto"
-export CLAUDE_CODE_SUBAGENT_MODEL="acu-auto"
-exec "$NATIVE_CLAUDE" --model acu-auto "$@"
+export ANTHROPIC_CUSTOM_MODEL_OPTION_NAME="ACU Auto (Recommended)"
+export ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION="ACU Auto value routing"
+export ANTHROPIC_DEFAULT_OPUS_MODEL="claude-opus-4-8"
+export ANTHROPIC_DEFAULT_OPUS_MODEL_NAME="Claude Opus 4.8"
+export ANTHROPIC_DEFAULT_OPUS_MODEL_DESCRIPTION="Claude Opus 4.8 via ACU Messages"
+export ANTHROPIC_DEFAULT_SONNET_MODEL="claude-sonnet-5"
+export ANTHROPIC_DEFAULT_SONNET_MODEL_NAME="Claude Sonnet 5"
+export ANTHROPIC_DEFAULT_SONNET_MODEL_DESCRIPTION="Claude Sonnet 5 via ACU Messages"
+export ANTHROPIC_DEFAULT_FABLE_MODEL="claude-fable-5"
+export ANTHROPIC_DEFAULT_FABLE_MODEL_NAME="Claude Fable 5"
+export ANTHROPIC_DEFAULT_FABLE_MODEL_DESCRIPTION="Claude Fable 5 via ACU Messages"
+unset ANTHROPIC_DEFAULT_HAIKU_MODEL ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME ANTHROPIC_DEFAULT_HAIKU_MODEL_DESCRIPTION
+unset CLAUDE_CODE_SUBAGENT_MODEL
+
+validate_model_args "$@"
+if [ -n "$selected_model" ]; then
+  exec "$NATIVE_CLAUDE" --settings "$MODEL_SETTINGS" "$@"
+fi
+exec "$NATIVE_CLAUDE" --settings "$MODEL_SETTINGS" --model acu-auto "$@"
 EOF
 chmod 700 "$ACU_LAUNCHER"
 
