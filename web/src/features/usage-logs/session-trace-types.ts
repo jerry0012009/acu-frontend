@@ -66,11 +66,12 @@ export interface ACUSessionTraceSegment {
     targetCanonicalReasoningEffort?: string
     resolvedReasoningEffort?: string
     reasoningMappingStatus?: string
+    effectiveQualityTarget?: number
     topCandidates?: Array<{
       candidateId: string
       displayName: string
       estimatedQuality: number
-      estimatedCallCost: number
+      estimatedCallCost?: number
       valueUtility: number
       selected: boolean
     }>
@@ -89,7 +90,7 @@ export interface ACUSessionTraceSegment {
     visibleOutputBytes: number
     userChargeCny?: number
     actualCashCostCny?: number
-    actualCostCny: number
+    actualCostCny?: number
     deliveryStatus?: string
     errorDiagnosis?: {
       errorSource: string

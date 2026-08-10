@@ -52,10 +52,11 @@ import {
   isCompletedStatus,
   rollingTimelineRange,
   summarizeTimelineItems,
-  timelineCashCost,
   timelineItemFromChartEvent,
   timelineOrderRangeFromZoom,
   timelineUserCharge,
+  timelinePhaseAdjustment,
+  timelineWorkPhase,
   type TimelineProtocolFilter,
   thinkingEffort,
 } from './acu-work-timeline-model'
@@ -177,10 +178,7 @@ function StepDetailContent(props: {
           <span className='font-medium'>
             {item.pointType === 'judge'
               ? t('Judge')
-              : item.workPhase || t('general')}{' '}
-            {item.workPhaseQualityTargetOffset
-              ? `${item.workPhaseQualityTargetOffset > 0 ? '+' : ''}${item.workPhaseQualityTargetOffset}`
-              : ''}
+              : `${timelineWorkPhase(item)} ${timelinePhaseAdjustment(item.workPhaseQualityTargetOffset)}`}
           </span>
           <span className='text-muted-foreground text-xs'>
             {pointJudgeLabel}
@@ -223,6 +221,12 @@ function StepDetailContent(props: {
             <span>
               {t('Difficulty')} {difficultyText(item)}
             </span>
+            {item.pointType === 'execution' ? (
+              <span>
+                {timelineWorkPhase(item)}{' '}
+                {timelinePhaseAdjustment(item.workPhaseQualityTargetOffset)}
+              </span>
+            ) : null}
             <span className='truncate' title={`${provider} · ${channel}`}>
               {provider} · {channel}
             </span>
@@ -300,7 +304,6 @@ function StepDetailContent(props: {
                     {attempt.cachedInputTokens.toLocaleString()} · Output{' '}
                     {attempt.outputTokens.toLocaleString()} ·{' '}
                     {attempt.usageStatus} · {attempt.costStatus}{' '}
-                    {money(attempt.effectiveCostCny)}
                   </span>
                 </div>
               ))}
@@ -340,18 +343,7 @@ function StepDetailContent(props: {
               {optionalMoney(timelineUserCharge(item))}
             </div>
             <div>
-              {t('Cash cost')} {optionalMoney(timelineCashCost(item))}
-            </div>
-            <div>
               {t('Failed attempts')} {failedAttempts}
-            </div>
-            <div>
-              {t('Confirmed failed-attempt cost')}{' '}
-              {money(
-                item.pointType === 'judge'
-                  ? item.failedJudgeAttemptCostCny
-                  : item.failedAttemptCostCny
-              )}
             </div>
             <div
               className={cn(
@@ -382,14 +374,13 @@ function StepDetailContent(props: {
                 item.topCandidates.map((candidate) => (
                   <div
                     key={candidate.candidateId}
-                    className='grid grid-cols-[minmax(0,1fr)_4rem_5rem_5rem] gap-2 py-0.5'
+                    className='grid grid-cols-[minmax(0,1fr)_4rem_5rem] gap-2 py-0.5'
                   >
                     <span className='truncate' title={candidate.displayName}>
                       {candidate.selected ? `${t('Selected')} · ` : ''}
                       {candidate.displayName}
                     </span>
                     <span>Q {candidate.estimatedQuality.toFixed(1)}</span>
-                    <span>{money(candidate.estimatedCallCost)}</span>
                     <span>U {candidate.valueUtility.toFixed(3)}</span>
                   </div>
                 ))
@@ -696,18 +687,6 @@ export function ACUWorkTimeline() {
       }),
     ],
     [t('Unsettled requests'), summary.unsettledRequests, Coins, ''],
-    [t('Platform Retry Cost'), money(summary.platformRetryCostCny), Coins, ''],
-    [
-      t('Cash cost'),
-      summary.actualCashCostSamples
-        ? money(summary.totalActualCashCostCny)
-        : '—',
-      Coins,
-      t('{{count}} recorded cost samples from {{total}} steps', {
-        count: summary.actualCashCostSamples,
-        total: summary.apiSteps,
-      }),
-    ],
   ] as const
 
   let chartContent = (
@@ -726,11 +705,11 @@ export function ACUWorkTimeline() {
       <section className='bg-card min-w-0 overflow-hidden rounded border'>
         <div className='border-b px-4 py-3'>
           <div className='text-sm font-medium'>
-            {t('Difficulty and cash cost by request order')}
+            {t('Difficulty and user charge by request order')}
           </div>
           <div className='text-muted-foreground mt-0.5 text-xs'>
             {t(
-              'Difficulty is shown above and actual cash cost below. Both use the same request-order axis.'
+              'Difficulty is shown above and user charge below. Both use the same request-order axis.'
             )}
           </div>
         </div>
@@ -906,7 +885,7 @@ export function ACUWorkTimeline() {
           aria-expanded={trendOpen}
           className='bg-card flex w-full items-center justify-between rounded border px-4 py-3 text-left text-sm font-medium'
         >
-          {t('Difficulty and cash cost trend')}
+          {t('Difficulty and user charge trend')}
           <ChevronDown
             className={cn(
               'size-4 transition-transform',

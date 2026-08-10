@@ -23,6 +23,9 @@ func GetACUWorkTimeline(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	if c.GetInt("role") < common.RoleAdminUser {
+		timeline = service.PublicACUWorkTimeline(timeline)
+	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": timeline})
 }
 

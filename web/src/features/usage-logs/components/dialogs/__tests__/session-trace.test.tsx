@@ -36,6 +36,8 @@ const trace: ACUSessionTrace = {
       phase: 'execution',
       status: 'superseded',
       startedAt: '2026-07-30T14:00:00Z',
+      workPhase: 'inspection',
+      workPhaseQualityTargetOffset: -8,
       judge: {
         trigger: 'new_task',
         judgeCalls: 1,
@@ -70,6 +72,7 @@ const trace: ACUSessionTrace = {
         channelSelectionReason: 'health',
         candidateCount: 5,
         paretoFrontier: ['gpt-5.4-mini'],
+        effectiveQualityTarget: 72,
       },
       logicalRequests: [
         {
@@ -110,6 +113,8 @@ const trace: ACUSessionTrace = {
       phase: 'recovery',
       status: 'active',
       startedAt: '2026-07-30T14:01:00Z',
+      workPhase: 'planning',
+      workPhaseQualityTargetOffset: 8,
       judge: {
         trigger: 'human_message',
         judgeCalls: 1,
@@ -153,6 +158,7 @@ const trace: ACUSessionTrace = {
         channelSelectionReason: 'preferred healthy channel',
         candidateCount: 5,
         paretoFrontier: ['gpt-5.6-luna', 'gpt-5.6-terra'],
+        effectiveQualityTarget: 83,
       },
       logicalRequests: [
         {
@@ -242,7 +248,15 @@ test('renders two segments and complete Judge and Provider attempt chains withou
   assert.match(html, /Judge accumulated attempts/)
   assert.match(html, /Provider accumulated attempts/)
   assert.match(html, /¥0\.2200/)
-  assert.match(html, /¥0\.1800/)
+  assert.match(html, /Inspection/)
+  assert.match(html, /Planning/)
+  assert.match(html, /-8/)
+  assert.match(html, /\+8/)
+  assert.match(html, /Routing quality target/)
+  assert.match(html, /72\.0/)
+  assert.doesNotMatch(html, /Cash cost/)
+  assert.doesNotMatch(html, /¥0\.1800/)
+  assert.doesNotMatch(html, /estimatedCallCost|effectiveCostCny/)
   assert.doesNotMatch(html, /Authorization|API Key|raw payload body/)
 })
 

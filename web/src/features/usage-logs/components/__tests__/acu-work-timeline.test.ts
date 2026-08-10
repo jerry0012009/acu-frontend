@@ -14,12 +14,13 @@ import {
   isCompletedStatus,
   isTimelineError,
   summarizeTimelineItems,
-  timelineCashCost,
   timelineItemFromChartEvent,
   timelineOrderRangeFromZoom,
   timelineItemProtocol,
   rollingTimelineRange,
+  timelinePhaseAdjustment,
   timelineUserCharge,
+  timelineWorkPhase,
   thinkingEffort,
 } from '../acu-work-timeline-model.ts'
 
@@ -78,6 +79,7 @@ function item(overrides: Partial<ACUWorkTimelineItem>): ACUWorkTimelineItem {
     cooldownUntil: undefined,
     workPhase: 'implementation',
     workPhaseQualityTargetOffset: 0,
+    routingQualityTarget: 72,
     judgeTrigger: 'new_task',
     judgeStatus: 'live',
     judgeResultSource: 'upstream_live',
@@ -480,7 +482,6 @@ test('visible summary is derived only from items inside the engine viewport', ()
     apiSteps: 2,
     executionSteps: 2,
     judgeEvaluations: 1,
-    platformRetryCostCny: 0,
     judgeCalledRequests: 1,
     judgeFirstAttemptSuccessSamples: 1,
     judgeFirstAttemptSuccessRate: 1,
@@ -489,10 +490,8 @@ test('visible summary is derived only from items inside the engine viewport', ()
     completionRate: 1,
     cacheHitRate: 0.25,
     userChargeSamples: 2,
-    actualCashCostSamples: 2,
     totalUserChargeCny: 0.03,
     unsettledRequests: 0,
-    totalActualCashCostCny: 0.03,
     actualTotalCostCny: 0.03,
     p50FirstModelEventLatencyMs: 1000,
     p95FirstModelEventLatencyMs: 3000,
@@ -522,9 +521,8 @@ test('compatibility user-cost total excludes unsettled estimated charges', () =>
       billingStatus: 'finalized',
     }),
   ])
-  assert.ok(Math.abs(summary.actualTotalCostCny - 0.013) < 1e-12)
+  assert.ok(Math.abs(summary.actualTotalCostCny - 0.01) < 1e-12)
   assert.ok(Math.abs(summary.totalUserChargeCny - 0.01) < 1e-12)
-  assert.ok(Math.abs(summary.totalActualCashCostCny - 0.026) < 1e-12)
 })
 
 test('summary excludes legacy Judge records without explicit metric samples', () => {
@@ -549,20 +547,47 @@ test('separates user charge from actual cash cost without inventing missing valu
     actualCashCostCny: 0.08,
   })
   assert.equal(timelineUserCharge(current), 0.12)
-  assert.equal(timelineCashCost(current), 0.08)
   const legacy = item({
     userChargeCny: undefined,
     actualCashCostCny: undefined,
     actualCostCny: 0.04,
   })
   assert.equal(timelineUserCharge(legacy), undefined)
-  assert.equal(timelineCashCost(legacy), undefined)
+})
+
+test('formats Work Phase and adjustment without changing Difficulty', () => {
+  assert.equal(
+    timelineWorkPhase(item({ workPhase: 'inspection' })),
+    'Inspection'
+  )
+  assert.equal(timelinePhaseAdjustment(-8), '-8')
+  assert.equal(timelineWorkPhase(item({ workPhase: 'planning' })), 'Planning')
+  assert.equal(timelinePhaseAdjustment(8), '+8')
+  assert.equal(
+    timelineWorkPhase(item({ workPhase: 'implementation' })),
+    'Implementation'
+  )
+  assert.equal(timelinePhaseAdjustment(3), '+3')
+  assert.equal(timelinePhaseAdjustment(0), '0')
+  assert.equal(
+    timelineWorkPhase(item({ workPhase: 'verification' })),
+    'Verification'
+  )
+  assert.equal(timelineWorkPhase(item({ workPhase: 'general' })), 'General')
+  const originalDifficulty = item({
+    difficulty: 43,
+    workPhase: 'inspection',
+    workPhaseQualityTargetOffset: -8,
+  })
+  assert.equal(originalDifficulty.difficulty, 43)
 })
 
 test('filters route steps across task request model and channel and keeps recovered issues', () => {
   const recovered = item({
     logicalRequestId: 'request-recovered',
     taskId: 'task-inspection',
+    workPhase: 'inspection',
+    workPhaseQualityTargetOffset: -8,
     actualModel: 'gpt-5.6-sol',
     channel: 'lucen-cx008',
     status: 'completed_with_recovery',
@@ -586,6 +611,31 @@ test('filters route steps across task request model and channel and keeps recove
   assert.equal(isCompletedStatus('success'), true)
   assert.equal(isCompletedStatus('completed_with_recovery'), true)
   assert.equal(isCompletedStatus('failed'), false)
+})
+
+test('searches Work Phase and keeps legacy missing phase records safe', () => {
+  const inspection = item({
+    workPhase: 'inspection',
+    workPhaseQualityTargetOffset: -8,
+  })
+  const planning = item({
+    pointId: 'logical-planning:execution',
+    logicalRequestId: 'logical-planning',
+    workPhase: 'planning',
+    workPhaseQualityTargetOffset: 8,
+  })
+  const legacy = item({
+    pointId: 'logical-legacy:execution',
+    logicalRequestId: 'logical-legacy',
+    workPhase: undefined as unknown as string,
+    workPhaseQualityTargetOffset: undefined as unknown as number,
+  })
+  assert.deepEqual(
+    filterTimelineItems([inspection, planning, legacy], 'inspection', 'all'),
+    [inspection]
+  )
+  assert.equal(timelineWorkPhase(legacy), 'General')
+  assert.equal(timelinePhaseAdjustment(undefined), '0')
 })
 
 test('filters Timeline by native protocol, channel, event type, and result', () => {
@@ -641,8 +691,11 @@ test('timeline renders the DTO Work Phase rather than the segment phase', () => 
     new URL('../acu-work-timeline.tsx', import.meta.url),
     'utf8'
   )
-  assert.match(source, /item\.workPhase \|\| t\('general'\)/)
+  assert.match(source, /timelineWorkPhase\(item\)/)
   assert.match(source, /item\.workPhaseQualityTargetOffset/)
+  assert.match(source, /timelinePhaseAdjustment/)
+  assert.doesNotMatch(source, /timelineCashCost/)
+  assert.doesNotMatch(source, /estimatedCallCost/)
 })
 
 test('timeline defaults the trend open and only offers supported time ranges', () => {

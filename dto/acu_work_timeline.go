@@ -11,7 +11,7 @@ type ACUWorkTimelineSummary struct {
 	APISteps                        int     `json:"apiSteps"`
 	ExecutionSteps                  int     `json:"executionSteps"`
 	JudgeEvaluations                int     `json:"judgeEvaluations"`
-	PlatformRetryCostCNY            float64 `json:"platformRetryCostCny"`
+	PlatformRetryCostCNY            float64 `json:"platformRetryCostCny,omitempty"`
 	JudgeFirstAttemptSuccessRate    float64 `json:"judgeFirstAttemptSuccessRate"`
 	JudgeFirstAttemptSuccessSamples int     `json:"judgeFirstAttemptSuccessSamples"`
 	JudgeCalledRequests             int     `json:"judgeCalledRequests"`
@@ -20,11 +20,11 @@ type ACUWorkTimelineSummary struct {
 	CompletionRate                  float64 `json:"completionRate"`
 	CacheHitRate                    float64 `json:"cacheHitRate"`
 	TotalUserChargeCNY              float64 `json:"totalUserChargeCny"`
-	TotalActualCashCostCNY          float64 `json:"totalActualCashCostCny"`
+	TotalActualCashCostCNY          float64 `json:"totalActualCashCostCny,omitempty"`
 	UnsettledRequests               int     `json:"unsettledRequests"`
 	// ActualTotalCostCNY is retained for clients that have not migrated yet.
 	// It means total user charge, with actual cash cost as the legacy fallback.
-	ActualTotalCostCNY          float64 `json:"actualTotalCostCny"`
+	ActualTotalCostCNY          float64 `json:"actualTotalCostCny,omitempty"`
 	P50FirstModelEventLatencyMs int     `json:"p50FirstModelEventLatencyMs"`
 	P95FirstModelEventLatencyMs int     `json:"p95FirstModelEventLatencyMs"`
 }
@@ -60,11 +60,11 @@ type ACUWorkTimelineItem struct {
 	ActualCashCostCNY        *float64 `json:"actualCashCostCny,omitempty"`
 	// ActualCostCNY is retained for compatibility and means user charge,
 	// falling back to actual cash cost for legacy records.
-	ActualCostCNY                  float64                       `json:"actualCostCny"`
-	JudgeCostCNY                   float64                       `json:"judgeCostCny"`
-	ProviderCostCNY                float64                       `json:"providerCostCny"`
-	FailedAttemptCostCNY           float64                       `json:"failedAttemptCostCny"`
-	FailedJudgeAttemptCostCNY      float64                       `json:"failedJudgeAttemptCostCny"`
+	ActualCostCNY                  float64                       `json:"actualCostCny,omitempty"`
+	JudgeCostCNY                   float64                       `json:"judgeCostCny,omitempty"`
+	ProviderCostCNY                float64                       `json:"providerCostCny,omitempty"`
+	FailedAttemptCostCNY           float64                       `json:"failedAttemptCostCny,omitempty"`
+	FailedJudgeAttemptCostCNY      float64                       `json:"failedJudgeAttemptCostCny,omitempty"`
 	ProviderUserChargeCNY          float64                       `json:"providerUserChargeCny"`
 	JudgeUserChargeCNY             float64                       `json:"judgeUserChargeCny"`
 	JudgeProtocol                  string                        `json:"judgeProtocol,omitempty"`
@@ -75,6 +75,7 @@ type ACUWorkTimelineItem struct {
 	CooldownUntil                  string                        `json:"cooldownUntil,omitempty"`
 	WorkPhase                      string                        `json:"workPhase"`
 	WorkPhaseQualityTargetOffset   float64                       `json:"workPhaseQualityTargetOffset"`
+	RoutingQualityTarget           *float64                      `json:"routingQualityTarget,omitempty"`
 	JudgeTrigger                   string                        `json:"judgeTrigger"`
 	JudgeStatus                    string                        `json:"judgeStatus"`
 	JudgeResultSource              string                        `json:"judgeResultSource"`
@@ -125,7 +126,7 @@ type ACUTimelineJudgeAttempt struct {
 	CachedInputTokens  int64   `json:"cachedInputTokens"`
 	OutputTokens       int64   `json:"outputTokens"`
 	LatencyMs          int     `json:"latencyMs"`
-	EffectiveCostCNY   float64 `json:"effectiveCostCny"`
+	EffectiveCostCNY   float64 `json:"effectiveCostCny,omitempty"`
 	CostStatus         string  `json:"costStatus"`
 	UsageStatus        string  `json:"usageStatus"`
 }
@@ -134,7 +135,7 @@ type ACUTimelineCandidateSummary struct {
 	CandidateID       string  `json:"candidateId"`
 	DisplayName       string  `json:"displayName"`
 	EstimatedQuality  float64 `json:"estimatedQuality"`
-	EstimatedCallCost float64 `json:"estimatedCallCost"`
+	EstimatedCallCost float64 `json:"estimatedCallCost,omitempty"`
 	ValueUtility      float64 `json:"valueUtility"`
 	Selected          bool    `json:"selected"`
 }

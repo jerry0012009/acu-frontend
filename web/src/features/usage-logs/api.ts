@@ -107,11 +107,11 @@ export type ACUWorkTimelineItem = {
   providerLatencyMs: number
   userChargeCny?: number
   actualCashCostCny?: number
-  actualCostCny: number
-  judgeCostCny: number
-  providerCostCny: number
-  failedAttemptCostCny: number
-  failedJudgeAttemptCostCny: number
+  actualCostCny?: number
+  judgeCostCny?: number
+  providerCostCny?: number
+  failedAttemptCostCny?: number
+  failedJudgeAttemptCostCny?: number
   providerUserChargeCny: number
   judgeUserChargeCny: number
   judgeProtocol?: string
@@ -138,7 +138,7 @@ export type ACUWorkTimelineItem = {
     cachedInputTokens: number
     outputTokens: number
     latencyMs: number
-    effectiveCostCny: number
+    effectiveCostCny?: number
     costStatus: string
     usageStatus: string
   }>
@@ -146,6 +146,7 @@ export type ACUWorkTimelineItem = {
   cooldownUntil?: string
   workPhase: string
   workPhaseQualityTargetOffset: number
+  routingQualityTarget?: number
   judgeTrigger: string
   judgeStatus: string
   judgeResultSource: string
@@ -173,7 +174,7 @@ export type ACUWorkTimelineItem = {
     candidateId: string
     displayName: string
     estimatedQuality: number
-    estimatedCallCost: number
+    estimatedCallCost?: number
     valueUtility: number
     selected: boolean
   }>
@@ -196,7 +197,7 @@ export type ACUWorkTimeline = {
     apiSteps: number
     executionSteps: number
     judgeEvaluations: number
-    platformRetryCostCny: number
+    platformRetryCostCny?: number
     judgeFirstAttemptSuccessRate: number
     judgeFirstAttemptSuccessSamples?: number
     judgeCalledRequests?: number
@@ -207,7 +208,7 @@ export type ACUWorkTimeline = {
     totalUserChargeCny?: number
     totalActualCashCostCny?: number
     unsettledRequests: number
-    actualTotalCostCny: number
+    actualTotalCostCny?: number
     p50FirstModelEventLatencyMs: number
     p95FirstModelEventLatencyMs: number
   }

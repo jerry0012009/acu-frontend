@@ -69,6 +69,8 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 		providerUserCharge, _ := preferredNumber(other, breakdown, "provider_user_charge_cny")
 		judgeUserCharge, _ := preferredNumber(other, breakdown, "judge_user_charge_cny")
 		judgeAttempts, _ := breakdown["judge_attempts"].([]interface{})
+		routeDecision := mapValue(breakdown, "route_decision")
+		routingQualityTarget := numberPointer(routeDecision, "effective_quality_target")
 		legacyCost := 0.0
 		if userChargeFound {
 			legacyCost = userCharge
@@ -117,6 +119,7 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 			ErrorClass:            errorClass, CooldownUntil: cooldown,
 			WorkPhase:                    firstTimelineValue(stringValue(decision, "work_phase"), stringValue(breakdown, "phase")),
 			WorkPhaseQualityTargetOffset: numberValue(decision, "work_phase_quality_target_offset"),
+			RoutingQualityTarget:         routingQualityTarget,
 			JudgeTrigger:                 firstTimelineValue(stringValue(decision, "judge_trigger"), stringValue(breakdown, "judge_trigger")),
 			JudgeStatus:                  judgeStatus, JudgeResultSource: judgeResultSource,
 			JudgeFirstAttemptSucceeded:     boolValue(decision, "judge_first_attempt_succeeded"),
@@ -263,6 +266,30 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 		TotalUserChargeCNY: totalUserCharge, TotalActualCashCostCNY: totalActualCashCost, UnsettledRequests: unsettledRequests,
 		ActualTotalCostCNY: legacyTotalCost, P50FirstModelEventLatencyMs: percentile(latencies, .5), P95FirstModelEventLatencyMs: percentile(latencies, .95),
 	}}
+}
+
+// PublicACUWorkTimeline projects the internally built timeline for a regular
+// user's /self response. Ownership is enforced before this projection.
+func PublicACUWorkTimeline(timeline dto.ACUWorkTimeline) dto.ACUWorkTimeline {
+	for index := range timeline.Items {
+		item := &timeline.Items[index]
+		item.ActualCashCostCNY = nil
+		item.ActualCostCNY = 0
+		item.JudgeCostCNY = 0
+		item.ProviderCostCNY = 0
+		item.FailedAttemptCostCNY = 0
+		item.FailedJudgeAttemptCostCNY = 0
+		for attemptIndex := range item.JudgeAttempts {
+			item.JudgeAttempts[attemptIndex].EffectiveCostCNY = 0
+		}
+		for candidateIndex := range item.TopCandidates {
+			item.TopCandidates[candidateIndex].EstimatedCallCost = 0
+		}
+	}
+	timeline.Summary.ActualTotalCostCNY = 0
+	timeline.Summary.PlatformRetryCostCNY = 0
+	timeline.Summary.TotalActualCashCostCNY = 0
+	return timeline
 }
 
 func judgeIdentity(values []dto.ACUTimelineJudgeAttempt) (string, string, string, string) {
@@ -429,6 +456,17 @@ func preferredNumber(primary, fallback map[string]interface{}, key string) (floa
 		}
 	}
 	return 0, false
+}
+
+func numberPointer(value map[string]interface{}, key string) *float64 {
+	if value == nil {
+		return nil
+	}
+	number, valid := numberValueOf(value[key])
+	if !valid {
+		return nil
+	}
+	return &number
 }
 
 func numberValueOf(value interface{}) (float64, bool) {

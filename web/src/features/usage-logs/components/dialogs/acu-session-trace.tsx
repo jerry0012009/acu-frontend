@@ -22,6 +22,10 @@ import type {
   ACUSessionTraceSegment,
 } from '../../session-trace-types'
 import {
+  timelinePhaseAdjustment,
+  workPhaseLabel,
+} from '../acu-work-timeline-model'
+import {
   aggregateJudgeAttempts,
   isNeutralTraceCancellation,
   isSuccessfulTraceStatus,
@@ -262,7 +266,7 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
         />
       </div>
 
-      <div className='grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-6'>
+      <div className='grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-5'>
         <div>
           <div className='text-muted-foreground'>{t('Total')}</div>
           <div className='font-medium tabular-nums'>
@@ -293,12 +297,6 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
             {cashLabel(request?.userChargeCny)}
           </div>
         </div>
-        <div>
-          <div className='text-muted-foreground'>{t('Cash cost')}</div>
-          <div className='font-medium tabular-nums'>
-            {cashLabel(request?.actualCashCostCny)}
-          </div>
-        </div>
       </div>
 
       <TimingSummary trace={props.trace} />
@@ -314,10 +312,8 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
           >
             <div className='flex flex-wrap items-center gap-x-2 gap-y-1 text-xs'>
               <span className='font-semibold'>
-                {index + 1}. {segment.workPhase || segment.phase}{' '}
-                {segment.workPhaseQualityTargetOffset
-                  ? `(${segment.workPhaseQualityTargetOffset > 0 ? '+' : ''}${segment.workPhaseQualityTargetOffset})`
-                  : ''}
+                {index + 1}. {workPhaseLabel(segment.workPhase)}{' '}
+                {timelinePhaseAdjustment(segment.workPhaseQualityTargetOffset)}
               </span>
               <span className='text-muted-foreground'>
                 {segment.creationReason}
@@ -359,6 +355,12 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
                 </summary>
                 <div className='text-muted-foreground mt-2 grid gap-3 sm:grid-cols-3'>
                   <div>
+                    {segment.route.effectiveQualityTarget != null && (
+                      <div>
+                        {t('Routing quality target')}:{' '}
+                        {segment.route.effectiveQualityTarget.toFixed(1)}
+                      </div>
+                    )}
                     <div>
                       {t('Candidate')}:{' '}
                       {segment.route.selectedCandidateId ||
@@ -406,14 +408,13 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
                   {(segment.route.topCandidates ?? []).map((candidate) => (
                     <div
                       key={candidate.candidateId}
-                      className='grid grid-cols-[minmax(0,1fr)_4rem_5rem_5rem] gap-2 py-0.5'
+                      className='grid grid-cols-[minmax(0,1fr)_4rem_5rem] gap-2 py-0.5'
                     >
                       <span className='truncate'>
                         {candidate.selected ? `${t('Selected')} · ` : ''}
                         {candidate.displayName}
                       </span>
                       <span>Q {candidate.estimatedQuality.toFixed(1)}</span>
-                      <span>{cashLabel(candidate.estimatedCallCost)}</span>
                       <span>U {candidate.valueUtility.toFixed(3)}</span>
                     </div>
                   ))}

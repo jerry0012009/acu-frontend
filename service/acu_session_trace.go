@@ -88,14 +88,15 @@ type acuRawJudgeAttempt struct {
 }
 
 type acuRawRouteDecision struct {
-	RouteDecisionID string                 `json:"route_decision_id"`
-	SegmentID       string                 `json:"segment_id"`
-	Mode            string                 `json:"mode"`
-	FormulaInputs   map[string]interface{} `json:"formula_inputs_json"`
-	Candidates      []interface{}          `json:"candidate_estimates_json"`
-	ParetoFrontier  []string               `json:"pareto_frontier_json"`
-	SelectedProfile map[string]interface{} `json:"selected_profile_json"`
-	Explanation     string                 `json:"route_explanation"`
+	RouteDecisionID        string                 `json:"route_decision_id"`
+	SegmentID              string                 `json:"segment_id"`
+	Mode                   string                 `json:"mode"`
+	FormulaInputs          map[string]interface{} `json:"formula_inputs_json"`
+	Candidates             []interface{}          `json:"candidate_estimates_json"`
+	ParetoFrontier         []string               `json:"pareto_frontier_json"`
+	SelectedProfile        map[string]interface{} `json:"selected_profile_json"`
+	Explanation            string                 `json:"route_explanation"`
+	EffectiveQualityTarget *float64               `json:"effective_quality_target"`
 }
 
 type acuRawLogicalRequest struct {
@@ -286,6 +287,7 @@ func buildACUSessionTrace(raw acuRawTrace) dto.ACUSessionTrace {
 				ResolvedReasoningEffort:        stringField(decision, "resolvedReasoningEffort"),
 				ReasoningMappingStatus:         firstNonEmpty(stringField(decision, "reasoningMappingStatus"), stringField(decision, "mappingStatus")),
 				TopCandidates:                  traceTopCandidates(route.Candidates, selectedCandidateID),
+				EffectiveQualityTarget:         route.EffectiveQualityTarget,
 			}
 		}
 		for _, request := range requests[segment.SegmentID] {
@@ -331,6 +333,26 @@ func buildACUSessionTrace(raw acuRawTrace) dto.ACUSessionTrace {
 		Task:     dto.ACUSessionTraceTask{TaskID: raw.Task.TaskID, GoalSummary: goalSummary, Status: raw.Task.Status},
 		Segments: segments,
 	}
+}
+
+// PublicACUSessionTrace projects the internally built trace for a regular
+// user's /self response. Ownership is enforced before this projection.
+func PublicACUSessionTrace(trace dto.ACUSessionTrace) dto.ACUSessionTrace {
+	for segmentIndex := range trace.Segments {
+		segment := &trace.Segments[segmentIndex]
+		for requestIndex := range segment.LogicalRequests {
+			request := &segment.LogicalRequests[requestIndex]
+			request.ActualCashCostCNY = nil
+			request.ActualCostCNY = 0
+		}
+		if segment.Route == nil {
+			continue
+		}
+		for candidateIndex := range segment.Route.TopCandidates {
+			segment.Route.TopCandidates[candidateIndex].EstimatedCallCost = 0
+		}
+	}
+	return trace
 }
 
 func providerAttemptDTO(attempt acuRawProviderAttempt) dto.ACUSessionTraceProviderAttempt {

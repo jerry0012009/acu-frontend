@@ -14,5 +14,8 @@ func GetACUSessionTrace(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	if c.GetInt("role") < common.RoleAdminUser {
+		trace = service.PublicACUSessionTrace(trace)
+	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": trace})
 }

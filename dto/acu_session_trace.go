@@ -86,13 +86,14 @@ type ACUSessionTraceRoute struct {
 	ResolvedReasoningEffort        string                            `json:"resolvedReasoningEffort,omitempty"`
 	ReasoningMappingStatus         string                            `json:"reasoningMappingStatus,omitempty"`
 	TopCandidates                  []ACUSessionTraceCandidateSummary `json:"topCandidates"`
+	EffectiveQualityTarget         *float64                          `json:"effectiveQualityTarget,omitempty"`
 }
 
 type ACUSessionTraceCandidateSummary struct {
 	CandidateID       string  `json:"candidateId"`
 	DisplayName       string  `json:"displayName"`
 	EstimatedQuality  float64 `json:"estimatedQuality"`
-	EstimatedCallCost float64 `json:"estimatedCallCost"`
+	EstimatedCallCost float64 `json:"estimatedCallCost,omitempty"`
 	ValueUtility      float64 `json:"valueUtility"`
 	Selected          bool    `json:"selected"`
 }
@@ -111,7 +112,7 @@ type ACUSessionTraceLogicalRequest struct {
 	VisibleOutputBytes  int64              `json:"visibleOutputBytes"`
 	UserChargeCNY       *float64           `json:"userChargeCny,omitempty"`
 	ActualCashCostCNY   *float64           `json:"actualCashCostCny,omitempty"`
-	ActualCostCNY       float64            `json:"actualCostCny"`
+	ActualCostCNY       float64            `json:"actualCostCny,omitempty"`
 	DeliveryStatus      string             `json:"deliveryStatus,omitempty"`
 	ErrorDiagnosis      *ACUErrorDiagnosis `json:"errorDiagnosis,omitempty"`
 	InputTokens         int64              `json:"inputTokens"`

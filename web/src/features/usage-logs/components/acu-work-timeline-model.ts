@@ -113,10 +113,30 @@ export function timelineUserCharge(
   return item.userChargeCny
 }
 
-export function timelineCashCost(
-  item: ACUWorkTimelineItem
-): number | undefined {
-  return item.actualCashCostCny
+const WORK_PHASE_LABELS: Record<string, string> = {
+  planning: 'Planning',
+  inspection: 'Inspection',
+  implementation: 'Implementation',
+  verification: 'Verification',
+  recovery: 'Recovery',
+  general: 'General',
+}
+
+export function workPhaseLabel(phase: string | undefined): string {
+  const normalized = String(phase ?? '')
+    .trim()
+    .toLowerCase()
+  const fallback = WORK_PHASE_LABELS[normalized] ?? 'General'
+  return t(fallback) || fallback
+}
+
+export function timelineWorkPhase(item: ACUWorkTimelineItem): string {
+  return workPhaseLabel(item.workPhase)
+}
+
+export function timelinePhaseAdjustment(offset: number | undefined): string {
+  const value = Number.isFinite(offset) ? Number(offset) : 0
+  return `${value > 0 ? '+' : ''}${value}`
 }
 
 export function thinkingEffort(item: ACUWorkTimelineItem): string {
@@ -166,7 +186,12 @@ export function filterTimelineItems(
       item.requestedModel,
       item.channel,
       item.provider,
-    ].some((value) => value.toLocaleLowerCase().includes(query))
+      item.workPhase ?? '',
+    ].some((value) =>
+      String(value ?? '')
+        .toLocaleLowerCase()
+        .includes(query)
+    )
   })
 }
 
@@ -213,11 +238,16 @@ function tooltipHtml(item: ACUWorkTimelineItem, chartOrder: number): string {
     `<div>${escapeHtml(t('Time'))} ${escapeHtml(formatTimelineTimestamp(item.timestamp))}</div>`,
     `<div>${escapeHtml(t('Thinking effort'))} ${escapeHtml(thinkingEffort(item))}</div>`,
     `<div>${escapeHtml(t('Difficulty'))} ${item.difficultyRecorded ? item.difficulty.toFixed(1) : '—'}</div>`,
+    `<div>${escapeHtml(item.pointType === 'judge' ? t('Target phase') : t('Work phase'))} ${escapeHtml(timelineWorkPhase(item))}</div>`,
+    `<div>${escapeHtml(t('Phase adjustment'))} ${escapeHtml(timelinePhaseAdjustment(item.workPhaseQualityTargetOffset))}</div>`,
+    item.routingQualityTarget != null
+      ? `<div>${escapeHtml(t('Routing quality target'))} ${item.routingQualityTarget.toFixed(1)}</div>`
+      : '',
     `<div>${escapeHtml(t(judgeLabel(item)))}${backup}</div>`,
     `<div>${escapeHtml(item.pointType === 'judge' ? judgeAttempts.find((attempt) => attempt.status === 'success')?.provider || item.provider : item.provider)} · ${escapeHtml(item.pointType === 'judge' ? judgeAttempts.find((attempt) => attempt.status === 'success')?.channelId || item.channel : item.channel)}</div>`,
     `<div>${escapeHtml(t('End-to-end'))} ${formatLatency(item.endToEndLatencyMs)} · ${escapeHtml(t('First model event'))} ${formatLatency(item.firstModelEventLatencyMs)}</div>`,
     `<div>${escapeHtml(t('Judge'))} ${formatLatency(item.judgeLatencyMs)} · ${escapeHtml(t('Provider'))} ${formatLatency(item.providerLatencyMs)}</div>`,
-    `<div>${escapeHtml(t('User charge'))} ${formatOptionalMoney(timelineUserCharge(item))} · ${escapeHtml(t('Cash cost'))} ${formatOptionalMoney(timelineCashCost(item))}</div>`,
+    `<div>${escapeHtml(t('User charge'))} ${formatOptionalMoney(timelineUserCharge(item))}</div>`,
     item.billingStatus === 'unsettled'
       ? `<div style="color:#f97316;margin-top:4px">${escapeHtml(t('Billing unsettled · insufficient quota'))}</div>`
       : '',
@@ -261,7 +291,7 @@ function costDatum(
   chartOrder: number
 ): TimelineChartDatum {
   return {
-    value: [chartOrder, timelineCashCost(item) ?? Number.NaN],
+    value: [chartOrder, timelineUserCharge(item) ?? Number.NaN],
     timelineItem: item,
     chartOrder,
     itemStyle: { color: modelColor(item), opacity: 0.82 },
@@ -429,7 +459,7 @@ export function buildACUWorkTimelineChartOption({
         type: 'value',
         gridIndex: 1,
         min: 0,
-        name: t('Cash cost'),
+        name: t('User charge'),
         nameLocation: 'middle',
         nameGap: 50,
         nameTextStyle: { color: text, fontSize: 11 },
@@ -571,9 +601,6 @@ export function summarizeTimelineItems(items: ACUWorkTimelineItem[]) {
     (item) =>
       item.billingStatus === 'finalized' && timelineUserCharge(item) != null
   )
-  const actualCashCostSamples = items.filter(
-    (item) => timelineCashCost(item) != null
-  )
   const latencies = items
     .map((item) => item.firstModelEventLatencyMs)
     .filter((value) => value > 0)
@@ -581,11 +608,6 @@ export function summarizeTimelineItems(items: ACUWorkTimelineItem[]) {
     apiSteps: executions.length,
     executionSteps: executions.length,
     judgeEvaluations: judged.length,
-    platformRetryCostCny: executions.reduce(
-      (sum, item) =>
-        sum + item.failedAttemptCostCny + item.failedJudgeAttemptCostCny,
-      0
-    ),
     judgeCalledRequests: judged.length,
     judgeFirstAttemptSuccessSamples: firstAttemptSamples.length,
     judgeFirstAttemptSuccessRate: firstAttemptSamples.length
@@ -608,7 +630,6 @@ export function summarizeTimelineItems(items: ACUWorkTimelineItem[]) {
         executions.reduce((sum, item) => sum + item.inputTokens, 0)
       : 0,
     userChargeSamples: userChargeSamples.length,
-    actualCashCostSamples: actualCashCostSamples.length,
     totalUserChargeCny: items.reduce(
       (sum, item) =>
         sum +
@@ -620,13 +641,9 @@ export function summarizeTimelineItems(items: ACUWorkTimelineItem[]) {
     unsettledRequests: items.filter(
       (item) => item.billingStatus === 'unsettled'
     ).length,
-    totalActualCashCostCny: items.reduce(
-      (sum, item) => sum + (timelineCashCost(item) ?? 0),
-      0
-    ),
     actualTotalCostCny: items.reduce((sum, item) => {
       if (item.billingStatus !== 'finalized') return sum
-      return sum + (timelineUserCharge(item) ?? timelineCashCost(item) ?? 0)
+      return sum + (timelineUserCharge(item) ?? 0)
     }, 0),
     p50FirstModelEventLatencyMs: percentile(latencies, 0.5),
     p95FirstModelEventLatencyMs: percentile(latencies, 0.95),
