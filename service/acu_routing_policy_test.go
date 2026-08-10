@@ -37,6 +37,18 @@ func TestNormalizeACURoutingPreferenceDefaultsAndRejectsInvalid(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestNormalizeACURoutingScopeClearsInactiveAllowlists(t *testing.T) {
+	scope, err := NormalizeACURoutingScope(ACURoutingScope{
+		Policy:            ACURoutingPolicyAll,
+		AllowedModelIDs:   []string{"gemini-2.5-flash"},
+		ProfilePolicy:     ACURoutingPolicyAll,
+		AllowedProfileIDs: []string{"lucen-gemini-openai-030:gemini-2.5-flash:responses"},
+	})
+	require.NoError(t, err)
+	require.Empty(t, scope.AllowedModelIDs)
+	require.Empty(t, scope.AllowedProfileIDs)
+}
+
 func TestACUCanonicalAllowedModelIDsFiltersVirtualModels(t *testing.T) {
 	require.Equal(t, []string{"gpt-5.6-sol"}, ACUCanonicalAllowedModelIDs("acu-auto, acu-high, gpt-5.6-sol, gpt-5.6-sol"))
 }

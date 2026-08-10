@@ -317,7 +317,9 @@ export function ACUChannelMonitor() {
           <TabsTrigger value='inventory'>{t('Supply inventory')}</TabsTrigger>
           <TabsTrigger value='models'>{t('Model pool')}</TabsTrigger>
           {isRoot && (
-            <TabsTrigger value='routing'>{t('Router configuration')}</TabsTrigger>
+            <TabsTrigger value='routing'>
+              {t('Router configuration')}
+            </TabsTrigger>
           )}
         </TabsList>
         <TabsContent value='overview' className='min-w-0 space-y-3'>
@@ -442,8 +444,7 @@ function RouterConfigurationTab(props: {
   const savedUtilityConfig = utilityQuery.data
   const [editing, setEditing] = useState(false)
   const [policyDraft, setPolicyDraft] = useState<ACUGlobalRoutingPolicy>()
-  const [utilityDraft, setUtilityDraft] =
-    useState<ACURoutingUtilityConfig>()
+  const [utilityDraft, setUtilityDraft] = useState<ACURoutingUtilityConfig>()
   const refetchSavedConfiguration = async () => {
     await Promise.all([
       queryClient.refetchQueries({
@@ -519,43 +520,137 @@ function RouterConfigurationTab(props: {
         props.profiles
           .filter(
             (item) =>
-              item.enabled &&
-              item.administratorAllowed &&
-              item.autoRouteEnabled
+              item.enabled && item.administratorAllowed && item.autoRouteEnabled
           )
           .map((item) => item.executionProfileId)
       ),
     [props.profiles]
   )
+  const availableModelIdList = useMemo(
+    () => [...availableModelIds].sort(),
+    [availableModelIds]
+  )
+  const availableProfileIdList = useMemo(
+    () => [...availableProfileIds].sort(),
+    [availableProfileIds]
+  )
+  const profileById = useMemo(
+    () =>
+      new Map(
+        props.profiles.map((profile) => [profile.executionProfileId, profile])
+      ),
+    [props.profiles]
+  )
+  const editingPolicy = policyDraft ?? savedPolicy
   const modelOptions = useMemo(
     () =>
-      savedPolicy
-        ? [...new Set([...savedPolicy.allowedModelIds, ...availableModelIds])]
+      editingPolicy
+        ? [...new Set([...editingPolicy.allowedModelIds, ...availableModelIds])]
             .sort()
             .map((id) => ({ id, unavailable: !availableModelIds.has(id) }))
         : [],
-    [availableModelIds, savedPolicy]
+    [availableModelIds, editingPolicy]
   )
-  const profileOptions = useMemo(
-    () =>
-      savedPolicy
-        ? [...new Set([...savedPolicy.allowedProfileIds, ...availableProfileIds])]
-            .sort()
-            .map((id) => ({ id, unavailable: !availableProfileIds.has(id) }))
-        : [],
-    [availableProfileIds, savedPolicy]
-  )
+  const profileOptions = useMemo(() => {
+    if (!editingPolicy) return []
+    const allowedModelIds = new Set(editingPolicy.allowedModelIds)
+    return [
+      ...new Set([...editingPolicy.allowedProfileIds, ...availableProfileIds]),
+    ]
+      .sort()
+      .map((id) => {
+        const profile = profileById.get(id)
+        const outsideModelAllowlist =
+          editingPolicy.modelPolicy === 'custom_allowlist' &&
+          profile &&
+          !allowedModelIds.has(profile.canonicalModel)
+        return {
+          id,
+          unavailable: !availableProfileIds.has(id),
+          disabled:
+            outsideModelAllowlist &&
+            !editingPolicy.allowedProfileIds.includes(id),
+          disabledReason: outsideModelAllowlist
+            ? t('outside current model allowlist')
+            : undefined,
+        }
+      })
+  }, [availableProfileIds, editingPolicy, profileById, t])
   const ids = (values: string[]) =>
     values.length ? values.join(', ') : t('None')
   const scopeSummary = (
     mode: 'all_routing_eligible' | 'custom_allowlist',
     values: string[],
     allLabel: string,
-    noun: string
-  ) =>
-    mode === 'all_routing_eligible'
-      ? allLabel
-      : `${noun} · ${values.length} · ${ids(values)}`
+    noun: string,
+    availableValues: string[] = []
+  ) => {
+    if (mode === 'all_routing_eligible') {
+      return `${allLabel} · ${t('No custom exclusions')}`
+    }
+    const excludedValues = availableValues.filter(
+      (value) => !values.includes(value)
+    )
+    const excludedSummary = excludedValues.length
+      ? ` · ${t('Excluded')}: ${ids(excludedValues)}`
+      : ''
+    return `${noun} · ${values.length} · ${ids(values)}${excludedSummary}`
+  }
+  const beginModelCustomPolicy = (custom: boolean) => {
+    if (!policyDraft) return
+    const allowedModelIds =
+      custom && policyDraft.allowedModelIds.length === 0
+        ? availableModelIdList
+        : policyDraft.allowedModelIds
+    const allowedModels = new Set(allowedModelIds)
+    const allowedProfileIds =
+      custom && policyDraft.profilePolicy === 'custom_allowlist'
+        ? policyDraft.allowedProfileIds.filter((profileId) => {
+            const modelId = profileById.get(profileId)?.canonicalModel
+            return !modelId || allowedModels.has(modelId)
+          })
+        : policyDraft.allowedProfileIds
+    setPolicyDraft({
+      ...policyDraft,
+      modelPolicy: custom ? 'custom_allowlist' : 'all_routing_eligible',
+      allowedModelIds,
+      allowedProfileIds,
+    })
+  }
+  const beginProfileCustomPolicy = (custom: boolean) => {
+    if (!policyDraft) return
+    const selectedModelIds = new Set(policyDraft.allowedModelIds)
+    const selectableProfileIds = availableProfileIdList.filter((profileId) => {
+      if (policyDraft.modelPolicy !== 'custom_allowlist') return true
+      const modelId = profileById.get(profileId)?.canonicalModel
+      return !modelId || selectedModelIds.has(modelId)
+    })
+    const allowedProfileIds =
+      custom && policyDraft.allowedProfileIds.length === 0
+        ? selectableProfileIds
+        : policyDraft.allowedProfileIds
+    setPolicyDraft({
+      ...policyDraft,
+      profilePolicy: custom ? 'custom_allowlist' : 'all_routing_eligible',
+      allowedProfileIds,
+    })
+  }
+  const changeAllowedModels = (values: string[]) => {
+    if (!policyDraft) return
+    const allowedModels = new Set(values)
+    const allowedProfileIds =
+      policyDraft.profilePolicy === 'custom_allowlist'
+        ? policyDraft.allowedProfileIds.filter((profileId) => {
+            const modelId = profileById.get(profileId)?.canonicalModel
+            return !modelId || allowedModels.has(modelId)
+          })
+        : policyDraft.allowedProfileIds
+    setPolicyDraft({
+      ...policyDraft,
+      allowedModelIds: values,
+      allowedProfileIds,
+    })
+  }
   return (
     <div className='space-y-4'>
       <div className='flex flex-wrap items-center justify-between gap-2'>
@@ -564,10 +659,16 @@ function RouterConfigurationTab(props: {
             {t('Current saved global configuration')}
           </h3>
           <p className='text-muted-foreground text-xs'>
-            {t('This section reflects the latest configuration fetched from the server.')}
+            {t(
+              'This section reflects the latest configuration fetched from the server.'
+            )}
           </p>
         </div>
-        <Button size='sm' variant='outline' onClick={editing ? cancelEditing : beginEditing}>
+        <Button
+          size='sm'
+          variant='outline'
+          onClick={editing ? cancelEditing : beginEditing}
+        >
           {editing ? t('Discard changes') : t('Edit configuration')}
         </Button>
       </div>
@@ -580,99 +681,106 @@ function RouterConfigurationTab(props: {
         !utilityQuery.isLoading &&
         savedPolicy &&
         savedUtilityConfig && (
-        <section className='space-y-3 rounded border p-3 text-xs'>
-          <div>
-            <span className='text-muted-foreground'>{t('Formula')}: </span>
-            <span className='font-medium'>{savedUtilityConfig.formulaMode}</span>
-          </div>
-          <div>
-            <div className='text-muted-foreground'>{t('Global model policy')}</div>
-            <div className='mt-1'>
-              {scopeSummary(
-                savedPolicy.modelPolicy,
-                savedPolicy.allowedModelIds,
-                t('All routing-eligible models'),
-                t('Custom allowlist')
-              )}
+          <section className='space-y-3 rounded border p-3 text-xs'>
+            <div>
+              <span className='text-muted-foreground'>{t('Formula')}: </span>
+              <span className='font-medium'>
+                {savedUtilityConfig.formulaMode}
+              </span>
             </div>
-          </div>
-          <div>
-            <div className='text-muted-foreground'>{t('Global profile policy')}</div>
-            <div className='mt-1'>
-              {scopeSummary(
-                savedPolicy.profilePolicy,
-                savedPolicy.allowedProfileIds,
-                t('All routing-eligible profiles'),
-                t('Custom allowlist')
-              )}
+            <div>
+              <div className='text-muted-foreground'>
+                {t('Global model policy')}
+              </div>
+              <div className='mt-1'>
+                {scopeSummary(
+                  savedPolicy.modelPolicy,
+                  savedPolicy.allowedModelIds,
+                  t('All routing-eligible models'),
+                  t('Custom allowlist'),
+                  availableModelIdList
+                )}
+              </div>
             </div>
-          </div>
-          <div>
-            <div className='text-muted-foreground'>
-              {t('Default candidate preferences')}
+            <div>
+              <div className='text-muted-foreground'>
+                {t('Global profile policy')}
+              </div>
+              <div className='mt-1'>
+                {scopeSummary(
+                  savedPolicy.profilePolicy,
+                  savedPolicy.allowedProfileIds,
+                  t('All routing-eligible profiles'),
+                  t('Custom allowlist')
+                )}
+              </div>
             </div>
-            <div className='mt-1 grid gap-x-4 gap-y-1 sm:grid-cols-2'>
-              {Object.entries(savedUtilityConfig.defaultCandidatePreferenceScores).map(
-                ([candidateId, score]) => (
+            <div>
+              <div className='text-muted-foreground'>
+                {t('Default candidate preferences')}
+              </div>
+              <div className='mt-1 grid gap-x-4 gap-y-1 sm:grid-cols-2'>
+                {Object.entries(
+                  savedUtilityConfig.defaultCandidatePreferenceScores
+                ).map(([candidateId, score]) => (
                   <div key={candidateId} className='flex justify-between gap-3'>
                     <span className='truncate font-mono'>{candidateId}</span>
                     <span>{score}</span>
                   </div>
-                )
-              )}
+                ))}
+              </div>
             </div>
-          </div>
-          <div>
-            <div className='text-muted-foreground'>{t('Quality presets')}</div>
-            <div className='mt-1 flex flex-wrap gap-x-4 gap-y-1'>
-              {Object.entries(savedUtilityConfig.qualityPresets).map(
-                ([name, value]) => (
-                  <span key={name}>
-                    {name}: {value}
-                  </span>
-                )
-              )}
+            <div>
+              <div className='text-muted-foreground'>
+                {t('Quality presets')}
+              </div>
+              <div className='mt-1 flex flex-wrap gap-x-4 gap-y-1'>
+                {Object.entries(savedUtilityConfig.qualityPresets).map(
+                  ([name, value]) => (
+                    <span key={name}>
+                      {name}: {value}
+                    </span>
+                  )
+                )}
+              </div>
             </div>
-          </div>
-          <div>
-            <div className='text-muted-foreground'>{t('Supply strategy presets')}</div>
-            <div className='mt-1 grid gap-x-4 gap-y-1 sm:grid-cols-2'>
-              {Object.entries(savedUtilityConfig.supplyPresets).map(
-                ([name, weights]) => (
-                  <span key={name}>
-                    {name}: {weights.cost}/{weights.speed}/{weights.reliability}
-                  </span>
-                )
-              )}
+            <div>
+              <div className='text-muted-foreground'>
+                {t('Supply strategy presets')}
+              </div>
+              <div className='mt-1 grid gap-x-4 gap-y-1 sm:grid-cols-2'>
+                {Object.entries(savedUtilityConfig.supplyPresets).map(
+                  ([name, weights]) => (
+                    <span key={name}>
+                      {name}: {weights.cost}/{weights.speed}/
+                      {weights.reliability}
+                    </span>
+                  )
+                )}
+              </div>
             </div>
-          </div>
-        </section>
-      )}
+          </section>
+        )}
       {!policyQuery.isLoading &&
         !utilityQuery.isLoading &&
         (!savedPolicy || !savedUtilityConfig) && (
-        <div className='text-destructive rounded border p-4 text-xs'>
-          {t('Saved Router configuration could not be loaded.')}
-        </div>
-      )}
+          <div className='text-destructive rounded border p-4 text-xs'>
+            {t('Saved Router configuration could not be loaded.')}
+          </div>
+        )}
       {editing && policyDraft && utilityDraft && (
         <section className='space-y-3 rounded border p-3'>
-          <h3 className='text-sm font-semibold'>{t('Edit global Router configuration')}</h3>
+          <h3 className='text-sm font-semibold'>
+            {t('Edit global Router configuration')}
+          </h3>
           <PolicyScopeEditor
             title={t('Allowed models')}
             allLabel={t('All routing-eligible models')}
             custom={policyDraft.modelPolicy === 'custom_allowlist'}
             values={policyDraft.allowedModelIds}
             options={modelOptions}
-            onCustom={(custom) =>
-              setPolicyDraft({
-                ...policyDraft,
-                modelPolicy: custom ? 'custom_allowlist' : 'all_routing_eligible',
-              })
-            }
-            onChange={(values) =>
-              setPolicyDraft({ ...policyDraft, allowedModelIds: values })
-            }
+            onCustom={beginModelCustomPolicy}
+            onChange={changeAllowedModels}
           />
           <PolicyScopeEditor
             title={t('Allowed profiles')}
@@ -680,12 +788,7 @@ function RouterConfigurationTab(props: {
             custom={policyDraft.profilePolicy === 'custom_allowlist'}
             values={policyDraft.allowedProfileIds}
             options={profileOptions}
-            onCustom={(custom) =>
-              setPolicyDraft({
-                ...policyDraft,
-                profilePolicy: custom ? 'custom_allowlist' : 'all_routing_eligible',
-              })
-            }
+            onCustom={beginProfileCustomPolicy}
             onChange={(values) =>
               setPolicyDraft({ ...policyDraft, allowedProfileIds: values })
             }
@@ -925,63 +1028,69 @@ function RoutingUtilityEditor(props: {
             )}
           </p>
           {candidatePreferencesOpen && (
-          <div className='mt-3 grid max-h-96 gap-3 overflow-y-auto pr-1 md:grid-cols-2'>
-            {candidateGroups.map((group) => (
-              <div key={group.modelId} className='space-y-1 rounded border p-2'>
-                <div className='truncate text-xs font-medium'>
-                  {group.candidates.find(
-                    (candidate) => candidate.kind === 'base'
-                  )?.displayName ?? group.modelId}
+            <div className='mt-3 grid max-h-96 gap-3 overflow-y-auto pr-1 md:grid-cols-2'>
+              {candidateGroups.map((group) => (
+                <div
+                  key={group.modelId}
+                  className='space-y-1 rounded border p-2'
+                >
+                  <div className='truncate text-xs font-medium'>
+                    {group.candidates.find(
+                      (candidate) => candidate.kind === 'base'
+                    )?.displayName ?? group.modelId}
+                  </div>
+                  {group.candidates.map((candidate) => {
+                    let label = candidate.displayName
+                    if (candidate.kind === 'base') {
+                      label = t('Standard')
+                    } else if (candidate.reasoningEffort) {
+                      label = candidate.reasoningEffort
+                    }
+                    return (
+                      <label
+                        key={candidate.candidateId}
+                        className='grid grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-2 text-xs'
+                      >
+                        <span
+                          className='truncate'
+                          title={candidate.candidateId}
+                        >
+                          {label}
+                        </span>
+                        <input
+                          aria-label={`${candidate.candidateId} ${t('Default candidate preference')}`}
+                          className='bg-background h-8 w-full rounded-md border px-2'
+                          type='number'
+                          min={0}
+                          max={200}
+                          step={0.1}
+                          value={
+                            props.value.defaultCandidatePreferenceScores[
+                              candidate.candidateId
+                            ] ?? 100
+                          }
+                          onChange={(event) => {
+                            const score = event.target.valueAsNumber
+                            const next = {
+                              ...props.value.defaultCandidatePreferenceScores,
+                            }
+                            if (!Number.isFinite(score) || score === 100) {
+                              delete next[candidate.candidateId]
+                            } else {
+                              next[candidate.candidateId] = score
+                            }
+                            props.onChange({
+                              ...props.value,
+                              defaultCandidatePreferenceScores: next,
+                            })
+                          }}
+                        />
+                      </label>
+                    )
+                  })}
                 </div>
-                {group.candidates.map((candidate) => {
-                  let label = candidate.displayName
-                  if (candidate.kind === 'base') {
-                    label = t('Standard')
-                  } else if (candidate.reasoningEffort) {
-                    label = candidate.reasoningEffort
-                  }
-                  return (
-                    <label
-                      key={candidate.candidateId}
-                      className='grid grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-2 text-xs'
-                    >
-                      <span className='truncate' title={candidate.candidateId}>
-                        {label}
-                      </span>
-                      <input
-                        aria-label={`${candidate.candidateId} ${t('Default candidate preference')}`}
-                        className='bg-background h-8 w-full rounded-md border px-2'
-                        type='number'
-                        min={0}
-                        max={200}
-                        step={0.1}
-                        value={
-                          props.value.defaultCandidatePreferenceScores[
-                            candidate.candidateId
-                          ] ?? 100
-                        }
-                        onChange={(event) => {
-                          const score = event.target.valueAsNumber
-                          const next = {
-                            ...props.value.defaultCandidatePreferenceScores,
-                          }
-                          if (!Number.isFinite(score) || score === 100) {
-                            delete next[candidate.candidateId]
-                          } else {
-                            next[candidate.candidateId] = score
-                          }
-                          props.onChange({
-                            ...props.value,
-                            defaultCandidatePreferenceScores: next,
-                          })
-                        }}
-                      />
-                    </label>
-                  )
-                })}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
           )}
         </div>
         <details className='rounded border p-2'>
@@ -1110,7 +1219,12 @@ function PolicyScopeEditor(props: {
   allLabel: string
   custom: boolean
   values: string[]
-  options: Array<{ id: string; unavailable: boolean }>
+  options: Array<{
+    id: string
+    unavailable: boolean
+    disabled?: boolean
+    disabledReason?: string
+  }>
   onCustom: (custom: boolean) => void
   onChange: (values: string[]) => void
 }) {
@@ -1126,29 +1240,49 @@ function PolicyScopeEditor(props: {
         {props.custom ? props.title : props.allLabel}
       </label>
       {props.custom && (
-        <div className='max-h-40 space-y-1 overflow-y-auto'>
-          {props.options.map((option) => (
-            <label key={option.id} className='flex items-center gap-2 text-xs'>
-              <input
-                type='checkbox'
-                checked={props.values.includes(option.id)}
-                onChange={(event) =>
-                  props.onChange(
-                    event.target.checked
-                      ? [...new Set([...props.values, option.id])].sort()
-                      : props.values.filter((value) => value !== option.id)
-                  )
-                }
-              />
-              <span className='font-mono'>
-                {option.id}
-                {option.unavailable
-                  ? ` · ${t('currently unavailable')}`
-                  : ''}
-              </span>
-            </label>
-          ))}
-        </div>
+        <>
+          <p className='text-muted-foreground text-xs'>
+            {t(
+              'Custom mode starts with all currently routing-eligible entries selected. Uncheck entries to exclude them.'
+            )}
+          </p>
+          <div className='max-h-64 space-y-1 overflow-y-auto'>
+            {props.options.map((option) => {
+              let suffix = ''
+              if (option.unavailable) {
+                suffix = ` · ${t('currently unavailable')}`
+              } else if (option.disabledReason) {
+                suffix = ` · ${t(option.disabledReason)}`
+              }
+              return (
+                <label
+                  key={option.id}
+                  className='flex items-center gap-2 text-xs'
+                >
+                  <input
+                    type='checkbox'
+                    disabled={option.disabled}
+                    checked={props.values.includes(option.id)}
+                    onChange={(event) =>
+                      props.onChange(
+                        event.target.checked
+                          ? [...new Set([...props.values, option.id])].sort()
+                          : props.values.filter((value) => value !== option.id)
+                      )
+                    }
+                  />
+                  <span
+                    className='font-mono'
+                    title={option.disabledReason || undefined}
+                  >
+                    {option.id}
+                    {suffix}
+                  </span>
+                </label>
+              )
+            })}
+          </div>
+        </>
       )}
     </div>
   )

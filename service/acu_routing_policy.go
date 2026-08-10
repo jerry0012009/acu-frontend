@@ -225,6 +225,12 @@ func normalizeACUScope(scope ACURoutingScope) (ACURoutingScope, error) {
 	}
 	scope.AllowedModelIDs = normalizeACUIDs(scope.AllowedModelIDs)
 	scope.AllowedProfileIDs = normalizeACUIDs(scope.AllowedProfileIDs)
+	if scope.Policy == ACURoutingPolicyAll {
+		scope.AllowedModelIDs = []string{}
+	}
+	if scope.ProfilePolicy == ACURoutingPolicyAll {
+		scope.AllowedProfileIDs = []string{}
+	}
 	if scope.Policy == ACURoutingPolicyCustom && len(scope.AllowedModelIDs) == 0 {
 		return scope, fmt.Errorf("ACU custom model allowlist is empty")
 	}
@@ -359,29 +365,33 @@ func ValidateACURoutingScopeAgainstPool(ctx context.Context, scope ACURoutingSco
 			profiles[profile.ExecutionProfileID] = profile.CanonicalModel
 		}
 	}
-	for _, modelID := range scope.AllowedModelIDs {
-		if _, ok := models[modelID]; !ok {
-			return fmt.Errorf("ACU model %q is not present in the current Router model pool", modelID)
+	if scope.Policy == ACURoutingPolicyCustom {
+		for _, modelID := range scope.AllowedModelIDs {
+			if _, ok := models[modelID]; !ok {
+				return fmt.Errorf("ACU model %q is not present in the current Router model pool", modelID)
+			}
 		}
 	}
-	for _, profileID := range scope.AllowedProfileIDs {
-		modelID, ok := profiles[profileID]
-		if !ok {
-			return fmt.Errorf("ACU Profile %q is not present in the current Router model pool", profileID)
-		}
-		if scope.Policy == ACURoutingPolicyCustom {
-			if _, ok := models[modelID]; !ok {
-				return fmt.Errorf("ACU Profile %q references unknown model %q", profileID, modelID)
+	if scope.ProfilePolicy == ACURoutingPolicyCustom {
+		for _, profileID := range scope.AllowedProfileIDs {
+			modelID, ok := profiles[profileID]
+			if !ok {
+				return fmt.Errorf("ACU Profile %q is not present in the current Router model pool", profileID)
 			}
-			allowed := false
-			for _, allowedModel := range scope.AllowedModelIDs {
-				if allowedModel == modelID {
-					allowed = true
-					break
+			if scope.Policy == ACURoutingPolicyCustom {
+				if _, ok := models[modelID]; !ok {
+					return fmt.Errorf("ACU Profile %q references unknown model %q", profileID, modelID)
 				}
-			}
-			if !allowed {
-				return fmt.Errorf("ACU Profile %q belongs to model %q outside the model allowlist", profileID, modelID)
+				allowed := false
+				for _, allowedModel := range scope.AllowedModelIDs {
+					if allowedModel == modelID {
+						allowed = true
+						break
+					}
+				}
+				if !allowed {
+					return fmt.Errorf("ACU Profile %q belongs to model %q outside the model allowlist", profileID, modelID)
+				}
 			}
 		}
 	}
