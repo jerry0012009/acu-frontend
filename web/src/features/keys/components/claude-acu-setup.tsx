@@ -23,7 +23,7 @@ function buildWindowsCommandPromptInstall(powerShellCommand: string): string {
 function buildCodexUnixInstall(tokenKey: string): string {
   const key = shellQuote(normalizeKey(tokenKey))
   return (
-    '{ curl -fsSL https://eu.jerrypsy.top/acu/codex-acu-install.sh || ' +
+    '{ curl -fsSL https://api.acucompute.com/codex-acu-install.sh || ' +
     'curl -fsSL https://acu-api-direct.jerrypsy.top/codex-acu-install.sh || ' +
     'curl -fsSL https://raw.githubusercontent.com/jerry0012009/ClawRouter/main/tools/codex-acu/install.sh; } ' +
     `| ACU_API_KEY=${key} sh`
@@ -34,7 +34,7 @@ function buildCodexPowerShellInstall(tokenKey: string): string {
   const key = powerShellQuote(normalizeKey(tokenKey))
   return (
     `$env:ACU_API_KEY=${key}; ` +
-    "try { irm 'https://eu.jerrypsy.top/acu/codex-acu-install.ps1' | iex } " +
+    "try { irm 'https://api.acucompute.com/codex-acu-install.ps1' | iex } " +
     "catch { try { irm 'https://acu-api-direct.jerrypsy.top/codex-acu-install.ps1' | iex } " +
     "catch { irm 'https://raw.githubusercontent.com/jerry0012009/ClawRouter/main/tools/codex-acu/install.ps1' | iex } }"
   )
@@ -43,7 +43,7 @@ function buildCodexPowerShellInstall(tokenKey: string): string {
 function buildClaudeUnixInstall(tokenKey: string): string {
   const key = shellQuote(normalizeKey(tokenKey))
   return (
-    '{ curl -fsSL https://eu.jerrypsy.top/acu/claude-acu-install.sh || ' +
+    '{ curl -fsSL https://api.acucompute.com/claude-acu-install.sh || ' +
     'curl -fsSL https://acu-api-direct.jerrypsy.top/claude-acu-install.sh || ' +
     'curl -fsSL https://raw.githubusercontent.com/jerry0012009/acu-frontend/main/web/public/claude-acu-install.sh; } ' +
     `| ACU_API_KEY=${key} sh`
@@ -54,7 +54,7 @@ function buildClaudePowerShellInstall(tokenKey: string): string {
   const key = powerShellQuote(normalizeKey(tokenKey))
   return (
     `$env:ACU_API_KEY=${key}; ` +
-    "try { irm 'https://eu.jerrypsy.top/acu/claude-acu-install.ps1' | iex } " +
+    "try { irm 'https://api.acucompute.com/claude-acu-install.ps1' | iex } " +
     "catch { try { irm 'https://acu-api-direct.jerrypsy.top/claude-acu-install.ps1' | iex } " +
     "catch { irm 'https://raw.githubusercontent.com/jerry0012009/acu-frontend/main/web/public/claude-acu-install.ps1' | iex } }"
   )

@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-ACU_PUBLIC_BASE_URL="https://eu.jerrypsy.top/acu"
+ACU_PUBLIC_BASE_URL="https://api.acucompute.com"
 ACU_DIRECT_BASE_URL="https://acu-api-direct.jerrypsy.top"
 ACU_HOME=${CLAUDE_ACU_HOME:-"${HOME}/.claude-acu"}
 ACU_BIN_DIR=${CLAUDE_ACU_BIN_DIR:-"${HOME}/.local/bin"}

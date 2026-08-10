@@ -72,8 +72,8 @@ resolve_endpoint() {
   fi
   for candidate in \
     "$configured" \
-    "https://acu-api-direct.jerrypsy.top/v1" \
-    "https://eu.jerrypsy.top/acu/v1"; do
+    "https://api.acucompute.com/v1" \
+    "https://acu-api-direct.jerrypsy.top/v1"; do
     if endpoint_available "$candidate"; then
       printf '%s\n' "$candidate"
       return

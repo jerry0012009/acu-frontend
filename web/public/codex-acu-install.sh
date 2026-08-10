@@ -1,10 +1,10 @@
 #!/usr/bin/env sh
 set -eu
 
-DEFAULT_BASE_URL="https://acu-api-direct.jerrypsy.top/v1"
-FALLBACK_BASE_URL="https://eu.jerrypsy.top/acu/v1"
+DEFAULT_BASE_URL="https://api.acucompute.com/v1"
+FALLBACK_BASE_URL="https://acu-api-direct.jerrypsy.top/v1"
 MIN_CODEX_VERSION="0.124.0"
-PUBLIC_ASSET_BASE="https://eu.jerrypsy.top/acu"
+PUBLIC_ASSET_BASE="https://api.acucompute.com"
 DIRECT_ASSET_BASE="https://acu-api-direct.jerrypsy.top"
 RAW_ASSET_BASE="https://raw.githubusercontent.com/jerry0012009/ClawRouter/main/tools/codex-acu"
 PUBLIC_CODEX_MIRROR_BASE="$PUBLIC_ASSET_BASE/codex-releases"

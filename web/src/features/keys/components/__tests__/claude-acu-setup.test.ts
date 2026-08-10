@@ -46,7 +46,7 @@ test('Unix installer is syntactically valid and keeps the credential local', () 
   assert.match(shellInstaller, /registry\.npmmirror\.com/)
   assert.match(shellInstaller, /native-claude-path/)
   assert.match(shellInstaller, /acu-api-direct\.jerrypsy\.top/)
-  assert.match(shellInstaller, /https:\/\/eu\.jerrypsy\.top\/acu/)
+  assert.match(shellInstaller, /https:\/\/api\.acucompute\.com/)
   assert.doesNotMatch(shellInstaller, /:8443/)
   assert.match(shellInstaller, /ACU_NATIVE_PATH_FILE=.*native-claude-path/)
   assert.match(shellInstaller, /exec "\$NATIVE_CLAUDE" --model acu-auto/)
@@ -68,7 +68,7 @@ test('PowerShell installer uses a private config and never puts the key in a URL
   assert.match(powerShellInstaller, /@\(.*'npm\.cmd'.*'npm\.exe'.*'npm'.*\)/)
   assert.match(powerShellInstaller, /& \$npmCommand @npmArguments/)
   assert.match(powerShellInstaller, /native-claude-path/)
-  assert.match(powerShellInstaller, /https:\/\/eu\.jerrypsy\.top\/acu/)
+  assert.match(powerShellInstaller, /https:\/\/api\.acucompute\.com/)
   assert.doesNotMatch(powerShellInstaller, /:8443/)
   assert.match(powerShellInstaller, /\$NativeClaude.*native-claude-path/)
   assert.match(powerShellInstaller, /& \$NativeClaude --model acu-auto/)
@@ -98,7 +98,7 @@ test('Codex installers install the latest CLI with China and overseas fallbacks'
     codexShellInstaller,
     /https:\/\/acu-api-direct\.jerrypsy\.top\/v1/
   )
-  assert.match(codexShellInstaller, /https:\/\/eu\.jerrypsy\.top\/acu\/v1/)
+  assert.match(codexShellInstaller, /https:\/\/api\.acucompute\.com\/v1/)
   assert.match(codexShellInstaller, /ACU_API_KEY/)
   assert.match(codexShellInstaller, /chmod 600/)
   assert.match(codexShellInstaller, /CODEX_ACU_OK/)
@@ -115,7 +115,10 @@ test('Codex installers install the latest CLI with China and overseas fallbacks'
   assert.match(codexPowerShellInstaller, /registry\.npmmirror\.com/)
   assert.match(codexPowerShellInstaller, /codex-releases/)
   assert.match(codexPowerShellInstaller, /'npm\.cmd'.*'npm\.exe'.*'npm'/)
-  assert.match(codexPowerShellInstaller, /Join-Path \$AcuHome 'npm\\codex\.cmd'/)
+  assert.match(
+    codexPowerShellInstaller,
+    /Join-Path \$AcuHome 'npm\\codex\.cmd'/
+  )
   assert.match(
     codexPowerShellInstaller,
     /\$NativeBin = Join-Path \$AcuHome 'bin'/
@@ -135,12 +138,12 @@ test('ACU setup commands include the resolved token and regional installer sourc
     /powershell\.exe -NoProfile -ExecutionPolicy Bypass -Command/
   )
   assert.match(setupSource, /Windows Command Prompt/)
-  assert.match(setupSource, /eu\.jerrypsy\.top\/acu\/codex-acu-install\.sh/)
+  assert.match(setupSource, /api\.acucompute\.com\/codex-acu-install\.sh/)
   assert.match(
     setupSource,
     /acu-api-direct\.jerrypsy\.top\/codex-acu-install\.sh/
   )
-  assert.match(setupSource, /eu\.jerrypsy\.top\/acu\/claude-acu-install\.sh/)
+  assert.match(setupSource, /api\.acucompute\.com\/claude-acu-install\.sh/)
   assert.match(
     setupSource,
     /acu-api-direct\.jerrypsy\.top\/claude-acu-install\.sh/
@@ -233,7 +236,7 @@ chmod 755 "$prefix/bin/claude"
   )
   assert.equal(
     readFileSync(join(acuHome, 'base-url'), 'utf8'),
-    'https://eu.jerrypsy.top/acu\n'
+    'https://api.acucompute.com\n'
   )
   assert.equal(
     readFileSync(join(acuHome, 'native-claude-path'), 'utf8'),

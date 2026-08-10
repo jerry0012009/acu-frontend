@@ -1,9 +1,9 @@
 $ErrorActionPreference = 'Stop'
 
 $MinimumCodexVersion = [version]'0.124.0'
-$PrimaryBaseUrl = 'https://acu-api-direct.jerrypsy.top/v1'
-$FallbackBaseUrl = 'https://eu.jerrypsy.top/acu/v1'
-$PublicCodexMirrorBase = 'https://eu.jerrypsy.top/acu/codex-releases'
+$PrimaryBaseUrl = 'https://api.acucompute.com/v1'
+$FallbackBaseUrl = 'https://acu-api-direct.jerrypsy.top/v1'
+$PublicCodexMirrorBase = 'https://api.acucompute.com/codex-releases'
 $DirectCodexMirrorBase = 'https://acu-api-direct.jerrypsy.top/codex-releases'
 $OfficialCodexReleasesBase = 'https://releases.openai.com/codex'
 $AcuHome = if ($env:CODEX_ACU_HOME) { $env:CODEX_ACU_HOME } else { Join-Path $env:LOCALAPPDATA 'codex-acu' }
@@ -197,7 +197,7 @@ if (-not $nativeCodex) {
 if (-not $nativeCodex) { throw 'Codex installation completed but no usable codex command was found.' }
 
 $catalogUrls = @(
-  'https://eu.jerrypsy.top/acu/codex-acu-model-catalog.json',
+  'https://api.acucompute.com/codex-acu-model-catalog.json',
   'https://acu-api-direct.jerrypsy.top/codex-acu-model-catalog.json',
   'https://raw.githubusercontent.com/jerry0012009/ClawRouter/main/tools/codex-acu/model-catalog.json'
 )
@@ -261,7 +261,7 @@ if (-not $configuredMatch.Success) { throw 'Invalid ACU Base URL.' }
 $configuredBaseUrl = $configuredMatch.Groups[1].Value
 $effectiveBaseUrl = $configuredBaseUrl
 if ($env:CODEX_ACU_SKIP_ENDPOINT_PREFLIGHT -ne '1') {
-  foreach ($candidate in @($configuredBaseUrl, 'https://acu-api-direct.jerrypsy.top/v1', 'https://eu.jerrypsy.top/acu/v1') | Select-Object -Unique) {
+  foreach ($candidate in @($configuredBaseUrl, 'https://api.acucompute.com/v1', 'https://acu-api-direct.jerrypsy.top/v1') | Select-Object -Unique) {
     try {
       Invoke-RestMethod -Method Get -Uri "$candidate/models" -Headers @{ Authorization = "Bearer $env:ACU_API_KEY" } -TimeoutSec 12 | Out-Null
       $effectiveBaseUrl = $candidate

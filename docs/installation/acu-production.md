@@ -1,21 +1,22 @@
 # ACUindex 生产部署约定
 
-本文档是 ACUindex 定制 New API 的生产部署入口。通用 New API 安装说明仍适用于独立部署，但当前 `eu.jerrypsy.top` 环境必须遵循本页，避免控制台路径、客户端 Base URL 与 ACU Router 版本漂移。
+本文档是 ACUindex 定制 New API 的生产部署入口。通用 New API 安装说明仍适用于独立部署，但当前 `acucompute.com` 域名体系必须遵循本页，避免控制台路径、客户端 Base URL 与 ACU Router 版本漂移。
 
 ## 1. 服务边界
 
 | 职责 | 公开入口 | 内部入口 |
 | --- | --- | --- |
-| ACUindex 官网 | `https://eu.jerrypsy.top/acu/index/` | `127.0.0.1:4173` |
-| 使用教程 / New API | `https://eu.jerrypsy.top/acu/` | `127.0.0.1:3200` |
-| 控制台 | `https://eu.jerrypsy.top/acu/dashboard/overview` | `127.0.0.1:3200` |
-| 模型定价 | `https://eu.jerrypsy.top/acu/pricing` | `127.0.0.1:3200` |
-| Codex ACU Responses | `https://acu-api-direct.jerrypsy.top/v1` | New API `/v1/responses` |
-| Claude ACU Messages | `https://eu.jerrypsy.top/acu` | New API `/v1/messages` |
-| Codex release mirror | `https://acu-api-direct.jerrypsy.top/codex-releases/` | ACU host static cache |
-| Router Demo | `https://eu.jerrypsy.top/acu-router/` | `127.0.0.1:8402` |
+| ACUindex 官网 | `https://acucompute.com/` | `127.0.0.1:4173` |
+| 控制台 | `https://console.acucompute.com/` | `127.0.0.1:3200` |
+| Dashboard | `https://console.acucompute.com/dashboard/overview` | `127.0.0.1:3200` |
+| 模型定价 | `https://console.acucompute.com/pricing` | `127.0.0.1:3200` |
+| Codex ACU Responses | `https://api.acucompute.com/v1` | New API `/v1/responses` |
+| Claude ACU Messages | `https://api.acucompute.com/v1/messages` | New API `/v1/messages` |
+| Codex release mirror | `https://api.acucompute.com/codex-releases/` | ACU host static cache |
+| Router Demo | `https://demo.acucompute.com/` | `127.0.0.1:8402` |
+| 旧客户端兼容 | `https://eu.jerrypsy.top:8443/v1` | New API `/v1/*` |
 
-New API 的浏览器 Router 会在地址以 `/acu` 开头时自动使用 `/acu` base path；根路径部署仍保持兼容。浏览器 API 请求和构建资源仍使用根绝对路径 `/api/` 与 `/static/`，由版本化 Nginx snippet 精确代理。不要通过字符串替换构建产物来增加前缀。
+New API Console 以域名根路径运行，不设置 `/console` 或 `/acu` basename。浏览器 API 请求和构建资源继续使用根绝对路径 `/api/` 与 `/static/`，由 Nginx 精确代理。不要通过字符串替换构建产物来增加前缀。
 
 ## 2. 版本化配置来源
 
@@ -42,9 +43,9 @@ git -C /root/jerry/claw-router status --short --branch
 
 ```bash
 cd /root/jerry/new-api/web
-npm run typecheck
-npx oxlint src/main.tsx
-npm run build
+bun run typecheck
+bun run lint
+bun run build
 ```
 
 使用 Claw Router Compose 构建带可追溯 Commit 的镜像：
@@ -70,11 +71,12 @@ curl -fsS http://127.0.0.1:3200/api/status
 
 ## 4. Nginx 接入
 
-443 虚拟主机必须包含 Claw Router 仓库中的版本化 location 文件：
+生产入口由独立 Nginx vhost 提供：
 
-```nginx
-include /root/jerry/claw-router/deploy/alpha/nginx-acu-public-locations.conf;
-```
+- `acucompute.com` → FrontendQD `127.0.0.1:4173`
+- `console.acucompute.com` → New API `127.0.0.1:3200`
+- `api.acucompute.com` → New API `127.0.0.1:3200`
+- `demo.acucompute.com` → 正式 Demo `127.0.0.1:8402`
 
 修改后固定执行：
 
@@ -83,14 +85,14 @@ nginx -t
 systemctl reload nginx
 ```
 
-不要把 `/acu` 代理到 8403；8403 是 Docker 私网 ACU Router，不对宿主机或公网发布。不要删除独立的 `acu-api-direct.jerrypsy.top` 配置，Codex ACU 使用该域名避免网页路由与长时 Responses 流互相耦合。
+不要把公网 API 或 Demo 代理到 8403；Docker 私网 ACU Router 和宿主机 `clawrouter-dev.service` 都不是正式公网入口。不要删除独立的 `acu-api-direct.jerrypsy.top` 或 `eu.jerrypsy.top:8443` 配置，它们保留为既有客户端兼容入口。
 
 ## 5. 客户端入口
 
 Codex ACU：
 
 ```text
-base_url = "https://acu-api-direct.jerrypsy.top/v1"
+base_url = "https://api.acucompute.com/v1"
 model = "acu-auto"
 wire_api = "responses"
 ```
@@ -98,7 +100,7 @@ wire_api = "responses"
 Codex ACU 的用户安装命令由控制台按 Token 动态生成，Unix 命令形态为：
 
 ```bash
-{ curl -fsSL https://eu.jerrypsy.top/acu/codex-acu-install.sh || \
+{ curl -fsSL https://api.acucompute.com/codex-acu-install.sh || \
   curl -fsSL https://acu-api-direct.jerrypsy.top/codex-acu-install.sh || \
   curl -fsSL https://raw.githubusercontent.com/jerry0012009/ClawRouter/main/tools/codex-acu/install.sh; } \
   | ACU_API_KEY='sk-用户Token' sh
@@ -107,43 +109,43 @@ Codex ACU 的用户安装命令由控制台按 Token 动态生成，Unix 命令�
 Windows PowerShell：
 
 ```powershell
-$env:ACU_API_KEY='sk-用户Token'; try { irm 'https://eu.jerrypsy.top/acu/codex-acu-install.ps1' | iex } catch { try { irm 'https://acu-api-direct.jerrypsy.top/codex-acu-install.ps1' | iex } catch { irm 'https://raw.githubusercontent.com/jerry0012009/ClawRouter/main/tools/codex-acu/install.ps1' | iex } }
+$env:ACU_API_KEY='sk-用户Token'; try { irm 'https://api.acucompute.com/codex-acu-install.ps1' | iex } catch { try { irm 'https://acu-api-direct.jerrypsy.top/codex-acu-install.ps1' | iex } catch { irm 'https://raw.githubusercontent.com/jerry0012009/ClawRouter/main/tools/codex-acu/install.ps1' | iex } }
 ```
 
 Windows Command Prompt（`C:\>`）：
 
 ```bat
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$env:ACU_API_KEY='sk-用户Token'; try { irm 'https://eu.jerrypsy.top/acu/codex-acu-install.ps1' | iex } catch { try { irm 'https://acu-api-direct.jerrypsy.top/codex-acu-install.ps1' | iex } catch { irm 'https://raw.githubusercontent.com/jerry0012009/ClawRouter/main/tools/codex-acu/install.ps1' | iex } }"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$env:ACU_API_KEY='sk-用户Token'; try { irm 'https://api.acucompute.com/codex-acu-install.ps1' | iex } catch { try { irm 'https://acu-api-direct.jerrypsy.top/codex-acu-install.ps1' | iex } catch { irm 'https://raw.githubusercontent.com/jerry0012009/ClawRouter/main/tools/codex-acu/install.ps1' | iex } }"
 ```
 
 安装器在私有 `codex-acu` 目录中维护最新版 Codex，不会覆盖用户已有的
 `codex`。安装时先尝试 npm 官方 Registry 和 `registry.npmmirror.com`，
 再回退 direct/public ACU release mirror 与 OpenAI standalone installer。镜像由
 ACU host 的 systemd timer 每 6 小时更新，下载后校验 upstream SHA-256，
-保留最近三个版本。它会在 direct Responses 入口与 `/acu/v1` 备用入口之间
+保留最近三个版本。它会在正式 API 与 direct Responses 备用入口之间
 选择可用地址，保存独立 `CODEX_HOME` 和本地凭据，并执行一次真实 Codex ACU
 验收。
 
 Claude ACU 的页面安装命令（控制台会生成带 Token 和多地域回退的完整命令）：
 
 ```bash
-curl -fsSL https://eu.jerrypsy.top/acu/claude-acu-install.sh | ACU_API_KEY='sk-用户Token' sh
+curl -fsSL https://api.acucompute.com/claude-acu-install.sh | ACU_API_KEY='sk-用户Token' sh
 ```
 
 上面的 `curl ... | ACU_API_KEY=... sh` 仅适用于 macOS、Linux 和 WSL。
 Windows PowerShell 应使用：
 
 ```powershell
-$env:ACU_API_KEY='sk-用户Token'; try { irm 'https://eu.jerrypsy.top/acu/claude-acu-install.ps1' | iex } catch { try { irm 'https://acu-api-direct.jerrypsy.top/claude-acu-install.ps1' | iex } catch { irm 'https://raw.githubusercontent.com/jerry0012009/acu-frontend/main/web/public/claude-acu-install.ps1' | iex } }
+$env:ACU_API_KEY='sk-用户Token'; try { irm 'https://api.acucompute.com/claude-acu-install.ps1' | iex } catch { try { irm 'https://acu-api-direct.jerrypsy.top/claude-acu-install.ps1' | iex } catch { irm 'https://raw.githubusercontent.com/jerry0012009/acu-frontend/main/web/public/claude-acu-install.ps1' | iex } }
 ```
 
 Windows Command Prompt（`C:\>`）应使用：
 
 ```bat
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$env:ACU_API_KEY='sk-用户Token'; try { irm 'https://eu.jerrypsy.top/acu/claude-acu-install.ps1' | iex } catch { try { irm 'https://acu-api-direct.jerrypsy.top/claude-acu-install.ps1' | iex } catch { irm 'https://raw.githubusercontent.com/jerry0012009/acu-frontend/main/web/public/claude-acu-install.ps1' | iex } }"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$env:ACU_API_KEY='sk-用户Token'; try { irm 'https://api.acucompute.com/claude-acu-install.ps1' | iex } catch { try { irm 'https://acu-api-direct.jerrypsy.top/claude-acu-install.ps1' | iex } catch { irm 'https://raw.githubusercontent.com/jerry0012009/acu-frontend/main/web/public/claude-acu-install.ps1' | iex } }"
 ```
 
-安装器会在 `https://eu.jerrypsy.top/acu` 与 direct 域名之间实际探测可用
+安装器会在 `https://api.acucompute.com` 与 direct 域名之间实际探测可用
 Messages 入口，然后保存 `ANTHROPIC_BASE_URL` 和 `model=acu-auto`，保留
 Claude Code 自身的模型默认上下文上限。默认在私有 `claude-acu` 目录中从
 npm / npmmirror 安装或更新最新版 Claude Code；npm 不可用时回退 Anthropic
@@ -152,24 +154,22 @@ standalone installer；如果本机已有 Claude，则直接复用系统版本�
 CLI 验证时设置 `CLAUDE_ACU_CLI_VERIFY=1`，最多等待 45 秒，超时只提示而不会撤销
 已写入的配置。需要保留已有 Claude 版本时可设置
 `CLAUDE_ACU_UPDATE_CLAUDE=0`，需要调整等待时间时可设置
-`CLAUDE_ACU_VERIFY_TIMEOUT_SEC`。禁止恢复 `:8443` 地址；8443 只保留临时兼容，
-不是客户文档入口。
+`CLAUDE_ACU_VERIFY_TIMEOUT_SEC`。`:8443` 永久保留既有客户端兼容，但不是新客户文档入口。
 
 ## 6. 发布验收
 
 ```bash
-curl -fsSI https://eu.jerrypsy.top/acu/
-curl -fsSI https://eu.jerrypsy.top/acu/dashboard/overview
-curl -fsSI https://eu.jerrypsy.top/acu/usage-logs/channel-monitor
-curl -fsS https://eu.jerrypsy.top/api/status
-curl -fsS https://acu-api-direct.jerrypsy.top/healthz
-curl -fsS https://eu.jerrypsy.top/acu/claude-acu-install.sh | \
-  grep 'ANTHROPIC_BASE_URL="https://eu.jerrypsy.top/acu"'
-curl -fsS https://eu.jerrypsy.top/acu/codex-acu-install.sh | \
+curl -fsSI https://console.acucompute.com/
+curl -fsSI https://console.acucompute.com/dashboard/overview
+curl -fsSI https://console.acucompute.com/usage-logs/channel-monitor
+curl -fsS https://api.acucompute.com/api/status
+curl -fsS https://api.acucompute.com/claude-acu-install.sh | \
+  grep 'ACU_PUBLIC_BASE_URL="https://api.acucompute.com"'
+curl -fsS https://api.acucompute.com/codex-acu-install.sh | \
   grep 'registry.npmmirror.com'
-curl -fsS https://acu-api-direct.jerrypsy.top/codex-acu-install.sh | \
+curl -fsS https://api.acucompute.com/codex-acu-install.sh | \
   grep 'ACU_API_KEY'
-curl -fsS https://acu-api-direct.jerrypsy.top/codex-releases/version.json
+curl -fsS https://api.acucompute.com/codex-releases/version.json
 ```
 
 再分别执行一条最小 `codex-acu` 和 `claude-acu` 请求。HTTP 200 只能证明入口存在，真实客户端完成才能证明 Responses / Messages 协议和 Token 路由均可用。

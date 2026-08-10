@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 
-$AcuPublicBaseUrl = 'https://eu.jerrypsy.top/acu'
+$AcuPublicBaseUrl = 'https://api.acucompute.com'
 $AcuDirectBaseUrl = 'https://acu-api-direct.jerrypsy.top'
 $AcuHome = if ($env:CLAUDE_ACU_HOME) { $env:CLAUDE_ACU_HOME } else { Join-Path $env:USERPROFILE '.claude-acu' }
 $AcuBin = if ($env:CLAUDE_ACU_BIN_DIR) { $env:CLAUDE_ACU_BIN_DIR } else { Join-Path $env:LOCALAPPDATA 'Programs\claude-acu' }
