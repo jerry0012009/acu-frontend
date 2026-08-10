@@ -63,10 +63,10 @@ test('renders when the ACU model pool arrives asynchronously', async () => {
   })
 
   await act(async () => {
-    queryClient.setQueryData(['acu-model-pool'], {
+    queryClient.setQueryData(['acu-routing-catalog'], {
       data: {
         profiles: [],
-        modelPool: [
+        models: [
           {
             modelId: 'gpt-5.6-sol',
             vendor: 'OpenAI',
@@ -75,7 +75,6 @@ test('renders when the ACU model pool arrives asynchronously', async () => {
             protocols: ['responses'],
             verificationStatus: 'verified',
             autoRouteEnabled: true,
-            profiles: [],
             routingCandidates: [
               {
                 candidateId: 'gpt-5.6-sol',

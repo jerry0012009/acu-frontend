@@ -33,6 +33,7 @@ import {
   type ACUMonitorRange,
   type ACUMonitorScenario,
   type ACUSupplyStrategy,
+  type ACUGlobalRoutingPolicy,
   type ACURoutingUtilityConfig,
 } from '../api'
 import { ACUChannelHealthCard } from './acu-channel-health-card'
@@ -83,6 +84,7 @@ export function ACUChannelMonitor() {
     (state) => state.auth.user?.role === ROLE.SUPER_ADMIN
   )
   const queryClient = useQueryClient()
+  const [activeTab, setActiveTab] = useState('overview')
   const [range, setRange] = useState<ACUMonitorRange>('24h')
   const [supplyStrategy, setSupplyStrategy] =
     useState<ACUSupplyStrategy>('balanced')
@@ -99,43 +101,6 @@ export function ACUChannelMonitor() {
     queryKey: ['acu-channel-monitor', range, supplyStrategy, scenario],
     queryFn: () => getACUChannelMonitor(range, supplyStrategy, scenario),
     refetchInterval: 60_000,
-  })
-  const policyQuery = useQuery({
-    queryKey: ['acu-global-routing-policy'],
-    queryFn: getACUGlobalRoutingPolicy,
-    enabled: isRoot,
-  })
-  const [policyDraft, setPolicyDraft] = useState<typeof policyQuery.data>()
-  const policy = policyDraft ?? policyQuery.data
-  const policyMutation = useMutation({
-    mutationFn: updateACUGlobalRoutingPolicy,
-    onSuccess: () => {
-      toast.success(t('ACU routing policy updated'))
-      setPolicyDraft(undefined)
-      void queryClient.invalidateQueries({
-        queryKey: ['acu-global-routing-policy'],
-      })
-    },
-    onError: () => toast.error(t('ACU routing policy update failed')),
-  })
-  const utilityQuery = useQuery({
-    queryKey: ['acu-routing-utility-config'],
-    queryFn: getACURoutingUtilityConfig,
-    enabled: isRoot,
-  })
-  const [utilityDraft, setUtilityDraft] = useState<ACURoutingUtilityConfig>()
-  const utilityConfig = utilityDraft ?? utilityQuery.data
-  const utilityMutation = useMutation({
-    mutationFn: updateACURoutingUtilityConfig,
-    onSuccess: () => {
-      toast.success(t('ACU routing utility updated'))
-      setUtilityDraft(undefined)
-      void queryClient.invalidateQueries({
-        queryKey: ['acu-routing-utility-config'],
-      })
-      void queryClient.invalidateQueries({ queryKey: ['acu-model-pool'] })
-    },
-    onError: () => toast.error(t('ACU routing utility update failed')),
   })
   const pause = useMutation({
     mutationFn: ({
@@ -332,97 +297,6 @@ export function ACUChannelMonitor() {
           {t('Loading channel inventory...')}
         </div>
       )}
-      {isRoot && (policy || utilityConfig) && (
-        <details className='rounded border'>
-          <summary className='cursor-pointer px-3 py-2 text-sm font-semibold'>
-            {t('ACU Routing Policy')}
-          </summary>
-          <div className='space-y-3 border-t p-3'>
-            {policy && (
-              <section className='space-y-3'>
-                <div>
-                  <h3 className='text-sm font-semibold'>
-                    {t('ACU Routing Policy')}
-                  </h3>
-                  <p className='text-muted-foreground text-xs'>
-                    {t(
-                      'Global policy only narrows verified routing-eligible candidates.'
-                    )}
-                  </p>
-                </div>
-                <div className='grid gap-3 lg:grid-cols-2'>
-                  <PolicyScopeEditor
-                    title={t('Allowed models')}
-                    allLabel={t('All routing-eligible models')}
-                    custom={policy.modelPolicy === 'custom_allowlist'}
-                    values={policy.allowedModelIds}
-                    options={[
-                      ...new Set(
-                        (query.data?.data?.modelPool ?? [])
-                          .filter((item) => item.autoRouteEnabled)
-                          .map((item) => item.modelId)
-                      ),
-                    ].sort()}
-                    onCustom={(custom) =>
-                      setPolicyDraft({
-                        ...policy,
-                        modelPolicy: custom
-                          ? 'custom_allowlist'
-                          : 'all_routing_eligible',
-                      })
-                    }
-                    onChange={(values) =>
-                      setPolicyDraft({ ...policy, allowedModelIds: values })
-                    }
-                  />
-                  <PolicyScopeEditor
-                    title={t('Allowed Profiles')}
-                    allLabel={t('All routing-eligible profiles')}
-                    custom={policy.profilePolicy === 'custom_allowlist'}
-                    values={policy.allowedProfileIds}
-                    options={(query.data?.data?.profiles ?? [])
-                      .filter(
-                        (item) =>
-                          item.enabled &&
-                          item.administratorAllowed &&
-                          item.autoRouteEnabled
-                      )
-                      .map((item) => item.executionProfileId)
-                      .sort()}
-                    onCustom={(custom) =>
-                      setPolicyDraft({
-                        ...policy,
-                        profilePolicy: custom
-                          ? 'custom_allowlist'
-                          : 'all_routing_eligible',
-                      })
-                    }
-                    onChange={(values) =>
-                      setPolicyDraft({ ...policy, allowedProfileIds: values })
-                    }
-                  />
-                </div>
-                <Button
-                  size='sm'
-                  disabled={policyMutation.isPending}
-                  onClick={() => policyMutation.mutate(policy)}
-                >
-                  {t('Save policy')}
-                </Button>
-              </section>
-            )}
-            {utilityConfig && (
-              <RoutingUtilityEditor
-                value={utilityConfig}
-                modelPool={query.data?.data?.modelPool ?? []}
-                pending={utilityMutation.isPending}
-                onChange={setUtilityDraft}
-                onSave={() => utilityMutation.mutate(utilityConfig)}
-              />
-            )}
-          </div>
-        </details>
-      )}
       <div className='bg-border grid grid-cols-2 gap-px overflow-hidden rounded border lg:grid-cols-6'>
         {statItems.map(([label, value, Icon]) => (
           <div key={label} className='bg-background min-w-0 p-3'>
@@ -434,7 +308,7 @@ export function ACUChannelMonitor() {
           </div>
         ))}
       </div>
-      <Tabs defaultValue='overview' className='min-w-0'>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className='min-w-0'>
         <TabsList>
           <TabsTrigger value='overview'>{t('Overview')}</TabsTrigger>
           <TabsTrigger value='current'>{t('Profiles')}</TabsTrigger>
@@ -442,6 +316,9 @@ export function ACUChannelMonitor() {
           <TabsTrigger value='history'>{t('History')}</TabsTrigger>
           <TabsTrigger value='inventory'>{t('Supply inventory')}</TabsTrigger>
           <TabsTrigger value='models'>{t('Model pool')}</TabsTrigger>
+          {isRoot && (
+            <TabsTrigger value='routing'>{t('Router configuration')}</TabsTrigger>
+          )}
         </TabsList>
         <TabsContent value='overview' className='min-w-0 space-y-3'>
           <div className='grid min-w-0 gap-3 xl:grid-cols-2'>
@@ -532,7 +409,291 @@ export function ACUChannelMonitor() {
             )}
           />
         </TabsContent>
+        {isRoot && (
+          <TabsContent value='routing' className='min-w-0'>
+            {activeTab === 'routing' && (
+              <RouterConfigurationTab
+                modelPool={query.data?.data?.modelPool ?? []}
+                profiles={query.data?.data?.profiles ?? []}
+              />
+            )}
+          </TabsContent>
+        )}
       </Tabs>
+    </div>
+  )
+}
+
+function RouterConfigurationTab(props: {
+  modelPool: ACUModelPoolEntry[]
+  profiles: ACUChannelMonitorProfile[]
+}) {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const policyQuery = useQuery({
+    queryKey: ['acu-global-routing-policy'],
+    queryFn: getACUGlobalRoutingPolicy,
+  })
+  const utilityQuery = useQuery({
+    queryKey: ['acu-routing-utility-config'],
+    queryFn: getACURoutingUtilityConfig,
+  })
+  const savedPolicy = policyQuery.data
+  const savedUtilityConfig = utilityQuery.data
+  const [editing, setEditing] = useState(false)
+  const [policyDraft, setPolicyDraft] = useState<ACUGlobalRoutingPolicy>()
+  const [utilityDraft, setUtilityDraft] =
+    useState<ACURoutingUtilityConfig>()
+  const saveMutation = useMutation({
+    mutationFn: async (input: {
+      policy: ACUGlobalRoutingPolicy
+      utilityConfig: ACURoutingUtilityConfig
+    }) => {
+      await updateACUGlobalRoutingPolicy(input.policy)
+      await updateACURoutingUtilityConfig(input.utilityConfig)
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ['acu-global-routing-policy'],
+      })
+      await queryClient.invalidateQueries({
+        queryKey: ['acu-routing-utility-config'],
+      })
+      await queryClient.refetchQueries({
+        queryKey: ['acu-global-routing-policy'],
+      })
+      await queryClient.refetchQueries({
+        queryKey: ['acu-routing-utility-config'],
+      })
+      await queryClient.invalidateQueries({ queryKey: ['acu-model-pool'] })
+      setPolicyDraft(undefined)
+      setUtilityDraft(undefined)
+      setEditing(false)
+      toast.success(t('ACU Router configuration updated'))
+    },
+    onError: () => toast.error(t('ACU Router configuration update failed')),
+  })
+  const beginEditing = () => {
+    if (!savedPolicy || !savedUtilityConfig) return
+    setPolicyDraft(structuredClone(savedPolicy))
+    setUtilityDraft(structuredClone(savedUtilityConfig))
+    setEditing(true)
+  }
+  const cancelEditing = () => {
+    setPolicyDraft(undefined)
+    setUtilityDraft(undefined)
+    setEditing(false)
+  }
+  const availableModelIds = useMemo(
+    () =>
+      new Set(
+        props.modelPool
+          .filter((item) => item.autoRouteEnabled)
+          .map((item) => item.modelId)
+      ),
+    [props.modelPool]
+  )
+  const availableProfileIds = useMemo(
+    () =>
+      new Set(
+        props.profiles
+          .filter(
+            (item) =>
+              item.enabled &&
+              item.administratorAllowed &&
+              item.autoRouteEnabled
+          )
+          .map((item) => item.executionProfileId)
+      ),
+    [props.profiles]
+  )
+  const modelOptions = useMemo(
+    () =>
+      savedPolicy
+        ? [...new Set([...savedPolicy.allowedModelIds, ...availableModelIds])]
+            .sort()
+            .map((id) => ({ id, unavailable: !availableModelIds.has(id) }))
+        : [],
+    [availableModelIds, savedPolicy]
+  )
+  const profileOptions = useMemo(
+    () =>
+      savedPolicy
+        ? [...new Set([...savedPolicy.allowedProfileIds, ...availableProfileIds])]
+            .sort()
+            .map((id) => ({ id, unavailable: !availableProfileIds.has(id) }))
+        : [],
+    [availableProfileIds, savedPolicy]
+  )
+  const ids = (values: string[]) =>
+    values.length ? values.join(', ') : t('None')
+  const scopeSummary = (
+    mode: 'all_routing_eligible' | 'custom_allowlist',
+    values: string[],
+    allLabel: string,
+    noun: string
+  ) =>
+    mode === 'all_routing_eligible'
+      ? allLabel
+      : `${noun} · ${values.length} · ${ids(values)}`
+  return (
+    <div className='space-y-4'>
+      <div className='flex flex-wrap items-center justify-between gap-2'>
+        <div>
+          <h3 className='text-sm font-semibold'>
+            {t('Current saved global configuration')}
+          </h3>
+          <p className='text-muted-foreground text-xs'>
+            {t('This section reflects the latest configuration fetched from the server.')}
+          </p>
+        </div>
+        <Button size='sm' variant='outline' onClick={editing ? cancelEditing : beginEditing}>
+          {editing ? t('Discard changes') : t('Edit configuration')}
+        </Button>
+      </div>
+      {(policyQuery.isLoading || utilityQuery.isLoading) && (
+        <div className='text-muted-foreground rounded border p-4 text-xs'>
+          {t('Loading saved Router configuration...')}
+        </div>
+      )}
+      {!policyQuery.isLoading &&
+        !utilityQuery.isLoading &&
+        savedPolicy &&
+        savedUtilityConfig && (
+        <section className='space-y-3 rounded border p-3 text-xs'>
+          <div>
+            <span className='text-muted-foreground'>{t('Formula')}: </span>
+            <span className='font-medium'>{savedUtilityConfig.formulaMode}</span>
+          </div>
+          <div>
+            <div className='text-muted-foreground'>{t('Global model policy')}</div>
+            <div className='mt-1'>
+              {scopeSummary(
+                savedPolicy.modelPolicy,
+                savedPolicy.allowedModelIds,
+                t('All routing-eligible models'),
+                t('Custom allowlist')
+              )}
+            </div>
+          </div>
+          <div>
+            <div className='text-muted-foreground'>{t('Global profile policy')}</div>
+            <div className='mt-1'>
+              {scopeSummary(
+                savedPolicy.profilePolicy,
+                savedPolicy.allowedProfileIds,
+                t('All routing-eligible profiles'),
+                t('Custom allowlist')
+              )}
+            </div>
+          </div>
+          <div>
+            <div className='text-muted-foreground'>
+              {t('Default candidate preferences')}
+            </div>
+            <div className='mt-1 grid gap-x-4 gap-y-1 sm:grid-cols-2'>
+              {Object.entries(savedUtilityConfig.defaultCandidatePreferenceScores).map(
+                ([candidateId, score]) => (
+                  <div key={candidateId} className='flex justify-between gap-3'>
+                    <span className='truncate font-mono'>{candidateId}</span>
+                    <span>{score}</span>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+          <div>
+            <div className='text-muted-foreground'>{t('Quality presets')}</div>
+            <div className='mt-1 flex flex-wrap gap-x-4 gap-y-1'>
+              {Object.entries(savedUtilityConfig.qualityPresets).map(
+                ([name, value]) => (
+                  <span key={name}>
+                    {name}: {value}
+                  </span>
+                )
+              )}
+            </div>
+          </div>
+          <div>
+            <div className='text-muted-foreground'>{t('Supply strategy presets')}</div>
+            <div className='mt-1 grid gap-x-4 gap-y-1 sm:grid-cols-2'>
+              {Object.entries(savedUtilityConfig.supplyPresets).map(
+                ([name, weights]) => (
+                  <span key={name}>
+                    {name}: {weights.cost}/{weights.speed}/{weights.reliability}
+                  </span>
+                )
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+      {!policyQuery.isLoading &&
+        !utilityQuery.isLoading &&
+        (!savedPolicy || !savedUtilityConfig) && (
+        <div className='text-destructive rounded border p-4 text-xs'>
+          {t('Saved Router configuration could not be loaded.')}
+        </div>
+      )}
+      {editing && policyDraft && utilityDraft && (
+        <section className='space-y-3 rounded border p-3'>
+          <h3 className='text-sm font-semibold'>{t('Edit global Router configuration')}</h3>
+          <PolicyScopeEditor
+            title={t('Allowed models')}
+            allLabel={t('All routing-eligible models')}
+            custom={policyDraft.modelPolicy === 'custom_allowlist'}
+            values={policyDraft.allowedModelIds}
+            options={modelOptions}
+            onCustom={(custom) =>
+              setPolicyDraft({
+                ...policyDraft,
+                modelPolicy: custom ? 'custom_allowlist' : 'all_routing_eligible',
+              })
+            }
+            onChange={(values) =>
+              setPolicyDraft({ ...policyDraft, allowedModelIds: values })
+            }
+          />
+          <PolicyScopeEditor
+            title={t('Allowed profiles')}
+            allLabel={t('All routing-eligible profiles')}
+            custom={policyDraft.profilePolicy === 'custom_allowlist'}
+            values={policyDraft.allowedProfileIds}
+            options={profileOptions}
+            onCustom={(custom) =>
+              setPolicyDraft({
+                ...policyDraft,
+                profilePolicy: custom ? 'custom_allowlist' : 'all_routing_eligible',
+              })
+            }
+            onChange={(values) =>
+              setPolicyDraft({ ...policyDraft, allowedProfileIds: values })
+            }
+          />
+          <RoutingUtilityEditor
+            value={utilityDraft}
+            modelPool={props.modelPool}
+            onChange={setUtilityDraft}
+          />
+          <div className='flex flex-wrap gap-2'>
+            <Button
+              size='sm'
+              disabled={saveMutation.isPending}
+              onClick={() =>
+                saveMutation.mutate({
+                  policy: policyDraft,
+                  utilityConfig: utilityDraft,
+                })
+              }
+            >
+              {t('Save configuration')}
+            </Button>
+            <Button size='sm' variant='outline' onClick={cancelEditing}>
+              {t('Discard changes')}
+            </Button>
+          </div>
+        </section>
+      )}
     </div>
   )
 }
@@ -540,33 +701,65 @@ export function ACUChannelMonitor() {
 function RoutingUtilityEditor(props: {
   value: ACURoutingUtilityConfig
   modelPool: ACUModelPoolEntry[]
-  pending: boolean
   onChange: (value: ACURoutingUtilityConfig) => void
-  onSave: () => void
 }) {
   const { t } = useTranslation()
-  const candidateGroups = props.modelPool
-    .filter(
-      (model) =>
-        model.modelCategory === 'text_agent' &&
-        model.autoRouteEnabled &&
-        ['verified', 'verified_provisional'].includes(model.verificationStatus)
+  const [candidatePreferencesOpen, setCandidatePreferencesOpen] =
+    useState(false)
+  const candidateGroups = useMemo(() => {
+    const groups = props.modelPool
+      .filter(
+        (model) =>
+          model.modelCategory === 'text_agent' &&
+          model.autoRouteEnabled &&
+          ['verified', 'verified_provisional'].includes(
+            model.verificationStatus
+          )
+      )
+      .map((model) => ({
+        modelId: model.modelId,
+        candidates: model.routingCandidates?.length
+          ? model.routingCandidates
+          : [
+              {
+                candidateId: model.modelId,
+                modelId: model.modelId,
+                displayName: model.modelId,
+                kind: 'base' as const,
+                protocols: [] as Array<'responses' | 'messages'>,
+                responsesProfileCount: 0,
+                messagesProfileCount: 0,
+              },
+            ],
+      }))
+    const represented = new Set(
+      groups.flatMap((group) =>
+        group.candidates.map((candidate) => candidate.candidateId)
+      )
     )
-    .map((model) => ({
-      modelId: model.modelId,
-      candidates: model.routingCandidates?.length
-        ? model.routingCandidates
-        : [
-            {
-              candidateId: model.modelId,
-              modelId: model.modelId,
-              displayName: model.modelId,
-              kind: 'base' as const,
-            },
-          ],
-    }))
-    .filter((group) => group.candidates.length > 0)
-    .sort((left, right) => left.modelId.localeCompare(right.modelId))
+    for (const candidateId of Object.keys(
+      props.value.defaultCandidatePreferenceScores
+    )) {
+      if (represented.has(candidateId)) continue
+      groups.push({
+        modelId: candidateId,
+        candidates: [
+          {
+            candidateId,
+            modelId: candidateId.split('@')[0],
+            displayName: candidateId,
+            kind: 'base' as const,
+            protocols: [] as Array<'responses' | 'messages'>,
+            responsesProfileCount: 0,
+            messagesProfileCount: 0,
+          },
+        ],
+      })
+    }
+    return groups
+      .filter((group) => group.candidates.length > 0)
+      .sort((left, right) => left.modelId.localeCompare(right.modelId))
+  }, [props.modelPool, props.value.defaultCandidatePreferenceScores])
   const numberField = (
     label: string,
     value: number,
@@ -697,15 +890,21 @@ function RoutingUtilityEditor(props: {
             </div>
           ))}
         </div>
-        <details className='rounded border p-2'>
-          <summary className='cursor-pointer text-xs font-medium'>
+        <div className='rounded border p-2'>
+          <Button
+            size='sm'
+            variant='ghost'
+            aria-expanded={candidatePreferencesOpen}
+            onClick={() => setCandidatePreferencesOpen((open) => !open)}
+          >
             {t('Default candidate preferences')}
-          </summary>
+          </Button>
           <p className='text-muted-foreground mt-2 text-xs'>
             {t(
               'These defaults apply when an API key has no candidate-specific override. API key allowlists remain hard constraints.'
             )}
           </p>
+          {candidatePreferencesOpen && (
           <div className='mt-3 grid max-h-96 gap-3 overflow-y-auto pr-1 md:grid-cols-2'>
             {candidateGroups.map((group) => (
               <div key={group.modelId} className='space-y-1 rounded border p-2'>
@@ -763,7 +962,8 @@ function RoutingUtilityEditor(props: {
               </div>
             ))}
           </div>
-        </details>
+          )}
+        </div>
         <details className='rounded border p-2'>
           <summary className='cursor-pointer text-xs font-medium'>
             {t('Latency and reliability')}
@@ -880,9 +1080,6 @@ function RoutingUtilityEditor(props: {
             )}
           </div>
         </details>
-        <Button size='sm' disabled={props.pending} onClick={props.onSave}>
-          {t('Save utility')}
-        </Button>
       </div>
     </details>
   )
@@ -893,10 +1090,11 @@ function PolicyScopeEditor(props: {
   allLabel: string
   custom: boolean
   values: string[]
-  options: string[]
+  options: Array<{ id: string; unavailable: boolean }>
   onCustom: (custom: boolean) => void
   onChange: (values: string[]) => void
 }) {
+  const { t } = useTranslation()
   return (
     <div className='space-y-2 rounded border p-2'>
       <label className='flex items-center gap-2 text-xs font-medium'>
@@ -910,19 +1108,24 @@ function PolicyScopeEditor(props: {
       {props.custom && (
         <div className='max-h-40 space-y-1 overflow-y-auto'>
           {props.options.map((option) => (
-            <label key={option} className='flex items-center gap-2 text-xs'>
+            <label key={option.id} className='flex items-center gap-2 text-xs'>
               <input
                 type='checkbox'
-                checked={props.values.includes(option)}
+                checked={props.values.includes(option.id)}
                 onChange={(event) =>
                   props.onChange(
                     event.target.checked
-                      ? [...new Set([...props.values, option])].sort()
-                      : props.values.filter((value) => value !== option)
+                      ? [...new Set([...props.values, option.id])].sort()
+                      : props.values.filter((value) => value !== option.id)
                   )
                 }
               />
-              <span className='font-mono'>{option}</span>
+              <span className='font-mono'>
+                {option.id}
+                {option.unavailable
+                  ? ` · ${t('currently unavailable')}`
+                  : ''}
+              </span>
             </label>
           ))}
         </div>

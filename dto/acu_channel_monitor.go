@@ -14,6 +14,44 @@ type ACUChannelMonitor struct {
 	DefaultCandidatePreferenceScores map[string]float64         `json:"defaultCandidatePreferenceScores"`
 }
 
+// ACURoutingCatalog is the user-safe subset required to configure an API
+// token's ACU model/profile constraints. It intentionally excludes runtime
+// supply, health, inventory, latency, and cost telemetry.
+type ACURoutingCatalog struct {
+	Models                           []ACURoutingCatalogModel   `json:"models"`
+	Profiles                         []ACURoutingCatalogProfile `json:"profiles"`
+	DefaultCandidatePreferenceScores map[string]float64         `json:"defaultCandidatePreferenceScores"`
+}
+
+type ACURoutingCatalogModel struct {
+	ModelID            string                       `json:"modelId"`
+	Vendor             string                       `json:"vendor"`
+	ModelCategory      string                       `json:"modelCategory"`
+	CapabilityTier     string                       `json:"capabilityTier"`
+	Protocols          []string                     `json:"protocols"`
+	VerificationStatus string                       `json:"verificationStatus"`
+	AutoRouteEnabled   bool                         `json:"autoRouteEnabled"`
+	RoutingCandidates  []ACURoutingCatalogCandidate `json:"routingCandidates"`
+}
+
+type ACURoutingCatalogCandidate struct {
+	CandidateID       string   `json:"candidateId"`
+	ModelID           string   `json:"modelId"`
+	DisplayName       string   `json:"displayName"`
+	Kind              string   `json:"kind"`
+	PresetID          string   `json:"presetId,omitempty"`
+	ReasoningEffort   string   `json:"reasoningEffort,omitempty"`
+	CalibrationStatus string   `json:"calibrationStatus,omitempty"`
+	Protocols         []string `json:"protocols"`
+}
+
+type ACURoutingCatalogProfile struct {
+	ExecutionProfileID        string   `json:"executionProfileId"`
+	CanonicalModel            string   `json:"canonicalModel"`
+	Protocol                  []string `json:"protocol"`
+	SupportedReasoningEfforts []string `json:"supportedReasoningEfforts,omitempty"`
+}
+
 type ACUChannelMonitorProfile struct {
 	ExecutionProfileID          string                   `json:"executionProfileId"`
 	CanonicalModel              string                   `json:"canonicalModel"`

@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, KeyRound, Settings2, WalletCards } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm, type SubmitErrorHandler } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -45,7 +45,7 @@ import {
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { getACUChannelMonitor } from '@/features/usage-logs/api'
+import { getACURoutingCatalog } from '@/features/usage-logs/api'
 import { useStatus } from '@/hooks/use-status'
 import { getUserGroups } from '@/lib/api'
 import { getCurrencyDisplay, getCurrencyLabel } from '@/lib/currency'
@@ -95,14 +95,13 @@ export function ApiKeysMutateDrawer({
   })
   const [acuProfileFilters, setAcuProfileFilters] = useState({
     model: '',
-    provider: '',
     protocol: '',
   })
   const defaultUseAutoGroup = status?.default_use_auto_group === true
 
-  const { data: modelPoolData } = useQuery({
-    queryKey: ['acu-model-pool'],
-    queryFn: () => getACUChannelMonitor('24h'),
+  const { data: routingCatalogData } = useQuery({
+    queryKey: ['acu-routing-catalog'],
+    queryFn: getACURoutingCatalog,
     enabled: open,
     staleTime: 60_000,
   })
@@ -129,8 +128,30 @@ export function ApiKeysMutateDrawer({
     'acu_candidate_preference_scores'
   )
   const defaultCandidatePreferenceScores =
-    modelPoolData?.data?.defaultCandidatePreferenceScores ?? {}
+    routingCatalogData?.data?.defaultCandidatePreferenceScores ?? {}
   const acuReasoningEffort = acuModelFilters.reasoningEffort
+  const routingModels = useMemo(
+    () => routingCatalogData?.data?.models ?? [],
+    [routingCatalogData]
+  )
+  const routingProfiles = useMemo(
+    () => routingCatalogData?.data?.profiles ?? [],
+    [routingCatalogData]
+  )
+  const profilesByModel = useMemo(
+    () =>
+      routingProfiles.reduce<Map<string, typeof routingProfiles>>(
+        (byModel, profile) => {
+          byModel.set(profile.canonicalModel, [
+            ...(byModel.get(profile.canonicalModel) ?? []),
+            profile,
+          ])
+          return byModel
+        },
+        new Map()
+      ),
+    [routingProfiles]
+  )
   const groupsRaw = groupsData?.data || {}
   const groups: ApiKeyGroupOption[] = Object.entries(groupsRaw).map(
     ([key, info]) => ({
@@ -141,7 +162,7 @@ export function ApiKeysMutateDrawer({
     })
   )
   const backendHasAuto = groups.some((g) => g.value === 'auto')
-  const routingModels = (modelPoolData?.data?.modelPool ?? []).filter(
+  const selectableRoutingModels = routingModels.filter(
     (model) =>
       model.modelCategory === 'text_agent' &&
       model.autoRouteEnabled &&
@@ -152,11 +173,11 @@ export function ApiKeysMutateDrawer({
       (!acuModelFilters.tier ||
         model.capabilityTier === acuModelFilters.tier) &&
       (!acuReasoningEffort ||
-        model.profiles.some((profile) =>
+        (profilesByModel.get(model.modelId) ?? []).some((profile) =>
           profile.supportedReasoningEfforts?.includes(acuReasoningEffort)
         ))
   )
-  const routingProfileGroups = (modelPoolData?.data?.modelPool ?? [])
+  const routingProfileGroups = routingModels
     .filter(
       (model) =>
         model.modelCategory === 'text_agent' &&
@@ -168,14 +189,10 @@ export function ApiKeysMutateDrawer({
     )
     .map((model) => ({
       modelId: model.modelId,
-      profiles: model.profiles.filter(
+      profiles: (profilesByModel.get(model.modelId) ?? []).filter(
         (profile) =>
-          profile.enabled &&
-          profile.administratorAllowed &&
           (!acuProfileFilters.model ||
             model.modelId === acuProfileFilters.model) &&
-          (!acuProfileFilters.provider ||
-            profile.provider === acuProfileFilters.provider) &&
           (!acuProfileFilters.protocol ||
             profile.protocol.includes(acuProfileFilters.protocol)) &&
           (!acuReasoningEffort ||
@@ -191,7 +208,7 @@ export function ApiKeysMutateDrawer({
     ) {
       return
     }
-    const legacyCandidateIds = routingModels
+    const legacyCandidateIds = selectableRoutingModels
       .filter((model) => selectedModelIds.includes(model.modelId))
       .flatMap((model) =>
         (model.routingCandidates?.length ?? 0) > 0
@@ -207,7 +224,7 @@ export function ApiKeysMutateDrawer({
     }
   }, [
     form,
-    routingModels,
+    selectableRoutingModels,
     selectedCandidateIds.length,
     selectedModelIds,
     selectedModelScopeCustom,
@@ -221,12 +238,10 @@ export function ApiKeysMutateDrawer({
     }
     const allowed = new Set(selectedModelIds)
     const next = selectedProfileIds.filter((profileId) => {
-      const model = (modelPoolData?.data?.modelPool ?? []).find((item) =>
-        item.profiles.some(
-          (profile) => profile.executionProfileId === profileId
-        )
+      const profile = routingProfiles.find(
+        (item) => item.executionProfileId === profileId
       )
-      return model ? allowed.has(model.modelId) : false
+      return profile ? allowed.has(profile.canonicalModel) : false
     })
     if (next.length !== selectedProfileIds.length) {
       form.setValue('acu_profile_limits', next, {
@@ -236,23 +251,18 @@ export function ApiKeysMutateDrawer({
     }
   }, [
     form,
-    modelPoolData,
+    routingProfiles,
     selectedModelIds,
     selectedModelScopeCustom,
     selectedProfileIds,
   ])
-  const selectedProfiles = (modelPoolData?.data?.modelPool ?? [])
-    .flatMap((model) =>
-      model.profiles.map((profile) => ({ ...profile, modelId: model.modelId }))
-    )
+  const selectedProfiles = routingProfiles
+    .map((profile) => ({ ...profile, modelId: profile.canonicalModel }))
     .filter((profile) =>
       selectedProfileIds.includes(profile.executionProfileId)
     )
   const selectedModelCount = new Set(
     selectedProfiles.map((profile) => profile.modelId)
-  ).size
-  const selectedProviderCount = new Set(
-    selectedProfiles.map((profile) => profile.provider)
   ).size
   const singleProfileModelCount = [
     ...new Set(selectedProfiles.map((profile) => profile.modelId)),
@@ -804,9 +814,7 @@ export function ApiKeysMutateDrawer({
                                 'vendor',
                                 [
                                   ...new Set(
-                                    (modelPoolData?.data?.modelPool ?? []).map(
-                                      (item) => item.vendor
-                                    )
+                                    routingModels.map((item) => item.vendor)
                                   ),
                                 ],
                               ],
@@ -814,9 +822,9 @@ export function ApiKeysMutateDrawer({
                                 'protocol',
                                 [
                                   ...new Set(
-                                    (
-                                      modelPoolData?.data?.modelPool ?? []
-                                    ).flatMap((item) => item.protocols)
+                                    routingModels.flatMap(
+                                      (item) => item.protocols
+                                    )
                                   ),
                                 ],
                               ],
@@ -824,7 +832,7 @@ export function ApiKeysMutateDrawer({
                                 'tier',
                                 [
                                   ...new Set(
-                                    (modelPoolData?.data?.modelPool ?? []).map(
+                                    routingModels.map(
                                       (item) => item.capabilityTier
                                     )
                                   ),
@@ -834,9 +842,7 @@ export function ApiKeysMutateDrawer({
                                 'reasoningEffort',
                                 [
                                   ...new Set(
-                                    (
-                                      modelPoolData?.data?.profiles ?? []
-                                    ).flatMap(
+                                    routingProfiles.flatMap(
                                       (item) =>
                                         item.supportedReasoningEfforts ?? []
                                     )
@@ -877,7 +883,7 @@ export function ApiKeysMutateDrawer({
                                 {t('Allowed Routing Candidates')}
                               </FormLabel>
                               <div className='space-y-3'>
-                                {routingModels.map((model) => {
+                                {selectableRoutingModels.map((model) => {
                                   const candidates =
                                     (model.routingCandidates?.length ?? 0) > 0
                                       ? (model.routingCandidates ?? [])
@@ -1071,26 +1077,14 @@ export function ApiKeysMutateDrawer({
                     {form.watch('acu_profile_scope_custom') && (
                       <FormItem>
                         <FormLabel>{t('Allowed execution Profiles')}</FormLabel>
-                        <div className='grid grid-cols-3 gap-2'>
+                        <div className='grid grid-cols-2 gap-2'>
                           {(
                             [
                               [
                                 'model',
                                 [
                                   ...new Set(
-                                    (modelPoolData?.data?.modelPool ?? []).map(
-                                      (item) => item.modelId
-                                    )
-                                  ),
-                                ],
-                              ],
-                              [
-                                'provider',
-                                [
-                                  ...new Set(
-                                    (modelPoolData?.data?.profiles ?? []).map(
-                                      (item) => item.provider
-                                    )
+                                    routingModels.map((item) => item.modelId)
                                   ),
                                 ],
                               ],
@@ -1098,9 +1092,9 @@ export function ApiKeysMutateDrawer({
                                 'protocol',
                                 [
                                   ...new Set(
-                                    (
-                                      modelPoolData?.data?.profiles ?? []
-                                    ).flatMap((item) => item.protocol)
+                                    routingProfiles.flatMap(
+                                      (item) => item.protocol
+                                    )
                                   ),
                                 ],
                               ],
@@ -1206,10 +1200,7 @@ export function ApiKeysMutateDrawer({
                                         }}
                                       />
                                       <span>
-                                        {profile.provider} / {profile.channel} /{' '}
-                                        {profile.protocol.join(', ')} /{' '}
-                                        {profile.multiplier ?? 'n/a'}x /{' '}
-                                        {profile.routingEligibility}
+                                        {profile.protocol.join(', ')}
                                         {profile.supportedReasoningEfforts
                                           ?.length
                                           ? ` / ${profile.supportedReasoningEfforts.join(', ')}`
@@ -1225,15 +1216,12 @@ export function ApiKeysMutateDrawer({
                             )
                           })}
                         </div>
-                        <div className='bg-muted/40 grid grid-cols-2 gap-2 rounded p-2 text-xs sm:grid-cols-4'>
+                        <div className='bg-muted/40 grid grid-cols-2 gap-2 rounded p-2 text-xs sm:grid-cols-3'>
                           <span>
                             {selectedProfileIds.length} {t('Profiles')}
                           </span>
                           <span>
                             {selectedModelCount} {t('Models')}
-                          </span>
-                          <span>
-                            {selectedProviderCount} {t('Providers')}
                           </span>
                           <span>
                             {singleProfileModelCount}{' '}

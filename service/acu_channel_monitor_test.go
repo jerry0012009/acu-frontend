@@ -48,6 +48,65 @@ func TestGetACUChannelMonitorValidatesAndForwardsViewParameters(t *testing.T) {
 	require.Equal(t, "standard", defaults.URL.Query().Get("scenario"))
 }
 
+func TestGetACURoutingCatalogOmitsSupplyTelemetry(t *testing.T) {
+	previous := common.OptionMap
+	t.Cleanup(func() { common.OptionMap = previous })
+	common.OptionMap = map[string]string{}
+	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"range":"24h","supplyStrategy":"balanced","scenario":"standard",
+			"profiles":[{
+				"executionProfileId":"lucen:luna:responses","canonicalModel":"gpt-5.6-luna",
+				"protocol":["responses"],"provider":"lucen","channel":"cx014",
+				"enabled":true,"administratorAllowed":true,"autoRouteEnabled":true,
+				"supportedReasoningEfforts":["default","max"],"probeCostCny":12.5,
+				"state":"healthy"
+			},{
+				"executionProfileId":"disabled:profile","canonicalModel":"gpt-5.6-sol",
+				"protocol":["responses"],"provider":"secret-provider","channel":"secret-channel",
+				"enabled":false,"administratorAllowed":true,"autoRouteEnabled":true
+			}],
+			"modelPool":[{
+				"modelId":"gpt-5.6-luna","vendor":"OpenAI","modelCategory":"text_agent",
+				"capabilityTier":"LUNA","protocols":["responses"],
+				"verificationStatus":"verified","autoRouteEnabled":true,
+				"currentBestChannel":"secret-channel",
+				"routingCandidates":[{
+					"candidateId":"gpt-5.6-luna","modelId":"gpt-5.6-luna",
+					"displayName":"Luna","kind":"base","protocols":["responses"]
+				}]
+			},{
+				"modelId":"rejected","vendor":"Unknown","modelCategory":"text_agent",
+				"capabilityTier":"LUNA","protocols":["responses"],
+				"verificationStatus":"rejected","autoRouteEnabled":false
+			}],
+			"defaultCandidatePreferenceScores":{"gpt-5.6-luna":99.7},
+			"history":[{"provider":"secret-provider"}],
+			"supplyInventory":[{"channel":"secret-channel"}]
+		}`))
+	}))
+	defer router.Close()
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
+
+	result, err := GetACURoutingCatalog(context.Background())
+	require.NoError(t, err)
+	require.Len(t, result.Models, 1)
+	require.Len(t, result.Profiles, 1)
+	require.Equal(t, "lucen:luna:responses", result.Profiles[0].ExecutionProfileID)
+	require.Equal(t, []string{"default", "max"}, result.Profiles[0].SupportedReasoningEfforts)
+	require.NotContains(t, string(mustMarshalTestJSON(t, result)), "secret-channel")
+	require.NotContains(t, string(mustMarshalTestJSON(t, result)), "probeCostCny")
+}
+
+func mustMarshalTestJSON(t *testing.T, value interface{}) []byte {
+	t.Helper()
+	data, err := common.Marshal(value)
+	require.NoError(t, err)
+	return data
+}
+
 func TestGetACUSelectionCorridorSendsCandidatePolicy(t *testing.T) {
 	var requestBody []byte
 	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {

@@ -48,6 +48,7 @@ type ACUWorkTimelineItem struct {
 	ActualModel              string   `json:"actualModel"`
 	Provider                 string   `json:"provider"`
 	Channel                  string   `json:"channel"`
+	Protocol                 string   `json:"protocol,omitempty"`
 	Status                   string   `json:"status"`
 	BillingStatus            string   `json:"billingStatus"`
 	BillingErrorCode         string   `json:"billingErrorCode,omitempty"`

@@ -97,6 +97,7 @@ export type ACUWorkTimelineItem = {
   actualModel: string
   provider: string
   channel: string
+  protocol?: 'responses' | 'messages'
   status: string
   billingStatus: 'finalized' | 'unsettled' | 'pending'
   billingErrorCode?: string
@@ -333,6 +334,44 @@ export type ACUModelPoolEntry = {
     responsesProfileCount: number
     messagesProfileCount: number
   }>
+}
+
+export type ACURoutingCatalog = {
+  models: Array<{
+    modelId: string
+    vendor: string
+    modelCategory: 'text_agent'
+    capabilityTier: 'LUNA' | 'TERRA' | 'SOL' | 'FRONTIER'
+    protocols: string[]
+    verificationStatus: 'verified_provisional' | 'verified'
+    autoRouteEnabled: boolean
+    routingCandidates: Array<{
+      candidateId: string
+      modelId: string
+      displayName: string
+      kind: 'base' | 'preset'
+      presetId?: string
+      reasoningEffort?: string
+      calibrationStatus?: string
+      protocols: Array<'responses' | 'messages'>
+    }>
+  }>
+  profiles: Array<{
+    executionProfileId: string
+    canonicalModel: string
+    protocol: string[]
+    supportedReasoningEfforts?: string[]
+  }>
+  defaultCandidatePreferenceScores: Record<string, number>
+}
+
+export async function getACURoutingCatalog() {
+  const res = await api.get('/api/user/self/acu-routing-catalog')
+  return res.data as {
+    success: boolean
+    message?: string
+    data?: ACURoutingCatalog
+  }
 }
 
 export type ACUChannelHistoryRow = {

@@ -75,6 +75,18 @@ func TestBuildACUWorkTimelineMapsV2DecisionSummary(t *testing.T) {
 	assert.Equal(t, "unavailable", item.LatencySource)
 }
 
+func TestBuildACUWorkTimelineReturnsRecordedExecutionProtocol(t *testing.T) {
+	logs := []*model.Log{{
+		CreatedAt: 100,
+		Type:      model.LogTypeConsume,
+		Other:     `{"acu_logical_request_id":"req-messages","acu_cost_breakdown":{"task_id":"task-1","protocol":"messages","channel_attempts":[{"execution_profile_id":"profile-claude","status":"success"}]}}`,
+	}}
+
+	result := buildACUWorkTimeline(logs, 0, 200)
+	require.Len(t, result.Items, 1)
+	assert.Equal(t, "messages", result.Items[0].Protocol)
+}
+
 func TestBuildACUWorkTimelineSplitsFreshJudgeAndExecutionWithoutSplittingBilling(t *testing.T) {
 	logs := []*model.Log{{
 		CreatedAt: 100, Type: model.LogTypeConsume, ModelName: "gpt-5.6-luna", PromptTokens: 1000, CompletionTokens: 100,

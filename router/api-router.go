@@ -90,6 +90,7 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.GET("/self/groups", controller.GetUserGroups)
 				selfRoute.GET("/self", controller.GetSelf)
 				selfRoute.GET("/models", controller.GetUserModels)
+				selfRoute.GET("/self/acu-routing-catalog", middleware.DisableCache(), controller.GetACURoutingCatalog)
 				selfRoute.PUT("/self", middleware.CriticalRateLimit(), middleware.DisableCache(), controller.UpdateSelf)
 				selfRoute.DELETE("/self", controller.DeleteSelf)
 				selfRoute.GET("/token", middleware.DisableCache(), controller.GenerateAccessToken)
@@ -284,7 +285,7 @@ func SetApiRouter(router *gin.Engine) {
 		logRoute.GET("/self/search", middleware.UserAuth(), middleware.SearchRateLimit(), controller.SearchUserLogs)
 		logRoute.GET("/self/acu-session-trace/:identifier", middleware.UserAuth(), middleware.DisableCache(), controller.GetACUSessionTrace)
 		logRoute.GET("/self/acu-work-timeline", middleware.UserAuth(), middleware.DisableCache(), controller.GetACUWorkTimeline)
-		logRoute.GET("/acu-channel-monitor", middleware.UserAuth(), middleware.DisableCache(), controller.GetACUChannelMonitor)
+		logRoute.GET("/acu-channel-monitor", middleware.AdminAuth(), middleware.DisableCache(), controller.GetACUChannelMonitor)
 		logRoute.POST("/acu-channel-monitor/pause", middleware.AdminAuth(), controller.PauseACUChannel)
 
 		systemTaskRoute := apiRouter.Group("/system-task")

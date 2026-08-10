@@ -90,6 +90,94 @@ func GetACUChannelMonitor(ctx context.Context, rangeValue, supplyStrategy, scena
 	return result, nil
 }
 
+func GetACURoutingCatalog(ctx context.Context) (dto.ACURoutingCatalog, error) {
+	monitor, err := GetACUChannelMonitor(ctx, "24h", "balanced", "standard")
+	if err != nil {
+		return dto.ACURoutingCatalog{}, err
+	}
+	models := make([]dto.ACURoutingCatalogModel, 0, len(monitor.ModelPool))
+	for _, value := range monitor.ModelPool {
+		if stringValue(value, "modelCategory") != "text_agent" ||
+			!boolValue(value, "autoRouteEnabled") ||
+			!isRoutingCatalogVerificationStatus(stringValue(value, "verificationStatus")) {
+			continue
+		}
+		models = append(models, dto.ACURoutingCatalogModel{
+			ModelID:            stringValue(value, "modelId"),
+			Vendor:             stringValue(value, "vendor"),
+			ModelCategory:      stringValue(value, "modelCategory"),
+			CapabilityTier:     stringValue(value, "capabilityTier"),
+			Protocols:          stringSlice(value["protocols"]),
+			VerificationStatus: stringValue(value, "verificationStatus"),
+			AutoRouteEnabled:   boolValue(value, "autoRouteEnabled"),
+			RoutingCandidates:  routingCatalogCandidates(value["routingCandidates"]),
+		})
+	}
+	profiles := make([]dto.ACURoutingCatalogProfile, 0, len(monitor.Profiles))
+	for _, profile := range monitor.Profiles {
+		if !profile.Enabled || !profile.AdministratorAllowed || !profile.AutoRouteEnabled {
+			continue
+		}
+		profiles = append(profiles, dto.ACURoutingCatalogProfile{
+			ExecutionProfileID:        profile.ExecutionProfileID,
+			CanonicalModel:            profile.CanonicalModel,
+			Protocol:                  append([]string(nil), profile.Protocol...),
+			SupportedReasoningEfforts: append([]string(nil), profile.SupportedReasoningEfforts...),
+		})
+	}
+	return dto.ACURoutingCatalog{
+		Models:                           models,
+		Profiles:                         profiles,
+		DefaultCandidatePreferenceScores: monitor.DefaultCandidatePreferenceScores,
+	}, nil
+}
+
+func isRoutingCatalogVerificationStatus(value string) bool {
+	return value == "verified" || value == "verified_provisional"
+}
+
+func stringSlice(value interface{}) []string {
+	values, ok := value.([]interface{})
+	if !ok {
+		if typed, typedOK := value.([]string); typedOK {
+			return append([]string(nil), typed...)
+		}
+		return []string{}
+	}
+	result := make([]string, 0, len(values))
+	for _, item := range values {
+		if text, ok := item.(string); ok && text != "" {
+			result = append(result, text)
+		}
+	}
+	return result
+}
+
+func routingCatalogCandidates(value interface{}) []dto.ACURoutingCatalogCandidate {
+	values, ok := value.([]interface{})
+	if !ok {
+		return []dto.ACURoutingCatalogCandidate{}
+	}
+	result := make([]dto.ACURoutingCatalogCandidate, 0, len(values))
+	for _, item := range values {
+		candidate, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		result = append(result, dto.ACURoutingCatalogCandidate{
+			CandidateID:       stringValue(candidate, "candidateId"),
+			ModelID:           stringValue(candidate, "modelId"),
+			DisplayName:       stringValue(candidate, "displayName"),
+			Kind:              stringValue(candidate, "kind"),
+			PresetID:          stringValue(candidate, "presetId"),
+			ReasoningEffort:   stringValue(candidate, "reasoningEffort"),
+			CalibrationStatus: stringValue(candidate, "calibrationStatus"),
+			Protocols:         stringSlice(candidate["protocols"]),
+		})
+	}
+	return result
+}
+
 func normalizedACUSelectionProtocol(protocol string) string {
 	if protocol == "messages" {
 		return "messages"

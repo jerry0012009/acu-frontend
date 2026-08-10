@@ -24,6 +24,15 @@ func GetACUChannelMonitor(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
 }
 
+func GetACURoutingCatalog(c *gin.Context) {
+	result, err := service.GetACURoutingCatalog(c.Request.Context())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
 func PauseACUChannel(c *gin.Context) {
 	var input dto.ACUChannelPauseRequest
 	if err := c.ShouldBindJSON(&input); err != nil {

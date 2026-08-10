@@ -1,0 +1,47 @@
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { test } from 'node:test'
+
+const monitorSource = readFileSync(
+  new URL('../acu-channel-monitor.tsx', import.meta.url),
+  'utf8'
+)
+const timelineSource = readFileSync(
+  new URL('../acu-work-timeline.tsx', import.meta.url),
+  'utf8'
+)
+const sidebarSource = readFileSync(
+  new URL('../../../../hooks/use-sidebar-data.ts', import.meta.url),
+  'utf8'
+)
+const routeSource = readFileSync(
+  new URL('../../../../routes/_authenticated/usage-logs/$section.tsx', import.meta.url),
+  'utf8'
+)
+
+test('admin-only navigation and direct route guards cover supply monitor and async tasks', () => {
+  assert.match(sidebarSource, /title: t\('Supply Monitor'\)[\s\S]{0,160}requiredRole: ROLE\.ADMIN/)
+  assert.match(sidebarSource, /title: t\('Async Tasks'\)[\s\S]{0,220}requiredRole: ROLE\.ADMIN/)
+  assert.match(
+    routeSource,
+    /\['channel-monitor', 'drawing', 'task'\][\s\S]{0,260}role[\s\S]{0,120}ROLE\.ADMIN/
+  )
+})
+
+test('timeline does not call the admin-only supply monitor endpoint', () => {
+  assert.doesNotMatch(timelineSource, /getACUChannelMonitor/)
+  assert.match(timelineSource, /getACUWorkTimeline/)
+})
+
+test('root Router configuration is lazy and keeps saved state separate from drafts', () => {
+  assert.match(monitorSource, /const \[activeTab, setActiveTab\] = useState\('overview'\)/)
+  assert.match(monitorSource, /\{isRoot && \([\s\S]{0,160}value='routing'/)
+  assert.match(monitorSource, /activeTab === 'routing'/)
+  assert.match(monitorSource, /const savedPolicy = policyQuery\.data/)
+  assert.match(monitorSource, /const savedUtilityConfig = utilityQuery\.data/)
+  assert.match(monitorSource, /const \[policyDraft, setPolicyDraft\]/)
+  assert.match(monitorSource, /const \[utilityDraft, setUtilityDraft\]/)
+  assert.match(monitorSource, /structuredClone\(savedPolicy\)/)
+  assert.match(monitorSource, /structuredClone\(savedUtilityConfig\)/)
+  assert.match(monitorSource, /currently unavailable/)
+})

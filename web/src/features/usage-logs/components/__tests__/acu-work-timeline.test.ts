@@ -57,6 +57,7 @@ function item(overrides: Partial<ACUWorkTimelineItem>): ACUWorkTimelineItem {
     actualModel: 'gpt-5.6-luna',
     provider: 'lucen',
     channel: 'cx014',
+    protocol: 'messages',
     status: 'completed',
     billingStatus: 'finalized',
     firstModelEventLatencyMs: 1000,
@@ -645,6 +646,7 @@ test('filters Timeline by native protocol, channel, event type, and result', () 
   const execution = item({
     provider: 'closeai',
     channel: 'closeai-anthropic-primary',
+    protocol: 'messages',
     providerAttempts: [
       {
         attemptIndex: 1,
@@ -661,16 +663,11 @@ test('filters Timeline by native protocol, channel, event type, and result', () 
     pointType: 'judge',
     judgeProtocol: 'responses',
   })
-  const protocols = new Map<string, readonly string[]>([
-    ['closeai:luna:messages', ['messages']],
-  ])
-
-  assert.equal(timelineItemProtocol(execution, protocols), 'messages')
-  assert.equal(timelineItemProtocol(judge, protocols), 'responses')
+  assert.equal(timelineItemProtocol(execution), 'messages')
+  assert.equal(timelineItemProtocol(judge), 'responses')
   assert.deepEqual(
     filterTimelineBySupply(
       [judge, execution],
-      protocols,
       'messages',
       'closeai-anthropic-primary',
       'execution',

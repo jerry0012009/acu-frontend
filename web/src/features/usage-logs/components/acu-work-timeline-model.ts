@@ -6,20 +6,14 @@ import type { ACUWorkTimelineItem } from '../api'
 export type TimelineProtocolFilter = 'all' | 'responses' | 'messages'
 
 export function timelineItemProtocol(
-  item: ACUWorkTimelineItem,
-  profileProtocols: ReadonlyMap<string, readonly string[]>
+  item: ACUWorkTimelineItem
 ): string | undefined {
   if (item.pointType === 'judge') return item.judgeProtocol || undefined
-  for (const attempt of item.providerAttempts ?? []) {
-    const protocols = profileProtocols.get(attempt.executionProfileId)
-    if (protocols?.length) return protocols[0]
-  }
-  return undefined
+  return item.protocol
 }
 
 export function filterTimelineBySupply(
   items: ACUWorkTimelineItem[],
-  profileProtocols: ReadonlyMap<string, readonly string[]>,
   protocol: TimelineProtocolFilter,
   channel: string,
   pointType: 'all' | 'judge' | 'execution',
@@ -28,7 +22,7 @@ export function filterTimelineBySupply(
   return items.filter((item) => {
     if (
       protocol !== 'all' &&
-      timelineItemProtocol(item, profileProtocols) !== protocol
+      timelineItemProtocol(item) !== protocol
     ) {
       return false
     }

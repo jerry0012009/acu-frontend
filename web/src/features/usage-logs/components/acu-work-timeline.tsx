@@ -39,7 +39,6 @@ import { useChartTheme } from '@/lib/use-chart-theme'
 import { cn } from '@/lib/utils'
 
 import {
-  getACUChannelMonitor,
   getACUWorkTimeline,
   type ACUWorkTimelineItem,
 } from '../api'
@@ -475,26 +474,10 @@ export function ACUWorkTimeline() {
   })
   const data = query.data?.data
   const items = useMemo(() => data?.items ?? [], [data])
-  const monitorQuery = useQuery({
-    queryKey: ['acu-channel-monitor', '24h', 'balanced', 'standard'],
-    queryFn: () => getACUChannelMonitor('24h', 'balanced', 'standard'),
-    staleTime: 60_000,
-  })
-  const profileProtocols = useMemo(
-    () =>
-      new Map(
-        (monitorQuery.data?.data?.profiles ?? []).map((profile) => [
-          profile.executionProfileId,
-          profile.protocol,
-        ])
-      ),
-    [monitorQuery.data]
-  )
   const supplyItems = useMemo(
     () =>
       filterTimelineBySupply(
         items,
-        profileProtocols,
         protocolFilter,
         channelFilter,
         pointTypeFilter,
@@ -504,7 +487,6 @@ export function ACUWorkTimeline() {
       channelFilter,
       items,
       pointTypeFilter,
-      profileProtocols,
       protocolFilter,
       resultFilter,
     ]

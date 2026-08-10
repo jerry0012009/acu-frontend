@@ -76,6 +76,7 @@ export function useSidebarData(): SidebarData {
             title: t('Supply Monitor'),
             url: '/usage-logs/channel-monitor',
             icon: Activity,
+            requiredRole: ROLE.ADMIN,
           },
           {
             title: t('Async Tasks'),
@@ -83,6 +84,7 @@ export function useSidebarData(): SidebarData {
             activeUrls: ['/usage-logs/drawing'],
             configUrls: ['/usage-logs/drawing', '/usage-logs/task'],
             icon: ListTodo,
+            requiredRole: ROLE.ADMIN,
           },
         ],
       },
