@@ -7,11 +7,31 @@ import type { ACUWorkTimelineItem } from '../api'
 
 export type TimelineProtocolFilter = 'all' | 'responses' | 'messages'
 
+export type TimelineChannelOption = {
+  value: string
+  provider?: string
+}
+
 export function timelineItemProtocol(
   item: ACUWorkTimelineItem
 ): string | undefined {
   if (item.pointType === 'judge') return item.judgeProtocol || undefined
   return item.protocol
+}
+
+export function buildTimelineChannelOptions(
+  items: ACUWorkTimelineItem[]
+): TimelineChannelOption[] {
+  const providerByChannel = new Map<string, string | undefined>()
+  for (const item of items) {
+    if (!item.channel || providerByChannel.has(item.channel)) continue
+    providerByChannel.set(item.channel, item.provider)
+  }
+
+  return Array.from(providerByChannel, ([value, provider]) => ({
+    value,
+    provider,
+  })).sort((left, right) => left.value.localeCompare(right.value))
 }
 
 export function filterTimelineBySupply(

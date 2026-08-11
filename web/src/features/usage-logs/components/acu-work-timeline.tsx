@@ -42,6 +42,7 @@ import { cn } from '@/lib/utils'
 import { getACUWorkTimeline, type ACUWorkTimelineItem } from '../api'
 import {
   ACU_TIMELINE_INSIDE_ZOOM_ID,
+  buildTimelineChannelOptions,
   buildACUWorkTimelineChartOption,
   filterTimelineBySupply,
   filterTimelineItems,
@@ -499,12 +500,7 @@ export function ACUWorkTimeline() {
     [channelFilter, items, pointTypeFilter, protocolFilter, resultFilter]
   )
   const channelOptions = useMemo(
-    () =>
-      [
-        ...new Set(
-          items.flatMap((item) => [item.provider, item.channel]).filter(Boolean)
-        ),
-      ].sort(),
+    () => buildTimelineChannelOptions(items),
     [items]
   )
   const selectedPoint = useMemo(
@@ -771,9 +767,9 @@ export function ACUWorkTimeline() {
             onChange={(event) => setChannelFilter(event.target.value)}
           >
             <option value=''>{t('All')}</option>
-            {channelOptions.map((value) => (
-              <option key={value} value={value}>
-                {publicChannelAlias(undefined, value)}
+            {channelOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {publicChannelAlias(option.provider, option.value)}
               </option>
             ))}
           </select>

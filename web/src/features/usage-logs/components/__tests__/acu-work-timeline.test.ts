@@ -7,6 +7,7 @@ import { publicChannelAlias } from '@/features/acu/lib/public-channel-alias'
 import type { ACUWorkTimelineItem } from '../../api'
 import {
   ACU_TIMELINE_INSIDE_ZOOM_ID,
+  buildTimelineChannelOptions,
   ACU_TIMELINE_SLIDER_ZOOM_ID,
   buildACUWorkTimelineChartOption,
   filterTimelineItems,
@@ -678,6 +679,35 @@ test('filters Timeline by native protocol, channel, event type, and result', () 
       'success'
     ),
     [execution]
+  )
+})
+
+test('uses the same provider/channel alias in Timeline rows and filter options', () => {
+  const route = item({
+    provider: 'wawapii',
+    channel: 'wawapii-gpt-018',
+  })
+  const options = buildTimelineChannelOptions([route])
+
+  assert.equal(options.length, 1)
+  assert.equal(options[0]?.value, route.channel)
+  assert.equal(
+    publicChannelAlias(route.provider, route.channel),
+    publicChannelAlias(options[0]?.provider, options[0]?.value)
+  )
+  assert.deepEqual(
+    filterTimelineBySupply(
+      [route],
+      'all',
+      options[0]?.value ?? '',
+      'all',
+      'all'
+    ),
+    [route]
+  )
+  assert.equal(
+    options.some((option) => option.value === route.provider),
+    false
   )
 })
 
