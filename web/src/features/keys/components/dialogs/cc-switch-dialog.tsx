@@ -27,11 +27,6 @@ const APP_CONFIGS = {
     defaultName: 'My Codex',
     modelFields: [{ key: 'model', labelKey: 'Primary Model', required: true }],
   },
-  gemini: {
-    label: 'Gemini',
-    defaultName: 'My Gemini',
-    modelFields: [{ key: 'model', labelKey: 'Primary Model', required: true }],
-  },
 } as const
 
 type AppType = keyof typeof APP_CONFIGS
@@ -81,7 +76,9 @@ export function CCSwitchDialog(props: Props) {
   const { t } = useTranslation()
   const [app, setApp] = useState<AppType>('claude')
   const [name, setName] = useState<string>(APP_CONFIGS.claude.defaultName)
-  const [models, setModels] = useState<Record<string, string>>({})
+  const [models, setModels] = useState<Record<string, string>>({
+    model: 'acu-auto',
+  })
 
   const { data: modelsData } = useQuery({
     queryKey: ['user-models-ccswitch'],
@@ -98,7 +95,7 @@ export function CCSwitchDialog(props: Props) {
   useEffect(() => {
     if (props.open) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setModels({})
+      setModels({ model: 'acu-auto' })
 
       setApp('claude')
 
@@ -112,7 +109,7 @@ export function CCSwitchDialog(props: Props) {
     const appVal = val as AppType
     setApp(appVal)
     setName(APP_CONFIGS[appVal].defaultName)
-    setModels({})
+    setModels({ model: 'acu-auto' })
   }
 
   const handleSubmit = () => {

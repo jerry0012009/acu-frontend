@@ -156,6 +156,22 @@ export const STATIC_I18N_KEYS = [
   'Technical Support',
   'Professional team providing 24/7 technical support',
 
+  // ACU Quick Start tabs (passed to t at runtime)
+  'Codex CLI',
+  'Claude Code',
+  'API / SDK',
+  'AI Agent',
+  'Windows',
+  'Responses',
+  'Messages',
+  'Chat Completions',
+  'OpenClaw',
+  'Hermes',
+  'Base URL',
+  'API Key',
+  'Model',
+  'Protocol',
+
   // User management (interpolated keys)
   'Remaining Quota ({{currency}})',
   'Enter quota in tokens',

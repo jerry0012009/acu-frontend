@@ -18,7 +18,7 @@ export function AcuSetupDialog(props: AcuSetupDialogProps) {
       open={props.open}
       onOpenChange={props.onOpenChange}
       title={t('ACU Setup')}
-      contentClassName='sm:max-w-3xl'
+      contentClassName='sm:max-w-2xl'
       bodyClassName='min-w-0'
       showCloseButton
     >
