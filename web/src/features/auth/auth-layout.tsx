@@ -1,5 +1,5 @@
 import { BrandWordmark } from '@/components/layout/components/brand-wordmark'
-import { BRAND_DOCUMENT_TITLE } from '@/lib/brand'
+import { BRAND_DOCUMENT_TITLE, PUBLIC_HOME_URL } from '@/lib/brand'
 
 type AuthLayoutProps = {
   children: React.ReactNode
@@ -9,7 +9,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
   return (
     <div className='relative grid h-svh max-w-none'>
       <a
-        href='/index'
+        href={PUBLIC_HOME_URL}
         aria-label={BRAND_DOCUMENT_TITLE}
         className='absolute top-4 left-4 z-10 flex items-center transition-opacity hover:opacity-80 sm:top-8 sm:left-8'
       >

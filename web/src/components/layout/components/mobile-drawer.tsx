@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import useDialogState from '@/hooks/use-dialog'
 import { useUserDisplay } from '@/hooks/use-user-display'
+import { isPublicHomeLink, PUBLIC_HOME_URL } from '@/lib/brand'
 import type { AuthUser } from '@/stores/auth-store'
 
 import { MOBILE_DRAWER_ANIMATION, MOBILE_DRAWER_CONFIG } from '../constants'
@@ -240,9 +241,9 @@ export function MobileDrawer({
                         className='border-border border-b p-2.5 last:border-b-0'
                         variants={MOBILE_DRAWER_ANIMATION.menuItem as Variants}
                       >
-                        {link.href === '/index' ? (
+                        {isPublicHomeLink(link.href) ? (
                           <a
-                            href='/index'
+                            href={PUBLIC_HOME_URL}
                             className='text-primary/60 hover:text-primary/80 transition-colors'
                             onClick={onClose}
                           >

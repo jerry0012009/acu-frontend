@@ -12,7 +12,11 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useNotifications } from '@/hooks/use-notifications'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { useTopNavLinks } from '@/hooks/use-top-nav-links'
-import { BRAND_DOCUMENT_TITLE } from '@/lib/brand'
+import {
+  BRAND_DOCUMENT_TITLE,
+  isPublicHomeLink,
+  PUBLIC_HOME_URL,
+} from '@/lib/brand'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -50,7 +54,7 @@ export function PublicHeader(props: PublicHeaderProps) {
     showThemeSwitch = true,
     showLanguageSwitcher = true,
     logo: customLogo,
-    homeUrl = '/index',
+    homeUrl = PUBLIC_HOME_URL,
     showAuthButtons = true,
     showNotifications = true,
   } = props
@@ -73,6 +77,7 @@ export function PublicHeader(props: PublicHeaderProps) {
   const user = auth.user
   const isAuthenticated = !!user
   const links = dynamicLinks.length > 0 ? dynamicLinks : navLinks
+  const resolvedHomeUrl = isPublicHomeLink(homeUrl) ? PUBLIC_HOME_URL : homeUrl
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
@@ -168,7 +173,7 @@ export function PublicHeader(props: PublicHeaderProps) {
           >
             {/* Logo */}
             <a
-              href={homeUrl}
+              href={resolvedHomeUrl}
               aria-label={BRAND_DOCUMENT_TITLE}
               className='group flex min-w-0 shrink-0 items-center'
             >
@@ -195,11 +200,11 @@ export function PublicHeader(props: PublicHeaderProps) {
             <div className='hidden items-center gap-0.5 sm:flex'>
               {links.map((link, i) => {
                 const isActive = pathname === link.href
-                if (link.href === '/index') {
+                if (isPublicHomeLink(link.href)) {
                   return (
                     <a
                       key={i}
-                      href='/index'
+                      href={PUBLIC_HOME_URL}
                       className={cn(
                         'rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors duration-200',
                         isActive
@@ -371,11 +376,11 @@ export function PublicHeader(props: PublicHeaderProps) {
                   </a>
                 )
               }
-              if (link.href === '/index') {
+              if (isPublicHomeLink(link.href)) {
                 return (
                   <a
                     key={i}
-                    href='/index'
+                    href={PUBLIC_HOME_URL}
                     onClick={() => setMobileOpen(false)}
                     className={linkClassName}
                     style={transitionStyle}

@@ -9,9 +9,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { isPublicHomeLink, PUBLIC_HOME_URL } from '@/lib/brand'
 import { cn } from '@/lib/utils'
 
-import { type TopNavLink } from '../types'
+import type { TopNavLink } from '../types'
 
 type TopNavProps = React.HTMLAttributes<HTMLElement> & {
   links: TopNavLink[]
@@ -59,9 +60,9 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
                       >
                         {title}
                       </a>
-                    ) : href === '/index' ? (
+                    ) : isPublicHomeLink(href) ? (
                       <a
-                        href='/index'
+                        href={PUBLIC_HOME_URL}
                         className={!isActive ? 'text-muted-foreground' : ''}
                       >
                         {title}
@@ -102,10 +103,10 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
             >
               {title}
             </a>
-          ) : href === '/index' ? (
+          ) : isPublicHomeLink(href) ? (
             <a
               key={`${title}-${href}`}
-              href='/index'
+              href={PUBLIC_HOME_URL}
               className={`hover:text-primary text-sm font-medium transition-colors ${isActive ? '' : 'text-muted-foreground'}`}
             >
               {title}

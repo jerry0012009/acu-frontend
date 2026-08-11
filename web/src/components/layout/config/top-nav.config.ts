@@ -1,4 +1,6 @@
-import { type TopNavLink } from '../types'
+import { PUBLIC_HOME_URL } from '@/lib/brand'
+
+import type { TopNavLink } from '../types'
 
 /**
  * Default top navigation links
@@ -9,7 +11,7 @@ import { type TopNavLink } from '../types'
  * Used while backend navigation configuration is loading or unavailable.
  */
 export const defaultTopNavLinks: TopNavLink[] = [
-  { title: 'Home', href: '/index' },
+  { title: 'Home', href: PUBLIC_HOME_URL },
   { title: 'Usage Guide', href: '/' },
   { title: 'Console', href: '/dashboard' },
   { title: 'Model Pricing', href: '/pricing' },

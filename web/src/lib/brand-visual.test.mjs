@@ -83,7 +83,7 @@ describe('ACUindex brand presentation', () => {
     for (const source of [nav, fallbackNav]) {
       assert.match(
         source,
-        /title: (?:t\()?['"]Home['"]\)?, href: ['"]\/index['"]/
+        /title: (?:t\()?['"]Home['"]\)?, href: PUBLIC_HOME_URL/
       )
       assert.match(
         source,
@@ -104,14 +104,14 @@ describe('ACUindex brand presentation', () => {
   test('uses only the ACUindex copyright in the visible footer', () => {
     const footer = read('web/src/components/layout/components/footer.tsx')
 
-    assert.match(footer, /href='\/index'/)
+    assert.match(footer, /href=\{PUBLIC_HOME_URL\}/)
     assert.match(footer, /BRAND_NAME} · {BRAND_NAME_ZH}/)
     assert.match(footer, /AI capacity orchestration infrastructure/)
     assert.doesNotMatch(footer, /ProjectAttribution/)
     assert.doesNotMatch(footer, /QuantumNous\/new-api/)
   })
 
-  test('uses document navigation for every standalone homepage entry', () => {
+  test('routes every standalone homepage entry to the public marketing site', () => {
     const files = [
       'web/src/components/layout/components/public-header.tsx',
       'web/src/components/layout/components/public-navigation.tsx',
@@ -124,7 +124,8 @@ describe('ACUindex brand presentation', () => {
 
     for (const file of files) {
       const source = read(file)
-      assert.match(source, /href=(?:'\/index'|\{homeUrl\})/, file)
+      assert.match(source, /PUBLIC_HOME_URL|resolvedHomeUrl/, file)
+      assert.doesNotMatch(source, /href=['"]\/index['"]/, file)
       assert.doesNotMatch(source, /to=['"]\/index['"]/, file)
     }
   })

@@ -4,7 +4,12 @@ import { useTranslation } from 'react-i18next'
 
 import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
-import { BRAND_DOCUMENT_TITLE, BRAND_NAME, BRAND_NAME_ZH } from '@/lib/brand'
+import {
+  BRAND_DOCUMENT_TITLE,
+  BRAND_NAME,
+  BRAND_NAME_ZH,
+  PUBLIC_HOME_URL,
+} from '@/lib/brand'
 import { cn } from '@/lib/utils'
 
 import { BrandWordmark } from './brand-wordmark'
@@ -106,7 +111,7 @@ function BrandCopyright(props: { currentYear: number; copyright?: string }) {
     <span>
       &copy; {props.currentYear}{' '}
       <a
-        href='/index'
+        href={PUBLIC_HOME_URL}
         className='text-foreground/70 hover:text-foreground font-medium transition-colors'
       >
         {BRAND_NAME} · {BRAND_NAME_ZH}
@@ -180,7 +185,7 @@ export function Footer(props: FooterProps) {
           {/* Brand column */}
           <div className='ml-auto flex shrink-0 flex-col items-end text-right'>
             <a
-              href='/index'
+              href={PUBLIC_HOME_URL}
               aria-label={BRAND_DOCUMENT_TITLE}
               className='group flex w-fit items-center'
             >

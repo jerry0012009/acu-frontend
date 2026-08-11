@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useStatus } from '@/hooks/use-status'
+import { PUBLIC_HOME_URL } from '@/lib/brand'
 import { parseHeaderNavModulesFromStatus } from '@/lib/nav-modules'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -40,7 +41,7 @@ export function useTopNavLinks(): TopNavLink[] {
 
   // Home
   if (modules?.home !== false) {
-    links.push({ title: t('Home'), href: '/index' })
+    links.push({ title: t('Home'), href: PUBLIC_HOME_URL })
   }
 
   links.push({ title: t('Usage Guide'), href: '/' })

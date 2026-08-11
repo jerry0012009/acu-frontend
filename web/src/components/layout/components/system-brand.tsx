@@ -3,7 +3,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
-import { BRAND_DOCUMENT_TITLE } from '@/lib/brand'
+import { BRAND_DOCUMENT_TITLE, PUBLIC_HOME_URL } from '@/lib/brand'
 
 import { BrandWordmark } from './brand-wordmark'
 
@@ -28,7 +28,7 @@ export function SystemBrand(props: SystemBrandProps) {
   if (variant === 'inline') {
     return (
       <a
-        href='/index'
+        href={PUBLIC_HOME_URL}
         aria-label={BRAND_DOCUMENT_TITLE}
         className='hover:bg-accent focus-visible:ring-ring/40 inline-flex h-8 items-center rounded-md px-1 transition-colors outline-none select-none focus-visible:ring-2'
       >
@@ -46,7 +46,7 @@ export function SystemBrand(props: SystemBrandProps) {
           render={<div />}
         >
           <a
-            href='/index'
+            href={PUBLIC_HOME_URL}
             aria-label={BRAND_DOCUMENT_TITLE}
             className='flex h-8 items-center group-data-[collapsible=icon]:invisible'
           >
