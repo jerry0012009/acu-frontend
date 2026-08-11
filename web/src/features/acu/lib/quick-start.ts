@@ -185,3 +185,20 @@ export function buildOpenClawConfig(apiKey: string): string {
   }
 }`
 }
+
+export function buildHermesConfig(apiKey: string): string {
+  return `model:
+  default: ${ACU_DEFAULT_MODEL}
+  provider: acu
+  api_mode: codex_responses
+
+custom_providers:
+  - name: acu
+    base_url: ${ACU_API_BASE_URL}
+    api_key: ${normalizeApiKey(apiKey)}
+    api_mode: codex_responses
+    model: ${ACU_DEFAULT_MODEL}
+
+display:
+  streaming: true`
+}

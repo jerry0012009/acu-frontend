@@ -6,6 +6,7 @@ import {
   ACU_DEFAULT_MODEL,
   ACU_MASKED_API_KEY,
   buildApiCurl,
+  buildHermesConfig,
   buildOpenClawConfig,
   buildPowerShellInstallCommand,
   buildUnixFallbackInstallCommand,
@@ -65,6 +66,21 @@ test('OpenClaw config selects ACU Auto as the primary model', () => {
   assert.match(config, /"primary": "acu\/acu-auto"/)
 })
 
+test('Hermes config uses the verified named ACU custom provider', () => {
+  const config = buildHermesConfig(secret)
+
+  assert.match(config, /default: acu-auto/)
+  assert.match(config, /provider: acu/)
+  assert.match(config, /custom_providers:/)
+  assert.match(config, /name: acu/)
+  assert.match(config, /base_url: https:\/\/api\.acucompute\.com\/v1/)
+  assert.match(config, /api_key: sk-test-secret-123/)
+  assert.match(config, /api_mode: codex_responses/)
+  assert.match(config, /model: acu-auto/)
+  assert.match(config, /streaming: true/)
+  assert.doesNotMatch(config, /chat_completions/)
+})
+
 test('preview display masks credentials while credentialed copy values remain usable', () => {
   const config = buildOpenClawConfig(secret)
   const displayed = maskCredentialText(config, secret)
@@ -74,4 +90,9 @@ test('preview display masks credentials while credentialed copy values remain us
   assert.equal(ACU_MASKED_API_KEY, 'sk-••••••')
   assert.doesNotMatch(displayed, /sk-test-secret-123/)
   assert.match(displayed, /sk-••••••/)
+
+  const hermesConfig = buildHermesConfig(secret)
+  const hermesDisplayed = maskCredentialText(hermesConfig, secret)
+  assert.doesNotMatch(hermesDisplayed, /sk-test-secret-123/)
+  assert.match(hermesDisplayed, /sk-••••••/)
 })

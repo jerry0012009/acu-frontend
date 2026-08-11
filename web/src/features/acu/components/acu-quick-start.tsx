@@ -26,6 +26,7 @@ import {
   ACU_DEFAULT_MODEL,
   ACU_MASKED_API_KEY,
   buildApiCurl,
+  buildHermesConfig,
   buildManualConfig,
   buildOpenClawConfig,
   buildPowerShellFallbackInstallCommand,
@@ -44,6 +45,7 @@ import {
 type AcuQuickStartMode = 'preview' | 'credentialed'
 type PrimaryTab = 'codex' | 'claude' | 'api' | 'agent'
 type Platform = 'unix' | 'windows'
+type Agent = 'openclaw' | 'hermes'
 
 type AcuQuickStartProps = {
   mode: AcuQuickStartMode
@@ -352,16 +354,23 @@ function ApiQuickStart(props: {
 
 function AgentQuickStart(props: { copyKey: string }) {
   const { t } = useTranslation()
-  const [agent, setAgent] = useState<'openclaw'>('openclaw')
-  const config = buildOpenClawConfig(props.copyKey)
+  const [agent, setAgent] = useState<Agent>('openclaw')
+  const config =
+    agent === 'openclaw'
+      ? buildOpenClawConfig(props.copyKey)
+      : buildHermesConfig(props.copyKey)
   const displayConfig = maskCredentialText(config, props.copyKey)
+  const protocol = agent === 'openclaw' ? 'openai-responses' : 'codex_responses'
 
   return (
     <div className='p-4 sm:p-5'>
       <SecondarySelector
         value={agent}
-        onChange={() => setAgent('openclaw')}
-        items={[{ value: 'openclaw', label: 'OpenClaw' }]}
+        onChange={(value) => setAgent(value as Agent)}
+        items={[
+          { value: 'openclaw', label: 'OpenClaw' },
+          { value: 'hermes', label: 'Hermes' },
+        ]}
       />
 
       <div className='mt-5 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 border-y border-white/[0.06] py-3 text-xs'>
@@ -372,7 +381,7 @@ function AgentQuickStart(props: { copyKey: string }) {
         <span className='text-slate-500'>Model</span>
         <code className='text-right text-slate-200'>{ACU_DEFAULT_MODEL}</code>
         <span className='text-slate-500'>Protocol</span>
-        <code className='text-right text-slate-200'>openai-responses</code>
+        <code className='text-right text-slate-200'>{protocol}</code>
       </div>
 
       <div className='mt-4'>
