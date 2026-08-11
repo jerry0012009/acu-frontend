@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next'
 import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { publicChannelAlias } from '@/features/acu/lib/public-channel-alias'
 
 import { getACUSessionTrace } from '../../api'
 import type {
@@ -35,6 +36,7 @@ import {
 
 interface ACUSessionTracePanelProps {
   identifier: string
+  isAdmin?: boolean
 }
 
 function elapsedLabel(value: number | null): string {
@@ -109,7 +111,10 @@ function TimingSummary(props: { trace: ACUSessionTrace }) {
   )
 }
 
-function AttemptTimeline(props: { segment: ACUSessionTraceSegment }) {
+function AttemptTimeline(props: {
+  segment: ACUSessionTraceSegment
+  isAdmin: boolean
+}) {
   const { t } = useTranslation()
   const judgeAttempts = aggregateJudgeAttempts(
     props.segment.judge?.attempts ?? []
@@ -163,7 +168,9 @@ function AttemptTimeline(props: { segment: ACUSessionTraceSegment }) {
       <div className='min-w-0'>
         <div className='mb-1.5 flex items-center gap-1.5 text-xs font-medium'>
           <Server className='size-3.5' aria-hidden='true' />{' '}
-          {t('Provider attempts')}
+          {t('Execution route attempts', {
+            defaultValue: '执行线路尝试',
+          })}
         </div>
         <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
           {props.segment.providerAttempts.map((attempt, index) => (
@@ -179,7 +186,10 @@ function AttemptTimeline(props: { segment: ACUSessionTraceSegment }) {
               )}
               <div className='bg-muted/40 min-w-0 rounded border px-2 py-1.5 text-[11px]'>
                 <div className='truncate font-medium'>
-                  {attempt.model} · {attempt.provider} · {attempt.channel}
+                  {attempt.model} ·{' '}
+                  {props.isAdmin
+                    ? `${attempt.provider} · ${attempt.channel}`
+                    : publicChannelAlias(attempt.provider, attempt.channel)}
                 </div>
                 <div className={attemptStatusClass(attempt.status)}>
                   {attempt.status}
@@ -195,8 +205,12 @@ function AttemptTimeline(props: { segment: ACUSessionTraceSegment }) {
   )
 }
 
-export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
+export function ACUSessionTraceView(props: {
+  trace: ACUSessionTrace
+  isAdmin?: boolean
+}) {
   const { t } = useTranslation()
+  const isAdmin = props.isAdmin === true
   const request = latestTraceRequest(props.trace)
   const route = latestRoute(props.trace)
   const judges = props.trace.segments
@@ -233,7 +247,9 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
       .join(' → ') || '—'
   let requestStatusVariant: 'green' | 'neutral' | 'red' = 'red'
   if (isSuccessfulTraceStatus(request?.status)) requestStatusVariant = 'green'
-  else if (isNeutralTraceCancellation(request)) requestStatusVariant = 'neutral'
+  else if (isNeutralTraceCancellation(request)) {
+    requestStatusVariant = 'neutral'
+  }
 
   return (
     <section
@@ -286,9 +302,16 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
           </div>
         </div>
         <div>
-          <div className='text-muted-foreground'>{t('Provider')}</div>
+          <div className='text-muted-foreground'>
+            {t('Execution route', { defaultValue: '执行线路' })}
+          </div>
           <div className='truncate font-medium'>
-            {route?.selectedProvider || '—'}
+            {isAdmin
+              ? route?.selectedProvider || '—'
+              : publicChannelAlias(
+                  route?.selectedProvider,
+                  route?.selectedChannel
+                )}
           </div>
         </div>
         <div>
@@ -346,7 +369,7 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
               </span>
             </div>
             <div className='mt-2'>
-              <AttemptTimeline segment={segment} />
+              <AttemptTimeline segment={segment} isAdmin={isAdmin} />
             </div>
             {segment.route && (
               <details className='mt-2 text-xs'>
@@ -480,10 +503,12 @@ export function ACUSessionTraceView(props: { trace: ACUSessionTrace }) {
                       <span>
                         {t('Source')}: {logical.errorDiagnosis.errorSource}
                       </span>
-                      <span className='break-all'>
-                        {t('Endpoint')}:{' '}
-                        {logical.errorDiagnosis.endpoint || '—'}
-                      </span>
+                      {isAdmin && (
+                        <span className='break-all'>
+                          {t('Endpoint')}:{' '}
+                          {logical.errorDiagnosis.endpoint || '—'}
+                        </span>
+                      )}
                       <span>CF-Ray: {logical.errorDiagnosis.cfRay || '—'}</span>
                       <span>
                         {t('First byte')}:{' '}
@@ -583,5 +608,7 @@ export function ACUSessionTracePanel(props: ACUSessionTracePanelProps) {
       </div>
     )
   }
-  return <ACUSessionTraceView trace={traceQuery.data.data} />
+  return (
+    <ACUSessionTraceView trace={traceQuery.data.data} isAdmin={props.isAdmin} />
+  )
 }

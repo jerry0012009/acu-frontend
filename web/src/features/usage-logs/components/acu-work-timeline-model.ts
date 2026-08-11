@@ -1,6 +1,8 @@
 import type { EChartsOption } from 'echarts'
 import { t } from 'i18next'
 
+import { publicChannelAlias } from '@/features/acu/lib/public-channel-alias'
+
 import type { ACUWorkTimelineItem } from '../api'
 
 export type TimelineProtocolFilter = 'all' | 'responses' | 'messages'
@@ -20,10 +22,7 @@ export function filterTimelineBySupply(
   result: 'all' | 'success' | 'issues'
 ): ACUWorkTimelineItem[] {
   return items.filter((item) => {
-    if (
-      protocol !== 'all' &&
-      timelineItemProtocol(item) !== protocol
-    ) {
+    if (protocol !== 'all' && timelineItemProtocol(item) !== protocol) {
       return false
     }
     if (channel && ![item.provider, item.channel].includes(channel)) {
@@ -226,6 +225,19 @@ function tooltipHtml(item: ACUWorkTimelineItem, chartOrder: number): string {
   )
     ? ' · Backup'
     : ''
+  const successfulJudgeAttempt = judgeAttempts.find(
+    (attempt) => attempt.status === 'success'
+  )
+  const executionRoute = publicChannelAlias(
+    item.pointType === 'judge'
+      ? successfulJudgeAttempt?.provider || item.provider
+      : item.provider,
+    item.pointType === 'judge'
+      ? successfulJudgeAttempt?.channelId ||
+          successfulJudgeAttempt?.executionProfileId ||
+          item.channel
+      : item.channel
+  )
   return [
     `<div style="font-weight:600;margin-bottom:6px">${escapeHtml(item.pointType === 'judge' ? item.judgeModel : item.actualModel || item.requestedModel)}</div>`,
     `<div>${escapeHtml(t('Request'))} #${chartOrder} · ${escapeHtml(t('Task step'))} ${item.sequence}</div>`,
@@ -238,9 +250,9 @@ function tooltipHtml(item: ACUWorkTimelineItem, chartOrder: number): string {
       ? `<div>${escapeHtml(t('Routing quality target'))} ${item.routingQualityTarget.toFixed(1)}</div>`
       : '',
     `<div>${escapeHtml(t(judgeLabel(item)))}${backup}</div>`,
-    `<div>${escapeHtml(item.pointType === 'judge' ? judgeAttempts.find((attempt) => attempt.status === 'success')?.provider || item.provider : item.provider)} · ${escapeHtml(item.pointType === 'judge' ? judgeAttempts.find((attempt) => attempt.status === 'success')?.channelId || item.channel : item.channel)}</div>`,
+    `<div>${escapeHtml(executionRoute)}</div>`,
     `<div>${escapeHtml(t('End-to-end'))} ${formatLatency(item.endToEndLatencyMs)} · ${escapeHtml(t('First model event'))} ${formatLatency(item.firstModelEventLatencyMs)}</div>`,
-    `<div>${escapeHtml(t('Judge'))} ${formatLatency(item.judgeLatencyMs)} · ${escapeHtml(t('Provider'))} ${formatLatency(item.providerLatencyMs)}</div>`,
+    `<div>${escapeHtml(t('Judge'))} ${formatLatency(item.judgeLatencyMs)} · ${escapeHtml(t('Execution route'))} ${formatLatency(item.providerLatencyMs)}</div>`,
     `<div>${escapeHtml(t('User charge'))} ${formatOptionalMoney(timelineUserCharge(item))}</div>`,
     item.billingStatus === 'unsettled'
       ? `<div style="color:#f97316;margin-top:4px">${escapeHtml(t('Billing unsettled · insufficient quota'))}</div>`

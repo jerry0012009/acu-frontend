@@ -6,6 +6,8 @@ import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { I18nextProvider, initReactI18next } from 'react-i18next'
 
+import { publicChannelAlias } from '@/features/acu/lib/public-channel-alias'
+
 import type { ACUSessionTrace } from '../../../session-trace-types'
 import { ACUSessionTraceView } from '../acu-session-trace'
 import {
@@ -15,7 +17,10 @@ import {
   traceTimingSummary,
 } from '../acu-session-trace-model'
 
-Object.defineProperty(globalThis, 'React', { configurable: true, value: React })
+Object.defineProperty(globalThis, 'React', {
+  configurable: true,
+  value: React,
+})
 
 const trace: ACUSessionTrace = {
   session: {
@@ -231,7 +236,7 @@ test('renders two segments and complete Judge and Provider attempt chains withou
     .init({ lng: 'en', resources: { en: { translation: {} } } })
   const html = renderToStaticMarkup(
     <I18nextProvider i18n={i18n}>
-      <ACUSessionTraceView trace={trace} />
+      <ACUSessionTraceView trace={trace} isAdmin />
     </I18nextProvider>
   )
 
@@ -258,6 +263,30 @@ test('renders two segments and complete Judge and Provider attempt chains withou
   assert.doesNotMatch(html, /¥0\.1800/)
   assert.doesNotMatch(html, /estimatedCallCost|effectiveCostCny/)
   assert.doesNotMatch(html, /Authorization|API Key|raw payload body/)
+})
+
+test('hides provider, channel, and endpoint identities for ordinary users', async () => {
+  const i18n = createInstance()
+  await i18n
+    .use(initReactI18next)
+    .init({ lng: 'en', resources: { en: { translation: {} } } })
+  const html = renderToStaticMarkup(
+    <I18nextProvider i18n={i18n}>
+      <ACUSessionTraceView trace={trace} />
+    </I18nextProvider>
+  )
+
+  assert.match(
+    html,
+    new RegExp(
+      publicChannelAlias('lucen', 'luna-a').replaceAll(
+        /[.*+?^${}()|[\]\\]/g,
+        '\\$&'
+      )
+    )
+  )
+  assert.doesNotMatch(html, /lucen|closeai|luna-a|luna-b|provider\.example/)
+  assert.doesNotMatch(html, /executionProfileId/)
 })
 
 test('keeps wall-clock and accumulated attempt time as separate metrics', () => {

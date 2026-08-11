@@ -65,7 +65,14 @@ test('renders when the ACU model pool arrives asynchronously', async () => {
   await act(async () => {
     queryClient.setQueryData(['acu-routing-catalog'], {
       data: {
-        profiles: [],
+        profiles: [
+          {
+            executionProfileId: 'wawapii-gpt-018:gpt-5.6-sol:responses',
+            canonicalModel: 'gpt-5.6-sol',
+            protocol: ['responses'],
+            supportedReasoningEfforts: ['default', 'high'],
+          },
+        ],
         models: [
           {
             modelId: 'gpt-5.6-sol',
@@ -131,6 +138,26 @@ test('renders when the ACU model pool arrives asynchronously', async () => {
     '[aria-label="gpt-5.6-sol@high Candidate preference"]'
   ) as HTMLInputElement | null
   assert.equal(resetPreferenceInput?.value, '100')
+
+  await act(async () => candidateScopeSwitch.click())
+  const profileScopeSwitch = [
+    ...document.body.querySelectorAll('[role="switch"]'),
+  ].find((element) => {
+    const text = element.parentElement?.textContent ?? ''
+    return text.includes('执行线路') || text.includes('execution routes')
+  }) as HTMLElement | undefined
+  assert.ok(profileScopeSwitch)
+  await act(async () => profileScopeSwitch.click())
+
+  const profileLabel = [...document.body.querySelectorAll('label')].find(
+    (label) => label.textContent?.includes('ACU 线路')
+  )
+  assert.ok(profileLabel)
+  assert.doesNotMatch(
+    profileLabel.textContent ?? '',
+    /wawapii-gpt-018:gpt-5\.6-sol:responses/
+  )
+  assert.match(profileLabel.textContent ?? '', /ACU 线路 \d{4}/)
 
   assert.equal(container.isConnected, true)
   await act(async () => root.unmount())

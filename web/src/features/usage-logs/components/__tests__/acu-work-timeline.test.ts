@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
+import { publicChannelAlias } from '@/features/acu/lib/public-channel-alias'
+
 import type { ACUWorkTimelineItem } from '../../api'
 import {
   ACU_TIMELINE_INSIDE_ZOOM_ID,
@@ -357,6 +359,8 @@ test('tooltip exposes request order, task step, exact time, and thinking effort'
   assert.ok(html?.includes('Implementation'))
   assert.ok(html?.includes('0'))
   assert.ok(html?.includes('72.0'))
+  assert.ok(html?.includes(publicChannelAlias('lucen', 'cx014')))
+  assert.doesNotMatch(html ?? '', /lucen|cx014/)
 })
 
 test('execution tooltip tolerates null judge attempts from the API', () => {

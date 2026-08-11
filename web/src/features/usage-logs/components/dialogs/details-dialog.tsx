@@ -35,6 +35,7 @@ import { StatusBadge, type StatusBadgeProps } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import { IconBadge, type IconBadgeTone } from '@/components/ui/icon-badge'
 import { Label } from '@/components/ui/label'
+import { publicChannelAlias } from '@/features/acu/lib/public-channel-alias'
 import { DynamicPricingBreakdown } from '@/features/pricing/components/dynamic-pricing-breakdown'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
@@ -470,9 +471,11 @@ export function AcuDecisionVisualization(props: {
   breakdown: NonNullable<LogOtherData['acu_cost_breakdown']>
   other: LogOtherData
   actualModel: string
+  isAdmin?: boolean
 }) {
   const { t } = useTranslation()
   const { route, breakdown, other } = props
+  const isAdmin = props.isAdmin === true
   const candidates = route.candidate_estimates ?? []
   const snapshotCandidates = route.decision_snapshot?.candidates ?? []
   const curves = route.curves ?? {}
@@ -573,16 +576,29 @@ export function AcuDecisionVisualization(props: {
           value={selectedModel || props.actualModel}
           mono
         />
-        <DetailRow
-          label={t('Actual Provider')}
-          value={other.actual_provider ?? breakdown.actual_provider ?? '-'}
-          mono
-        />
-        <DetailRow
-          label={t('Actual Channel')}
-          value={other.actual_channel ?? breakdown.channel_id ?? '-'}
-          mono
-        />
+        {isAdmin ? (
+          <>
+            <DetailRow
+              label={t('Actual Provider')}
+              value={other.actual_provider ?? breakdown.actual_provider ?? '-'}
+              mono
+            />
+            <DetailRow
+              label={t('Actual Channel')}
+              value={other.actual_channel ?? breakdown.channel_id ?? '-'}
+              mono
+            />
+          </>
+        ) : (
+          <DetailRow
+            label={t('Execution route', { defaultValue: '执行线路' })}
+            value={publicChannelAlias(
+              other.actual_provider ?? breakdown.actual_provider,
+              other.actual_channel ?? breakdown.channel_id
+            )}
+            mono
+          />
+        )}
       </div>
 
       {modelIds.length > 0 && (
@@ -769,14 +785,16 @@ export function AcuDecisionVisualization(props: {
               '-'
             }
           />
-          <DetailRow
-            label={t('Channel Reason')}
-            value={
-              route.decision_snapshot?.channelSelectionReason ??
-              breakdown.provider_selection_reason ??
-              '-'
-            }
-          />
+          {isAdmin && (
+            <DetailRow
+              label={t('Channel Reason')}
+              value={
+                route.decision_snapshot?.channelSelectionReason ??
+                breakdown.provider_selection_reason ??
+                '-'
+              }
+            />
+          )}
         </div>
         <div className='space-y-1'>
           <div className='text-xs font-semibold'>{t('Cost Outcome')}</div>
@@ -826,8 +844,20 @@ export function AcuDecisionVisualization(props: {
                   )}
                 </div>
                 <div className='grid gap-1 text-xs sm:grid-cols-4'>
-                  <span className='font-medium'>{attempt.provider ?? '-'}</span>
-                  <span className='font-mono'>{attempt.channel ?? '-'}</span>
+                  {isAdmin ? (
+                    <>
+                      <span className='font-medium'>
+                        {attempt.provider ?? '-'}
+                      </span>
+                      <span className='font-mono'>
+                        {attempt.channel ?? '-'}
+                      </span>
+                    </>
+                  ) : (
+                    <span className='font-medium'>
+                      {publicChannelAlias(attempt.provider, attempt.channel)}
+                    </span>
+                  )}
                   <span>{attempt.status ?? '-'}</span>
                   <span className='text-muted-foreground'>
                     {attempt.error_category ||
@@ -851,7 +881,11 @@ export function AcuDecisionVisualization(props: {
             {route.excluded_profiles?.map((excluded) => (
               <DetailRow
                 key={`${excluded.executionProfileId ?? 'excluded'}-${excluded.exclusionReason ?? excluded.exclusionDetail ?? excluded.reasons?.join(',')}`}
-                label={excluded.executionProfileId ?? t('Profile')}
+                label={
+                  isAdmin
+                    ? (excluded.executionProfileId ?? t('Profile'))
+                    : t('Execution route', { defaultValue: '执行线路' })
+                }
                 value={
                   excluded.exclusionReason ??
                   excluded.reasons?.[0] ??
@@ -921,6 +955,15 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const other = parseLogOther(props.log.other)
   const acuRoute = other?.acu_cost_breakdown
   const acuDecision = acuRoute?.route_decision
+  const actualRouteChannel = other?.actual_channel ?? acuRoute?.channel_id
+  const actualRouteProvider =
+    other?.actual_provider ??
+    acuRoute?.actual_provider ??
+    acuRoute?.selected_provider
+  const advancedOther = other ?? ({} as LogOtherData)
+  const showAcuAdvancedDetails =
+    Boolean(advancedOther.acu_logical_request_id) ||
+    acuRoute?.billing_multiplier != null
   const typeConfig = getLogTypeConfig(props.log.type)
   let judgeCostLabel = t('Judge Cost (CNY)')
   if (acuRoute?.judge_cost_status === 'estimated_blended') {
@@ -1089,7 +1132,10 @@ export function DetailsDialog(props: DetailsDialogProps) {
     >
       <div className='w-full max-w-full min-w-0 space-y-2.5 overflow-x-hidden py-1 sm:space-y-3'>
         {props.open && other?.acu_logical_request_id && (
-          <ACUSessionTracePanel identifier={other.acu_logical_request_id} />
+          <ACUSessionTracePanel
+            identifier={other.acu_logical_request_id}
+            isAdmin={props.isAdmin}
+          />
         )}
         {!!other?.acu_related_events?.length && (
           <details className='border-border/70 min-w-0 rounded-md border p-3 text-xs'>
@@ -1123,6 +1169,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
             breakdown={acuRoute}
             other={other}
             actualModel={props.log.model_name}
+            isAdmin={props.isAdmin}
           />
         )}
         {/* Overview section - key identifiers */}
@@ -1172,6 +1219,17 @@ export function DetailsDialog(props: DetailsDialogProps) {
             <DetailRow
               label={t('Group')}
               value={props.log.group || other?.group || ''}
+              mono
+            />
+          )}
+
+          {!props.isAdmin && actualRouteChannel && !acuDecision && (
+            <DetailRow
+              label={t('Execution route', { defaultValue: '执行线路' })}
+              value={publicChannelAlias(
+                actualRouteProvider,
+                actualRouteChannel
+              )}
               mono
             />
           )}
@@ -1227,7 +1285,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
           )}
         </div>
 
-        {other?.acu_logical_request_id && (
+        {showAcuAdvancedDetails && (
           <DetailSection label={t('ACU Advanced Details')}>
             {acuRoute?.mode && (
               <DetailRow label={t('Mode')} value={acuRoute.mode} mono />
@@ -1295,7 +1353,8 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 mono
               />
             )}
-            {acuRoute?.web_fallback_chain &&
+            {props.isAdmin &&
+              acuRoute?.web_fallback_chain &&
               acuRoute.web_fallback_chain.length > 0 && (
                 <DetailRow
                   label={t('Web Fallback Chain')}
@@ -1330,14 +1389,14 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 mono
               />
             )}
-            {acuRoute?.provider_model && (
+            {props.isAdmin && acuRoute?.provider_model && (
               <DetailRow
                 label={t('Provider Model')}
                 value={acuRoute.provider_model}
                 mono
               />
             )}
-            {acuRoute?.selected_provider && (
+            {props.isAdmin && acuRoute?.selected_provider && (
               <DetailRow
                 label={t('Selected Provider')}
                 value={acuRoute.selected_provider}
@@ -1349,14 +1408,14 @@ export function DetailsDialog(props: DetailsDialogProps) {
               value={props.log.model_name}
               mono
             />
-            {other.actual_provider && (
+            {props.isAdmin && advancedOther.actual_provider && (
               <DetailRow
                 label={t('Actual Provider')}
-                value={other.actual_provider}
+                value={advancedOther.actual_provider}
                 mono
               />
             )}
-            {acuRoute?.provider_selection_reason && (
+            {props.isAdmin && acuRoute?.provider_selection_reason && (
               <DetailRow
                 label={t('Provider Selection Reason')}
                 value={acuRoute.provider_selection_reason}
@@ -1368,28 +1427,28 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 value={acuRoute.model_selection_reason}
               />
             )}
-            {acuRoute?.routing_group && (
+            {props.isAdmin && acuRoute?.routing_group && (
               <DetailRow
                 label={t('Routing Group')}
                 value={acuRoute.routing_group}
                 mono
               />
             )}
-            {acuRoute?.channel_id && (
+            {props.isAdmin && acuRoute?.channel_id && (
               <DetailRow
                 label={t('Channel ID')}
                 value={acuRoute.channel_id}
                 mono
               />
             )}
-            {acuRoute?.network_endpoint && (
+            {props.isAdmin && acuRoute?.network_endpoint && (
               <DetailRow
                 label={t('Network Endpoint')}
                 value={acuRoute.network_endpoint}
                 mono
               />
             )}
-            {acuRoute?.fallback_chain && (
+            {props.isAdmin && acuRoute?.fallback_chain && (
               <DetailRow
                 label={t('Fallback Chain')}
                 value={acuRoute.fallback_chain}
@@ -1433,23 +1492,35 @@ export function DetailsDialog(props: DetailsDialogProps) {
             )}
             {acuRoute?.billing_multiplier != null && (
               <DetailRow
-                label={t('Billing Multiplier')}
-                value={String(acuRoute.billing_multiplier)}
+                label={
+                  props.isAdmin
+                    ? t('Billing Multiplier')
+                    : t('Channel price multiplier', {
+                        defaultValue: '渠道价格系数',
+                      })
+                }
+                value={
+                  props.isAdmin
+                    ? String(acuRoute.billing_multiplier)
+                    : `${acuRoute.billing_multiplier}×`
+                }
                 mono
               />
             )}
-            {other.actual_channel && (
+            {props.isAdmin && advancedOther.actual_channel && (
               <DetailRow
                 label={t('Actual Channel')}
-                value={other.actual_channel}
+                value={advancedOther.actual_channel}
                 mono
               />
             )}
-            <DetailRow
-              label={t('Logical Request ID')}
-              value={other.acu_logical_request_id}
-              mono
-            />
+            {advancedOther.acu_logical_request_id && (
+              <DetailRow
+                label={t('Logical Request ID')}
+                value={advancedOther.acu_logical_request_id}
+                mono
+              />
+            )}
             {props.isAdmin && acuRoute?.nominal_provider_cost_usd != null && (
               <DetailRow
                 label={t('Nominal Provider Cost (USD)')}
@@ -1565,17 +1636,17 @@ export function DetailsDialog(props: DetailsDialogProps) {
                   mono
                 />
               )}
-            {other.cached_input_tokens != null && (
+            {advancedOther.cached_input_tokens != null && (
               <DetailRow
                 label={t('Cached Input Tokens')}
-                value={String(other.cached_input_tokens)}
+                value={String(advancedOther.cached_input_tokens)}
                 mono
               />
             )}
-            {other.reasoning_tokens != null && (
+            {advancedOther.reasoning_tokens != null && (
               <DetailRow
                 label={t('Reasoning Tokens')}
-                value={String(other.reasoning_tokens)}
+                value={String(advancedOther.reasoning_tokens)}
                 mono
               />
             )}

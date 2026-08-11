@@ -35,13 +35,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { publicChannelAlias } from '@/features/acu/lib/public-channel-alias'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { cn } from '@/lib/utils'
 
-import {
-  getACUWorkTimeline,
-  type ACUWorkTimelineItem,
-} from '../api'
+import { getACUWorkTimeline, type ACUWorkTimelineItem } from '../api'
 import {
   ACU_TIMELINE_INSIDE_ZOOM_ID,
   buildACUWorkTimelineChartOption,
@@ -145,9 +143,15 @@ function StepDetailContent(props: {
     item.pointType === 'judge'
       ? item.judgeAttempts.find((attempt) => attempt.status === 'success')
           ?.channelId ||
+        item.judgeAttempts.find((attempt) => attempt.status === 'success')
+          ?.executionProfileId ||
         item.channel ||
         '—'
       : item.channel
+  const publicExecutionRoute = publicChannelAlias(provider, channel)
+  const executionRouteAttemptsLabel = t('Execution route attempts', {
+    defaultValue: '执行线路尝试',
+  })
   let pointJudgeLabel = t('Execution')
   if (item.pointType === 'judge') {
     pointJudgeLabel = `${t(judgeMode(item))} · D${difficultyText(item)}`
@@ -187,9 +191,9 @@ function StepDetailContent(props: {
           </span>
           <span
             className='text-muted-foreground truncate text-xs'
-            title={`${provider} · ${channel}`}
+            title={publicExecutionRoute}
           >
-            {provider} · {channel}
+            {publicExecutionRoute}
           </span>
           <span
             className={cn('truncate text-xs', statusTone(item.status))}
@@ -226,8 +230,8 @@ function StepDetailContent(props: {
                 {timelinePhaseAdjustment(item.workPhaseQualityTargetOffset)}
               </span>
             ) : null}
-            <span className='truncate' title={`${provider} · ${channel}`}>
-              {provider} · {channel}
+            <span className='truncate' title={publicExecutionRoute}>
+              {publicExecutionRoute}
             </span>
             <span>
               {t('User charge')} {optionalMoney(timelineUserCharge(item))}
@@ -294,7 +298,10 @@ function StepDetailContent(props: {
                 >
                   <span>{attempt.attemptIndex}</span>
                   <span className='truncate'>
-                    {attempt.channelId} · {attempt.executionProfileId}
+                    {publicChannelAlias(
+                      attempt.provider,
+                      attempt.channelId || attempt.executionProfileId
+                    )}
                   </span>
                   <span>{attempt.status}</span>
                   <span>{ms(attempt.latencyMs)}</span>
@@ -391,7 +398,7 @@ function StepDetailContent(props: {
           {item.pointType === 'execution' ? (
             <div className='lg:col-span-2'>
               <div className='text-muted-foreground mb-1'>
-                {t('Provider attempts')}
+                {executionRouteAttemptsLabel}
               </div>
               {item.providerAttempts.map((attempt) => (
                 <div
@@ -401,9 +408,12 @@ function StepDetailContent(props: {
                   <span>{attempt.attemptIndex}</span>
                   <span
                     className='truncate'
-                    title={`${attempt.channel} · ${attempt.executionProfileId}`}
+                    title={publicChannelAlias(
+                      attempt.provider,
+                      attempt.channel
+                    )}
                   >
-                    {attempt.channel} · {attempt.executionProfileId}
+                    {publicChannelAlias(attempt.provider, attempt.channel)}
                   </span>
                   <span>{t(attempt.status)}</span>
                   <span>{ms(attempt.latencyMs)}</span>
@@ -426,6 +436,9 @@ function TimelineStep(props: {
 
 export function ACUWorkTimeline() {
   const { t } = useTranslation()
+  const executionRouteLabel = t('Execution route', {
+    defaultValue: '执行线路',
+  })
   const [hours, setHours] = useState(1)
   const [rangeMode, setRangeMode] = useState<'rolling' | 'custom'>('rolling')
   const initialNow = useRef(Date.now())
@@ -483,13 +496,7 @@ export function ACUWorkTimeline() {
         pointTypeFilter,
         resultFilter
       ),
-    [
-      channelFilter,
-      items,
-      pointTypeFilter,
-      protocolFilter,
-      resultFilter,
-    ]
+    [channelFilter, items, pointTypeFilter, protocolFilter, resultFilter]
   )
   const channelOptions = useMemo(
     () =>
@@ -757,9 +764,7 @@ export function ACUWorkTimeline() {
           </select>
         </label>
         <label className='grid min-w-44 flex-1 gap-1 text-xs sm:flex-none'>
-          <span className='text-muted-foreground'>
-            {t('Provider / Channel')}
-          </span>
+          <span className='text-muted-foreground'>{executionRouteLabel}</span>
           <select
             className='bg-background h-8 rounded border px-2'
             value={channelFilter}
@@ -768,7 +773,7 @@ export function ACUWorkTimeline() {
             <option value=''>{t('All')}</option>
             {channelOptions.map((value) => (
               <option key={value} value={value}>
-                {value}
+                {publicChannelAlias(undefined, value)}
               </option>
             ))}
           </select>
@@ -926,7 +931,7 @@ export function ACUWorkTimeline() {
           <span role='columnheader'>{t('Phase')}</span>
           <span role='columnheader'>{t('Judge')}</span>
           <span role='columnheader'>{t('Model')}</span>
-          <span role='columnheader'>{t('Provider / channel')}</span>
+          <span role='columnheader'>{executionRouteLabel}</span>
           <span role='columnheader'>{t('Status')}</span>
           <span role='columnheader'>{t('User charge')}</span>
           <span role='columnheader'>{t('Latency')}</span>

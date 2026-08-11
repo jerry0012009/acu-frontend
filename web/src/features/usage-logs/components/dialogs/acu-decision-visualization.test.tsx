@@ -6,6 +6,8 @@ import * as React from 'react'
 import { act, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 
+import { publicChannelAlias } from '@/features/acu/lib/public-channel-alias'
+
 import type { LogOtherData } from '../../types'
 import { AcuDecisionVisualization } from './details-dialog'
 
@@ -17,6 +19,7 @@ const breakdown: NonNullable<LogOtherData['acu_cost_breakdown']> = {
   selected_model: 'gpt-5.6-terra',
   actual_provider: 'CloseAI',
   channel_id: 'closeai-openai-primary',
+  billing_multiplier: 0.18,
   actual_total_cash_cost_cny: 0.12,
   counterfactual_quality_ceiling_cost_cny: 0.2,
   judge_explanation: explanation,
@@ -91,6 +94,10 @@ const breakdown: NonNullable<LogOtherData['acu_cost_breakdown']> = {
     ],
   },
 }
+const routeDecision = breakdown.route_decision
+if (!routeDecision) {
+  throw new Error('ACU route decision fixture is required')
+}
 
 let window: Window
 
@@ -157,13 +164,14 @@ test('renders the complete historical ACU route decision fixture', async () => {
   await act(async () => {
     root.render(
       createElement(AcuDecisionVisualization, {
-        route: breakdown.route_decision!,
+        route: routeDecision,
         breakdown,
         other: {
           actual_provider: 'CloseAI',
           actual_channel: 'closeai-openai-primary',
         },
         actualModel: 'gpt-5.6-terra',
+        isAdmin: true,
       })
     )
   })
@@ -180,7 +188,9 @@ test('renders the complete historical ACU route decision fixture', async () => {
     content,
     /Higher quality, but the marginal cost increases materially/
   )
-  assert.match(host.innerHTML, /Terra · Q 91\.0 · ¥0\.120000/)
+  assert.match(host.innerHTML, /Terra/)
+  assert.match(host.innerHTML, /91\.0/)
+  assert.match(host.innerHTML, /¥0\.120000/)
   assert.match(content, /Pareto/)
   assert.match(content, /Channel Attempt Timeline/)
   assert.match(content, /lucen-a/)
@@ -193,4 +203,42 @@ test('renders the complete historical ACU route decision fixture', async () => {
   )
 
   await act(async () => root.unmount())
+})
+
+test('hides provider, channel, and profile identities for ordinary users', async () => {
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+
+  await act(async () => {
+    root.render(
+      createElement(AcuDecisionVisualization, {
+        route: routeDecision,
+        breakdown,
+        other: {
+          actual_provider: 'CloseAI',
+          actual_channel: 'closeai-openai-primary',
+        },
+        actualModel: 'gpt-5.6-terra',
+      })
+    )
+  })
+
+  const content = host.textContent ?? ''
+  assert.match(
+    content,
+    new RegExp(
+      publicChannelAlias('CloseAI', 'closeai-openai-primary').replaceAll(
+        /[.*+?^${}()|[\]\\]/g,
+        '\\$&'
+      )
+    )
+  )
+  assert.doesNotMatch(
+    content,
+    /CloseAI|Lucen|closeai-openai-primary|lucen-a|profile-mini/
+  )
+
+  await act(async () => root.unmount())
+  host.remove()
 })

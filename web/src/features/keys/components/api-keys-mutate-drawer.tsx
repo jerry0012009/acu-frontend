@@ -45,6 +45,7 @@ import {
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { publicChannelAlias } from '@/features/acu/lib/public-channel-alias'
 import { getACURoutingCatalog } from '@/features/usage-logs/api'
 import { useStatus } from '@/hooks/use-status'
 import { getUserGroups } from '@/lib/api'
@@ -72,6 +73,12 @@ type ApiKeyMutateDrawerProps = {
   onOpenChange: (open: boolean) => void
   currentRow?: ApiKey
   mode?: 'create' | 'update' | 'clone'
+}
+
+function profileProtocolLabel(protocol: string): string {
+  return protocol.length > 0
+    ? `${protocol[0].toUpperCase()}${protocol.slice(1)}`
+    : protocol
 }
 
 export function ApiKeysMutateDrawer({
@@ -1056,12 +1063,18 @@ export function ApiKeysMutateDrawer({
                         <FormItem className={sideDrawerSwitchItemClassName()}>
                           <div className='flex flex-col gap-0.5'>
                             <FormLabel className='text-sm'>
-                              {t('ACU execution Profile scope')}
+                              {t('Execution route scope', {
+                                defaultValue: '指定执行线路',
+                              })}
                             </FormLabel>
                             <FormDescription className='text-xs'>
                               {field.value
-                                ? t('Custom allowed execution Profiles')
-                                : t('All verified execution Profiles')}
+                                ? t('Custom allowed execution routes', {
+                                    defaultValue: '自定义可用执行线路',
+                                  })
+                                : t('All verified execution routes', {
+                                    defaultValue: '全部已验证执行线路',
+                                  })}
                             </FormDescription>
                           </div>
                           <FormControl>
@@ -1076,7 +1089,11 @@ export function ApiKeysMutateDrawer({
 
                     {form.watch('acu_profile_scope_custom') && (
                       <FormItem>
-                        <FormLabel>{t('Allowed execution Profiles')}</FormLabel>
+                        <FormLabel>
+                          {t('Available execution routes', {
+                            defaultValue: '可用执行线路',
+                          })}
+                        </FormLabel>
                         <div className='grid grid-cols-2 gap-2'>
                           {(
                             [
@@ -1200,14 +1217,21 @@ export function ApiKeysMutateDrawer({
                                         }}
                                       />
                                       <span>
-                                        {profile.protocol.join(', ')}
+                                        {publicChannelAlias(
+                                          undefined,
+                                          profile.executionProfileId
+                                        )}{' '}
+                                        ·{' '}
+                                        {profile.protocol
+                                          .map(profileProtocolLabel)
+                                          .join(', ')}{' '}
+                                        /{' '}
                                         {profile.supportedReasoningEfforts
                                           ?.length
-                                          ? ` / ${profile.supportedReasoningEfforts.join(', ')}`
-                                          : ' / default'}
-                                        <span className='text-muted-foreground block break-all'>
-                                          {profile.executionProfileId}
-                                        </span>
+                                          ? profile.supportedReasoningEfforts.join(
+                                              ', '
+                                            )
+                                          : 'default'}
                                       </span>
                                     </label>
                                   ))}
@@ -1218,7 +1242,10 @@ export function ApiKeysMutateDrawer({
                         </div>
                         <div className='bg-muted/40 grid grid-cols-2 gap-2 rounded p-2 text-xs sm:grid-cols-3'>
                           <span>
-                            {selectedProfileIds.length} {t('Profiles')}
+                            {selectedProfileIds.length}{' '}
+                            {t('Execution routes', {
+                              defaultValue: '执行线路',
+                            })}
                           </span>
                           <span>
                             {selectedModelCount} {t('Models')}
