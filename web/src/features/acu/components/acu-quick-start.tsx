@@ -168,12 +168,15 @@ function ClientQuickStart(props: { client: AcuClient; copyKey: string }) {
         onChange={(value) => setPlatform(value as Platform)}
         items={[
           { value: 'unix', label: 'macOS / Linux / WSL' },
-          { value: 'windows', label: 'Windows' },
+          { value: 'windows', label: 'Windows PowerShell' },
         ]}
       />
 
       <div className='mt-5 space-y-4'>
-        <Step number='01' label={t('Install')}>
+        <Step
+          number='01'
+          label={t(platform === 'windows' ? 'Windows PowerShell' : 'Install')}
+        >
           <CodePanel
             value={canonicalCommand}
             displayValue={displayCanonicalCommand}
@@ -192,7 +195,7 @@ function ClientQuickStart(props: { client: AcuClient; copyKey: string }) {
             label={t('Other installation methods')}
           >
             <LabeledCode
-              label={t('Command Prompt')}
+              label={t('Windows Command Prompt')}
               value={buildWindowsCommandPromptInstall(canonicalCommand)}
             />
           </Disclosure>

@@ -19,14 +19,27 @@ const secret = 'sk-test-secret-123'
 
 test('canonical install commands use the public ACU installer URL', () => {
   const unix = buildUnixInstallCommand('codex', secret)
+  const claudeUnix = buildUnixInstallCommand('claude', secret)
   const powershell = buildPowerShellInstallCommand('claude', secret)
 
   assert.match(unix, /https:\/\/api\.acucompute\.com\/codex-acu-install\.sh/)
+  assert.match(
+    claudeUnix,
+    /https:\/\/api\.acucompute\.com\/claude-acu-install\.sh/
+  )
   assert.match(
     powershell,
     /https:\/\/api\.acucompute\.com\/claude-acu-install\.ps1/
   )
   assert.match(unix, /ACU_API_KEY='sk-test-secret-123'/)
+  assert.match(
+    unix,
+    /&& export PATH="\$\{CODEX_ACU_BIN_DIR:-\$HOME\/\.local\/bin\}:\$PATH"/
+  )
+  assert.match(
+    claudeUnix,
+    /&& export PATH="\$\{CLAUDE_ACU_BIN_DIR:-\$HOME\/\.local\/bin\}:\$PATH"/
+  )
   assert.match(powershell, /\$env:ACU_API_KEY='sk-test-secret-123'/)
 })
 
@@ -44,14 +57,36 @@ test('fallback commands retain direct and GitHub sources', () => {
     /raw\.githubusercontent\.com\/jerry0012009\/acu-frontend\/main\/web\/public\/claude-acu-install\.sh/
   )
   assert.match(command, /ACU_API_KEY='sk-test-secret-123'/)
+  assert.match(
+    codexCommand,
+    /&& export PATH="\$\{CODEX_ACU_BIN_DIR:-\$HOME\/\.local\/bin\}:\$PATH"/
+  )
+  assert.match(
+    command,
+    /&& export PATH="\$\{CLAUDE_ACU_BIN_DIR:-\$HOME\/\.local\/bin\}:\$PATH"/
+  )
 })
 
-test('Windows Command Prompt wraps the PowerShell installer without changing it', () => {
+test('Windows Command Prompt updates the current PATH after the PowerShell installer', () => {
   const powershell = buildPowerShellInstallCommand('codex', secret)
-  const command = buildWindowsCommandPromptInstall(powershell)
+  const codexCommand = buildWindowsCommandPromptInstall(powershell)
+  const claudeCommand = buildWindowsCommandPromptInstall(
+    buildPowerShellInstallCommand('claude', secret)
+  )
 
-  assert.match(command, /^powershell\.exe -NoProfile -ExecutionPolicy Bypass/)
-  assert.match(command, /codex-acu-install\.ps1/)
+  assert.match(
+    codexCommand,
+    /^powershell\.exe -NoProfile -ExecutionPolicy Bypass/
+  )
+  assert.match(codexCommand, /codex-acu-install\.ps1/)
+  assert.match(
+    codexCommand,
+    /&& set "PATH=%PATH%;%LOCALAPPDATA%\\Programs\\codex-acu"$/
+  )
+  assert.match(
+    claudeCommand,
+    /claude-acu-install\.ps1.*&& set "PATH=%PATH%;%LOCALAPPDATA%\\Programs\\claude-acu"$/
+  )
 })
 
 test('API examples cover the supported ACU endpoints', () => {

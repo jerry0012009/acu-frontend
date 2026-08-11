@@ -212,29 +212,21 @@ download_asset() {
 }
 
 register_path() {
-  case ":${PATH}:" in
-    *":${bin_dir}:"*) return ;;
-  esac
   path_export="export PATH=\"${bin_dir}:\$PATH\""
   shell_name=$(basename "${SHELL:-sh}")
   profiles=
   case "$shell_name" in
-    zsh) profiles="$HOME/.zprofile $HOME/.zshrc" ;;
-    bash) profiles="$HOME/.bash_profile $HOME/.bashrc" ;;
+    zsh) profiles="$HOME/.zshrc" ;;
+    bash) profiles="$HOME/.bashrc" ;;
     *) profiles="$HOME/.profile" ;;
   esac
-  wrote_profile=0
   for profile in $profiles; do
-    if [ -f "$profile" ]; then
-      if ! grep -Fq "$bin_dir" "$profile"; then
-        printf '\n%s\n' "$path_export" >> "$profile"
-      fi
-      wrote_profile=1
+    if [ ! -f "$profile" ]; then
+      printf '%s\n' "$path_export" > "$profile"
+    elif ! grep -Fq "$bin_dir" "$profile"; then
+      printf '\n%s\n' "$path_export" >> "$profile"
     fi
   done
-  if [ "$wrote_profile" = "0" ]; then
-    printf '%s\n' "$path_export" >> "$HOME/.profile"
-  fi
 }
 
 mkdir -p "$bin_dir" "$native_bin_dir" "$acu_home"

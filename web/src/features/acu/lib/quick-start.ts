@@ -51,9 +51,14 @@ export function buildUnixInstallCommand(
   apiKey: string
 ): string {
   const installer = installerName(client, 'sh')
+  const binDir =
+    client === 'codex'
+      ? '${CODEX_ACU_BIN_DIR:-$HOME/.local/bin}'
+      : '${CLAUDE_ACU_BIN_DIR:-$HOME/.local/bin}'
   return (
     `curl -fsSL ${ACU_INSTALL_BASE_URL}/${installer} | ` +
-    `ACU_API_KEY=${shellQuote(normalizeApiKey(apiKey))} sh`
+    `ACU_API_KEY=${shellQuote(normalizeApiKey(apiKey))} sh && ` +
+    `export PATH="${binDir}:$PATH"`
   )
 }
 
@@ -63,11 +68,16 @@ export function buildUnixFallbackInstallCommand(
 ): string {
   const installer = installerName(client, 'sh')
   const key = shellQuote(normalizeApiKey(apiKey))
+  const binDir =
+    client === 'codex'
+      ? '${CODEX_ACU_BIN_DIR:-$HOME/.local/bin}'
+      : '${CLAUDE_ACU_BIN_DIR:-$HOME/.local/bin}'
   return (
     `{ curl -fsSL ${ACU_INSTALL_BASE_URL}/${installer} || ` +
     `curl -fsSL ${ACU_DIRECT_INSTALL_BASE_URL}/${installer} || ` +
     `curl -fsSL ${githubInstallerUrl(client, 'sh')}; } ` +
-    `| ACU_API_KEY=${key} sh`
+    `| ACU_API_KEY=${key} sh && ` +
+    `export PATH="${binDir}:$PATH"`
   )
 }
 
@@ -99,7 +109,13 @@ export function buildPowerShellFallbackInstallCommand(
 export function buildWindowsCommandPromptInstall(
   powerShellCommand: string
 ): string {
-  return `powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "${powerShellCommand}"`
+  const binDir = powerShellCommand.includes('codex-acu-install.ps1')
+    ? '%LOCALAPPDATA%\\Programs\\codex-acu'
+    : '%LOCALAPPDATA%\\Programs\\claude-acu'
+  return (
+    `powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "${powerShellCommand}"` +
+    ` && set "PATH=%PATH%;${binDir}"`
+  )
 }
 
 export function getLaunchCommand(client: AcuClient): string {

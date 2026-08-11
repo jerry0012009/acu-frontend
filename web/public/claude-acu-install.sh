@@ -102,29 +102,21 @@ validate_messages() {
 }
 
 register_path() {
-  case ":${PATH}:" in
-    *":${ACU_BIN_DIR}:"*) return ;;
-  esac
   path_export="export PATH=\"${ACU_BIN_DIR}:\$PATH\""
   shell_name=$(basename "${SHELL:-sh}")
   profiles=
   case "$shell_name" in
-    zsh) profiles="$HOME/.zprofile $HOME/.zshrc" ;;
-    bash) profiles="$HOME/.bash_profile $HOME/.bashrc" ;;
+    zsh) profiles="$HOME/.zshrc" ;;
+    bash) profiles="$HOME/.bashrc" ;;
     *) profiles="$HOME/.profile" ;;
   esac
-  wrote_profile=0
   for profile in $profiles; do
-    if [ -f "$profile" ]; then
-      if ! grep -Fq "$ACU_BIN_DIR" "$profile"; then
-        printf '\n%s\n' "$path_export" >> "$profile"
-      fi
-      wrote_profile=1
+    if [ ! -f "$profile" ]; then
+      printf '%s\n' "$path_export" > "$profile"
+    elif ! grep -Fq "$ACU_BIN_DIR" "$profile"; then
+      printf '\n%s\n' "$path_export" >> "$profile"
     fi
   done
-  if [ "$wrote_profile" = "0" ]; then
-    printf '%s\n' "$path_export" >> "$HOME/.profile"
-  fi
 }
 
 existing_token=
