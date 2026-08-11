@@ -6,7 +6,6 @@ import {
   ACU_DEFAULT_MODEL,
   ACU_MASKED_API_KEY,
   buildApiCurl,
-  buildHermesConfig,
   buildOpenClawConfig,
   buildPowerShellInstallCommand,
   buildUnixFallbackInstallCommand,
@@ -54,13 +53,16 @@ test('Windows Command Prompt wraps the PowerShell installer without changing it'
   assert.match(command, /codex-acu-install\.ps1/)
 })
 
-test('API examples cover the three supported ACU endpoints', () => {
+test('API examples cover the supported ACU endpoints', () => {
   assert.match(buildApiCurl('responses', secret), /\/v1\/responses/)
   assert.match(buildApiCurl('messages', secret), /\/v1\/messages/)
-  assert.match(
-    buildApiCurl('chat-completions', secret),
-    /\/v1\/chat\/completions/
-  )
+})
+
+test('OpenClaw config selects ACU Auto as the primary model', () => {
+  const config = buildOpenClawConfig(secret)
+
+  assert.match(config, /"api": "openai-responses"/)
+  assert.match(config, /"primary": "acu\/acu-auto"/)
 })
 
 test('preview display masks credentials while credentialed copy values remain usable', () => {
@@ -72,5 +74,4 @@ test('preview display masks credentials while credentialed copy values remain us
   assert.equal(ACU_MASKED_API_KEY, 'sk-••••••')
   assert.doesNotMatch(displayed, /sk-test-secret-123/)
   assert.match(displayed, /sk-••••••/)
-  assert.match(buildHermesConfig(secret), /sk-test-secret-123/)
 })

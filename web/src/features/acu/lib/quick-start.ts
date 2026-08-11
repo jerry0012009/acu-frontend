@@ -10,7 +10,7 @@ const CLAUDE_GITHUB_INSTALL_BASE_URL =
   'https://raw.githubusercontent.com/jerry0012009/acu-frontend/main/web/public'
 
 export type AcuClient = 'codex' | 'claude'
-export type AcuApiProtocol = 'responses' | 'messages' | 'chat-completions'
+export type AcuApiProtocol = 'responses' | 'messages'
 
 export function normalizeApiKey(value: string): string {
   if (!value) return ACU_MASKED_API_KEY
@@ -150,13 +150,6 @@ export function buildApiCurl(protocol: AcuApiProtocol, apiKey: string): string {
   -d '{"model":"acu-auto","max_tokens":64,"messages":[{"role":"user","content":"Hello"}]}'`
   }
 
-  if (protocol === 'chat-completions') {
-    return `curl -sS https://api.acucompute.com/v1/chat/completions \\
-  -H "Authorization: Bearer ${key}" \\
-  -H "Content-Type: application/json" \\
-  -d '{"model":"acu-auto","messages":[{"role":"user","content":"Hello"}],"max_tokens":64}'`
-  }
-
   return `curl -sS https://api.acucompute.com/v1/responses \\
   -H "Authorization: Bearer ${key}" \\
   -H "Content-Type: application/json" \\
@@ -182,19 +175,13 @@ export function buildOpenClawConfig(apiKey: string): string {
         }]
       }
     }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "acu/${ACU_DEFAULT_MODEL}"
+      }
+    }
   }
 }`
-}
-
-export function buildHermesConfig(apiKey: string): string {
-  return `providers:
-  acu:
-    api: ${ACU_API_BASE_URL}
-    key: ${normalizeApiKey(apiKey)}
-    transport: chat_completions
-    default_model: ${ACU_DEFAULT_MODEL}
-
-model:
-  provider: acu
-  default: ${ACU_DEFAULT_MODEL}`
 }

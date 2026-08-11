@@ -229,6 +229,12 @@ test('ACU Quick Start and CC Switch expose no Gemini user entry', () => {
   assert.doesNotMatch(ccSwitchSource, /gemini/i)
 })
 
+test('ACU Quick Start hides unsupported Chat Completions and Hermes configuration', () => {
+  assert.doesNotMatch(quickStartComponentSource, /Chat Completions/)
+  assert.doesNotMatch(quickStartComponentSource, /Hermes/)
+  assert.doesNotMatch(quickStartSource, /buildHermesConfig/)
+})
+
 test('Claude Unix installer can complete through a private npm prefix and ACU endpoint', () => {
   const root = mkdtempSync(join(tmpdir(), 'claude-acu-install-'))
   const fakeBin = join(root, 'bin')
