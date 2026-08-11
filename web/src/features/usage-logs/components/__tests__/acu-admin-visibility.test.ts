@@ -100,3 +100,10 @@ test('custom routing scopes start from current inventory and keep profiles align
   assert.match(monitorSource, /scopeSummary[\s\S]{0,520}Excluded/)
   assert.match(monitorSource, /outside current model allowlist/)
 })
+
+test('saved profile scope summary includes the current profile inventory', () => {
+  assert.match(
+    monitorSource,
+    /scopeSummary\([\s\S]{0,180}savedPolicy\.profilePolicy[\s\S]{0,180}savedPolicy\.allowedProfileIds[\s\S]{0,220}availableProfileIdList/
+  )
+})

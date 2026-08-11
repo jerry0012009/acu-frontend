@@ -711,7 +711,8 @@ function RouterConfigurationTab(props: {
                   savedPolicy.profilePolicy,
                   savedPolicy.allowedProfileIds,
                   t('All routing-eligible profiles'),
-                  t('Custom allowlist')
+                  t('Custom allowlist'),
+                  availableProfileIdList
                 )}
               </div>
             </div>
