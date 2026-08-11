@@ -65,6 +65,7 @@ import {
 } from '../../lib/utils'
 import { USAGE_BILLING_PATH, type LogOtherData } from '../../types'
 import { ACUSessionTracePanel } from './acu-session-trace'
+import { shouldShowAcuInternalDetails } from './details-dialog-model'
 
 const ACU_CURVE_COLORS = [
   '#0f766e',
@@ -953,6 +954,11 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const { copiedText, copyToClipboard } = useCopyToClipboard({ notify: false })
   const details = props.log.content ?? ''
   const other = parseLogOther(props.log.other)
+  const showAcuInternalDetails = shouldShowAcuInternalDetails(
+    props.log,
+    other,
+    props.isAdmin
+  )
   const acuRoute = other?.acu_cost_breakdown
   const acuDecision = acuRoute?.route_decision
   const actualRouteChannel = other?.actual_channel ?? acuRoute?.channel_id
@@ -962,8 +968,9 @@ export function DetailsDialog(props: DetailsDialogProps) {
     acuRoute?.selected_provider
   const advancedOther = other ?? ({} as LogOtherData)
   const showAcuAdvancedDetails =
-    Boolean(advancedOther.acu_logical_request_id) ||
-    acuRoute?.billing_multiplier != null
+    showAcuInternalDetails &&
+    (Boolean(advancedOther.acu_logical_request_id) ||
+      acuRoute?.billing_multiplier != null)
   const typeConfig = getLogTypeConfig(props.log.type)
   let judgeCostLabel = t('Judge Cost (CNY)')
   if (acuRoute?.judge_cost_status === 'estimated_blended') {
@@ -1131,13 +1138,15 @@ export function DetailsDialog(props: DetailsDialogProps) {
       bodyClassName='pr-2 sm:pr-4'
     >
       <div className='w-full max-w-full min-w-0 space-y-2.5 overflow-x-hidden py-1 sm:space-y-3'>
-        {props.open && other?.acu_logical_request_id && (
-          <ACUSessionTracePanel
-            identifier={other.acu_logical_request_id}
-            isAdmin={props.isAdmin}
-          />
-        )}
-        {!!other?.acu_related_events?.length && (
+        {showAcuInternalDetails &&
+          props.open &&
+          other?.acu_logical_request_id && (
+            <ACUSessionTracePanel
+              identifier={other.acu_logical_request_id}
+              isAdmin={props.isAdmin}
+            />
+          )}
+        {showAcuInternalDetails && !!other?.acu_related_events?.length && (
           <details className='border-border/70 min-w-0 rounded-md border p-3 text-xs'>
             <summary className='cursor-pointer font-medium'>
               {t('Related request events')} (
@@ -1163,7 +1172,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
             </div>
           </details>
         )}
-        {acuDecision && acuRoute && (
+        {showAcuInternalDetails && acuDecision && acuRoute && (
           <AcuDecisionVisualization
             route={acuDecision}
             breakdown={acuRoute}
@@ -2018,7 +2027,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
         )}
 
         {/* Tiered pricing breakdown (when billing_mode is tiered_expr) */}
-        {isTieredBilling && other?.expr_b64 && (
+        {showAcuInternalDetails && isTieredBilling && other?.expr_b64 && (
           <DetailSection label={t('Dynamic Pricing')}>
             <DynamicPricingBreakdown
               compact

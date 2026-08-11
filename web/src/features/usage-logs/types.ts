@@ -298,6 +298,7 @@ export interface LogOtherData {
   // ACU Router finalization fields. These describe the actual upstream route,
   // which can differ from the New API admission channel and requested model.
   acu_pending_finalize?: boolean
+  acu_billing_status?: string
   acu_logical_request_id?: string
   acu_report_idempotency_key?: string
   acu_related_events?: Array<{
