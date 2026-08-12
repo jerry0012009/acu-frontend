@@ -100,11 +100,14 @@ func Distribute() func(c *gin.Context) {
 						common.SetContextKey(c, constant.ContextKeyUsingGroup, usingGroup)
 					}
 				}
+				requiredChannelTag := service.RequiredPublicChannelTag(modelRequest.Model)
+				common.SetContextKey(c, constant.ContextKeyRequiredChannelTag, requiredChannelTag)
 
 				if preferredChannelID, found := service.GetPreferredChannelByAffinity(c, modelRequest.Model, usingGroup); found {
 					affinityUsable := false
 					preferred, err := model.CacheGetChannel(preferredChannelID)
 					if err == nil && preferred != nil && preferred.Status == common.ChannelStatusEnabled &&
+						(requiredChannelTag == "" || strings.EqualFold(strings.TrimSpace(preferred.GetTag()), requiredChannelTag)) &&
 						channelSupportsRequestPath(preferred, c.Request.URL.Path, modelRequest.Model) {
 						if usingGroup == "auto" {
 							userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
@@ -137,6 +140,7 @@ func Distribute() func(c *gin.Context) {
 						ModelName:   modelRequest.Model,
 						TokenGroup:  usingGroup,
 						RequestPath: c.Request.URL.Path,
+						RequiredTag: requiredChannelTag,
 						Retry:       common.GetPointer(0),
 					})
 					if err != nil {
