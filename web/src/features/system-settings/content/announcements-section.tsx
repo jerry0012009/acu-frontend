@@ -159,12 +159,14 @@ export function AnnouncementsSection({
 
   const handleToggleEnabled = async (checked: boolean) => {
     try {
-      await updateOption.mutateAsync({
+      const result = await updateOption.mutateAsync({
         key: 'console_setting.announcements_enabled',
         value: checked,
       })
-      setIsEnabled(checked)
-      toast.success(t('Setting saved'))
+      if (result.success) {
+        setIsEnabled(checked)
+        toast.success(t('Setting saved'))
+      }
     } catch {
       toast.error(t('Failed to update setting'))
     }
@@ -249,12 +251,14 @@ export function AnnouncementsSection({
 
   const handleSaveAll = async () => {
     try {
-      await updateOption.mutateAsync({
+      const result = await updateOption.mutateAsync({
         key: 'console_setting.announcements',
         value: JSON.stringify(announcements),
       })
-      setHasChanges(false)
-      toast.success(t('Announcements saved successfully'))
+      if (result.success) {
+        setHasChanges(false)
+        toast.success(t('Announcements saved successfully'))
+      }
     } catch {
       toast.error(t('Failed to save announcements'))
     }
