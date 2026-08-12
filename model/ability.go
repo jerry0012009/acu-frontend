@@ -58,14 +58,19 @@ func GetAllEnableAbilities() []Ability {
 	return abilities
 }
 
-func getPriority(group string, model string, retry int) (int, error) {
+func getPriority(group string, model string, retry int, requiredTag string) (int, error) {
 
 	var priorities []int
-	err := DB.Model(&Ability{}).
-		Select("DISTINCT(priority)").
-		Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, model, true).
-		Order("priority DESC").              // 按优先级降序排序
-		Pluck("priority", &priorities).Error // Pluck用于将查询的结果直接扫描到一个切片中
+	query := DB.Model(&Ability{}).
+		Select("DISTINCT(abilities.priority)").
+		Where("abilities."+commonGroupCol+" = ? and abilities.model = ? and abilities.enabled = ?", group, model, true)
+	if strings.TrimSpace(requiredTag) != "" {
+		query = query.Joins("JOIN channels ON channels.id = abilities.channel_id").
+			Where("LOWER(COALESCE(channels.tag, '')) = ?", strings.ToLower(strings.TrimSpace(requiredTag)))
+	}
+	err := query.
+		Order("abilities.priority DESC").
+		Pluck("abilities.priority", &priorities).Error
 
 	if err != nil {
 		// 处理错误
@@ -88,33 +93,47 @@ func getPriority(group string, model string, retry int) (int, error) {
 	return priorityToUse, nil
 }
 
-func getChannelQuery(group string, model string, retry int) (*gorm.DB, error) {
-	maxPrioritySubQuery := DB.Model(&Ability{}).Select("MAX(priority)").Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, model, true)
-	channelQuery := DB.Where(commonGroupCol+" = ? and model = ? and enabled = ? and priority = (?)", group, model, true, maxPrioritySubQuery)
-	if retry != 0 {
-		priority, err := getPriority(group, model, retry)
+func getChannelQuery(group string, model string, retry int, requiredTag string) (*gorm.DB, error) {
+	channelQuery := DB.Model(&Ability{}).
+		Where("abilities."+commonGroupCol+" = ? and abilities.model = ? and abilities.enabled = ?", group, model, true)
+	if strings.TrimSpace(requiredTag) != "" {
+		tag := strings.ToLower(strings.TrimSpace(requiredTag))
+		channelQuery = channelQuery.Joins("JOIN channels ON channels.id = abilities.channel_id").
+			Where("LOWER(COALESCE(channels.tag, '')) = ?", tag)
+	}
+	if retry == 0 {
+		maxPrioritySubQuery := DB.Model(&Ability{}).
+			Select("MAX(abilities.priority)").
+			Where("abilities."+commonGroupCol+" = ? and abilities.model = ? and abilities.enabled = ?", group, model, true)
+		if strings.TrimSpace(requiredTag) != "" {
+			maxPrioritySubQuery = maxPrioritySubQuery.
+				Joins("JOIN channels ON channels.id = abilities.channel_id").
+				Where("LOWER(COALESCE(channels.tag, '')) = ?", strings.ToLower(strings.TrimSpace(requiredTag)))
+		}
+		channelQuery = channelQuery.Where("abilities.priority = (?)", maxPrioritySubQuery)
+	} else {
+		priority, err := getPriority(group, model, retry, requiredTag)
 		if err != nil {
 			return nil, err
-		} else {
-			channelQuery = DB.Where(commonGroupCol+" = ? and model = ? and enabled = ? and priority = ?", group, model, true, priority)
 		}
+		channelQuery = channelQuery.Where("abilities.priority = ?", priority)
 	}
 
 	return channelQuery, nil
 }
 
-func GetChannel(group string, model string, retry int, requestPath string) (*Channel, error) {
+func GetChannel(group string, model string, retry int, requestPath string, requiredTag string) (*Channel, error) {
 	var abilities []Ability
 
 	var err error = nil
-	channelQuery, err := getChannelQuery(group, model, retry)
+	channelQuery, err := getChannelQuery(group, model, retry, requiredTag)
 	if err != nil {
 		return nil, err
 	}
 	if common.UsingMainDatabase(common.DatabaseTypeSQLite) || common.UsingMainDatabase(common.DatabaseTypePostgreSQL) {
-		err = channelQuery.Order("weight DESC").Find(&abilities).Error
+		err = channelQuery.Order("abilities.weight DESC").Find(&abilities).Error
 	} else {
-		err = channelQuery.Order("weight DESC").Find(&abilities).Error
+		err = channelQuery.Order("abilities.weight DESC").Find(&abilities).Error
 	}
 	if err != nil {
 		return nil, err

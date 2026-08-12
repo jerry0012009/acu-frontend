@@ -35,7 +35,7 @@ export function executionPresetLabels(series: ACUExecutionPresetSeries) {
 export function executionPresetPricingCosts(
   series: ACUExecutionPresetSeries,
   baseModel: PricingModel | undefined,
-  mode: PricingDisplayMode,
+  _mode: PricingDisplayMode,
   inputTokens: number,
   difficulty: number
 ) {
@@ -51,9 +51,6 @@ export function executionPresetPricingCosts(
     point,
     payableCost,
     referenceCost,
-    displayCost:
-      mode === 'reference_only'
-        ? (referenceCost ?? Number.POSITIVE_INFINITY)
-        : (payableCost ?? Number.POSITIVE_INFINITY),
+    displayCost: payableCost ?? Number.POSITIVE_INFINITY,
   }
 }

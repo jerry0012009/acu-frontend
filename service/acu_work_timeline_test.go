@@ -200,6 +200,24 @@ func TestBuildACUWorkTimelineShowsUnsettledWithoutCountingCollectedCharge(t *tes
 	assert.Equal(t, 1, result.Summary.UnsettledRequests)
 }
 
+func TestBuildACUWorkTimelineKeepsExplicitModelChargeWithoutDifficulty(t *testing.T) {
+	logs := []*model.Log{{
+		CreatedAt: 100, Type: model.LogTypeConsume, ModelName: "gpt-5.6-terra",
+		Other: `{"acu_billing_status":"finalized","acu_logical_request_id":"req-explicit-terra","user_charge_cny":"0.0125","acu_cost_breakdown":{"requested_model":"gpt-5.6-terra","canonical_model":"gpt-5.6-terra","judge_calls":0,"logical_request_status":"completed","user_charge_cny":"0.0125"}}`,
+	}}
+
+	result := buildACUWorkTimeline(logs, 0, 200)
+	require.Len(t, result.Items, 1)
+	item := result.Items[0]
+	assert.Equal(t, "gpt-5.6-terra", item.RequestedModel)
+	assert.Equal(t, "gpt-5.6-terra", item.ActualModel)
+	assert.False(t, item.JudgeCalled)
+	assert.False(t, item.DifficultyRecorded)
+	require.NotNil(t, item.UserChargeCNY)
+	assert.Equal(t, 0.0125, *item.UserChargeCNY)
+	assert.Equal(t, 0.0125, result.Summary.TotalUserChargeCNY)
+}
+
 func TestBuildACUWorkTimelinePreservesAllDetectedWorkPhases(t *testing.T) {
 	phases := []struct {
 		name   string

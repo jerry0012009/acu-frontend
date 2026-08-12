@@ -150,7 +150,13 @@ func TestFinalizeACUUsageChargesAndUpdatesLogExactlyOnce(t *testing.T) {
 	require.Equal(t, 500, logEntry.Quota)
 	require.Equal(t, 100, logEntry.PromptTokens)
 	require.Equal(t, 30, logEntry.CompletionTokens)
-	require.Contains(t, logEntry.Other, `"actual_channel":"closeai-anthropic-primary"`)
+	var logOther map[string]interface{}
+	require.NoError(t, common.Unmarshal([]byte(logEntry.Other), &logOther))
+	require.NotContains(t, logOther, "actual_channel")
+	adminInfo, ok := logOther["admin_info"].(map[string]interface{})
+	require.True(t, ok)
+	require.Equal(t, "closeai-anthropic-primary", adminInfo["actual_channel"])
+	require.Contains(t, logOther, "user_charge_cny")
 	data, err := model.GetQuotaDataByUserId(user.Id, 0, time.Now().Unix()+1)
 	require.NoError(t, err)
 	require.Len(t, data, 1)
@@ -227,4 +233,87 @@ func TestFinalizeACUUsageRecordsUnsettledSnapshotThenFinalizesSameLog(t *testing
 	assert.EqualValues(t, 1, logCount)
 	require.NoError(t, model.DB.First(&user, user.Id).Error)
 	assert.Equal(t, 1_500, user.Quota)
+}
+
+func TestFinalizeACUUsagePreservesDifficultyInPublicBreakdown(t *testing.T) {
+	setupACUFinalizeTestDB(t)
+	user := model.User{Username: "acu-difficulty-user", Password: "test-only-password", Status: common.UserStatusEnabled, Quota: 10_000}
+	require.NoError(t, model.DB.Create(&user).Error)
+	token := model.Token{UserId: user.Id, Key: "difficulty-token", Name: "acu-difficulty", Status: common.TokenStatusEnabled, RemainQuota: 10_000}
+	require.NoError(t, model.DB.Create(&token).Error)
+	require.NoError(t, model.LOG_DB.Create(&model.Log{
+		UserId: user.Id, TokenId: token.Id, RequestId: "req-difficulty", Type: model.LogTypeConsume,
+		ModelName: "acu-auto", Other: `{"acu_pending_finalize":true,"acu_cost_breakdown":{"difficulty":67,"difficultyScore":67,"requested_model":"acu-auto","canonical_model":"gpt-5.6-terra","billing_status":"finalized","logical_request_status":"completed","billing_multiplier":1.25,"actual_provider":"lucen","actual_channel":"cx006","actual_total_cash_cost_cny":"0.0100000000","user_charge_cny":"0.0125000000"}}`,
+	}).Error)
+	request := dto.ACUUsageFinalizeRequest{
+		ReportIdempotencyKey: "report-difficulty",
+		NewAPIUserID:         fmt.Sprint(user.Id),
+		NewAPITokenID:        fmt.Sprint(token.Id),
+		NewAPILogID:          "req-difficulty",
+		LogicalRequestID:     "logical-difficulty",
+		ActualModel:          "gpt-5.6-terra",
+		Provider:             "lucen",
+		Channel:              "cx006",
+		Usage:                dto.ACUUsage{InputTokens: 100, CachedInputTokens: 20, OutputTokens: 30, ReasoningTokens: 5},
+		JudgeCostUSD:         "0",
+		ProviderCostUSD:      "0.0010000000",
+		FailedBilledCostUSD:  "0",
+		FinalUserCostUSD:     "0.0010000000",
+		CostBreakdown:        map[string]interface{}{"requested_model": "acu-auto", "canonical_model": "gpt-5.6-terra"},
+	}
+
+	_, err := FinalizeACUUsage(request, "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+	require.NoError(t, err)
+	var logEntry model.Log
+	require.NoError(t, model.LOG_DB.Where("request_id = ?", "req-difficulty").First(&logEntry).Error)
+	var other map[string]interface{}
+	require.NoError(t, common.Unmarshal([]byte(logEntry.Other), &other))
+	breakdown, ok := other["acu_cost_breakdown"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, 67.0, breakdown["difficulty"])
+	assert.Equal(t, 67.0, breakdown["difficultyScore"])
+	assert.Equal(t, "acu-auto", breakdown["requested_model"])
+	assert.NotContains(t, breakdown, "actual_provider")
+}
+
+func TestFinalizeACUUsageKeepsExplicitModelWithoutInventingDifficulty(t *testing.T) {
+	setupACUFinalizeTestDB(t)
+	user := model.User{Username: "acu-explicit-user", Password: "test-only-password", Status: common.UserStatusEnabled, Quota: 10_000}
+	require.NoError(t, model.DB.Create(&user).Error)
+	token := model.Token{UserId: user.Id, Key: "explicit-token", Name: "acu-explicit", Status: common.TokenStatusEnabled, RemainQuota: 10_000}
+	require.NoError(t, model.DB.Create(&token).Error)
+	require.NoError(t, model.LOG_DB.Create(&model.Log{
+		UserId: user.Id, TokenId: token.Id, RequestId: "req-explicit", Type: model.LogTypeConsume,
+		ModelName: "gpt-5.6-terra", Other: `{"acu_pending_finalize":true,"acu_cost_breakdown":{"requested_model":"gpt-5.6-terra","canonical_model":"gpt-5.6-terra","logical_request_status":"completed","billing_status":"finalized","billing_multiplier":1.25,"actual_total_cash_cost_cny":"0.0100000000","user_charge_cny":"0.0125000000"}}`,
+	}).Error)
+	request := dto.ACUUsageFinalizeRequest{
+		ReportIdempotencyKey: "report-explicit",
+		NewAPIUserID:         fmt.Sprint(user.Id),
+		NewAPITokenID:        fmt.Sprint(token.Id),
+		NewAPILogID:          "req-explicit",
+		LogicalRequestID:     "logical-explicit",
+		ActualModel:          "gpt-5.6-terra",
+		Provider:             "lucen",
+		Channel:              "cx006",
+		Usage:                dto.ACUUsage{InputTokens: 100, CachedInputTokens: 20, OutputTokens: 30, ReasoningTokens: 5},
+		JudgeCostUSD:         "0",
+		ProviderCostUSD:      "0.0010000000",
+		FailedBilledCostUSD:  "0",
+		FinalUserCostUSD:     "0.0010000000",
+		CostBreakdown:        map[string]interface{}{"requested_model": "gpt-5.6-terra", "canonical_model": "gpt-5.6-terra"},
+	}
+
+	_, err := FinalizeACUUsage(request, "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
+	require.NoError(t, err)
+	var logEntry model.Log
+	require.NoError(t, model.LOG_DB.Where("request_id = ?", "req-explicit").First(&logEntry).Error)
+	var other map[string]interface{}
+	require.NoError(t, common.Unmarshal([]byte(logEntry.Other), &other))
+	breakdown, ok := other["acu_cost_breakdown"].(map[string]interface{})
+	require.True(t, ok)
+	_, hasDifficulty := breakdown["difficulty"]
+	assert.False(t, hasDifficulty)
+	_, hasDifficultyScore := breakdown["difficultyScore"]
+	assert.False(t, hasDifficultyScore)
+	assert.Equal(t, "gpt-5.6-terra", breakdown["requested_model"])
 }

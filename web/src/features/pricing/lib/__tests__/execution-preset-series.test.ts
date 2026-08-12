@@ -76,8 +76,8 @@ test('uses Router payable cost and base Luna reference pricing with adjusted out
     100_000,
     50
   )
-  assert.equal(referenceOnly.displayCost, 0.264)
-  assert.notEqual(referenceOnly.displayCost, referenceOnly.payableCost)
+  assert.equal(referenceOnly.displayCost, 0.2)
+  assert.equal(referenceOnly.displayCost, referenceOnly.payableCost)
 })
 
 test('does not hard-code the Luna Max output multiplier in Pricing code', () => {

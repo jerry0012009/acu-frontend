@@ -28,7 +28,7 @@ export function estimatedPricingCost(
 
 export function displayedPricingCost(
   model: PricingModel,
-  mode: PricingDisplayMode,
+  _mode: PricingDisplayMode,
   inputTokens: number,
   outputTokens: number,
   protocol: 'all' | 'responses' | 'messages' = 'all'
@@ -37,11 +37,10 @@ export function displayedPricingCost(
     protocol === 'all'
       ? model.payable
       : (model.payable_by_protocol?.[protocol] ?? model.payable)
-  const price = mode === 'reference_only' ? model.reference : protocolPrice
   return (
     estimatedPricingCost(
-      price?.input_cny_per_million,
-      price?.output_cny_per_million,
+      protocolPrice?.input_cny_per_million,
+      protocolPrice?.output_cny_per_million,
       inputTokens,
       outputTokens
     ) ?? Number.POSITIVE_INFINITY
@@ -89,8 +88,7 @@ export function buildPricingBarSeries(mode: PricingDisplayMode) {
     zIndex: 2,
     opacity: 1,
   }
-  if (mode === 'payable_only') return [payable]
-  if (mode === 'reference_only') return [reference]
+  if (mode === 'payable_only' || mode === 'reference_only') return [payable]
   return [reference, payable]
 }
 

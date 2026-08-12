@@ -220,6 +220,7 @@ export function ACUModelCurves(props: {
       inputTokens,
       outputTokens,
       props.displayMode,
+      pricingProtocol,
       sortMode,
     ]
   )
@@ -259,7 +260,8 @@ export function ACUModelCurves(props: {
           model,
           props.displayMode,
           inputTokens,
-          outputTokens
+          outputTokens,
+          pricingProtocol
         ),
       })),
       ...executionPresetSeries.map((preset) => ({
@@ -281,6 +283,7 @@ export function ACUModelCurves(props: {
       inputTokens,
       outputTokens,
       props.displayMode,
+      pricingProtocol,
     ]
   )
   const colorByModel = useMemo(
@@ -321,24 +324,15 @@ export function ACUModelCurves(props: {
           quality: point.estimatedQuality,
           qualityLower: point.estimatedQuality,
           qualityUpper: point.estimatedQuality,
-          cost:
-            props.displayMode === 'reference_only'
-              ? executionPresetPricingCosts(
-                  preset,
-                  canonicalModelById.get(preset.modelId),
-                  props.displayMode,
-                  inputTokens,
-                  point.difficulty
-                ).displayCost
-              : point.estimatedCallCost,
+          cost: point.estimatedCallCost,
         }))
       ),
     ],
     [
-      canonicalModelById,
       inputTokens,
       outputTokens,
       props.displayMode,
+      pricingProtocol,
       selectedModels,
       selectedPresets,
     ]
@@ -433,6 +427,7 @@ export function ACUModelCurves(props: {
       inputTokens,
       outputTokens,
       props.displayMode,
+      pricingProtocol,
       selectedModels,
       selectedPresets,
       sortMode,
@@ -685,7 +680,7 @@ export function ACUModelCurves(props: {
             title: { value: (datum: { modelName: string }) => datum.modelName },
             content: [
               {
-                key: t('Current platform estimate'),
+                key: t('Current routed estimate'),
                 value: (datum: PricingCostDatum) =>
                   datum.payableCost === undefined
                     ? '-'
@@ -1066,13 +1061,11 @@ export function ACUModelCurves(props: {
                 {t('Estimated execution cost (CNY)')}
               </div>
               <div className='text-muted-foreground flex items-center gap-3 text-[11px]'>
-                {props.displayMode !== 'reference_only' && (
-                  <span className='flex items-center gap-1'>
-                    <span className='bg-foreground inline-block h-2 w-3 rounded-[1px]' />
-                    {t('Current platform estimate')}
-                  </span>
-                )}
-                {props.displayMode !== 'payable_only' && (
+                <span className='flex items-center gap-1'>
+                  <span className='bg-foreground inline-block h-2 w-3 rounded-[1px]' />
+                  {t('Current routed estimate')}
+                </span>
+                {props.displayMode === 'comparison' && (
                   <span className='flex items-center gap-1'>
                     <span className='bg-foreground inline-block h-3 w-3 rounded-[1px] opacity-[0.16]' />
                     {t('Official or public reference')}
@@ -1103,7 +1096,7 @@ export function ACUModelCurves(props: {
             </div>
             <div className='text-muted-foreground mt-2 border-t pt-3 text-xs leading-relaxed'>
               {t(
-                'Solid bars show the current platform estimated payment; light bars show official or public market reference costs. Estimates use the input and output tokens above. Actual payment may change with route availability, network status, and price updates. Final billing prevails.'
+                'Solid bars show the current routed estimate. Light bars, when present, show official or public market reference costs. Estimates use the input and output tokens above. Route availability, network status, and price updates can change the final charge.'
               )}
             </div>
           </div>

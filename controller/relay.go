@@ -195,6 +195,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		TokenGroup:  relayInfo.TokenGroup,
 		ModelName:   relayInfo.OriginModelName,
 		RequestPath: c.Request.URL.Path,
+		RequiredTag: common.GetContextKeyString(c, constant.ContextKeyRequiredChannelTag),
 		Retry:       common.GetPointer(0),
 	}
 	relayInfo.RetryIndex = 0
@@ -547,6 +548,7 @@ func RelayTask(c *gin.Context) {
 		TokenGroup:  relayInfo.TokenGroup,
 		ModelName:   relayInfo.OriginModelName,
 		RequestPath: c.Request.URL.Path,
+		RequiredTag: common.GetContextKeyString(c, constant.ContextKeyRequiredChannelTag),
 		Retry:       common.GetPointer(0),
 	}
 

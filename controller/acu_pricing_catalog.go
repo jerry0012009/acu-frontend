@@ -36,7 +36,7 @@ func (price *acuCatalogPayable) public() *model.PricingPayable {
 		InputCNYPerMillion: price.InputCNYPerMillion, OutputCNYPerMillion: price.OutputCNYPerMillion,
 		CachedInputCNYPerMillion: price.CachedInputCNYPerMillion, Status: price.Status,
 		CacheWriteCNYPerMillion: price.CacheWriteCNYPerMillion,
-		PricingPolicyVersion: price.PricingPolicyVersion,
+		PricingPolicyVersion:    price.PricingPolicyVersion,
 	}
 }
 
@@ -64,33 +64,33 @@ func (price *acuCatalogReference) public() *model.PricingReference {
 }
 
 type acuPricingResponse struct {
-	ModelID                                string               `json:"modelId"`
-	DisplayName                            string               `json:"displayName"`
-	Role                                   string               `json:"role"`
-	InputPricePerMillion                   float64              `json:"inputPricePerMillion"`
-	OutputPricePerMillion                  float64              `json:"outputPricePerMillion"`
-	CachedInputPricePerMillion             float64              `json:"cachedInputPricePerMillion"`
-	EffectiveInputPriceCNYPerMillion       float64              `json:"effectiveInputPriceCnyPerMillion"`
-	EffectiveOutputPriceCNYPerMillion      float64              `json:"effectiveOutputPriceCnyPerMillion"`
-	EffectiveCachedInputPriceCNYPerMillion float64              `json:"effectiveCachedInputPriceCnyPerMillion"`
-	Payable                                *acuCatalogPayable   `json:"payable"`
+	ModelID                                string                        `json:"modelId"`
+	DisplayName                            string                        `json:"displayName"`
+	Role                                   string                        `json:"role"`
+	InputPricePerMillion                   float64                       `json:"inputPricePerMillion"`
+	OutputPricePerMillion                  float64                       `json:"outputPricePerMillion"`
+	CachedInputPricePerMillion             float64                       `json:"cachedInputPricePerMillion"`
+	EffectiveInputPriceCNYPerMillion       float64                       `json:"effectiveInputPriceCnyPerMillion"`
+	EffectiveOutputPriceCNYPerMillion      float64                       `json:"effectiveOutputPriceCnyPerMillion"`
+	EffectiveCachedInputPriceCNYPerMillion float64                       `json:"effectiveCachedInputPriceCnyPerMillion"`
+	Payable                                *acuCatalogPayable            `json:"payable"`
 	PayableByProtocol                      map[string]*acuCatalogPayable `json:"payableByProtocol"`
-	Reference                              *acuCatalogReference `json:"reference"`
-	CostCurrency                           string               `json:"costCurrency"`
-	CostSemantics                          string               `json:"costSemantics"`
-	EffectiveCostStatus                    string               `json:"effectiveCostStatus"`
-	CurveProfile                           string               `json:"curveProfile"`
-	ProfileConfidence                      string               `json:"profileConfidence"`
-	Curve                                  []acuCurvePoint      `json:"curve"`
-	Protocol                               string               `json:"protocol"`
-	ToolCall                               bool                 `json:"toolCall"`
-	Reasoning                              bool                 `json:"reasoning"`
-	ActiveInAcuAuto                        bool                 `json:"activeInAcuAuto"`
-	Status                                 string               `json:"status"`
-	HealthyChannelCount                    int                  `json:"healthyChannelCount"`
-	EffectiveCostStatuses                  []string             `json:"effectiveCostStatuses"`
-	CurrentlyEligible                      bool                 `json:"currentlyEligible"`
-	TemporarilyUnavailableReason           *string              `json:"temporarilyUnavailableReason"`
+	Reference                              *acuCatalogReference          `json:"reference"`
+	CostCurrency                           string                        `json:"costCurrency"`
+	CostSemantics                          string                        `json:"costSemantics"`
+	EffectiveCostStatus                    string                        `json:"effectiveCostStatus"`
+	CurveProfile                           string                        `json:"curveProfile"`
+	ProfileConfidence                      string                        `json:"profileConfidence"`
+	Curve                                  []acuCurvePoint               `json:"curve"`
+	Protocol                               string                        `json:"protocol"`
+	ToolCall                               bool                          `json:"toolCall"`
+	Reasoning                              bool                          `json:"reasoning"`
+	ActiveInAcuAuto                        bool                          `json:"activeInAcuAuto"`
+	Status                                 string                        `json:"status"`
+	HealthyChannelCount                    int                           `json:"healthyChannelCount"`
+	EffectiveCostStatuses                  []string                      `json:"effectiveCostStatuses"`
+	CurrentlyEligible                      bool                          `json:"currentlyEligible"`
+	TemporarilyUnavailableReason           *string                       `json:"temporarilyUnavailableReason"`
 }
 
 type acuCurvePoint = model.ACUPricingCurvePoint
@@ -154,6 +154,24 @@ func acuEndpointTypes(protocol string) []constant.EndpointType {
 	return result
 }
 
+func acuDisplayPayable(source acuPricingResponse) *acuCatalogPayable {
+	if source.Payable == nil {
+		return nil
+	}
+	protocol := strings.ToLower(strings.TrimSpace(source.Protocol))
+	switch {
+	case strings.Contains(protocol, "responses"):
+		if payable := source.PayableByProtocol["responses"]; payable != nil {
+			return payable
+		}
+	case strings.Contains(protocol, "messages"):
+		if payable := source.PayableByProtocol["messages"]; payable != nil {
+			return payable
+		}
+	}
+	return source.Payable
+}
+
 func overlayACUPricing(catalog *acuPricingCatalog, current []model.Pricing) []model.Pricing {
 	if catalog == nil {
 		return current
@@ -183,16 +201,10 @@ func overlayACUPricing(catalog *acuPricingCatalog, current []model.Pricing) []mo
 		item.DisplayName = source.DisplayName
 		item.Description = source.Role + " · " + source.Protocol + " · Tool Call · Reasoning · ACU Auto · " + source.Status
 		item.Tags = strings.Join([]string{source.Role, source.Protocol, "Tool Call", "Reasoning", "ACU Auto", source.Status}, ",")
-		displayPrice := source.Payable
-		if catalog.DisplayMode == "reference_only" {
-			if source.Reference != nil {
-				displayPrice = &acuCatalogPayable{
-					InputCNYPerMillion:       source.Reference.InputCNYPerMillion,
-					OutputCNYPerMillion:      source.Reference.OutputCNYPerMillion,
-					CachedInputCNYPerMillion: source.Reference.CachedInputCNYPerMillion,
-				}
-			}
-		}
+		// Public compatibility fields always represent the routed/payable
+		// estimate. Reference pricing remains comparison metadata only and
+		// must never flow back into a public ACU model's effective price.
+		displayPrice := acuDisplayPayable(source)
 		if displayPrice == nil {
 			continue
 		}
@@ -200,19 +212,18 @@ func overlayACUPricing(catalog *acuPricingCatalog, current []model.Pricing) []mo
 		item.ModelRatio = displayPrice.InputCNYPerMillion / 2
 		item.CompletionRatio = displayPrice.OutputCNYPerMillion / displayPrice.InputCNYPerMillion
 		cachePrice := displayPrice.CachedInputCNYPerMillion
-		if cachePrice == nil {
-			cachePrice = &displayPrice.InputCNYPerMillion
+		if cachePrice != nil {
+			cacheRatio := *cachePrice / displayPrice.InputCNYPerMillion
+			item.CacheRatio = &cacheRatio
+			item.CachedPricePerMillion = cachePrice
 		}
-		cacheRatio := *cachePrice / displayPrice.InputCNYPerMillion
-		item.CacheRatio = &cacheRatio
 		if displayPrice.CacheWriteCNYPerMillion != nil {
 			createCacheRatio := *displayPrice.CacheWriteCNYPerMillion / displayPrice.InputCNYPerMillion
 			item.CreateCacheRatio = &createCacheRatio
 		}
 		item.InputPricePerMillion = &displayPrice.InputCNYPerMillion
 		item.OutputPricePerMillion = &displayPrice.OutputCNYPerMillion
-		item.CachedPricePerMillion = cachePrice
-		item.Payable = source.Payable.public()
+		item.Payable = displayPrice.public()
 		item.PayableByProtocol = make(map[string]*model.PricingPayable, len(source.PayableByProtocol))
 		for protocol, payable := range source.PayableByProtocol {
 			item.PayableByProtocol[protocol] = payable.public()

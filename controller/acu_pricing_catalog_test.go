@@ -83,6 +83,7 @@ func TestOverlayACUPricingUsesDynamicAutoAndCatalogPrices(t *testing.T) {
 	require.Equal(t, 0.075/0.06, *got[1].CreateCacheRatio)
 	require.Equal(t, 0.06, got[1].PayableByProtocol["responses"].InputCNYPerMillion)
 	require.Equal(t, 0.12, got[1].PayableByProtocol["messages"].InputCNYPerMillion)
+	require.Equal(t, 0.006, *got[1].Payable.CachedInputCNYPerMillion)
 	require.Equal(t, 0.075, *got[1].PayableByProtocol["responses"].CacheWriteCNYPerMillion)
 	require.Equal(t, "acu-retail-v1", got[1].Payable.PricingPolicyVersion)
 	require.Equal(t, "CNY", got[1].PriceCurrency)
@@ -148,7 +149,7 @@ func TestCatalogCamelCasePricesProduceSerializablePublicPricing(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestOverlayACUPricingReferenceOnlyUsesReferenceWithoutChangingPayable(t *testing.T) {
+func TestOverlayACUPricingReferenceOnlyKeepsPayableAsPublicPrimaryPrice(t *testing.T) {
 	catalog := &acuPricingCatalog{
 		DisplayMode: "reference_only",
 		Auto:        acuPricingAuto{ModelID: "acu-auto"},
@@ -161,15 +162,41 @@ func TestOverlayACUPricingReferenceOnlyUsesReferenceWithoutChangingPayable(t *te
 
 	got := overlayACUPricing(catalog, nil)
 	require.Len(t, got, 2)
-	require.Equal(t, 7.2, *got[1].InputPricePerMillion)
-	require.Equal(t, 14.4, *got[1].OutputPricePerMillion)
+	require.Equal(t, 1.0, *got[1].InputPricePerMillion)
+	require.Equal(t, 2.0, *got[1].OutputPricePerMillion)
 	require.Equal(t, 1.0, got[1].Payable.InputCNYPerMillion)
+	require.Equal(t, 7.2, got[1].Reference.InputCNYPerMillion)
 
 	catalog.Responses[0].Reference = nil
 	withoutReference := overlayACUPricing(catalog, nil)
 	require.Len(t, withoutReference, 2)
 	require.Nil(t, withoutReference[1].Reference)
 	require.Equal(t, 1.0, withoutReference[1].Payable.InputCNYPerMillion)
+}
+
+func TestOverlayACUPricingDoesNotInventMissingCachePrice(t *testing.T) {
+	catalog := &acuPricingCatalog{
+		Auto: acuPricingAuto{ModelID: "acu-auto"},
+		Responses: []acuPricingResponse{{
+			ModelID: "gpt-cache-test",
+			Protocol: "Responses",
+			Payable: &acuCatalogPayable{InputCNYPerMillion: 1, OutputCNYPerMillion: 2},
+			PayableByProtocol: map[string]*acuCatalogPayable{
+				"responses": {
+					InputCNYPerMillion: 1, OutputCNYPerMillion: 2,
+					CachedInputCNYPerMillion: nil,
+					Status: "incomplete",
+				},
+			},
+		}},
+	}
+
+	got := overlayACUPricing(catalog, nil)
+	require.Len(t, got, 2)
+	require.Nil(t, got[1].Payable.CachedInputCNYPerMillion)
+	require.Nil(t, got[1].CachedPricePerMillion)
+	require.Nil(t, got[1].CacheRatio)
+	require.Equal(t, "incomplete", got[1].Payable.Status)
 }
 
 func TestACUCurveStatusCountsIncludesEmptyCategories(t *testing.T) {

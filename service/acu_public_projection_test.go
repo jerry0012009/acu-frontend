@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPublicACUWorkTimelineOmitsInternalCostsButKeepsUserCharges(t *testing.T) {
+func TestPublicACUWorkTimelineOmitsInternalRoutingAndCostsButKeepsFinalUserCharge(t *testing.T) {
 	timeline := dto.ACUWorkTimeline{
 		Summary: dto.ACUWorkTimelineSummary{
 			PlatformRetryCostCNY:   0.12,
@@ -17,6 +17,11 @@ func TestPublicACUWorkTimelineOmitsInternalCostsButKeepsUserCharges(t *testing.T
 			ActualTotalCostCNY:     0.5,
 		},
 		Items: []dto.ACUWorkTimelineItem{{
+			Provider:                  "lucen",
+			Channel:                   "lucen-cx006",
+			JudgeModel:                "mimo-v2.5-pro",
+			Difficulty:                67,
+			DifficultyRecorded:        true,
 			UserChargeCNY:             floatPointer(0.5),
 			ActualCashCostCNY:         floatPointer(0.4),
 			ActualCostCNY:             0.5,
@@ -27,8 +32,15 @@ func TestPublicACUWorkTimelineOmitsInternalCostsButKeepsUserCharges(t *testing.T
 			ProviderUserChargeCNY:     0.4,
 			JudgeUserChargeCNY:        0.1,
 			JudgeAttempts: []dto.ACUTimelineJudgeAttempt{{
-				EffectiveCostCNY: 0.02,
+				Provider: "lucen", ChannelID: "judge-channel",
+				ExecutionProfileID: "judge-profile", EffectiveCostCNY: 0.02,
 			}},
+			ProviderAttempts: []dto.ACUTimelineProviderAttempt{{
+				Provider: "lucen", Channel: "lucen-cx006", ExecutionProfileID: "provider-profile",
+			}},
+			JudgeProfileSelection: dto.ACUJudgeProfileSelection{
+				SelectedExecutionProfileID: "judge-profile",
+			},
 			TopCandidates: []dto.ACUTimelineCandidateSummary{{
 				EstimatedCallCost: 0.03,
 			}},
@@ -39,9 +51,14 @@ func TestPublicACUWorkTimelineOmitsInternalCostsButKeepsUserCharges(t *testing.T
 	require.NoError(t, err)
 	body := string(publicJSON)
 	require.Contains(t, body, `"userChargeCny":0.5`)
-	require.Contains(t, body, `"providerUserChargeCny":0.4`)
-	require.Contains(t, body, `"judgeUserChargeCny":0.1`)
+	require.Contains(t, body, `"difficulty":67`)
+	require.Contains(t, body, `"difficultyRecorded":true`)
 	for _, internalKey := range []string{
+		`"provider":"lucen"`,
+		`"channel":"lucen-cx006"`,
+		`"judgeModel":"mimo-v2.5-pro"`,
+		`"executionProfileId":"judge-profile"`,
+		`"executionProfileId":"provider-profile"`,
 		`"actualCashCostCny"`,
 		`"actualCostCny"`,
 		`"judgeCostCny"`,
@@ -50,6 +67,8 @@ func TestPublicACUWorkTimelineOmitsInternalCostsButKeepsUserCharges(t *testing.T
 		`"failedJudgeAttemptCostCny"`,
 		`"effectiveCostCny"`,
 		`"estimatedCallCost"`,
+		`"providerUserChargeCny":0.4`,
+		`"judgeUserChargeCny":0.1`,
 		`"platformRetryCostCny"`,
 		`"totalActualCashCostCny"`,
 		`"actualTotalCostCny"`,

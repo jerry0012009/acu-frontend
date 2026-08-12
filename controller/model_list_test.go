@@ -392,6 +392,60 @@ func TestListModelsUsesAdvancedCustomEndpointTypesFromPricingCache(t *testing.T)
 	}, payload.Data[0].SupportedEndpointTypes)
 }
 
+func TestListModelsExposesOnlyPublicACUCanonicalModels(t *testing.T) {
+	withSelfUseModeDisabled(t)
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&model.User{
+		Id:       1004,
+		Username: "acu-model-discovery-user",
+		Password: "password",
+		Group:    "default",
+		Status:   common.UserStatusEnabled,
+	}).Error)
+	publicModels := []string{
+		"acu-auto",
+		"gpt-5.6-sol",
+		"gpt-5.6-terra",
+		"gpt-5.6-luna",
+	}
+	acuTag := constant.ChannelTagACURouter
+	for index, modelName := range publicModels {
+		channel := &model.Channel{
+			Id:     801 + index,
+			Type:   constant.ChannelTypeOpenAI,
+			Key:    "acu-router-key",
+			Status: common.ChannelStatusEnabled,
+			Name:   "acu-router-channel",
+			Group:  "default",
+			Models: modelName,
+			Tag:    &acuTag,
+		}
+		require.NoError(t, db.Create(channel).Error)
+		require.NoError(t, db.Create(&model.Ability{
+			Group: "default", Model: modelName, ChannelId: 801 + index, Enabled: true,
+		}).Error)
+	}
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	ctx.Set("id", 1004)
+	ListModels(ctx, constant.ChannelTypeOpenAI)
+
+	ids := decodeListModelsResponse(t, recorder)
+	for _, modelName := range publicModels {
+		require.Contains(t, ids, modelName)
+	}
+	for _, internalModel := range []string{
+		"lucen-cx006-gpt-5.6-terra",
+		"blackai-gpt-5.6-sol",
+		"closeai-gpt-5.6-luna",
+		"execution-profile:terra-primary",
+	} {
+		require.NotContains(t, ids, internalModel)
+	}
+}
+
 func TestListModelsTokenLimitIncludesTieredBillingModel(t *testing.T) {
 	withSelfUseModeDisabled(t)
 	withTieredBillingConfig(t, map[string]string{

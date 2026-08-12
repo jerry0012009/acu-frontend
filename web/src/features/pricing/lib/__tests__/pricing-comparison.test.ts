@@ -64,10 +64,10 @@ test('payable_only renders one payable series', () => {
   )
 })
 
-test('reference_only renders one reference series', () => {
+test('reference_only keeps one routed payable series', () => {
   assert.deepEqual(
     buildPricingBarSeries('reference_only').map((series) => series.id),
-    ['reference-price']
+    ['payable-price']
   )
 })
 
@@ -148,7 +148,7 @@ test('comparison spec restores the old horizontal axes and overlays both series'
   )
 })
 
-test('single-series modes preserve the old horizontal bar structure', () => {
+test('single-series modes preserve routed payable pricing', () => {
   for (const mode of ['payable_only', 'reference_only'] as const) {
     const spec = buildPricingCostSpec(mode, [], specOptions)
     assert.equal(spec.direction, 'horizontal')
@@ -164,7 +164,7 @@ test('single-series modes preserve the old horizontal bar structure', () => {
   )
   assert.equal(
     buildPricingCostSpec('reference_only', [], specOptions).series[0].xField,
-    'referenceCost'
+    'payableCost'
   )
 })
 
@@ -183,12 +183,11 @@ test('comparison keeps the payable bar when a model has no reference', () => {
   assert.equal(spec.series[1].xField, 'payableCost')
 })
 
-test('comparison sorts by payable and reference_only sorts by reference', () => {
+test('all display modes sort by routed payable estimates', () => {
   assert.equal(displayedPricingCost(model, 'comparison', 1_000_000, 100_000), 3)
-  assert.ok(
-    Math.abs(
-      displayedPricingCost(model, 'reference_only', 1_000_000, 100_000) - 8.64
-    ) < 1e-12
+  assert.equal(
+    displayedPricingCost(model, 'reference_only', 1_000_000, 100_000),
+    3
   )
 })
 

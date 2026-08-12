@@ -282,41 +282,67 @@ func FinalizeACUConsumeLog(record *ACUUsageFinalize) error {
 	if err != nil {
 		return err
 	}
-	other := map[string]interface{}{
-		"acu_pending_finalize":                    false,
-		"acu_billing_status":                      "finalized",
-		"acu_logical_request_id":                  record.LogicalRequestId,
-		"acu_report_idempotency_key":              record.ReportIdempotencyKey,
-		"actual_provider":                         record.Provider,
-		"actual_channel":                          record.Channel,
-		"cached_input_tokens":                     record.CachedInputTokens,
-		"reasoning_tokens":                        record.ReasoningTokens,
-		"judge_cost_usd":                          record.JudgeCostUsd,
-		"provider_cost_usd":                       record.ProviderCostUsd,
-		"failed_billed_cost_usd":                  record.FailedBilledCostUsd,
-		"final_user_cost_usd":                     record.FinalUserCostUsd,
-		"nominal_provider_cost_usd":               record.NominalProviderCostUsd,
-		"provider_balance_charge":                 record.ProviderBalanceCharge,
-		"provider_balance_currency":               record.ProviderBalanceCurrency,
-		"provider_credit_cash_cost_cny":           record.ProviderCreditCashCostCny,
-		"effective_provider_cash_cost_cny":        record.EffectiveProviderCashCostCny,
-		"judge_cash_cost_cny":                     record.JudgeCashCostCny,
-		"judge_input_tokens":                      record.JudgeInputTokens,
-		"judge_output_tokens":                     record.JudgeOutputTokens,
-		"judge_official_payg_equivalent_cost":     record.JudgeOfficialPaygEquivalentCost,
-		"judge_cost_currency":                     record.JudgeCostCurrency,
-		"judge_cost_status":                       record.JudgeCostStatus,
-		"judge_cost_source":                       record.JudgeCostSource,
-		"judge_provider":                          record.JudgeProvider,
-		"judge_model":                             record.JudgeModel,
-		"failed_attempt_cash_cost_cny":            record.FailedAttemptCashCostCny,
-		"actual_total_cash_cost_cny":              record.ActualTotalCashCostCny,
-		"user_charge_cny":                         record.UserChargeCny,
-		"counterfactual_quality_ceiling_cost_cny": record.CounterfactualQualityCeilingCostCny,
+	var existing Log
+	err = LOG_DB.Where(
+		"user_id = ? AND token_id = ? AND request_id = ? AND type = ?",
+		record.UserId, record.TokenId, record.LogId, LogTypeConsume,
+	).First(&existing).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
 	}
-	var breakdown interface{}
-	if err := common.UnmarshalJsonStr(record.CostBreakdownJson, &breakdown); err == nil {
-		other["acu_cost_breakdown"] = breakdown
+	input := ACUUsageChargeInput{
+		ReportIdempotencyKey:                record.ReportIdempotencyKey,
+		LogicalRequestId:                    record.LogicalRequestId,
+		ActualModel:                         record.ActualModel,
+		Provider:                            record.Provider,
+		Channel:                             record.Channel,
+		InputTokens:                         record.InputTokens,
+		CachedInputTokens:                   record.CachedInputTokens,
+		OutputTokens:                        record.OutputTokens,
+		ReasoningTokens:                     record.ReasoningTokens,
+		JudgeCostUsd:                        record.JudgeCostUsd,
+		ProviderCostUsd:                     record.ProviderCostUsd,
+		FailedBilledCostUsd:                 record.FailedBilledCostUsd,
+		FinalUserCostUsd:                    record.FinalUserCostUsd,
+		NominalProviderCostUsd:              record.NominalProviderCostUsd,
+		ProviderBalanceCharge:               record.ProviderBalanceCharge,
+		ProviderBalanceCurrency:             record.ProviderBalanceCurrency,
+		ProviderCreditCashCostCny:           record.ProviderCreditCashCostCny,
+		EffectiveProviderCashCostCny:        record.EffectiveProviderCashCostCny,
+		JudgeCashCostCny:                    record.JudgeCashCostCny,
+		JudgeInputTokens:                    record.JudgeInputTokens,
+		JudgeOutputTokens:                   record.JudgeOutputTokens,
+		JudgeOfficialPaygEquivalentCost:     record.JudgeOfficialPaygEquivalentCost,
+		JudgeCostCurrency:                   record.JudgeCostCurrency,
+		JudgeCostStatus:                     record.JudgeCostStatus,
+		JudgeCostSource:                     record.JudgeCostSource,
+		JudgeProvider:                       record.JudgeProvider,
+		JudgeModel:                          record.JudgeModel,
+		FailedAttemptCashCostCny:            record.FailedAttemptCashCostCny,
+		ActualTotalCashCostCny:              record.ActualTotalCashCostCny,
+		UserChargeCny:                       record.UserChargeCny,
+		CounterfactualQualityCeilingCostCny: record.CounterfactualQualityCeilingCostCny,
+		CostBreakdownJson:                   record.CostBreakdownJson,
+	}
+	other := acuUsageLogOther(input, false, "finalized", "")
+	if err == nil && existing.Other != "" {
+		existingOther := map[string]interface{}{}
+		if common.UnmarshalJsonStr(existing.Other, &existingOther) == nil {
+			existingBreakdown, _ := existingOther["acu_cost_breakdown"].(map[string]interface{})
+			finalBreakdown, _ := other["acu_cost_breakdown"].(map[string]interface{})
+			if finalBreakdown == nil {
+				finalBreakdown = map[string]interface{}{}
+			}
+			for _, key := range acuPublicRoutingTelemetryKeys {
+				if _, exists := finalBreakdown[key]; exists {
+					continue
+				}
+				if value, exists := existingBreakdown[key]; exists {
+					finalBreakdown[key] = value
+				}
+			}
+			other["acu_cost_breakdown"] = finalBreakdown
+		}
 	}
 	updates := Log{
 		UserId:           record.UserId,
@@ -333,13 +359,8 @@ func FinalizeACUConsumeLog(record *ACUUsageFinalize) error {
 		RequestId:        record.LogId,
 		Other:            common.MapToJsonStr(other),
 	}
-	var existing Log
-	err = LOG_DB.Where("user_id = ? AND token_id = ? AND request_id = ? AND type = ?", record.UserId, record.TokenId, record.LogId, LogTypeConsume).First(&existing).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return createLog(&updates)
-	}
-	if err != nil {
-		return err
 	}
 	return LOG_DB.Model(&Log{}).Where("id = ?", existing.Id).Updates(map[string]interface{}{
 		"content":           updates.Content,
@@ -369,45 +390,90 @@ func RecordACUUnsettledUsage(input ACUUsageChargeInput) error {
 	return updateACUUsageLog(existing.Id, input, "ACU usage pending settlement", 0, other)
 }
 
+var acuPublicRoutingTelemetryKeys = []string{
+	"requested_model",
+	"canonical_model",
+	"logical_request_status",
+	"protocol",
+	"session_id",
+	"task_id",
+	"segment_id",
+	"judge_calls",
+	"judge_reused",
+	"judge_trigger",
+	"route_refresh_reason",
+	"routed_by_acu",
+	"mode",
+	"difficulty",
+	"difficultyScore",
+	"candidate_count",
+	"selected_model",
+	"route_reason",
+	"reasoning_effort",
+	"routing_preference",
+	"phase",
+	"end_to_end_latency_ms",
+	"judge_latency_ms",
+	"provider_latency_ms",
+	"usageSource",
+	"billing_status",
+}
+
 func acuUsageLogOther(input ACUUsageChargeInput, pending bool, status, errorCode string) map[string]interface{} {
 	other := map[string]interface{}{
-		"acu_pending_finalize":                    pending,
-		"acu_billing_status":                      status,
-		"acu_logical_request_id":                  input.LogicalRequestId,
-		"acu_report_idempotency_key":              input.ReportIdempotencyKey,
-		"actual_provider":                         input.Provider,
-		"actual_channel":                          input.Channel,
-		"cached_input_tokens":                     input.CachedInputTokens,
-		"reasoning_tokens":                        input.ReasoningTokens,
-		"judge_cost_usd":                          input.JudgeCostUsd,
-		"provider_cost_usd":                       input.ProviderCostUsd,
-		"failed_billed_cost_usd":                  input.FailedBilledCostUsd,
-		"final_user_cost_usd":                     input.FinalUserCostUsd,
-		"nominal_provider_cost_usd":               input.NominalProviderCostUsd,
-		"provider_balance_charge":                 input.ProviderBalanceCharge,
-		"provider_balance_currency":               input.ProviderBalanceCurrency,
-		"provider_credit_cash_cost_cny":           input.ProviderCreditCashCostCny,
-		"effective_provider_cash_cost_cny":        input.EffectiveProviderCashCostCny,
-		"judge_cash_cost_cny":                     input.JudgeCashCostCny,
-		"judge_input_tokens":                      input.JudgeInputTokens,
-		"judge_output_tokens":                     input.JudgeOutputTokens,
-		"judge_official_payg_equivalent_cost":     input.JudgeOfficialPaygEquivalentCost,
-		"judge_cost_currency":                     input.JudgeCostCurrency,
-		"judge_cost_status":                       input.JudgeCostStatus,
-		"judge_cost_source":                       input.JudgeCostSource,
-		"judge_provider":                          input.JudgeProvider,
-		"judge_model":                             input.JudgeModel,
-		"failed_attempt_cash_cost_cny":            input.FailedAttemptCashCostCny,
-		"actual_total_cash_cost_cny":              input.ActualTotalCashCostCny,
-		"user_charge_cny":                         input.UserChargeCny,
-		"counterfactual_quality_ceiling_cost_cny": input.CounterfactualQualityCeilingCostCny,
+		"acu_pending_finalize":       pending,
+		"acu_billing_status":         status,
+		"acu_logical_request_id":     input.LogicalRequestId,
+		"acu_report_idempotency_key": input.ReportIdempotencyKey,
+		"cached_input_tokens":        input.CachedInputTokens,
+		"reasoning_tokens":           input.ReasoningTokens,
+		"user_charge_cny":            input.UserChargeCny,
 	}
 	if errorCode != "" {
 		other["acu_finalize_error_code"] = errorCode
 	}
-	var breakdown interface{}
+	var breakdown map[string]interface{}
 	if common.UnmarshalJsonStr(input.CostBreakdownJson, &breakdown) == nil {
-		other["acu_cost_breakdown"] = breakdown
+		publicBreakdown := map[string]interface{}{}
+		for _, key := range acuPublicRoutingTelemetryKeys {
+			if value, exists := breakdown[key]; exists {
+				publicBreakdown[key] = value
+			}
+		}
+		publicBreakdown["user_charge_cny"] = input.UserChargeCny
+		if value, exists := breakdown["costCompletenessStatus"]; exists {
+			publicBreakdown["cost_status"] = value
+		}
+		if value, exists := breakdown["billing_multiplier"]; exists {
+			publicBreakdown["channel_multiplier"] = value
+		}
+		other["acu_cost_breakdown"] = publicBreakdown
+		other["admin_info"] = map[string]interface{}{
+			"acu_cost_breakdown":                      breakdown,
+			"actual_provider":                         input.Provider,
+			"actual_channel":                          input.Channel,
+			"judge_cost_usd":                          input.JudgeCostUsd,
+			"provider_cost_usd":                       input.ProviderCostUsd,
+			"failed_billed_cost_usd":                  input.FailedBilledCostUsd,
+			"final_user_cost_usd":                     input.FinalUserCostUsd,
+			"nominal_provider_cost_usd":               input.NominalProviderCostUsd,
+			"provider_balance_charge":                 input.ProviderBalanceCharge,
+			"provider_balance_currency":               input.ProviderBalanceCurrency,
+			"provider_credit_cash_cost_cny":           input.ProviderCreditCashCostCny,
+			"effective_provider_cash_cost_cny":        input.EffectiveProviderCashCostCny,
+			"judge_cash_cost_cny":                     input.JudgeCashCostCny,
+			"judge_input_tokens":                      input.JudgeInputTokens,
+			"judge_output_tokens":                     input.JudgeOutputTokens,
+			"judge_official_payg_equivalent_cost":     input.JudgeOfficialPaygEquivalentCost,
+			"judge_cost_currency":                     input.JudgeCostCurrency,
+			"judge_cost_status":                       input.JudgeCostStatus,
+			"judge_cost_source":                       input.JudgeCostSource,
+			"judge_provider":                          input.JudgeProvider,
+			"judge_model":                             input.JudgeModel,
+			"failed_attempt_cash_cost_cny":            input.FailedAttemptCashCostCny,
+			"actual_total_cash_cost_cny":              input.ActualTotalCashCostCny,
+			"counterfactual_quality_ceiling_cost_cny": input.CounterfactualQualityCeilingCostCny,
+		}
 	}
 	return other
 }

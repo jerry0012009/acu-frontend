@@ -188,21 +188,11 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
       </span>
     )
   } else if (props.model.payable) {
-    const displayed =
-      props.pricingDisplayMode === 'reference_only'
-        ? props.model.reference
-        : props.model.payable
-    let label = t('Current estimate')
-    if (props.pricingDisplayMode === 'reference_only') {
-      label =
-        props.model.reference?.source_type === 'official'
-          ? t('Official reference')
-          : t('Public reference')
-    }
-    priceSummary = displayed ? (
+    const displayed = props.model.payable
+    priceSummary = (
       <div className='flex min-w-0 flex-col gap-1'>
         <div className='text-muted-foreground flex items-center gap-1 text-xs font-medium'>
-          {label}
+          {t('Current routed estimate')}
           <ACUPricingTooltip
             payable={props.model.payable}
             reference={props.model.reference}
@@ -231,10 +221,6 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
           )}
         </div>
       </div>
-    ) : (
-      <span className='text-muted-foreground'>
-        {t('No comparable public reference price')}
-      </span>
     )
   } else if (dynamicSummary) {
     if (dynamicSummary.isSpecialExpression) {

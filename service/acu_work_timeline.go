@@ -274,15 +274,20 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 func PublicACUWorkTimeline(timeline dto.ACUWorkTimeline) dto.ACUWorkTimeline {
 	for index := range timeline.Items {
 		item := &timeline.Items[index]
+		item.Provider = ""
+		item.Channel = ""
+		item.JudgeModel = ""
 		item.ActualCashCostCNY = nil
 		item.ActualCostCNY = 0
 		item.JudgeCostCNY = 0
 		item.ProviderCostCNY = 0
 		item.FailedAttemptCostCNY = 0
 		item.FailedJudgeAttemptCostCNY = 0
-		for attemptIndex := range item.JudgeAttempts {
-			item.JudgeAttempts[attemptIndex].EffectiveCostCNY = 0
-		}
+		item.ProviderUserChargeCNY = 0
+		item.JudgeUserChargeCNY = 0
+		item.JudgeProfileSelection = dto.ACUJudgeProfileSelection{}
+		item.JudgeAttempts = nil
+		item.ProviderAttempts = nil
 		for candidateIndex := range item.TopCandidates {
 			item.TopCandidates[candidateIndex].EstimatedCallCost = 0
 		}
