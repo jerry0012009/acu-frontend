@@ -52,3 +52,16 @@ test('timeline and trace cache keys are scoped by target user and selection rese
     /<ACUSessionTracePanel[\s\S]*targetUserId=\{targetUserId\}/
   )
 })
+
+test('timeline zero state identifies direct model calls and uses an empty zero range', () => {
+  assert.match(
+    timelineSource,
+    /supplyItems\.length > 0 \? visibleOrderRange\.start : 0/
+  )
+  assert.match(timelineSource, /items\.length === 0/)
+  assert.match(timelineSource, /No ACU Router requests in the current range\./)
+  assert.match(
+    timelineSource,
+    /Direct model calls do not create routing traces or Session Trace\./
+  )
+})

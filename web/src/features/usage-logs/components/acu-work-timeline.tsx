@@ -770,9 +770,26 @@ export function ACUWorkTimeline() {
     [t('Unsettled requests'), summary.unsettledRequests, Coins, ''],
   ] as const
 
+  const visibleRequestStart =
+    supplyItems.length > 0 ? visibleOrderRange.start : 0
+  const visibleRequestEnd =
+    supplyItems.length > 0
+      ? Math.min(visibleOrderRange.end, supplyItems.length)
+      : 0
   let chartContent = (
     <div className='text-muted-foreground rounded border p-8 text-center text-sm'>
-      {t('No ACU requests in the current range.')}
+      {items.length === 0 ? (
+        <>
+          <div>{t('No ACU Router requests in the current range.')}</div>
+          <div className='mt-1 text-xs'>
+            {t(
+              'Direct model calls do not create routing traces or Session Trace. Use acu-auto to enter ACU routing.'
+            )}
+          </div>
+        </>
+      ) : (
+        t('No route steps match the current filters.')
+      )}
     </div>
   )
   if (query.isLoading || !themeReady) {
@@ -974,11 +991,8 @@ export function ACUWorkTimeline() {
       <div className='text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs'>
         <span>
           {t('Visible requests #{{start}}–#{{end}} of {{total}}', {
-            start: visibleOrderRange.start,
-            end: Math.min(
-              visibleOrderRange.end,
-              Math.max(1, supplyItems.length)
-            ),
+            start: visibleRequestStart,
+            end: visibleRequestEnd,
             total: supplyItems.length,
           })}
         </span>

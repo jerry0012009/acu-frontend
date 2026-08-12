@@ -5373,6 +5373,8 @@
     "View model supply availability, automatic recovery status, and verified inventory.": "查看模型供应通道的可用性、自动恢复状态和已验证库存。",
     "Event Timeline": "事件时间线",
     "View production requests, channel status, automatic Probes, and recovery progress.": "查看生产请求、通道状态、自动探针和恢复过程。",
+    "No ACU Router requests in the current range.": "当前时间范围内没有 ACU Router 请求。",
+    "Direct model calls do not create routing traces or Session Trace. Use acu-auto to enter ACU routing.": "直接指定具体模型的调用不会生成路由轨迹或 Session Trace；只有使用 acu-auto 的调用才会进入 ACU 路由。",
     "All protocols": "全部协议",
     "OpenAI Responses (Codex)": "OpenAI Responses（Codex）",
     "Anthropic Messages (Claude protocol)": "Anthropic Messages（Claude 协议）",

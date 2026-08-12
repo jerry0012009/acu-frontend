@@ -5356,6 +5356,8 @@
     "View model supply availability, automatic recovery status, and verified inventory.": "View model supply availability, automatic recovery status, and verified inventory.",
     "Event Timeline": "Event Timeline",
     "View production requests, channel status, automatic Probes, and recovery progress.": "View production requests, channel status, automatic Probes, and recovery progress.",
+    "No ACU Router requests in the current range.": "No ACU Router requests in the current range.",
+    "Direct model calls do not create routing traces or Session Trace. Use acu-auto to enter ACU routing.": "Direct model calls do not create routing traces or Session Trace. Use acu-auto to enter ACU routing.",
     "All protocols": "All protocols",
     "OpenAI Responses (Codex)": "OpenAI Responses (Codex)",
     "Anthropic Messages (Claude protocol)": "Anthropic Messages (Claude protocol)",
