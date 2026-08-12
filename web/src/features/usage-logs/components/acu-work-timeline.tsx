@@ -18,6 +18,7 @@ import {
   Route,
   Scale,
   Search,
+  X,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -36,9 +37,13 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { publicChannelAlias } from '@/features/acu/lib/public-channel-alias'
+import { ROLE } from '@/lib/roles'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/auth-store'
 
+import { searchUsers } from '../../users/api'
+import type { User } from '../../users/types'
 import { getACUWorkTimeline, type ACUWorkTimelineItem } from '../api'
 import {
   ACU_TIMELINE_INSIDE_ZOOM_ID,
@@ -435,8 +440,18 @@ function TimelineStep(props: {
   return <StepDetailContent {...props} onTrace={() => {}} showDetails={false} />
 }
 
+type TimelineTargetUser = Pick<User, 'id' | 'username' | 'display_name'>
+
+function timelineTargetUserLabel(user: TimelineTargetUser) {
+  return user.display_name
+    ? `${user.username} · ${user.display_name} · #${user.id}`
+    : `${user.username} · #${user.id}`
+}
+
 export function ACUWorkTimeline() {
   const { t } = useTranslation()
+  const currentUser = useAuthStore((state) => state.auth.user)
+  const isAdmin = (currentUser?.role ?? 0) >= ROLE.ADMIN
   const executionRouteLabel = t('Execution route', {
     defaultValue: '执行线路',
   })
@@ -453,6 +468,11 @@ export function ACUWorkTimeline() {
     rollingTimelineRange(1, initialNow.current)
   )
   const [rangeError, setRangeError] = useState('')
+  const [selectedUser, setSelectedUser] = useState<TimelineTargetUser | null>(
+    null
+  )
+  const [userSearch, setUserSearch] = useState('')
+  const [debouncedUserSearch, setDebouncedUserSearch] = useState('')
   const [traceId, setTraceId] = useState('')
   const [selectedPointId, setSelectedPointId] = useState('')
   const [trendOpen, setTrendOpen] = useState(true)
@@ -474,15 +494,91 @@ export function ACUWorkTimeline() {
     start: 1,
     end: 1,
   })
+  const targetUserId =
+    selectedUser?.id && selectedUser.id !== currentUser?.id
+      ? selectedUser.id
+      : undefined
+  const targetUserScope = targetUserId ?? 'self'
+  const userSearchQuery = useQuery({
+    queryKey: ['acu-timeline-user-search', debouncedUserSearch],
+    queryFn: () => searchUsers({ keyword: debouncedUserSearch, page_size: 10 }),
+    enabled: isAdmin && debouncedUserSearch.trim().length > 0,
+    staleTime: 30_000,
+  })
+  const selectableUsers = useMemo(
+    () =>
+      (userSearchQuery.data?.data?.items ?? []).filter(
+        (user) =>
+          user.id === currentUser?.id ||
+          currentUser?.role === ROLE.SUPER_ADMIN ||
+          user.role < (currentUser?.role ?? 0)
+      ),
+    [currentUser?.id, currentUser?.role, userSearchQuery.data?.data?.items]
+  )
+
+  useEffect(() => {
+    const timeout = window.setTimeout(
+      () => setDebouncedUserSearch(userSearch),
+      300
+    )
+    return () => window.clearTimeout(timeout)
+  }, [userSearch])
+
+  useEffect(() => {
+    setTraceId('')
+    setSelectedPointId('')
+  }, [targetUserId])
+
+  let userSearchContent = (
+    <div className='text-muted-foreground px-3 py-2 text-xs'>
+      {t('No users found.')}
+    </div>
+  )
+  if (userSearchQuery.isPending) {
+    userSearchContent = (
+      <div className='text-muted-foreground px-3 py-2 text-xs'>
+        {t('Loading…')}
+      </div>
+    )
+  } else if (selectableUsers.length) {
+    userSearchContent = (
+      <>
+        {selectableUsers.map((user) => (
+          <button
+            key={user.id}
+            type='button'
+            className='hover:bg-muted flex w-full flex-col px-3 py-2 text-left text-xs'
+            onClick={() => {
+              setSelectedUser(user)
+              setUserSearch('')
+              setDebouncedUserSearch('')
+            }}
+          >
+            <span className='font-medium'>{user.username}</span>
+            <span className='text-muted-foreground'>
+              {user.display_name ? `${user.display_name} · ` : ''}#{user.id}
+            </span>
+          </button>
+        ))}
+      </>
+    )
+  }
+
   const query = useQuery({
     queryKey:
       rangeMode === 'rolling'
-        ? ['acu-work-timeline', 'rolling', hours]
-        : ['acu-work-timeline', 'custom', customRange.from, customRange.to],
+        ? ['acu-work-timeline', targetUserScope, 'rolling', hours]
+        : [
+            'acu-work-timeline',
+            targetUserScope,
+            'custom',
+            customRange.from,
+            customRange.to,
+          ],
     queryFn: () => {
       const range =
         rangeMode === 'rolling' ? rollingTimelineRange(hours) : customRange
-      return getACUWorkTimeline(range.from, range.to)
+      return getACUWorkTimeline(range.from, range.to, targetUserId)
     },
     refetchInterval: 60_000,
   })
@@ -743,6 +839,50 @@ export function ACUWorkTimeline() {
         </div>
       </div>
       <div className='flex flex-wrap items-end gap-2 rounded border p-3'>
+        {isAdmin ? (
+          <label className='relative grid min-w-56 flex-1 gap-1 text-xs sm:flex-none'>
+            <span className='text-muted-foreground'>
+              {t('View user', { defaultValue: '查看用户' })}
+            </span>
+            <div className='flex'>
+              <Input
+                value={
+                  selectedUser
+                    ? timelineTargetUserLabel(selectedUser)
+                    : userSearch
+                }
+                onChange={(event) => {
+                  setSelectedUser(null)
+                  setUserSearch(event.target.value)
+                }}
+                placeholder={t('My calls', { defaultValue: '我的调用' })}
+                className='h-8 min-w-56'
+              />
+              {selectedUser ? (
+                <Button
+                  type='button'
+                  size='icon'
+                  variant='outline'
+                  className='ml-1 size-8'
+                  title={t('My calls', { defaultValue: '我的调用' })}
+                  aria-label={t('My calls', { defaultValue: '我的调用' })}
+                  onClick={() => {
+                    setSelectedUser(null)
+                    setUserSearch('')
+                    setDebouncedUserSearch('')
+                  }}
+                >
+                  <X className='size-3.5' />
+                </Button>
+              ) : null}
+            </div>
+            {!selectedUser && debouncedUserSearch.trim() ? (
+              <div className='bg-popover absolute top-full z-20 mt-1 max-h-56 w-full overflow-y-auto rounded border shadow-sm'>
+                {userSearchContent}
+              </div>
+            ) : null}
+          </label>
+        ) : null}
         <label className='grid min-w-44 flex-1 gap-1 text-xs sm:flex-none'>
           <span className='text-muted-foreground'>{t('Protocol')}</span>
           <select
@@ -993,7 +1133,13 @@ export function ACUWorkTimeline() {
           <DialogHeader>
             <DialogTitle>{t('ACU Session Trace')}</DialogTitle>
           </DialogHeader>
-          {traceId && <ACUSessionTracePanel identifier={traceId} />}
+          {traceId && (
+            <ACUSessionTracePanel
+              identifier={traceId}
+              targetUserId={targetUserId}
+              isAdmin={isAdmin}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

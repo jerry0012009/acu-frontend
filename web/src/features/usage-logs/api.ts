@@ -67,9 +67,15 @@ export const getUserLogStats = (
   params: Omit<GetLogStatsParams, 'username' | 'channel'> = {}
 ) => fetchLogStats('/api/log', params, false)
 
-export async function getACUSessionTrace(identifier: string) {
+export async function getACUSessionTrace(
+  identifier: string,
+  targetUserId?: number
+) {
+  const params = new URLSearchParams()
+  if (targetUserId != null) params.set('user_id', String(targetUserId))
+  const query = params.size ? `?${params.toString()}` : ''
   const res = await api.get(
-    `/api/log/self/acu-session-trace/${encodeURIComponent(identifier)}`
+    `/api/log/self/acu-session-trace/${encodeURIComponent(identifier)}${query}`
   )
   return res.data as {
     success: boolean
@@ -216,10 +222,17 @@ export type ACUWorkTimeline = {
   items: ACUWorkTimelineItem[]
 }
 
-export async function getACUWorkTimeline(from: number, to: number) {
-  const res = await api.get(
-    `/api/log/self/acu-work-timeline?from=${from}&to=${to}`
-  )
+export async function getACUWorkTimeline(
+  from: number,
+  to: number,
+  targetUserId?: number
+) {
+  const params = new URLSearchParams({
+    from: String(from),
+    to: String(to),
+  })
+  if (targetUserId != null) params.set('user_id', String(targetUserId))
+  const res = await api.get(`/api/log/self/acu-work-timeline?${params}`)
   return res.data as {
     success: boolean
     message?: string

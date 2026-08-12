@@ -12,13 +12,17 @@ import (
 )
 
 func GetACUWorkTimeline(c *gin.Context) {
+	targetUserID, ok := resolveACUTraceTargetUserID(c)
+	if !ok {
+		return
+	}
 	now := time.Now().Unix()
 	from, to, err := parseACUTimelineRange(c.Query("from"), c.Query("to"), now)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
 		return
 	}
-	timeline, err := service.GetOwnedACUWorkTimeline(c.GetInt("id"), from, to)
+	timeline, err := service.GetOwnedACUWorkTimeline(targetUserID, from, to)
 	if err != nil {
 		common.ApiError(c, err)
 		return

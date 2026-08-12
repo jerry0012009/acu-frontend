@@ -9,7 +9,11 @@ import (
 )
 
 func GetACUSessionTrace(c *gin.Context) {
-	trace, err := service.GetOwnedACUSessionTrace(c.Request.Context(), c.GetInt("id"), c.Param("identifier"))
+	targetUserID, ok := resolveACUTraceTargetUserID(c)
+	if !ok {
+		return
+	}
+	trace, err := service.GetOwnedACUSessionTrace(c.Request.Context(), targetUserID, c.Param("identifier"))
 	if err != nil {
 		common.ApiError(c, err)
 		return

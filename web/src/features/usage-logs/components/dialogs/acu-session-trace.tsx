@@ -36,6 +36,7 @@ import {
 
 interface ACUSessionTracePanelProps {
   identifier: string
+  targetUserId?: number
   isAdmin?: boolean
 }
 
@@ -560,8 +561,12 @@ export function ACUSessionTraceView(props: {
 export function ACUSessionTracePanel(props: ACUSessionTracePanelProps) {
   const { t } = useTranslation()
   const traceQuery = useQuery({
-    queryKey: ['acu-session-trace', props.identifier],
-    queryFn: () => getACUSessionTrace(props.identifier),
+    queryKey: [
+      'acu-session-trace',
+      props.targetUserId ?? 'self',
+      props.identifier,
+    ],
+    queryFn: () => getACUSessionTrace(props.identifier, props.targetUserId),
     enabled: props.identifier.length > 0,
     staleTime: 30_000,
   })
