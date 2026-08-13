@@ -54,7 +54,11 @@ func Playground(c *gin.Context) {
 		Name:   fmt.Sprintf("playground-%s", relayInfo.UsingGroup),
 		Group:  relayInfo.UsingGroup,
 	}
-	if relayInfo.OriginModelName == "acu-auto" || relayInfo.OriginModelName == "acu-high" {
+	if relayInfo.OriginModelName == "acu-auto" ||
+		relayInfo.OriginModelName == "acu-high" ||
+		relayInfo.OriginModelName == "gpt-5.6-sol" ||
+		relayInfo.OriginModelName == "gpt-5.6-terra" ||
+		relayInfo.OriginModelName == "gpt-5.6-luna" {
 		playgroundToken, err = getPlaygroundACUToken(userId, time.Now().Unix())
 		if err != nil {
 			newAPIError = types.NewErrorWithStatusCode(
