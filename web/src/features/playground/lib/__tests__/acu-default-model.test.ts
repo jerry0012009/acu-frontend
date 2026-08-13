@@ -56,4 +56,5 @@ test('sends acu-auto as the actual chat completion model', () => {
   )
 
   assert.equal(payload.model, 'acu-auto')
+  assert.equal('group' in payload, false)
 })

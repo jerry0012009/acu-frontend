@@ -5,6 +5,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,12 +19,12 @@ func TestSelectPlaygroundACUTokenUsesEnabledBillableToken(t *testing.T) {
 		{Id: 1, Status: common.TokenStatusEnabled, ExpiredTime: -1, UnlimitedQuota: true, ACUProfileLimitsEnabled: true, ACUProfileLimits: []string{"provider:glm-5.2:responses"}},
 	}
 
-	token, err := selectPlaygroundACUToken(tokens, now)
+	token, err := service.SelectACUConversationToken(tokens, now)
 	require.NoError(t, err)
 	require.Equal(t, 1, token.Id)
 }
 
 func TestSelectPlaygroundACUTokenRejectsMissingUsableToken(t *testing.T) {
-	_, err := selectPlaygroundACUToken(nil, 1000)
+	_, err := service.SelectACUConversationToken(nil, 1000)
 	require.ErrorContains(t, err, "enabled API key")
 }

@@ -1,11 +1,11 @@
 import { api } from '@/lib/api'
 
 import { API_ENDPOINTS } from './constants'
+import { withPlaygroundTokenHeader } from './lib'
 import type {
+  ACUConversationOptions,
   ChatCompletionRequest,
   ChatCompletionResponse,
-  ModelOption,
-  GroupOption,
 } from './types'
 
 /**
@@ -13,52 +13,46 @@ import type {
  */
 export async function sendChatCompletion(
   payload: ChatCompletionRequest,
+  selectedTokenId: number | null,
   signal?: AbortSignal
 ): Promise<ChatCompletionResponse> {
   const res = await api.post(API_ENDPOINTS.CHAT_COMPLETIONS, payload, {
     signal,
+    headers: withPlaygroundTokenHeader({}, selectedTokenId),
     skipErrorHandler: true,
   } as Record<string, unknown>)
   return res.data
 }
 
-/**
- * Get user available models
- */
-export async function getUserModels(group: string): Promise<ModelOption[]> {
-  const res = await api.get(API_ENDPOINTS.USER_MODELS, {
-    params: { group },
+export async function getACUConversationOptions(
+  selectedTokenId: number | null
+): Promise<ACUConversationOptions> {
+  const res = await api.get(API_ENDPOINTS.ACU_CONVERSATION_OPTIONS, {
+    params: selectedTokenId ? { token_id: selectedTokenId } : undefined,
   })
   const { data } = res
 
-  if (!data.success || !Array.isArray(data.data)) {
-    return []
-  }
-
-  return data.data.map((model: string) => ({
-    label: model,
-    value: model,
-  }))
-}
-
-/**
- * Get user groups
- */
-export async function getUserGroups(): Promise<GroupOption[]> {
-  const res = await api.get(API_ENDPOINTS.USER_GROUPS)
-  const { data } = res
-
   if (!data.success || !data.data) {
-    return []
+    return { tokens: [], selectedTokenId: 0, models: [] }
   }
 
-  const groupData = data.data as Record<string, { desc: string; ratio: number }>
-
-  // label is for button display (name only); desc is for dropdown content
-  return Object.entries(groupData).map(([group, info]) => ({
-    label: group,
-    value: group,
-    ratio: info.ratio,
-    desc: info.desc,
-  }))
+  return {
+    tokens: data.data.tokens.map(
+      (token: {
+        id: number
+        name: string
+        masked_key: string
+        group: string
+        routing_preference: string
+      }) => ({
+        id: token.id,
+        name: token.name,
+        maskedKey: token.masked_key,
+        group: token.group,
+        routingPreference: token.routing_preference,
+      })
+    ),
+    selectedTokenId: data.data.selected_token_id,
+    models: data.data.models,
+  }
 }

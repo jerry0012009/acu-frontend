@@ -17,18 +17,13 @@ export const MESSAGE_STATUS = {
 // API endpoints
 export const API_ENDPOINTS = {
   CHAT_COMPLETIONS: '/pg/chat/completions',
-  USER_MODELS: '/api/user/models',
-  USER_GROUPS: '/api/user/self/groups',
+  ACU_CONVERSATION_OPTIONS: '/api/user/self/acu-conversation-options',
 } as const
-
-// Default group — uses 'default' as the safe fallback; auto-group is
-// only selected when the backend confirms it is available for the user.
-export const DEFAULT_GROUP = 'default' as const
 
 // Default configuration
 export const DEFAULT_CONFIG: PlaygroundConfig = {
   model: 'acu-auto',
-  group: DEFAULT_GROUP,
+  selectedTokenId: null,
   temperature: 0.7,
   top_p: 1,
   max_tokens: 4096,

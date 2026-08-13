@@ -10,6 +10,7 @@ import {
   isStreamDoneMessage,
   parseStreamErrorDetails,
   parseStreamMessageUpdates,
+  withPlaygroundTokenHeader,
 } from '../lib'
 import type { ChatCompletionRequest } from '../types'
 
@@ -54,6 +55,7 @@ export function createStreamRequestController(
 
   const send = async (
     payload: ChatCompletionRequest,
+    selectedTokenId: number | null,
     callbacks: StreamRequestCallbacks
   ) => {
     const requestGeneration = generation + 1
@@ -77,7 +79,10 @@ export function createStreamRequestController(
     }
     if (generation !== requestGeneration) return
 
-    const nextSource = runtime.createSource(payload, headers)
+    const nextSource = runtime.createSource(
+      payload,
+      withPlaygroundTokenHeader(headers, selectedTokenId)
+    )
     source = nextSource
     runtime.setStreaming(true)
     let completed = false
@@ -186,11 +191,12 @@ export function useStreamRequest() {
   const sendStreamRequest = useCallback(
     (
       payload: ChatCompletionRequest,
+      selectedTokenId: number | null,
       onUpdate: (type: 'reasoning' | 'content', chunk: string) => void,
       onComplete: () => void,
       onError: (error: string, errorCode?: string) => void
     ) =>
-      controllerRef.current?.send(payload, {
+      controllerRef.current?.send(payload, selectedTokenId, {
         onUpdate,
         onComplete,
         onError,

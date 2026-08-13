@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -22,6 +24,7 @@ import (
 )
 
 const authIdentityContextKey = "auth_identity"
+const playgroundACUTokenIDHeader = "X-ACU-Playground-Token-Id"
 
 type dashboardCredentialKind int
 
@@ -92,6 +95,52 @@ func TryUserAuth() func(c *gin.Context) {
 func UserAuth() func(c *gin.Context) {
 	return func(c *gin.Context) {
 		authHelper(c, common.RoleCommonUser)
+	}
+}
+
+// PlaygroundACUToken binds the dashboard user's selected API key before
+// channel distribution so token limits and its effective group are authoritative.
+func PlaygroundACUToken() func(c *gin.Context) {
+	return func(c *gin.Context) {
+		rawTokenID := strings.TrimSpace(c.GetHeader(playgroundACUTokenIDHeader))
+		c.Request.Header.Del(playgroundACUTokenIDHeader)
+		tokenID, err := strconv.Atoi(rawTokenID)
+		if err != nil || tokenID <= 0 {
+			abortWithOpenAiMessage(c, http.StatusForbidden, "ACU Conversation requires a selected API key")
+			return
+		}
+
+		userID := c.GetInt("id")
+		token, err := model.GetTokenByIds(tokenID, userID)
+		if err != nil {
+			abortWithOpenAiMessage(c, http.StatusForbidden, "ACU Conversation API key is unavailable")
+			return
+		}
+		if !service.IsACUConversationTokenEligible(token, time.Now().Unix()) {
+			abortWithOpenAiMessage(c, http.StatusForbidden, "ACU Conversation API key is unavailable")
+			return
+		}
+
+		userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
+		effectiveGroup := token.Group
+		if effectiveGroup != "" {
+			if !service.GroupInUserUsableGroups(userGroup, effectiveGroup) {
+				abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("无权访问 %s 分组", effectiveGroup))
+				return
+			}
+			if !ratio_setting.ContainsGroupRatio(effectiveGroup) && effectiveGroup != "auto" {
+				abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("分组 %s 已被弃用", effectiveGroup))
+				return
+			}
+		} else {
+			effectiveGroup = userGroup
+		}
+
+		if err := SetupContextForToken(c, token); err != nil {
+			return
+		}
+		common.SetContextKey(c, constant.ContextKeyUsingGroup, effectiveGroup)
+		c.Next()
 	}
 }
 

@@ -16,7 +16,7 @@ import type {
   PlaygroundConfig,
   ParameterEnabled,
   ModelOption,
-  GroupOption,
+  PlaygroundApiKeyOption,
 } from '../types'
 
 const MESSAGE_SAVE_DEBOUNCE_MS = 500
@@ -41,7 +41,7 @@ export function usePlaygroundState() {
   const hasLoadedMessagesRef = useRef(false)
 
   const [models, setModels] = useState<ModelOption[]>([])
-  const [groups, setGroups] = useState<GroupOption[]>([])
+  const [tokens, setTokens] = useState<PlaygroundApiKeyOption[]>([])
 
   const persistMessages = useCallback((messagesToSave: Message[]) => {
     latestMessagesRef.current = messagesToSave
@@ -146,11 +146,11 @@ export function usePlaygroundState() {
     messages,
     isLoadingMessages,
     models,
-    groups,
+    tokens,
 
     // Setters
     setModels,
-    setGroups,
+    setTokens,
 
     // Actions
     updateConfig,

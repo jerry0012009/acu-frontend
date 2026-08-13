@@ -3,20 +3,23 @@ import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { getUserGroups, getUserModels } from '../api'
+import { getACUConversationOptions } from '../api'
 import {
-  getGroupFallback,
   getModelFallback,
   getOptionLoadErrorMessage,
-  shouldClearModelForGroup,
+  shouldClearModelForOptions,
 } from '../lib'
-import type { GroupOption, ModelOption, PlaygroundConfig } from '../types'
+import type {
+  ModelOption,
+  PlaygroundApiKeyOption,
+  PlaygroundConfig,
+} from '../types'
 
 type UsePlaygroundOptionsParams = {
-  currentGroup: string
   currentModel: string
-  setGroups: (groups: GroupOption[]) => void
+  selectedTokenId: number | null
   setModels: (models: ModelOption[]) => void
+  setTokens: (tokens: PlaygroundApiKeyOption[]) => void
   updateConfig: <K extends keyof PlaygroundConfig>(
     key: K,
     value: PlaygroundConfig[K]
@@ -24,84 +27,48 @@ type UsePlaygroundOptionsParams = {
 }
 
 export function usePlaygroundOptions({
-  currentGroup,
   currentModel,
-  setGroups,
+  selectedTokenId,
   setModels,
+  setTokens,
   updateConfig,
 }: UsePlaygroundOptionsParams) {
   const { t } = useTranslation()
-
-  const {
-    data: modelsData,
-    error: modelsError,
-    isError: isModelsError,
-    isLoading: isLoadingModels,
-  } = useQuery({
-    queryKey: ['playground-models', currentGroup],
-    queryFn: () => getUserModels(currentGroup),
-    enabled: currentGroup !== '',
-  })
-
-  const {
-    data: groupsData,
-    error: groupsError,
-    isError: isGroupsError,
-  } = useQuery({
-    queryKey: ['playground-groups'],
-    queryFn: getUserGroups,
+  const { data, error, isError, isLoading } = useQuery({
+    queryKey: ['acu-conversation-options', selectedTokenId],
+    queryFn: () => getACUConversationOptions(selectedTokenId),
   })
 
   useEffect(() => {
-    if (!isModelsError) return
-
+    if (!isError) return
     toast.error(
       getOptionLoadErrorMessage(
-        modelsError,
-        t('Failed to load ACU conversation models')
+        error,
+        t('Failed to load ACU conversation options')
       )
     )
-  }, [isModelsError, modelsError, t])
+  }, [error, isError, t])
 
   useEffect(() => {
-    if (!isGroupsError) return
+    if (!data) return
 
-    toast.error(
-      getOptionLoadErrorMessage(
-        groupsError,
-        t('Failed to load ACU conversation groups')
-      )
-    )
-  }, [isGroupsError, groupsError, t])
+    setTokens(data.tokens)
+    const resolvedTokenId = data.selectedTokenId || null
+    if (selectedTokenId !== resolvedTokenId) {
+      updateConfig('selectedTokenId', resolvedTokenId)
+    }
 
-  useEffect(() => {
-    if (!modelsData) return
-
-    setModels(modelsData)
-    const fallback = getModelFallback(modelsData, currentModel)
-
+    const fallback = getModelFallback(data.models, currentModel)
     if (fallback) {
       updateConfig('model', fallback)
       return
     }
-
-    if (shouldClearModelForGroup(modelsData, currentModel)) {
+    if (shouldClearModelForOptions(data.models, currentModel)) {
       updateConfig('model', '')
     }
-  }, [modelsData, currentModel, setModels, updateConfig])
-
-  useEffect(() => {
-    if (!groupsData) return
-
-    setGroups(groupsData)
-    const fallback = getGroupFallback(groupsData, currentGroup)
-
-    if (fallback) {
-      updateConfig('group', fallback)
-    }
-  }, [groupsData, currentGroup, setGroups, updateConfig])
+  }, [data, currentModel, selectedTokenId, setModels, setTokens, updateConfig])
 
   return {
-    isLoadingModels,
+    isLoadingModels: isLoading,
   }
 }

@@ -14,10 +14,10 @@ export function Playground() {
     messages,
     isLoadingMessages,
     models,
-    groups,
+    tokens,
     updateMessages,
     setModels,
-    setGroups,
+    setTokens,
     updateConfig,
     updateParameterEnabled,
     clearMessages,
@@ -26,6 +26,7 @@ export function Playground() {
   const { sendChat, stopGeneration, isGenerating } = useChatHandler({
     config,
     parameterEnabled,
+    selectedTokenId: config.selectedTokenId,
     onMessageUpdate: updateMessages,
   })
 
@@ -49,10 +50,10 @@ export function Playground() {
   }
 
   const { isLoadingModels } = usePlaygroundOptions({
-    currentGroup: config.group,
     currentModel: config.model,
-    setGroups,
     setModels,
+    selectedTokenId: config.selectedTokenId,
+    setTokens,
     updateConfig,
   })
 
@@ -80,16 +81,16 @@ export function Playground() {
         <PlaygroundInput
           config={config}
           disabled={isGenerating}
-          groups={groups}
-          groupValue={config.group}
           isGenerating={isGenerating}
           isModelLoading={isLoadingModels}
           modelValue={config.model}
           models={models}
-          onGroupChange={(value) => updateConfig('group', value)}
+          tokens={tokens}
+          selectedTokenId={config.selectedTokenId}
           onConfigChange={updateConfig}
           onClearMessages={handleClearMessages}
           onModelChange={(value) => updateConfig('model', value)}
+          onTokenChange={(value) => updateConfig('selectedTokenId', value)}
           onParameterEnabledChange={updateParameterEnabled}
           onStop={stopGeneration}
           onSubmit={handleSendMessage}

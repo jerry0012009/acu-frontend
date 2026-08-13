@@ -29,7 +29,7 @@ func setupDashboardAuthMiddlewareTest(t *testing.T) {
 	previousSecret := common.SessionSecret
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserSession{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserSession{}, &model.Token{}))
 	model.DB = db
 	common.SetMainDatabaseType(common.DatabaseTypeSQLite)
 	common.RedisEnabled = false
@@ -40,6 +40,63 @@ func setupDashboardAuthMiddlewareTest(t *testing.T) {
 		common.RedisEnabled = previousRedis
 		common.SessionSecret = previousSecret
 	})
+}
+
+func TestPlaygroundACUTokenBindsSelectedOwnedTokenBeforeDistribution(t *testing.T) {
+	setupDashboardAuthMiddlewareTest(t)
+	token := &model.Token{
+		UserId: 17, Key: "playground-token", Name: "Playground key",
+		Status: common.TokenStatusEnabled, ExpiredTime: -1, UnlimitedQuota: true,
+	}
+	require.NoError(t, model.DB.Create(token).Error)
+
+	router := gin.New()
+	router.POST("/pg/chat/completions", func(c *gin.Context) {
+		c.Set("id", 17)
+		c.Set("user_group", "default")
+		PlaygroundACUToken()(c)
+	}, func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"token_id": c.GetInt("token_id"),
+			"group":    c.GetString("group"),
+			"header":   c.GetHeader(playgroundACUTokenIDHeader),
+		})
+	})
+	request := httptest.NewRequest(http.MethodPost, "/pg/chat/completions", nil)
+	request.Header.Set(playgroundACUTokenIDHeader, fmt.Sprintf("%d", token.Id))
+	response := httptest.NewRecorder()
+
+	router.ServeHTTP(response, request)
+
+	require.Equal(t, http.StatusOK, response.Code)
+	require.Contains(t, response.Body.String(), fmt.Sprintf(`"token_id":%d`, token.Id))
+	require.Contains(t, response.Body.String(), `"group":"default"`)
+	require.Contains(t, response.Body.String(), `"header":""`)
+}
+
+func TestPlaygroundACUTokenRejectsTokenOwnedByAnotherUser(t *testing.T) {
+	setupDashboardAuthMiddlewareTest(t)
+	token := &model.Token{
+		UserId: 18, Key: "other-user-token", Name: "Other user key",
+		Status: common.TokenStatusEnabled, ExpiredTime: -1, UnlimitedQuota: true,
+	}
+	require.NoError(t, model.DB.Create(token).Error)
+
+	router := gin.New()
+	router.POST("/pg/chat/completions", func(c *gin.Context) {
+		c.Set("id", 17)
+		c.Set("user_group", "default")
+		PlaygroundACUToken()(c)
+	}, func(c *gin.Context) {
+		c.Status(http.StatusNoContent)
+	})
+	request := httptest.NewRequest(http.MethodPost, "/pg/chat/completions", nil)
+	request.Header.Set(playgroundACUTokenIDHeader, fmt.Sprintf("%d", token.Id))
+	response := httptest.NewRecorder()
+
+	router.ServeHTTP(response, request)
+
+	require.Equal(t, http.StatusForbidden, response.Code)
 }
 
 func issueExpiredDashboardAccessToken(t *testing.T, identity service.AuthIdentity) string {
