@@ -53,6 +53,7 @@ export function usePlaygroundOptions({
     if (!data) return
 
     setTokens(data.tokens)
+    setModels(data.models)
     const resolvedTokenId = data.selectedTokenId || null
     if (selectedTokenId !== resolvedTokenId) {
       updateConfig('selectedTokenId', resolvedTokenId)
