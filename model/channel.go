@@ -345,7 +345,11 @@ func (channel *Channel) SupportsRequestPath(requestPath string, modelName string
 			return channel.Type == constant.ChannelTypeAnthropic
 		case strings.HasPrefix(requestPath, "/pg/chat/completions"):
 			return channel.Type == constant.ChannelTypeOpenAI &&
-				(modelName == "acu-auto" || modelName == "acu-high")
+				(modelName == "acu-auto" ||
+					modelName == "acu-high" ||
+					modelName == "gpt-5.6-sol" ||
+					modelName == "gpt-5.6-terra" ||
+					modelName == "gpt-5.6-luna")
 		default:
 			return false
 		}
