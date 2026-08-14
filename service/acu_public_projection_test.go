@@ -53,9 +53,9 @@ func TestPublicACUWorkTimelineOmitsInternalRoutingAndCostsButKeepsFinalUserCharg
 	require.Contains(t, body, `"userChargeCny":0.5`)
 	require.Contains(t, body, `"difficulty":67`)
 	require.Contains(t, body, `"difficultyRecorded":true`)
+	require.Contains(t, body, `"provider":"lucen"`)
+	require.Contains(t, body, `"channel":"lucen-cx006"`)
 	for _, internalKey := range []string{
-		`"provider":"lucen"`,
-		`"channel":"lucen-cx006"`,
 		`"judgeModel":"mimo-v2.5-pro"`,
 		`"executionProfileId":"judge-profile"`,
 		`"executionProfileId":"provider-profile"`,

@@ -431,7 +431,7 @@ function StepDetailContent(props: {
               <div className='text-muted-foreground mb-1'>
                 {executionRouteAttemptsLabel}
               </div>
-              {item.providerAttempts.map((attempt) => (
+              {providerAttempts.map((attempt) => (
                 <div
                   key={`${attempt.attemptIndex}-${attempt.executionProfileId}`}
                   className='grid grid-cols-[2rem_minmax(0,1fr)_5rem_5rem] gap-2 py-0.5'
@@ -957,7 +957,11 @@ export function ACUWorkTimeline() {
             <option value=''>{t('All')}</option>
             {channelOptions.map((option) => (
               <option key={option.value} value={option.value}>
-                {publicChannelAlias(option.provider, option.value)}
+                {timelineRouteLabel(
+                  option.provider ?? '',
+                  option.value,
+                  isAdmin
+                )}
               </option>
             ))}
           </select>

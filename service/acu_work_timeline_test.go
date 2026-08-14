@@ -178,10 +178,10 @@ func TestBuildACUWorkTimelineRecoversFinalizedJudgeTelemetryFromAdminInfo(t *tes
 
 	public := PublicACUWorkTimeline(result)
 	require.Len(t, public.Items, 2)
-	for _, item := range public.Items {
-		assert.Empty(t, item.Provider)
-		assert.Empty(t, item.Channel)
-	}
+	assert.Equal(t, "wawapii", public.Items[0].Provider)
+	assert.Equal(t, "wawapii-judge", public.Items[0].Channel)
+	assert.Equal(t, "wawazz", public.Items[1].Provider)
+	assert.Equal(t, "wawazz-007", public.Items[1].Channel)
 }
 
 func TestBuildACUWorkTimelinePrefersPublicIdentityAndSplitCharges(t *testing.T) {
@@ -249,11 +249,27 @@ func TestBuildACUWorkTimelineRecoversRulesFallbackFromAdminInfo(t *testing.T) {
 
 func TestPublicACUWorkTimelineRedactsRecoveredJudgeSupplyDetails(t *testing.T) {
 	timeline := dto.ACUWorkTimeline{Items: []dto.ACUWorkTimelineItem{{
-		JudgeModel:        "gpt-5.6-luna",
-		JudgeStatus:       "completed",
-		JudgeResultSource: "upstream_live",
+		Provider:                  "wawazz",
+		Channel:                   "wawazz-022",
+		JudgeModel:                "gpt-5.6-luna",
+		JudgeStatus:               "completed",
+		JudgeResultSource:         "upstream_live",
+		ActualCashCostCNY:         floatPointer(0.125),
+		ActualCostCNY:             0.125,
+		JudgeCostCNY:              0.025,
+		ProviderCostCNY:           0.1,
+		FailedAttemptCostCNY:      0.01,
+		FailedJudgeAttemptCostCNY: 0.005,
+		ProviderUserChargeCNY:     0.1,
+		JudgeUserChargeCNY:        0.025,
 		JudgeAttempts: []dto.ACUTimelineJudgeAttempt{{
 			Model: "gpt-5.6-luna", Provider: "wawapii", ExecutionProfileID: "wawapii-judge",
+		}},
+		ProviderAttempts: []dto.ACUTimelineProviderAttempt{{
+			Provider: "wawazz", Channel: "wawazz-022",
+		}},
+		TopCandidates: []dto.ACUTimelineCandidateSummary{{
+			EstimatedCallCost: 0.02,
 		}},
 		JudgeProfileSelection: dto.ACUJudgeProfileSelection{
 			SelectedExecutionProfileID: "wawapii-judge",
@@ -263,9 +279,22 @@ func TestPublicACUWorkTimelineRedactsRecoveredJudgeSupplyDetails(t *testing.T) {
 	public := PublicACUWorkTimeline(timeline)
 	require.Len(t, public.Items, 1)
 	item := public.Items[0]
+	assert.Equal(t, "wawazz", item.Provider)
+	assert.Equal(t, "wawazz-022", item.Channel)
 	assert.Empty(t, item.JudgeModel)
+	assert.Nil(t, item.ActualCashCostCNY)
+	assert.Equal(t, 0.0, item.ActualCostCNY)
+	assert.Equal(t, 0.0, item.JudgeCostCNY)
+	assert.Equal(t, 0.0, item.ProviderCostCNY)
+	assert.Equal(t, 0.0, item.FailedAttemptCostCNY)
+	assert.Equal(t, 0.0, item.FailedJudgeAttemptCostCNY)
+	assert.Equal(t, 0.0, item.ProviderUserChargeCNY)
+	assert.Equal(t, 0.0, item.JudgeUserChargeCNY)
 	assert.Nil(t, item.JudgeAttempts)
+	assert.Nil(t, item.ProviderAttempts)
 	assert.Equal(t, dto.ACUJudgeProfileSelection{}, item.JudgeProfileSelection)
+	require.Len(t, item.TopCandidates, 1)
+	assert.Equal(t, 0.0, item.TopCandidates[0].EstimatedCallCost)
 	assert.Equal(t, "upstream_live", item.JudgeResultSource)
 	assert.Equal(t, "completed", item.JudgeStatus)
 }

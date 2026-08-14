@@ -285,8 +285,6 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 func PublicACUWorkTimeline(timeline dto.ACUWorkTimeline) dto.ACUWorkTimeline {
 	for index := range timeline.Items {
 		item := &timeline.Items[index]
-		item.Provider = ""
-		item.Channel = ""
 		item.JudgeModel = ""
 		item.ActualCashCostCNY = nil
 		item.ActualCostCNY = 0

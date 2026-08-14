@@ -709,6 +709,14 @@ test('uses the same provider/channel alias in Timeline rows and filter options',
     options.some((option) => option.value === route.provider),
     false
   )
+  const source = readFileSync(
+    new URL('../acu-work-timeline.tsx', import.meta.url),
+    'utf8'
+  )
+  assert.match(
+    source,
+    /timelineRouteLabel\(\s*option\.provider \?\? '',\s*option\.value,\s*isAdmin\s*\)/
+  )
 })
 
 test('timeline route label adds the real channel only for admins', () => {
@@ -732,6 +740,12 @@ test('execution rows do not inspect nullable Judge attempts', () => {
   assert.match(source, /const judgeAttempts = item\.judgeAttempts \?\? \[\]/)
   assert.match(source, /judgeAttempts\.filter\(/)
   assert.match(source, /judgeAttempts\.map\(/)
+  assert.match(
+    source,
+    /const providerAttempts = item\.providerAttempts \?\? \[\]/
+  )
+  assert.match(source, /providerAttempts\.map\(/)
+  assert.doesNotMatch(source, /item\.providerAttempts\.map\(/)
 })
 
 test('session trace inspector does not lock timeline wheel interaction', () => {
