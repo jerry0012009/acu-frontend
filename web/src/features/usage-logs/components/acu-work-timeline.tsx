@@ -148,9 +148,10 @@ function StepDetailContent(props: {
 }) {
   const { t } = useTranslation()
   const { item } = props
-  const successfulJudgeAttempt = item.judgeAttempts.find(
-    (attempt) => attempt.status === 'success'
-  )
+  const successfulJudgeAttempt =
+    item.pointType === 'judge'
+      ? item.judgeAttempts?.find((attempt) => attempt.status === 'success')
+      : undefined
   const model =
     item.pointType === 'judge'
       ? item.judgeModel

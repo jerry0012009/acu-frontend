@@ -724,6 +724,17 @@ test('timeline route label adds the real channel only for admins', () => {
   assert.match(source, /timelineRouteLabel\([\s\S]{0,160}props\.isAdmin/)
 })
 
+test('execution rows do not inspect nullable Judge attempts', () => {
+  const source = readFileSync(
+    new URL('../acu-work-timeline.tsx', import.meta.url),
+    'utf8'
+  )
+  assert.match(
+    source,
+    /item\.pointType === 'judge'[\s\S]{0,100}item\.judgeAttempts\?\.find/
+  )
+})
+
 test('session trace inspector does not lock timeline wheel interaction', () => {
   const source = readFileSync(
     new URL('../acu-work-timeline.tsx', import.meta.url),
