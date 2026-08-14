@@ -711,6 +711,19 @@ test('uses the same provider/channel alias in Timeline rows and filter options',
   )
 })
 
+test('timeline route label adds the real channel only for admins', () => {
+  const source = readFileSync(
+    new URL('../acu-work-timeline.tsx', import.meta.url),
+    'utf8'
+  )
+  assert.match(
+    source,
+    /if \(isAdmin && realChannel && realChannel !== '—'\) \{[\s\S]{0,100}return `\$\{publicRoute\} · \$\{realChannel\}`/
+  )
+  assert.match(source, /return publicRoute/)
+  assert.match(source, /timelineRouteLabel\([\s\S]{0,160}props\.isAdmin/)
+})
+
 test('session trace inspector does not lock timeline wheel interaction', () => {
   const source = readFileSync(
     new URL('../acu-work-timeline.tsx', import.meta.url),

@@ -126,35 +126,56 @@ function difficultyText(item: ACUWorkTimelineItem, digits = 0) {
   return item.difficultyRecorded ? item.difficulty.toFixed(digits) : '—'
 }
 
+function timelineRouteLabel(
+  provider: string,
+  channel: string | undefined,
+  isAdmin: boolean,
+  realChannel: string | undefined = channel
+): string {
+  const publicRoute = publicChannelAlias(provider, channel)
+  if (isAdmin && realChannel && realChannel !== '—') {
+    return `${publicRoute} · ${realChannel}`
+  }
+  return publicRoute
+}
+
 function StepDetailContent(props: {
   item: ACUWorkTimelineItem
   onTrace: (id: string) => void
   onOpen?: (id: string) => void
   showDetails?: boolean
+  isAdmin: boolean
 }) {
   const { t } = useTranslation()
   const { item } = props
+  const successfulJudgeAttempt = item.judgeAttempts.find(
+    (attempt) => attempt.status === 'success'
+  )
   const model =
     item.pointType === 'judge'
       ? item.judgeModel
       : item.selectedDisplayName || item.actualModel
   const provider =
     item.pointType === 'judge'
-      ? item.judgeAttempts.find((attempt) => attempt.status === 'success')
-          ?.provider ||
-        item.provider ||
-        'rules'
+      ? successfulJudgeAttempt?.provider || item.provider || 'rules'
       : item.provider
   const channel =
     item.pointType === 'judge'
-      ? item.judgeAttempts.find((attempt) => attempt.status === 'success')
-          ?.channelId ||
-        item.judgeAttempts.find((attempt) => attempt.status === 'success')
-          ?.executionProfileId ||
+      ? successfulJudgeAttempt?.channelId ||
+        successfulJudgeAttempt?.executionProfileId ||
         item.channel ||
         '—'
       : item.channel
-  const publicExecutionRoute = publicChannelAlias(provider, channel)
+  const realChannel =
+    item.pointType === 'judge'
+      ? successfulJudgeAttempt?.channelId
+      : item.channel
+  const executionRoute = timelineRouteLabel(
+    provider,
+    channel,
+    props.isAdmin,
+    realChannel
+  )
   const executionRouteAttemptsLabel = t('Execution route attempts', {
     defaultValue: '执行线路尝试',
   })
@@ -197,9 +218,9 @@ function StepDetailContent(props: {
           </span>
           <span
             className='text-muted-foreground truncate text-xs'
-            title={publicExecutionRoute}
+            title={executionRoute}
           >
-            {publicExecutionRoute}
+            {executionRoute}
           </span>
           <span
             className={cn('truncate text-xs', statusTone(item.status))}
@@ -236,8 +257,8 @@ function StepDetailContent(props: {
                 {timelinePhaseAdjustment(item.workPhaseQualityTargetOffset)}
               </span>
             ) : null}
-            <span className='truncate' title={publicExecutionRoute}>
-              {publicExecutionRoute}
+            <span className='truncate' title={executionRoute}>
+              {executionRoute}
             </span>
             <span>
               {t('User charge')} {optionalMoney(timelineUserCharge(item))}
@@ -304,9 +325,11 @@ function StepDetailContent(props: {
                 >
                   <span>{attempt.attemptIndex}</span>
                   <span className='truncate'>
-                    {publicChannelAlias(
+                    {timelineRouteLabel(
                       attempt.provider,
-                      attempt.channelId || attempt.executionProfileId
+                      attempt.channelId || attempt.executionProfileId,
+                      props.isAdmin,
+                      attempt.channelId
                     )}
                   </span>
                   <span>{attempt.status}</span>
@@ -414,12 +437,17 @@ function StepDetailContent(props: {
                   <span>{attempt.attemptIndex}</span>
                   <span
                     className='truncate'
-                    title={publicChannelAlias(
+                    title={timelineRouteLabel(
                       attempt.provider,
-                      attempt.channel
+                      attempt.channel,
+                      props.isAdmin
                     )}
                   >
-                    {publicChannelAlias(attempt.provider, attempt.channel)}
+                    {timelineRouteLabel(
+                      attempt.provider,
+                      attempt.channel,
+                      props.isAdmin
+                    )}
                   </span>
                   <span>{t(attempt.status)}</span>
                   <span>{ms(attempt.latencyMs)}</span>
@@ -436,6 +464,7 @@ function StepDetailContent(props: {
 function TimelineStep(props: {
   item: ACUWorkTimelineItem
   onOpen: (id: string) => void
+  isAdmin: boolean
 }) {
   return <StepDetailContent {...props} onTrace={() => {}} showDetails={false} />
 }
@@ -1102,6 +1131,7 @@ export function ACUWorkTimeline() {
                   key={item.pointId}
                   item={item}
                   onOpen={setSelectedPointId}
+                  isAdmin={isAdmin}
                 />
               ))}
             </div>
@@ -1127,6 +1157,7 @@ export function ACUWorkTimeline() {
               item={selectedPoint}
               onTrace={setTraceId}
               showDetails
+              isAdmin={isAdmin}
             />
           ) : null}
         </DialogContent>

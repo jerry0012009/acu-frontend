@@ -31,7 +31,9 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 		if logicalID == "" || breakdown == nil {
 			continue
 		}
-		breakdown = timelineBreakdownWithJudgeTelemetry(breakdown, mapValue(mapValue(other, "admin_info"), "acu_cost_breakdown"))
+		adminInfo := mapValue(other, "admin_info")
+		adminBreakdown := mapValue(adminInfo, "acu_cost_breakdown")
+		breakdown = timelineBreakdownWithJudgeTelemetry(breakdown, adminBreakdown)
 		billingStatus := stringValue(other, "acu_billing_status")
 		attempts, _ := breakdown["channel_attempts"].([]interface{})
 		decision := mapValue(breakdown, "decision_summary")
@@ -98,9 +100,17 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 			JudgeModel: judgeModel,
 			Difficulty: difficulty, DifficultyRecorded: difficultyRecorded, RequestedModel: stringValue(breakdown, "requested_model"),
 			ActualModel: firstTimelineValue(stringValue(breakdown, "canonical_model"), log.ModelName),
-			Provider:    firstTimelineValue(stringValue(breakdown, "actual_provider"), stringValue(other, "actual_provider")),
-			Channel:     firstTimelineValue(stringValue(breakdown, "channel_id"), stringValue(other, "actual_channel")),
-			Protocol:    stringValue(breakdown, "protocol"), Status: status,
+			Provider: firstTimelineValue(
+				stringValue(breakdown, "actual_provider"),
+				stringValue(other, "actual_provider"),
+				stringValue(adminInfo, "actual_provider"),
+			),
+			Channel: firstTimelineValue(
+				stringValue(breakdown, "channel_id"),
+				stringValue(other, "actual_channel"),
+				stringValue(adminInfo, "actual_channel"),
+			),
+			Protocol: stringValue(breakdown, "protocol"), Status: status,
 			BillingStatus: billingStatus, BillingErrorCode: stringValue(other, "acu_finalize_error_code"),
 			FirstModelEventLatencyMs:  firstLatency,
 			EndToEndLatencyMs:         endToEndLatency,
@@ -361,13 +371,14 @@ func timelineBreakdownWithJudgeTelemetry(public, admin map[string]interface{}) m
 	if admin == nil {
 		return public
 	}
-	result := make(map[string]interface{}, len(public)+5)
+	result := make(map[string]interface{}, len(public)+7)
 	for key, value := range public {
 		result[key] = value
 	}
 	for _, key := range []string{
 		"judge_model", "judge_protocol", "judge_reasoning_effort",
 		"judge_profile_selection", "judge_attempts",
+		"judge_user_charge_cny", "provider_user_charge_cny",
 	} {
 		if _, exists := result[key]; !exists {
 			if value, available := admin[key]; available {

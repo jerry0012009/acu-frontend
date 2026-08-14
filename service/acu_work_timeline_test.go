@@ -132,14 +132,19 @@ func TestBuildACUWorkTimelineRecoversFinalizedJudgeTelemetryFromAdminInfo(t *tes
 				"judge_calls":1,
 				"judge_reused":false,
 				"difficulty":72,
-				"canonical_model":"gpt-5.6-sol"
+				"canonical_model":"gpt-5.6-sol",
+				"user_charge_cny":0.125
 			},
 			"admin_info":{
+				"actual_provider":"wawazz",
+				"actual_channel":"wawazz-007",
 				"acu_cost_breakdown":{
 					"judge_model":"gpt-5.6-luna",
 					"judge_protocol":"responses",
 					"judge_reasoning_effort":"high",
-					"judge_attempts":[{"attempt_index":1,"model":"gpt-5.6-luna","status":"success"}],
+					"judge_user_charge_cny":0.025,
+					"provider_user_charge_cny":0.100,
+					"judge_attempts":[{"attempt_index":1,"model":"gpt-5.6-luna","provider":"wawapii","channel_id":"wawapii-judge","status":"success"}],
 					"decision_summary":{
 						"judge_status":"completed",
 						"judge_result_source":"upstream_live",
@@ -162,6 +167,59 @@ func TestBuildACUWorkTimelineRecoversFinalizedJudgeTelemetryFromAdminInfo(t *tes
 	assert.Equal(t, "upstream_live", judge.JudgeResultSource)
 	assert.Equal(t, "completed", judge.JudgeStatus)
 	assert.Equal(t, "completed", judge.Status)
+	require.NotNil(t, judge.UserChargeCNY)
+	assert.Equal(t, 0.025, *judge.UserChargeCNY)
+	execution := result.Items[1]
+	require.NotNil(t, execution.UserChargeCNY)
+	assert.Equal(t, 0.100, *execution.UserChargeCNY)
+	assert.InDelta(t, 0.125, *judge.UserChargeCNY+*execution.UserChargeCNY, 1e-12)
+	assert.Equal(t, "wawazz", execution.Provider)
+	assert.Equal(t, "wawazz-007", execution.Channel)
+
+	public := PublicACUWorkTimeline(result)
+	require.Len(t, public.Items, 2)
+	for _, item := range public.Items {
+		assert.Empty(t, item.Provider)
+		assert.Empty(t, item.Channel)
+	}
+}
+
+func TestBuildACUWorkTimelinePrefersPublicIdentityAndSplitCharges(t *testing.T) {
+	logs := []*model.Log{{
+		CreatedAt: 100,
+		Type:      model.LogTypeConsume,
+		Other: `{
+			"acu_logical_request_id":"req-public-priority",
+			"acu_cost_breakdown":{
+				"task_id":"task-1",
+				"judge_calls":1,
+				"judge_reused":false,
+				"judge_protocol":"responses",
+				"actual_provider":"public-provider",
+				"channel_id":"public-channel",
+				"judge_user_charge_cny":0.03,
+				"provider_user_charge_cny":0.09
+			},
+			"admin_info":{
+				"actual_provider":"admin-provider",
+				"actual_channel":"admin-channel",
+				"acu_cost_breakdown":{
+					"judge_user_charge_cny":0.025,
+					"provider_user_charge_cny":0.100
+				}
+			}
+		}`,
+	}}
+
+	result := buildACUWorkTimeline(logs, 0, 200)
+	require.Len(t, result.Items, 2)
+	judge, execution := result.Items[0], result.Items[1]
+	require.NotNil(t, judge.UserChargeCNY)
+	require.NotNil(t, execution.UserChargeCNY)
+	assert.Equal(t, 0.03, *judge.UserChargeCNY)
+	assert.Equal(t, 0.09, *execution.UserChargeCNY)
+	assert.Equal(t, "public-provider", execution.Provider)
+	assert.Equal(t, "public-channel", execution.Channel)
 }
 
 func TestBuildACUWorkTimelineRecoversRulesFallbackFromAdminInfo(t *testing.T) {
