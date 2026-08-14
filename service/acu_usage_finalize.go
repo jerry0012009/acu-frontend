@@ -185,7 +185,7 @@ func FinalizeACUUsage(request dto.ACUUsageFinalizeRequest, payloadHash string) (
 		if legacyProviderBalance && strings.TrimSpace(request.ProviderCreditCashCostCNY) == "" && !providerBalanceCharge.IsZero() {
 			providerCreditCashCost = effectiveProviderCash.Div(providerBalanceCharge)
 		}
-		if !providerBalanceCharge.Mul(providerCreditCashCost).Equal(effectiveProviderCash) {
+		if !providerBalanceCharge.Mul(providerCreditCashCost).Round(10).Equal(effectiveProviderCash) {
 			return dto.ACUUsageFinalizeResponse{}, errors.New("effective_provider_cash_cost_cny does not match Provider Credits conversion")
 		}
 		if !effectiveProviderCash.Add(judgeCash).Add(failedAttemptCash).Equal(actualTotalCash) {

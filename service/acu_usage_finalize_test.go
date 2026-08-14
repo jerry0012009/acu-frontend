@@ -94,6 +94,37 @@ func TestFinalizeACUUsageChargesRouterFinalUserChargeExactlyOnce(t *testing.T) {
 	require.Equal(t, "mimo-v2.5-pro", finalized.JudgeModel)
 }
 
+func TestFinalizeACUUsageAcceptsRoundedProviderCreditsConversion(t *testing.T) {
+	setupACUFinalizeTestDB(t)
+	user := model.User{Username: "acu-rounded-cash-user", Password: "test-only-password", Status: common.UserStatusEnabled, Quota: 10_000}
+	require.NoError(t, model.DB.Create(&user).Error)
+	token := model.Token{UserId: user.Id, Key: "test-only-rounded-cash-token", Name: "acu-rounded-cash", Status: common.TokenStatusEnabled, RemainQuota: 10_000}
+	require.NoError(t, model.DB.Create(&token).Error)
+
+	request := dto.ACUUsageFinalizeRequest{
+		ReportIdempotencyKey: "report_rounded_cash_1", NewAPIUserID: fmt.Sprint(user.Id), NewAPITokenID: fmt.Sprint(token.Id),
+		NewAPILogID: "req_rounded_cash_1", LogicalRequestID: "logical_rounded_cash_1", ActualModel: "gpt-5.6-sol",
+		Provider: "akrouter", Channel: "akrouter-default", ProviderCostUSD: "0.0000538230",
+		NominalProviderCostUSD: "0.0000538230", ProviderBalanceCharge: "0.0000538230",
+		ProviderBalanceCurrency: "USD-denominated credits", ProviderCreditCashCostCNY: "6.7400000000",
+		EffectiveProviderCashCostCNY: "0.0003627670", ActualTotalCashCostCNY: "0.0003627670",
+		UserChargeCNY: "0.0004534588",
+	}
+
+	result, err := FinalizeACUUsage(request, "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+	require.NoError(t, err)
+	require.False(t, result.AlreadyProcessed)
+
+	var finalized model.ACUUsageFinalize
+	require.NoError(t, model.DB.First(&finalized).Error)
+	require.True(t, decimal.RequireFromString("6.7400000000").Equal(
+		decimal.RequireFromString(finalized.ProviderCreditCashCostCny),
+	))
+	require.True(t, decimal.RequireFromString("0.0003627670").Equal(
+		decimal.RequireFromString(finalized.EffectiveProviderCashCostCny),
+	))
+}
+
 func TestFinalizeACUUsageChargesAndUpdatesLogExactlyOnce(t *testing.T) {
 	setupACUFinalizeTestDB(t)
 	user := model.User{Username: "acu-alpha-user", Password: "test-only-password", Status: common.UserStatusEnabled, Quota: 10_000}
