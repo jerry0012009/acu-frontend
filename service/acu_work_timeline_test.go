@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -117,6 +118,98 @@ func TestBuildACUWorkTimelineKeepsJudgeReuseOnExecutionPoint(t *testing.T) {
 	require.Len(t, result.Items, 1)
 	assert.Equal(t, "execution", result.Items[0].PointType)
 	assert.True(t, result.Items[0].JudgeReused)
+}
+
+func TestBuildACUWorkTimelineRecoversFinalizedJudgeTelemetryFromAdminInfo(t *testing.T) {
+	logs := []*model.Log{{
+		CreatedAt: 100,
+		Type:      model.LogTypeConsume,
+		ModelName: "gpt-5.6-sol",
+		Other: `{
+			"acu_logical_request_id":"req-historical-finalized",
+			"acu_cost_breakdown":{
+				"task_id":"task-1",
+				"judge_calls":1,
+				"judge_reused":false,
+				"difficulty":72,
+				"canonical_model":"gpt-5.6-sol"
+			},
+			"admin_info":{
+				"acu_cost_breakdown":{
+					"judge_model":"gpt-5.6-luna",
+					"judge_protocol":"responses",
+					"judge_reasoning_effort":"high",
+					"judge_attempts":[{"attempt_index":1,"model":"gpt-5.6-luna","status":"success"}],
+					"decision_summary":{
+						"judge_status":"completed",
+						"judge_result_source":"upstream_live",
+						"judge_first_attempt_succeeded":true,
+						"judge_profile_attempt_count":1,
+						"judge_same_model_failover_used":false
+					}
+				}
+			}
+		}`,
+	}}
+
+	result := buildACUWorkTimeline(logs, 0, 200)
+	require.Len(t, result.Items, 2)
+	judge := result.Items[0]
+	assert.True(t, judge.JudgeCalled)
+	assert.Equal(t, "judge", judge.PointType)
+	assert.Equal(t, "gpt-5.6-luna", judge.JudgeModel)
+	assert.Equal(t, "responses", judge.JudgeProtocol)
+	assert.Equal(t, "upstream_live", judge.JudgeResultSource)
+	assert.Equal(t, "completed", judge.JudgeStatus)
+	assert.Equal(t, "completed", judge.Status)
+}
+
+func TestBuildACUWorkTimelineRecoversRulesFallbackFromAdminInfo(t *testing.T) {
+	logs := []*model.Log{{
+		CreatedAt: 100,
+		Type:      model.LogTypeConsume,
+		Other: `{
+			"acu_logical_request_id":"req-rules-fallback",
+			"acu_cost_breakdown":{"task_id":"task-1","judge_calls":1,"judge_reused":false},
+			"admin_info":{"acu_cost_breakdown":{
+				"judge_protocol":"responses",
+				"decision_summary":{"judge_status":"rules_fallback","judge_result_source":"rules_strategy"}
+			}}
+		}`,
+	}}
+
+	result := buildACUWorkTimeline(logs, 0, 200)
+	require.Len(t, result.Items, 2)
+	judge := result.Items[0]
+	assert.Equal(t, "judge", judge.PointType)
+	assert.Equal(t, "rules_fallback", judge.Status)
+	assert.Equal(t, "rules_fallback", judge.JudgeStatus)
+	assert.Equal(t, "rules_strategy", judge.JudgeResultSource)
+	assert.Equal(t, 1.0, result.Summary.JudgeRulesFallbackRate)
+	assert.Equal(t, 1, result.Summary.JudgeRulesFallbackSamples)
+}
+
+func TestPublicACUWorkTimelineRedactsRecoveredJudgeSupplyDetails(t *testing.T) {
+	timeline := dto.ACUWorkTimeline{Items: []dto.ACUWorkTimelineItem{{
+		JudgeModel:        "gpt-5.6-luna",
+		JudgeStatus:       "completed",
+		JudgeResultSource: "upstream_live",
+		JudgeAttempts: []dto.ACUTimelineJudgeAttempt{{
+			Model: "gpt-5.6-luna", Provider: "wawapii", ExecutionProfileID: "wawapii-judge",
+		}},
+		JudgeProfileSelection: dto.ACUJudgeProfileSelection{
+			SelectedExecutionProfileID: "wawapii-judge",
+		},
+	}}}
+
+	public := PublicACUWorkTimeline(timeline)
+	require.Len(t, public.Items, 1)
+	item := public.Items[0]
+	assert.Empty(t, item.JudgeModel)
+	assert.Nil(t, item.JudgeAttempts)
+	assert.Equal(t, dto.ACUJudgeProfileSelection{}, item.JudgeProfileSelection)
+	assert.Equal(t, "upstream_live", item.JudgeResultSource)
+	assert.Equal(t, "completed", item.JudgeStatus)
 }
 
 func TestBuildACUWorkTimelineUsesAuthoritativeSettledCosts(t *testing.T) {

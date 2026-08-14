@@ -31,6 +31,7 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 		if logicalID == "" || breakdown == nil {
 			continue
 		}
+		breakdown = timelineBreakdownWithJudgeTelemetry(breakdown, mapValue(mapValue(other, "admin_info"), "acu_cost_breakdown"))
 		billingStatus := stringValue(other, "acu_billing_status")
 		attempts, _ := breakdown["channel_attempts"].([]interface{})
 		decision := mapValue(breakdown, "decision_summary")
@@ -355,6 +356,48 @@ func mapValue(value map[string]interface{}, key string) map[string]interface{} {
 	result, _ := value[key].(map[string]interface{})
 	return result
 }
+
+func timelineBreakdownWithJudgeTelemetry(public, admin map[string]interface{}) map[string]interface{} {
+	if admin == nil {
+		return public
+	}
+	result := make(map[string]interface{}, len(public)+5)
+	for key, value := range public {
+		result[key] = value
+	}
+	for _, key := range []string{
+		"judge_model", "judge_protocol", "judge_reasoning_effort",
+		"judge_profile_selection", "judge_attempts",
+	} {
+		if _, exists := result[key]; !exists {
+			if value, available := admin[key]; available {
+				result[key] = value
+			}
+		}
+	}
+	adminDecision := mapValue(admin, "decision_summary")
+	if adminDecision == nil {
+		return result
+	}
+	publicDecision := mapValue(public, "decision_summary")
+	decision := make(map[string]interface{}, len(publicDecision)+5)
+	for key, value := range publicDecision {
+		decision[key] = value
+	}
+	for _, key := range []string{
+		"judge_status", "judge_result_source", "judge_first_attempt_succeeded",
+		"judge_profile_attempt_count", "judge_same_model_failover_used",
+	} {
+		if _, exists := decision[key]; !exists {
+			if value, available := adminDecision[key]; available {
+				decision[key] = value
+			}
+		}
+	}
+	result["decision_summary"] = decision
+	return result
+}
+
 func timelineCandidates(decision map[string]interface{}) []dto.ACUTimelineCandidateSummary {
 	values, _ := decision["top_candidates"].([]interface{})
 	result := make([]dto.ACUTimelineCandidateSummary, 0, len(values))
