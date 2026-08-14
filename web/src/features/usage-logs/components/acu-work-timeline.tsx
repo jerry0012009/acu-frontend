@@ -148,9 +148,11 @@ function StepDetailContent(props: {
 }) {
   const { t } = useTranslation()
   const { item } = props
+  const judgeAttempts = item.judgeAttempts ?? []
+  const providerAttempts = item.providerAttempts ?? []
   const successfulJudgeAttempt =
     item.pointType === 'judge'
-      ? item.judgeAttempts?.find((attempt) => attempt.status === 'success')
+      ? judgeAttempts.find((attempt) => attempt.status === 'success')
       : undefined
   const model =
     item.pointType === 'judge'
@@ -188,9 +190,8 @@ function StepDetailContent(props: {
   }
   const failedAttempts =
     item.pointType === 'judge'
-      ? item.judgeAttempts.filter((attempt) => attempt.status !== 'success')
-          .length
-      : item.providerAttempts.filter((attempt) => attempt.status !== 'success')
+      ? judgeAttempts.filter((attempt) => attempt.status !== 'success').length
+      : providerAttempts.filter((attempt) => attempt.status !== 'success')
           .length
   return (
     <div className='border-border/70 border-b last:border-b-0'>
@@ -319,7 +320,7 @@ function StepDetailContent(props: {
                 {item.judgeProfileSelection.selectedProfileRank || '—'} /{' '}
                 {item.judgeProfileSelection.candidateCount}
               </div>
-              {item.judgeAttempts.map((attempt) => (
+              {judgeAttempts.map((attempt) => (
                 <div
                   key={attempt.attemptIndex}
                   className='mt-1 grid grid-cols-[2rem_minmax(0,1fr)_5rem_5rem] gap-2'
