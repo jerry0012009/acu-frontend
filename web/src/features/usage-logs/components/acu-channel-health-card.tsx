@@ -66,7 +66,7 @@ export function ACUChannelHealthCard(props: {
   const [expanded, setExpanded] = useState(false)
   const primary = props.channel.primaryProfile
   return (
-    <section className='bg-background min-w-0 rounded-md border'>
+    <section className='bg-background min-w-0 rounded-md border [content-visibility:auto] [contain-intrinsic-size:auto_420px]'>
       <button
         type='button'
         className='flex w-full min-w-0 items-start justify-between gap-3 p-4 text-left'
