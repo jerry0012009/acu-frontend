@@ -73,11 +73,27 @@ export function groupACUChannels(
   probeHistory: ACUProbeHistoryRow[] = []
 ): ACUChannelOverview[] {
   const profilesByChannel = new Map<string, ACUChannelMonitorProfile[]>()
+  const profileChannelById = new Map<string, string>()
   for (const profile of profiles) {
-    profilesByChannel.set(profile.channel, [
-      ...(profilesByChannel.get(profile.channel) ?? []),
-      profile,
-    ])
+    const channelProfiles = profilesByChannel.get(profile.channel) ?? []
+    channelProfiles.push(profile)
+    profilesByChannel.set(profile.channel, channelProfiles)
+    profileChannelById.set(profile.executionProfileId, profile.channel)
+  }
+  const historyByChannel = new Map<string, ACUChannelHistoryRow[]>()
+  for (const row of history) {
+    if (row.scope_type !== 'channel') continue
+    const channelHistory = historyByChannel.get(row.scope_id) ?? []
+    channelHistory.push(row)
+    historyByChannel.set(row.scope_id, channelHistory)
+  }
+  const probesByChannel = new Map<string, ACUProbeHistoryRow[]>()
+  for (const probe of probeHistory) {
+    const channel = profileChannelById.get(probe.execution_profile_id)
+    if (!channel) continue
+    const channelProbes = probesByChannel.get(channel) ?? []
+    channelProbes.push(probe)
+    probesByChannel.set(channel, channelProbes)
   }
   return [...profilesByChannel.entries()]
     .map(([channel, channelProfiles]) => {
@@ -110,9 +126,7 @@ export function groupACUChannels(
             (right.profileRank ?? Number.POSITIVE_INFINITY) ||
           left.executionProfileId.localeCompare(right.executionProfileId)
       )[0]
-      const observedBuckets = history.filter(
-        (row) => row.scope_type === 'channel' && row.scope_id === channel
-      )
+      const observedBuckets = historyByChannel.get(channel) ?? []
       const observedByTime = new Map(
         observedBuckets.map((row) => [new Date(row.bucket).getTime(), row])
       )
@@ -151,12 +165,7 @@ export function groupACUChannels(
           }
         )
       })
-      const profileIds = new Set(
-        channelProfiles.map((profile) => profile.executionProfileId)
-      )
-      const channelProbes = probeHistory.filter((probe) =>
-        profileIds.has(probe.execution_profile_id)
-      )
+      const channelProbes = probesByChannel.get(channel) ?? []
       const probesByTime = new Map<number, ACUProbeBucket>()
       for (const probe of channelProbes) {
         const probeTime = new Date(probe.started_at).getTime()

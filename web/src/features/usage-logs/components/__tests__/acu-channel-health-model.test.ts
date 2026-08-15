@@ -88,6 +88,52 @@ test('computes production availability from channel request history only', () =>
   assert.equal(groups[0].availability, 0.9)
 })
 
+test('keeps production and probe evidence isolated by channel', () => {
+  const channelA = profile()
+  const channelB = profile({
+    channel: 'cx008',
+    executionProfileId: 'cx008:gpt-5.6-sol:responses',
+  })
+  const groups = groupACUChannels(
+    [channelA, channelB],
+    [
+      bucket({ scope_id: 'cx006', channel: 'cx006', request_count: 4 }),
+      bucket({
+        scope_id: 'cx008',
+        channel: 'cx008',
+        request_count: 7,
+        success_count: 7,
+        error_count: 0,
+      }),
+    ],
+    '24h',
+    '2026-08-05T12:15:00Z',
+    [
+      {
+        execution_profile_id: channelA.executionProfileId,
+        status: 'success',
+        started_at: '2026-08-05T12:01:00Z',
+        probeMode: 'full_pool',
+      },
+      {
+        execution_profile_id: channelB.executionProfileId,
+        status: 'failed',
+        started_at: '2026-08-05T12:02:00Z',
+        probeMode: 'recovery',
+      },
+    ] as ACUProbeHistoryRow[]
+  )
+
+  const groupA = groups.find((group) => group.channel === 'cx006')
+  const groupB = groups.find((group) => group.channel === 'cx008')
+  assert.ok(groupA)
+  assert.ok(groupB)
+  assert.equal(groupA.requestCount, 4)
+  assert.equal(groupA.probeCount, 1)
+  assert.equal(groupB.requestCount, 7)
+  assert.equal(groupB.probeCount, 1)
+})
+
 test('classifies empty, successful, mixed, and failed production buckets', () => {
   assert.equal(
     classifyHistoryBucket(

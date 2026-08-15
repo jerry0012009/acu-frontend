@@ -50,6 +50,8 @@ import {
   type ACUMonitorSort,
 } from './acu-monitor-presentation'
 
+const MONITOR_REFRESH_MS = 30 * 60_000
+
 function ms(value?: number) {
   if (!value) return 'n/a'
   return value < 1000
@@ -100,7 +102,8 @@ export function ACUChannelMonitor() {
   const query = useQuery({
     queryKey: ['acu-channel-monitor', range, supplyStrategy, scenario],
     queryFn: () => getACUChannelMonitor(range, supplyStrategy, scenario),
-    refetchInterval: 60_000,
+    staleTime: MONITOR_REFRESH_MS,
+    refetchInterval: MONITOR_REFRESH_MS,
   })
   const pause = useMutation({
     mutationFn: ({
@@ -124,32 +127,36 @@ export function ACUChannelMonitor() {
     () => filterProfilesByProtocol(allProfiles, protocol),
     [allProfiles, protocol]
   )
-  const profiles = useMemo(
-    () =>
-      sortMonitorProfiles(
-        protocolProfiles.filter(
-          (profile) =>
-            (!filters.model || profile.canonicalModel === filters.model) &&
-            (!filters.provider || profile.provider === filters.provider) &&
-            (!filters.protocol ||
-              profile.protocol.includes(filters.protocol)) &&
-            (!filters.state || profile.state === filters.state)
-        ),
-        sort
+  const profiles = useMemo(() => {
+    if (activeTab !== 'current') return []
+    return sortMonitorProfiles(
+      protocolProfiles.filter(
+        (profile) =>
+          (!filters.model || profile.canonicalModel === filters.model) &&
+          (!filters.provider || profile.provider === filters.provider) &&
+          (!filters.protocol || profile.protocol.includes(filters.protocol)) &&
+          (!filters.state || profile.state === filters.state)
       ),
-    [filters, protocolProfiles, sort]
-  )
-  const channelGroups = useMemo(
-    () =>
-      groupACUChannels(
-        protocolProfiles,
-        query.data?.data?.history ?? [],
-        range,
-        query.data?.data?.generatedAt,
-        query.data?.data?.probeHistory ?? []
-      ),
-    [protocolProfiles, query.data, range]
-  )
+      sort
+    )
+  }, [activeTab, filters, protocolProfiles, sort])
+  const channelGroups = useMemo(() => {
+    if (activeTab !== 'overview') return []
+    return groupACUChannels(
+      protocolProfiles,
+      query.data?.data?.history ?? [],
+      range,
+      query.data?.data?.generatedAt,
+      query.data?.data?.probeHistory ?? []
+    )
+  }, [
+    activeTab,
+    protocolProfiles,
+    query.data?.data?.generatedAt,
+    query.data?.data?.history,
+    query.data?.data?.probeHistory,
+    range,
+  ])
   const summary = summarizeMonitorProfiles(protocolProfiles)
   const statItems = [
     [t('Configured'), summary.configured, Activity],
