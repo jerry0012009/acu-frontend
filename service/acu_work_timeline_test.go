@@ -247,6 +247,32 @@ func TestBuildACUWorkTimelineRecoversRulesFallbackFromAdminInfo(t *testing.T) {
 	assert.Equal(t, 1, result.Summary.JudgeRulesFallbackSamples)
 }
 
+func TestBuildACUWorkTimelineRecoversWorkPhaseFromAdminInfo(t *testing.T) {
+	phases := []struct {
+		name   string
+		offset float64
+	}{
+		{"implementation", 3}, {"inspection", -8}, {"planning", 8}, {"verification", 0},
+	}
+	for _, phase := range phases {
+		t.Run(phase.name, func(t *testing.T) {
+			other := `{
+				"acu_logical_request_id":"req-historical-` + phase.name + `",
+				"acu_cost_breakdown":{"phase":"execution"},
+				"admin_info":{"acu_cost_breakdown":{"decision_summary":{
+					"work_phase":"` + phase.name + `",
+					"work_phase_quality_target_offset":` + formatTimelineNumber(phase.offset) + `,
+					"admin_only_decision_detail":"must not be projected"
+				}}}
+			}`
+			result := buildACUWorkTimeline([]*model.Log{{CreatedAt: 100, Type: model.LogTypeConsume, Other: other}}, 0, 200)
+			require.Len(t, result.Items, 1)
+			assert.Equal(t, phase.name, result.Items[0].WorkPhase)
+			assert.Equal(t, phase.offset, result.Items[0].WorkPhaseQualityTargetOffset)
+		})
+	}
+}
+
 func TestPublicACUWorkTimelineRedactsRecoveredJudgeSupplyDetails(t *testing.T) {
 	timeline := dto.ACUWorkTimeline{Items: []dto.ACUWorkTimelineItem{{
 		Provider:                  "wawazz",

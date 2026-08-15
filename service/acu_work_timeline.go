@@ -396,6 +396,7 @@ func timelineBreakdownWithJudgeTelemetry(public, admin map[string]interface{}) m
 	for _, key := range []string{
 		"judge_status", "judge_result_source", "judge_first_attempt_succeeded",
 		"judge_profile_attempt_count", "judge_same_model_failover_used",
+		"work_phase", "work_phase_quality_target_offset",
 	} {
 		if _, exists := decision[key]; !exists {
 			if value, available := adminDecision[key]; available {
