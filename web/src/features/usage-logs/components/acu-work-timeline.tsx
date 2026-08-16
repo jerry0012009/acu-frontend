@@ -88,6 +88,14 @@ function optionalMoney(value: number | undefined) {
   return value == null ? '—' : money(value)
 }
 
+function formatAttemptTimestamp(value: string | undefined) {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  const iso = date.toISOString()
+  return `${iso.slice(0, 23).replace('T', ' ')} UTC`
+}
+
 function datetimeLocalValue(timestampMs: number) {
   const date = new Date(
     timestampMs - new Date(timestampMs).getTimezoneOffset() * 60_000
@@ -434,25 +442,74 @@ function StepDetailContent(props: {
               {providerAttempts.map((attempt) => (
                 <div
                   key={`${attempt.attemptIndex}-${attempt.executionProfileId}`}
-                  className='grid grid-cols-[2rem_minmax(0,1fr)_5rem_5rem] gap-2 py-0.5'
+                  className='grid gap-1 py-1'
                 >
-                  <span>{attempt.attemptIndex}</span>
-                  <span
-                    className='truncate'
-                    title={timelineRouteLabel(
-                      attempt.provider,
-                      attempt.channel,
-                      props.isAdmin
-                    )}
-                  >
-                    {timelineRouteLabel(
-                      attempt.provider,
-                      attempt.channel,
-                      props.isAdmin
-                    )}
-                  </span>
-                  <span>{t(attempt.status)}</span>
-                  <span>{ms(attempt.latencyMs)}</span>
+                  <div className='grid grid-cols-[2rem_minmax(0,1fr)_5rem_5rem] gap-2'>
+                    <span>{attempt.attemptIndex}</span>
+                    <span
+                      className='truncate'
+                      title={timelineRouteLabel(
+                        attempt.provider,
+                        attempt.channel,
+                        props.isAdmin,
+                        attempt.channelName || attempt.channel
+                      )}
+                    >
+                      {timelineRouteLabel(
+                        attempt.provider,
+                        attempt.channel,
+                        props.isAdmin,
+                        attempt.channelName || attempt.channel
+                      )}
+                    </span>
+                    <span>{t(attempt.status)}</span>
+                    <span>{ms(attempt.latencyMs)}</span>
+                  </div>
+                  {props.isAdmin ? (
+                    <div className='text-muted-foreground grid gap-x-3 gap-y-1 pl-8 text-[11px] sm:grid-cols-2'>
+                      <span>
+                        {t('Provider')}: {attempt.provider || '—'}
+                      </span>
+                      <span>
+                        {t('Channel ID')}: {attempt.channelId || '—'}
+                      </span>
+                      <span>
+                        {t('Channel name')}:{' '}
+                        {attempt.channelName || attempt.channel || '—'}
+                      </span>
+                      <span>
+                        {t('Execution Profile')}:{' '}
+                        {attempt.executionProfileId || '—'}
+                      </span>
+                      <span>
+                        {t('Model')}: {attempt.model || '—'}
+                      </span>
+                      <span>
+                        {t('Protocol')}: {attempt.protocol || '—'}
+                      </span>
+                      <span>
+                        {t('Endpoint')}: {attempt.endpointHost || '—'}
+                      </span>
+                      <span>
+                        {t('Failure reason')}: {attempt.errorCategory || '—'}
+                      </span>
+                      <span>
+                        {t('Started')}:{' '}
+                        {formatAttemptTimestamp(attempt.startedAt)}
+                      </span>
+                      <span>
+                        {t('First meaningful event')}:{' '}
+                        {formatAttemptTimestamp(attempt.firstModelEventAt)}
+                        {attempt.firstModelEventLatencyMs != null
+                          ? ` · ${ms(attempt.firstModelEventLatencyMs)}`
+                          : ''}
+                      </span>
+                      <span>
+                        {t('Completed')}:{' '}
+                        {formatAttemptTimestamp(attempt.completedAt)}
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>

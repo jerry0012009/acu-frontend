@@ -184,6 +184,83 @@ func TestBuildACUWorkTimelineRecoversFinalizedJudgeTelemetryFromAdminInfo(t *tes
 	assert.Equal(t, "wawazz-007", public.Items[1].Channel)
 }
 
+func TestBuildACUWorkTimelineHydratesProviderAttemptsFromAdminInfo(t *testing.T) {
+	logs := []*model.Log{{
+		CreatedAt: 100,
+		Type:      model.LogTypeConsume,
+		ModelName: "gpt-5.6-sol",
+		Other: `{
+			"acu_logical_request_id":"req-hydrated-attempts",
+			"acu_cost_breakdown":{
+				"task_id":"task-1",
+				"segment_id":"seg-1",
+				"canonical_model":"gpt-5.6-sol",
+				"logical_request_status":"completed_with_recovery"
+			},
+			"admin_info":{
+				"actual_provider":"lucen",
+				"actual_channel":"lucen-cx006-plus",
+				"acu_cost_breakdown":{
+					"channel_attempts":[
+						{
+							"attempt_index":1,
+							"provider":"1pkapi",
+							"channel":"7737",
+							"execution_profile_id":"1pkapi-responses-x006:gpt-5.6-sol:responses",
+							"model":"gpt-5.6-sol",
+							"protocol":"responses",
+							"endpoint_host":"1pkapi.example",
+							"status":"error",
+							"error_category":"slow_first_model_event",
+							"latency_ms":30004,
+							"started_at":"2026-08-16T16:07:35.348Z",
+							"completed_at":"2026-08-16T16:08:05.352Z"
+						},
+						{
+							"attempt_index":2,
+							"provider":"lucen",
+							"channel":"1537",
+							"execution_profile_id":"lucen-cx006-plus:gpt-5.6-sol:responses",
+							"model":"gpt-5.6-sol",
+							"protocol":"responses",
+							"endpoint_host":"lucen.cc",
+							"status":"success",
+							"latency_ms":36417,
+							"first_model_event_at":"2026-08-16T16:08:20.251Z",
+							"first_model_event_latency_ms":14377,
+							"started_at":"2026-08-16T16:08:05.669Z",
+							"completed_at":"2026-08-16T16:08:42.088Z",
+							"effective_cost_cny":0.07422972,
+							"nominal_cost_usd":1.237162
+						}
+					]
+				}
+			}
+		}`,
+	}}
+
+	result := buildACUWorkTimeline(logs, 0, 200)
+	require.Len(t, result.Items, 1)
+	item := result.Items[0]
+	assert.Equal(t, "completed_with_recovery", item.Status)
+	assert.Equal(t, 2, item.ProfileAttemptCount)
+	require.Len(t, item.ProviderAttempts, 2)
+	assert.Equal(t, "1pkapi-responses-x006:gpt-5.6-sol:responses", item.ProviderAttempts[0].ExecutionProfileID)
+	assert.Equal(t, "7737", item.ProviderAttempts[0].ChannelID)
+	assert.Equal(t, "1pkapi.example", item.ProviderAttempts[0].EndpointHost)
+	assert.Equal(t, "2026-08-16T16:07:35.348Z", item.ProviderAttempts[0].StartedAt)
+	assert.Equal(t, "lucen-cx006-plus:gpt-5.6-sol:responses", item.ProviderAttempts[1].ExecutionProfileID)
+	assert.Equal(t, "1537", item.ProviderAttempts[1].ChannelID)
+	assert.Equal(t, "2026-08-16T16:08:20.251Z", item.ProviderAttempts[1].FirstModelEventAt)
+	assert.Equal(t, 14377, item.ProviderAttempts[1].FirstModelEventLatencyMs)
+	assert.Equal(t, "2026-08-16T16:08:42.088Z", item.ProviderAttempts[1].CompletedAt)
+
+	public := PublicACUWorkTimeline(result)
+	require.Len(t, public.Items, 1)
+	assert.Nil(t, public.Items[0].ProviderAttempts)
+	assert.Empty(t, public.Items[0].ProviderAttempts)
+}
+
 func TestBuildACUWorkTimelinePrefersPublicIdentityAndSplitCharges(t *testing.T) {
 	logs := []*model.Log{{
 		CreatedAt: 100,
@@ -198,14 +275,16 @@ func TestBuildACUWorkTimelinePrefersPublicIdentityAndSplitCharges(t *testing.T) 
 				"actual_provider":"public-provider",
 				"channel_id":"public-channel",
 				"judge_user_charge_cny":0.03,
-				"provider_user_charge_cny":0.09
+				"provider_user_charge_cny":0.09,
+				"channel_attempts":[{"attempt_index":1,"provider":"public-provider","channel":"public-channel","execution_profile_id":"public-profile","status":"success","latency_ms":12}]
 			},
 			"admin_info":{
 				"actual_provider":"admin-provider",
 				"actual_channel":"admin-channel",
 				"acu_cost_breakdown":{
 					"judge_user_charge_cny":0.025,
-					"provider_user_charge_cny":0.100
+					"provider_user_charge_cny":0.100,
+					"channel_attempts":[{"attempt_index":1,"provider":"admin-provider","channel":"admin-channel","execution_profile_id":"admin-profile","status":"error","latency_ms":99}]
 				}
 			}
 		}`,
@@ -220,6 +299,8 @@ func TestBuildACUWorkTimelinePrefersPublicIdentityAndSplitCharges(t *testing.T) 
 	assert.Equal(t, 0.09, *execution.UserChargeCNY)
 	assert.Equal(t, "public-provider", execution.Provider)
 	assert.Equal(t, "public-channel", execution.Channel)
+	require.Len(t, execution.ProviderAttempts, 1)
+	assert.Equal(t, "public-profile", execution.ProviderAttempts[0].ExecutionProfileID)
 }
 
 func TestBuildACUWorkTimelineRecoversRulesFallbackFromAdminInfo(t *testing.T) {

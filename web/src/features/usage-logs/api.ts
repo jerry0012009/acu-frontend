@@ -189,11 +189,22 @@ export type ACUWorkTimelineItem = {
     attemptIndex: number
     provider: string
     channel: string
+    channelId?: string
+    channelName?: string
     executionProfileId: string
+    model?: string
+    protocol?: string
+    endpointHost?: string
     status: string
     errorCategory?: string
     httpStatus?: number
     latencyMs: number
+    startedAt?: string
+    firstModelEventAt?: string
+    firstModelEventLatencyMs?: number
+    completedAt?: string
+    effectiveCostCny?: number
+    nominalCostUsd?: number
   }>
 }
 

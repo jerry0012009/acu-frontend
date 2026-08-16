@@ -35,7 +35,7 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 		adminBreakdown := mapValue(adminInfo, "acu_cost_breakdown")
 		breakdown = timelineBreakdownWithJudgeTelemetry(breakdown, adminBreakdown)
 		billingStatus := stringValue(other, "acu_billing_status")
-		attempts, _ := breakdown["channel_attempts"].([]interface{})
+		attempts := timelineChannelAttempts(breakdown, adminBreakdown)
 		decision := mapValue(breakdown, "decision_summary")
 		firstLatency, totalLatency, errorClass, cooldown := attemptFields(attempts)
 		status := stringValue(breakdown, "logical_request_status")
@@ -72,6 +72,10 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 		providerUserCharge, _ := preferredNumber(other, breakdown, "provider_user_charge_cny")
 		judgeUserCharge, _ := preferredNumber(other, breakdown, "judge_user_charge_cny")
 		judgeAttempts, _ := breakdown["judge_attempts"].([]interface{})
+		profileAttemptCount := int(numberValue(decision, "profile_attempt_count"))
+		if len(attempts) > profileAttemptCount {
+			profileAttemptCount = len(attempts)
+		}
 		routeDecision := mapValue(breakdown, "route_decision")
 		routingQualityTarget := numberPointer(routeDecision, "effective_quality_target")
 		legacyCost := 0.0
@@ -149,7 +153,7 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 			InputTokens:                    int64(log.PromptTokens), CachedInputTokens: int64(numberValue(other, "cached_input_tokens")),
 			OutputTokens: int64(log.CompletionTokens), ReasoningTokens: int64(numberValue(other, "reasoning_tokens")),
 			CacheHitRatio:          numberValue(decision, "cache_hit_ratio"),
-			ProfileAttemptCount:    int(numberValue(decision, "profile_attempt_count")),
+			ProfileAttemptCount:    profileAttemptCount,
 			RecoveryDecisionReason: stringValue(decision, "recovery_decision_reason"),
 			RouteRefreshReason:     firstTimelineValue(stringValue(decision, "route_refresh_reason"), stringValue(breakdown, "route_refresh_reason")),
 			TopCandidates:          timelineCandidates(decision), ProviderAttempts: timelineAttempts(attempts),
@@ -365,6 +369,16 @@ func mapValue(value map[string]interface{}, key string) map[string]interface{} {
 	return result
 }
 
+func timelineChannelAttempts(public, admin map[string]interface{}) []interface{} {
+	if values, ok := public["channel_attempts"].([]interface{}); ok && len(values) > 0 {
+		return values
+	}
+	if values, ok := admin["channel_attempts"].([]interface{}); ok {
+		return values
+	}
+	return nil
+}
+
 func timelineBreakdownWithJudgeTelemetry(public, admin map[string]interface{}) map[string]interface{} {
 	if admin == nil {
 		return public
@@ -426,16 +440,38 @@ func timelineCandidates(decision map[string]interface{}) []dto.ACUTimelineCandid
 }
 func timelineAttempts(values []interface{}) []dto.ACUTimelineProviderAttempt {
 	result := make([]dto.ACUTimelineProviderAttempt, 0, len(values))
-	for _, value := range values {
+	for index, value := range values {
 		attempt, _ := value.(map[string]interface{})
 		if attempt == nil {
 			continue
 		}
+		attemptIndex := int(numberValue(attempt, "attempt_index"))
+		if attemptIndex <= 0 {
+			attemptIndex = index + 1
+		}
 		result = append(result, dto.ACUTimelineProviderAttempt{
-			AttemptIndex: int(numberValue(attempt, "attempt_index")), Provider: stringValue(attempt, "provider"), Channel: stringValue(attempt, "channel"),
-			ExecutionProfileID: stringValue(attempt, "execution_profile_id"), Status: stringValue(attempt, "status"),
-			ErrorCategory: firstTimelineValue(stringValue(attempt, "error_category"), stringValue(attempt, "error_class")),
-			HTTPStatus:    int(numberValue(attempt, "http_status")), LatencyMs: int(numberValue(attempt, "latency_ms")),
+			AttemptIndex:       attemptIndex,
+			Provider:           stringValue(attempt, "provider"),
+			Channel:            stringValue(attempt, "channel"),
+			ChannelID:          firstTimelineValue(stringValue(attempt, "channel_id"), stringValue(attempt, "channel")),
+			ChannelName:        stringValue(attempt, "channel_name"),
+			ExecutionProfileID: stringValue(attempt, "execution_profile_id"),
+			Model:              firstTimelineValue(stringValue(attempt, "model"), stringValue(attempt, "actual_model")),
+			Protocol:           stringValue(attempt, "protocol"),
+			EndpointHost:       firstTimelineValue(stringValue(attempt, "endpoint_host"), stringValue(attempt, "endpoint")),
+			Status:             stringValue(attempt, "status"),
+			ErrorCategory:      firstTimelineValue(stringValue(attempt, "error_category"), stringValue(attempt, "error_class")),
+			HTTPStatus:         int(numberValue(attempt, "http_status")),
+			LatencyMs:          int(numberValue(attempt, "latency_ms")),
+			StartedAt:          stringValue(attempt, "started_at"),
+			FirstModelEventAt: firstTimelineValue(
+				stringValue(attempt, "first_model_event_at"),
+				stringValue(attempt, "first_meaningful_event_at"),
+			),
+			FirstModelEventLatencyMs: int(numberValue(attempt, "first_model_event_latency_ms")),
+			CompletedAt:              stringValue(attempt, "completed_at"),
+			EffectiveCostCNY:         numberValue(attempt, "effective_cost_cny"),
+			NominalCostUSD:           numberValue(attempt, "nominal_cost_usd"),
 		})
 	}
 	return result

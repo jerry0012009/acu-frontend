@@ -32,28 +32,28 @@ type ACUWorkTimelineSummary struct {
 }
 
 type ACUWorkTimelineItem struct {
-	PointID                  string   `json:"pointId"`
-	PointType                string   `json:"pointType"`
-	Timestamp                int64    `json:"timestamp"`
-	Sequence                 int      `json:"sequence"`
-	LogicalRequestID         string   `json:"logicalRequestId"`
-	SessionID                string   `json:"sessionId"`
-	TaskID                   string   `json:"taskId"`
-	SegmentID                string   `json:"segmentId"`
-	JudgeCalled              bool     `json:"judgeCalled"`
-	JudgeReused              bool     `json:"judgeReused"`
-	JudgeModel               string   `json:"judgeModel"`
-	JudgeBackupUsed          bool     `json:"judgeBackupUsed"`
-	Difficulty               float64  `json:"difficulty"`
-	DifficultyRecorded       bool     `json:"difficultyRecorded"`
-	RequestedModel           string   `json:"requestedModel"`
-	ActualModel              string   `json:"actualModel"`
-	Provider                 string   `json:"provider"`
-	Channel                  string   `json:"channel"`
-	Protocol                 string   `json:"protocol,omitempty"`
-	Status                   string   `json:"status"`
-	BillingStatus            string   `json:"billingStatus"`
-	BillingErrorCode         string   `json:"billingErrorCode,omitempty"`
+	PointID            string  `json:"pointId"`
+	PointType          string  `json:"pointType"`
+	Timestamp          int64   `json:"timestamp"`
+	Sequence           int     `json:"sequence"`
+	LogicalRequestID   string  `json:"logicalRequestId"`
+	SessionID          string  `json:"sessionId"`
+	TaskID             string  `json:"taskId"`
+	SegmentID          string  `json:"segmentId"`
+	JudgeCalled        bool    `json:"judgeCalled"`
+	JudgeReused        bool    `json:"judgeReused"`
+	JudgeModel         string  `json:"judgeModel"`
+	JudgeBackupUsed    bool    `json:"judgeBackupUsed"`
+	Difficulty         float64 `json:"difficulty"`
+	DifficultyRecorded bool    `json:"difficultyRecorded"`
+	RequestedModel     string  `json:"requestedModel"`
+	ActualModel        string  `json:"actualModel"`
+	Provider           string  `json:"provider"`
+	Channel            string  `json:"channel"`
+	Protocol           string  `json:"protocol,omitempty"`
+	Status             string  `json:"status"`
+	BillingStatus      string  `json:"billingStatus"`
+	BillingErrorCode   string  `json:"billingErrorCode,omitempty"`
 	// FirstModelEventLatencyMs is request start -> first meaningful model event.
 	FirstModelEventLatencyMs int `json:"firstModelEventLatencyMs"`
 	// ProviderFirstModelEventLatencyMs remains provider-attempt-local TTFT.
@@ -147,12 +147,23 @@ type ACUTimelineCandidateSummary struct {
 }
 
 type ACUTimelineProviderAttempt struct {
-	AttemptIndex       int    `json:"attemptIndex"`
-	Provider           string `json:"provider"`
-	Channel            string `json:"channel"`
-	ExecutionProfileID string `json:"executionProfileId"`
-	Status             string `json:"status"`
-	ErrorCategory      string `json:"errorCategory,omitempty"`
-	HTTPStatus         int    `json:"httpStatus,omitempty"`
-	LatencyMs          int    `json:"latencyMs"`
+	AttemptIndex             int     `json:"attemptIndex"`
+	Provider                 string  `json:"provider"`
+	Channel                  string  `json:"channel"`
+	ChannelID                string  `json:"channelId,omitempty"`
+	ChannelName              string  `json:"channelName,omitempty"`
+	ExecutionProfileID       string  `json:"executionProfileId"`
+	Model                    string  `json:"model,omitempty"`
+	Protocol                 string  `json:"protocol,omitempty"`
+	EndpointHost             string  `json:"endpointHost,omitempty"`
+	Status                   string  `json:"status"`
+	ErrorCategory            string  `json:"errorCategory,omitempty"`
+	HTTPStatus               int     `json:"httpStatus,omitempty"`
+	LatencyMs                int     `json:"latencyMs"`
+	StartedAt                string  `json:"startedAt,omitempty"`
+	FirstModelEventAt        string  `json:"firstModelEventAt,omitempty"`
+	FirstModelEventLatencyMs int     `json:"firstModelEventLatencyMs,omitempty"`
+	CompletedAt              string  `json:"completedAt,omitempty"`
+	EffectiveCostCNY         float64 `json:"effectiveCostCny,omitempty"`
+	NominalCostUSD           float64 `json:"nominalCostUsd,omitempty"`
 }
