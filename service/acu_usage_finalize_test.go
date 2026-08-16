@@ -149,7 +149,22 @@ func TestFinalizeACUUsageChargesAndUpdatesLogExactlyOnce(t *testing.T) {
 		ProviderCostUSD:      "0.0008000000",
 		FailedBilledCostUSD:  "0.0000000000",
 		FinalUserCostUSD:     "0.0010000000",
-		CostBreakdown:        map[string]interface{}{"judge": "0.0002000000", "provider": "0.0008000000"},
+		CostBreakdown: map[string]interface{}{
+			"judge": "0.0002000000", "provider": "0.0008000000",
+			"first_model_event_latency_ms": 420,
+			"channel_attempts": []interface{}{
+				map[string]interface{}{
+					"attempt_index": 1, "provider": "closeai", "channel": "secret-channel",
+					"execution_profile_id": "secret-profile", "network_endpoint": "https://secret.example",
+					"status": "error", "latency_ms": 100,
+				},
+				map[string]interface{}{
+					"attempt_index": 2, "provider": "lucen", "channel": "secret-success",
+					"execution_profile_id": "secret-success-profile", "status": "success",
+					"latency_ms": 500, "first_model_event_latency_ms": 420,
+				},
+			},
+		},
 	}
 
 	first, err := FinalizeACUUsage(request, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
@@ -188,6 +203,21 @@ func TestFinalizeACUUsageChargesAndUpdatesLogExactlyOnce(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "closeai-anthropic-primary", adminInfo["actual_channel"])
 	require.Contains(t, logOther, "user_charge_cny")
+	publicBreakdown, ok := logOther["acu_cost_breakdown"].(map[string]interface{})
+	require.True(t, ok)
+	require.Equal(t, 420.0, publicBreakdown["first_model_event_latency_ms"])
+	require.NotContains(t, publicBreakdown, "channel_multiplier")
+	require.NotContains(t, publicBreakdown, "billing_multiplier")
+	publicAttempts, ok := publicBreakdown["channel_attempts"].([]interface{})
+	require.True(t, ok)
+	require.Len(t, publicAttempts, 2)
+	firstAttempt, ok := publicAttempts[0].(map[string]interface{})
+	require.True(t, ok)
+	require.Equal(t, "error", firstAttempt["status"])
+	require.NotContains(t, firstAttempt, "provider")
+	require.NotContains(t, firstAttempt, "channel")
+	require.NotContains(t, firstAttempt, "execution_profile_id")
+	require.NotContains(t, firstAttempt, "network_endpoint")
 	data, err := model.GetQuotaDataByUserId(user.Id, 0, time.Now().Unix()+1)
 	require.NoError(t, err)
 	require.Len(t, data, 1)

@@ -12,6 +12,7 @@ import type { ACUSessionTrace } from '../../../session-trace-types'
 import { ACUSessionTraceView } from '../acu-session-trace'
 import {
   aggregateJudgeAttempts,
+  isMissingACUSessionTrace,
   isNeutralTraceCancellation,
   isSuccessfulTraceStatus,
   traceTimingSummary,
@@ -322,6 +323,31 @@ test('treats all explicitly client-cancelled requests as neutral', () => {
   request.status = 'cancelled'
   request.deliveryStatus = 'client_cancelled_before_output'
   assert.equal(isNeutralTraceCancellation(request), true)
+})
+
+test('recognizes missing trace responses without treating network failures as not found', () => {
+  assert.equal(
+    isMissingACUSessionTrace({
+      success: false,
+      message: 'ACU session trace was not found',
+    }),
+    true
+  )
+  assert.equal(
+    isMissingACUSessionTrace({
+      response: {
+        status: 500,
+        data: { message: 'ACU session trace was not found' },
+      },
+    }),
+    true
+  )
+  assert.equal(
+    isMissingACUSessionTrace({
+      response: { status: 503, data: { message: 'upstream unavailable' } },
+    }),
+    false
+  )
 })
 
 test('summarizes and neutrally renders cancellation after visible output', async () => {

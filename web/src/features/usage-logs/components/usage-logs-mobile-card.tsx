@@ -34,6 +34,7 @@ import {
   isTimingLogType,
 } from '../lib/utils'
 import type { LogCategory } from '../types'
+import { isFinalizedAcuUsageLog } from './dialogs/details-dialog-model'
 import { StreamTpsCell, TimingMetricsCell } from './timing-metrics-cell'
 import { useUsageLogsContext } from './usage-logs-provider'
 
@@ -269,6 +270,7 @@ function MobileStreamTimingField({ log }: { log: UsageLog }) {
   if (!isTimingLogType(log.type)) return null
 
   const other = parseLogOther(log.other)
+  const finalizedAcu = isFinalizedAcuUsageLog(log, other)
   const useTime = acuDurationSeconds(log, other)
   const tokensPerSecond =
     useTime > 0 && log.completion_tokens > 0
@@ -281,7 +283,7 @@ function MobileStreamTimingField({ log }: { log: UsageLog }) {
         useTimeSec={useTime}
         completionTokens={log.completion_tokens}
         frtMs={acuFirstTokenMs(other)}
-        isStream={log.is_stream}
+        isStream={log.is_stream || finalizedAcu}
         indicator='dot'
         className='min-w-0 flex-1'
       />

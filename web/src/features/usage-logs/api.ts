@@ -75,7 +75,8 @@ export async function getACUSessionTrace(
   if (targetUserId != null) params.set('user_id', String(targetUserId))
   const query = params.size ? `?${params.toString()}` : ''
   const res = await api.get(
-    `/api/log/self/acu-session-trace/${encodeURIComponent(identifier)}${query}`
+    `/api/log/self/acu-session-trace/${encodeURIComponent(identifier)}${query}`,
+    { skipErrorHandler: true }
   )
   return res.data as {
     success: boolean

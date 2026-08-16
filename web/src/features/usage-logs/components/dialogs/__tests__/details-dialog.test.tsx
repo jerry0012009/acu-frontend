@@ -1,12 +1,26 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
+import { createInstance } from 'i18next'
+import React from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { I18nextProvider, initReactI18next } from 'react-i18next'
+
 import type { UsageLog } from '../../../data/schema'
 import type { LogOtherData } from '../../../types'
+import {
+  AcuExecutionAttempts,
+  AcuSessionTraceDisclosure,
+} from '../details-dialog'
 import {
   isFinalizedAcuUsageLog,
   shouldShowAcuInternalDetails,
 } from '../details-dialog-model'
+
+Object.defineProperty(globalThis, 'React', {
+  configurable: true,
+  value: React,
+})
 
 const finalizedLog: UsageLog = {
   id: 1,
@@ -69,4 +83,61 @@ test('does not hide internal details for non-finalized ACU usage', () => {
     shouldShowAcuInternalDetails(pendingLog, pendingOther, false),
     true
   )
+})
+
+async function renderWithI18n(node: React.ReactNode): Promise<string> {
+  const i18n = createInstance()
+  await i18n
+    .use(initReactI18next)
+    .init({ lng: 'en', resources: { en: { translation: {} } } })
+  return renderToStaticMarkup(
+    <I18nextProvider i18n={i18n}>{node}</I18nextProvider>
+  )
+}
+
+test('keeps Session Trace collapsed and unmounted by default', async () => {
+  const html = await renderWithI18n(
+    <AcuSessionTraceDisclosure identifier='req-1' isAdmin />
+  )
+
+  assert.match(html, /View full Session Trace/)
+  assert.doesNotMatch(html, /Loading ACU Session Trace/)
+})
+
+test('shows real attempts to admins and only alias attempts to ordinary users', async () => {
+  const breakdown: NonNullable<LogOtherData['acu_cost_breakdown']> = {
+    channel_attempts: [
+      {
+        attempt_index: 1,
+        provider: 'one',
+        channel_id: '7737',
+        execution_profile_id: 'profile-one',
+        network_endpoint: 'https://secret.example',
+        status: 'error',
+        error_category: 'slow_first_model_event',
+      },
+      {
+        attempt_index: 2,
+        provider: 'lucen',
+        channel_id: '1537',
+        execution_profile_id: 'profile-two',
+        status: 'success',
+      },
+    ],
+  }
+
+  const admin = await renderWithI18n(
+    <AcuExecutionAttempts breakdown={breakdown} isAdmin />
+  )
+  const ordinary = await renderWithI18n(
+    <AcuExecutionAttempts breakdown={breakdown} isAdmin={false} />
+  )
+
+  assert.match(admin, /one · #7737/)
+  assert.match(admin, /profile-one/)
+  assert.match(admin, /slow_first_model_event/)
+  assert.match(ordinary, /ACU Route #1/)
+  assert.match(ordinary, /ACU Route #2/)
+  assert.doesNotMatch(ordinary, /provider-internal|lucen|7737|1537/)
+  assert.doesNotMatch(ordinary, /profile-one|profile-two|secret\.example/)
 })

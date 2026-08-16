@@ -155,15 +155,141 @@ export interface AcuChannelAttempt {
   attempt_index?: number
   provider?: string
   channel?: string
+  channel_id?: string
+  channel_name?: string
   execution_profile_id?: string
+  model?: string
+  actual_model?: string
+  protocol?: string
+  endpoint?: string
+  endpoint_host?: string
+  network_endpoint?: string
   status?: string
   error_category?: string | null
+  error_class?: string | null
   http_status?: number | null
   latency_ms?: number | null
   first_model_event_latency_ms?: number | null
+  first_model_event_at?: string | null
   started_at?: string
   completed_at?: string | null
   nominal_cost_usd?: number
+  effective_cost_cny?: number
+  input_tokens?: number
+  cached_input_tokens?: number
+  output_tokens?: number
+  reasoning_tokens?: number
+  input_price_per_million?: number
+  output_price_per_million?: number
+}
+
+export interface AcuCostBreakdown {
+  requested_model?: string
+  protocol?: string
+  routed_by_acu?: boolean
+  session_id?: string
+  task_id?: string
+  segment_id?: string
+  judge_trigger?: string
+  judge_calls?: number
+  judge_reused?: boolean
+  reused_judge_evaluation_id?: string
+  route_refresh_reason?: string
+  judge?: string
+  provider?: string
+  usageSource?: string
+  mode?: string
+  difficulty?: number
+  candidate_count?: number
+  selected_model?: string
+  route_reason?: string
+  quality_upper_bound_model?: string
+  estimated_cost_reduction_vs_quality_upper_bound_usd?: number
+  estimated_cost_reduction_vs_quality_upper_bound_cny?: number
+  reasoning_effort?: string
+  routing_preference?: string
+  canonical_model?: string
+  provider_model?: string
+  selected_provider?: string
+  actual_provider?: string
+  provider_selection_reason?: string
+  model_selection_reason?: string
+  routing_group?: string
+  channel_id?: string
+  channel_name?: string
+  network_endpoint?: string
+  fallback_chain?: string
+  circuit_state?: string
+  cooldown_until?: string
+  error_class?: string
+  recent_success_rate?: number
+  effective_cost_status?: string
+  billing_multiplier?: number
+  channel_multiplier?: number
+  retail_markup_multiplier?: number
+  billing_version?: string
+  billing_policy_version?: string
+  nominal_provider_cost_usd?: number
+  provider_balance_charge?: number
+  provider_balance_currency?: string
+  provider_credit_cash_cost_cny?: number
+  effective_provider_cash_cost_cny?: number
+  effective_cash_cost_cny?: number
+  user_charge?: string
+  user_charge_cny?: number | string
+  actual_total_cash_cost_cny?: number
+  judge_cash_cost_cny?: number
+  judge_input_tokens?: number
+  judge_output_tokens?: number
+  judge_official_payg_equivalent_cost?: number
+  judge_cost_currency?: string
+  judge_cost_status?:
+    | 'estimated_blended'
+    | 'estimated_upper_bound'
+    | 'verified'
+    | 'mixed'
+    | 'not_applicable'
+  judge_cost_source?: string
+  judge_provider?: string
+  judge_model?: string
+  judge_protocol?: string
+  judge_reasoning_effort?: string
+  judge_result_source?: string
+  judge_status?: string
+  decision_summary?: {
+    judge_result_source?: string
+    judge_status?: string
+    judge_same_model_failover_used?: boolean
+    resolved_reasoning_effort?: string
+    preset_reasoning_effort?: string
+    client_requested_reasoning_effort?: string
+    profile_attempt_count?: number
+    recovery_decision_reason?: string
+  }
+  failed_attempt_cash_cost_cny?: number
+  counterfactual_quality_ceiling_cost_cny?: number
+  reference_provider?: string
+  reference_effective_cash_cost_cny?: number
+  effective_savings_vs_reference_cny?: number
+  effective_cost_source?: string
+  effective_cost_version?: string
+  client_declared_web_tool?: boolean
+  web_intent?: 'required' | 'likely' | 'not_required'
+  web_intent_source?: 'judge' | 'heuristic_fallback' | 'legacy_heuristic'
+  web_actually_invoked?: boolean
+  web_search_event_status?: string[]
+  web_profile_verified?: boolean
+  web_fallback_chain?: string[]
+  web_tool_pruned?: boolean
+  web_tool_prune_reason?: string
+  phase?: string
+  judge_explanation?: string
+  route_decision?: AcuRouteDecisionView
+  channel_attempts?: AcuChannelAttempt[]
+  first_model_event_latency_ms?: number
+  end_to_end_latency_ms?: number
+  judge_latency_ms?: number
+  provider_latency_ms?: number
 }
 
 export interface LogOtherData {
@@ -186,6 +312,9 @@ export interface LogOtherData {
     admin_id?: number | string
     admin_role?: number
     auth_method?: 'session' | 'access_token' | string
+    acu_cost_breakdown?: AcuCostBreakdown
+    actual_provider?: string
+    actual_channel?: string
     // Quota saturation marker: set when a quota conversion clamped at the
     // int32 bound (overflow/underflow) or hit a NaN fallback while computing
     // this request's charge. Admin-only (nested under admin_info).
@@ -339,98 +468,7 @@ export interface LogOtherData {
   actual_total_cash_cost_cny?: string
   user_charge_cny?: string
   counterfactual_quality_ceiling_cost_cny?: string
-  acu_cost_breakdown?: {
-    requested_model?: string
-    routed_by_acu?: boolean
-    session_id?: string
-    task_id?: string
-    segment_id?: string
-    judge_trigger?: string
-    judge_calls?: number
-    judge_reused?: boolean
-    reused_judge_evaluation_id?: string
-    route_refresh_reason?: string
-    judge?: string
-    provider?: string
-    usageSource?: string
-    mode?: string
-    difficulty?: number
-    candidate_count?: number
-    selected_model?: string
-    route_reason?: string
-    quality_upper_bound_model?: string
-    estimated_cost_reduction_vs_quality_upper_bound_usd?: number
-    estimated_cost_reduction_vs_quality_upper_bound_cny?: number
-    reasoning_effort?: string
-    routing_preference?: string
-    canonical_model?: string
-    provider_model?: string
-    selected_provider?: string
-    actual_provider?: string
-    provider_selection_reason?: string
-    model_selection_reason?: string
-    routing_group?: string
-    channel_id?: string
-    network_endpoint?: string
-    fallback_chain?: string
-    circuit_state?: string
-    cooldown_until?: string
-    error_class?: string
-    recent_success_rate?: number
-    effective_cost_status?: string
-    billing_multiplier?: number
-    nominal_provider_cost_usd?: number
-    provider_balance_charge?: number
-    provider_balance_currency?: string
-    provider_credit_cash_cost_cny?: number
-    effective_cash_cost_cny?: number
-    user_charge?: string
-    actual_total_cash_cost_cny?: number
-    judge_cash_cost_cny?: number
-    judge_input_tokens?: number
-    judge_output_tokens?: number
-    judge_official_payg_equivalent_cost?: number
-    judge_cost_currency?: string
-    judge_cost_status?:
-      | 'estimated_blended'
-      | 'estimated_upper_bound'
-      | 'verified'
-      | 'mixed'
-      | 'not_applicable'
-    judge_cost_source?: string
-    judge_provider?: string
-    judge_model?: string
-    judge_protocol?: string
-    judge_reasoning_effort?: string
-    judge_result_source?: string
-    judge_status?: string
-    decision_summary?: {
-      judge_result_source?: string
-      judge_status?: string
-      judge_same_model_failover_used?: boolean
-    }
-    failed_attempt_cash_cost_cny?: number
-    counterfactual_quality_ceiling_cost_cny?: number
-    reference_provider?: string
-    reference_effective_cash_cost_cny?: number
-    effective_savings_vs_reference_cny?: number
-    effective_cost_source?: string
-    effective_cost_version?: string
-    client_declared_web_tool?: boolean
-    web_intent?: 'required' | 'likely' | 'not_required'
-    web_intent_source?: 'judge' | 'heuristic_fallback' | 'legacy_heuristic'
-    web_actually_invoked?: boolean
-    web_search_event_status?: string[]
-    web_profile_verified?: boolean
-    web_fallback_chain?: string[]
-    web_tool_pruned?: boolean
-    web_tool_prune_reason?: string
-    phase?: string
-    judge_explanation?: string
-    route_decision?: AcuRouteDecisionView
-    channel_attempts?: AcuChannelAttempt[]
-    end_to_end_latency_ms?: number
-  }
+  acu_cost_breakdown?: AcuCostBreakdown
 }
 
 /**

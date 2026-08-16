@@ -62,7 +62,7 @@ export function TimingMetricsCell(props: TimingMetricsCellProps) {
     props.completionTokens
   )
   const firstTokenLabel =
-    firstTokenSeconds == null ? t('N/A') : formatUseTime(firstTokenSeconds)
+    firstTokenSeconds == null ? '—' : formatUseTime(firstTokenSeconds)
   const totalTimeLabel = formatUseTime(props.useTimeSec)
 
   const labels = (
@@ -79,7 +79,7 @@ export function TimingMetricsCell(props: TimingMetricsCellProps) {
             />
           )}
           <span className='text-muted-foreground shrink-0'>
-            {t('First token')}
+            {t('First response')}
           </span>
           <span className={cn('tabular-nums', textColorMap[firstTokenVariant])}>
             {firstTokenLabel}
