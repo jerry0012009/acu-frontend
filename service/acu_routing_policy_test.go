@@ -21,6 +21,24 @@ func TestResolveACUEffectiveRoutingPolicyUsesTokenAndGlobalIntersection(t *testi
 	require.Equal(t, "economy", policy.RoutingPreference)
 }
 
+func TestResolveACUEffectiveRoutingPolicyDefaultTokenDynamicallyInheritsGlobalProfiles(t *testing.T) {
+	previous := common.OptionMap
+	t.Cleanup(func() { common.OptionMap = previous })
+	token := &model.Token{}
+	common.OptionMap = map[string]string{"ACUGlobalRoutingPolicy": `{"profilePolicy":"custom_allowlist","allowedProfileIds":["p1"]}`}
+
+	initial, err := ResolveACUEffectiveRoutingPolicy(token)
+	require.NoError(t, err)
+	require.Equal(t, []string{"p1"}, initial.AllowedProfileIDs)
+
+	common.OptionMap["ACUGlobalRoutingPolicy"] = `{"profilePolicy":"custom_allowlist","allowedProfileIds":["p1","p2"]}`
+	updated, err := ResolveACUEffectiveRoutingPolicy(token)
+	require.NoError(t, err)
+	require.Equal(t, []string{"p1", "p2"}, updated.AllowedProfileIDs)
+	require.False(t, token.ACUProfileLimitsEnabled)
+	require.Empty(t, token.ACUProfileLimits)
+}
+
 func TestResolveACUEffectiveRoutingPolicyRejectsEmptyIntersection(t *testing.T) {
 	previous := common.OptionMap
 	t.Cleanup(func() { common.OptionMap = previous })
