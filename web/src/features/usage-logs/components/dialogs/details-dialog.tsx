@@ -256,11 +256,12 @@ export function AcuExecutionAttempts(props: {
           const firstEventValue = firstEventAt
             ? formatAttemptTimestamp(firstEventAt)
             : '—'
+          const publicRoute = publicChannelAlias(attempt.provider, channelId)
           const title = props.isAdmin
             ? [attempt.provider, channelId ? `#${channelId}` : undefined]
                 .filter(Boolean)
                 .join(' · ') || `${t('Attempt')} ${attemptIndex}`
-            : `${t('ACU Route')} #${attemptIndex}`
+            : publicRoute
           let statusLabel = t('Retry')
           if (successful) {
             statusLabel = t('Completed')
@@ -1349,7 +1350,10 @@ export function AcuDecisionVisualization(props: {
                     </>
                   ) : (
                     <span className='font-medium'>
-                      {publicChannelAlias(attempt.provider, attempt.channel)}
+                      {publicChannelAlias(
+                        attempt.provider,
+                        attempt.channel_id ?? attempt.channel
+                      )}
                     </span>
                   )}
                   <span>{attempt.status ?? '-'}</span>

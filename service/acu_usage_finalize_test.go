@@ -154,12 +154,12 @@ func TestFinalizeACUUsageChargesAndUpdatesLogExactlyOnce(t *testing.T) {
 			"first_model_event_latency_ms": 420,
 			"channel_attempts": []interface{}{
 				map[string]interface{}{
-					"attempt_index": 1, "provider": "closeai", "channel": "secret-channel",
+					"attempt_index": 1, "provider": "one", "channel_id": "7737",
 					"execution_profile_id": "secret-profile", "network_endpoint": "https://secret.example",
 					"status": "error", "latency_ms": 100,
 				},
 				map[string]interface{}{
-					"attempt_index": 2, "provider": "lucen", "channel": "secret-success",
+					"attempt_index": 2, "provider": "lucen", "channel_id": "1537",
 					"execution_profile_id": "secret-success-profile", "status": "success",
 					"latency_ms": 500, "first_model_event_latency_ms": 420,
 				},
@@ -214,10 +214,18 @@ func TestFinalizeACUUsageChargesAndUpdatesLogExactlyOnce(t *testing.T) {
 	firstAttempt, ok := publicAttempts[0].(map[string]interface{})
 	require.True(t, ok)
 	require.Equal(t, "error", firstAttempt["status"])
-	require.NotContains(t, firstAttempt, "provider")
-	require.NotContains(t, firstAttempt, "channel")
+	require.Equal(t, "one", firstAttempt["provider"])
+	require.Equal(t, "7737", firstAttempt["channel_id"])
 	require.NotContains(t, firstAttempt, "execution_profile_id")
 	require.NotContains(t, firstAttempt, "network_endpoint")
+	require.NotContains(t, firstAttempt, "billing_multiplier")
+	secondAttempt, ok := publicAttempts[1].(map[string]interface{})
+	require.True(t, ok)
+	require.Equal(t, "lucen", secondAttempt["provider"])
+	require.Equal(t, "1537", secondAttempt["channel_id"])
+	require.NotContains(t, secondAttempt, "execution_profile_id")
+	require.NotContains(t, secondAttempt, "network_endpoint")
+	require.NotContains(t, secondAttempt, "billing_multiplier")
 	data, err := model.GetQuotaDataByUserId(user.Id, 0, time.Now().Unix()+1)
 	require.NoError(t, err)
 	require.Len(t, data, 1)

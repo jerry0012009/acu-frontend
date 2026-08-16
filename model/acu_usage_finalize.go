@@ -455,6 +455,7 @@ func acuUsageLogOther(input ACUUsageChargeInput, pending bool, status, errorCode
 				publicAttempt := map[string]interface{}{}
 				for _, key := range []string{
 					"attempt_index",
+					"provider",
 					"status",
 					"latency_ms",
 					"first_model_event_latency_ms",
@@ -462,6 +463,11 @@ func acuUsageLogOther(input ACUUsageChargeInput, pending bool, status, errorCode
 					if field, exists := attempt[key]; exists {
 						publicAttempt[key] = field
 					}
+				}
+				if channelID, exists := attempt["channel_id"]; exists && channelID != nil {
+					publicAttempt["channel_id"] = channelID
+				} else if channel, exists := attempt["channel"]; exists && channel != nil {
+					publicAttempt["channel_id"] = channel
 				}
 				if len(publicAttempt) > 0 {
 					publicAttempts = append(publicAttempts, publicAttempt)

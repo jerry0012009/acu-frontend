@@ -6,6 +6,8 @@ import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { I18nextProvider, initReactI18next } from 'react-i18next'
 
+import { publicChannelAlias } from '@/features/acu/lib/public-channel-alias'
+
 import type { UsageLog } from '../../../data/schema'
 import type { LogOtherData } from '../../../types'
 import {
@@ -136,8 +138,11 @@ test('shows real attempts to admins and only alias attempts to ordinary users', 
   assert.match(admin, /one · #7737/)
   assert.match(admin, /profile-one/)
   assert.match(admin, /slow_first_model_event/)
-  assert.match(ordinary, /ACU Route #1/)
-  assert.match(ordinary, /ACU Route #2/)
-  assert.doesNotMatch(ordinary, /provider-internal|lucen|7737|1537/)
+  assert.match(ordinary, new RegExp(publicChannelAlias('one', '7737')))
+  assert.match(ordinary, new RegExp(publicChannelAlias('lucen', '1537')))
+  assert.match(ordinary, /ACU 线路 \d{4}/)
+  assert.doesNotMatch(ordinary, /ACU Route #1|ACU Route #2/)
+  assert.doesNotMatch(ordinary, /ACU 线路 #1|ACU 线路 #2/)
+  assert.doesNotMatch(ordinary, /\bone\b|\blucen\b|\b7737\b|\b1537\b/)
   assert.doesNotMatch(ordinary, /profile-one|profile-two|secret\.example/)
 })
