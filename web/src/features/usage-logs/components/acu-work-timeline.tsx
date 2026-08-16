@@ -474,8 +474,7 @@ function StepDetailContent(props: {
                         {t('Channel ID')}: {attempt.channelId || '—'}
                       </span>
                       <span>
-                        {t('Channel name')}:{' '}
-                        {attempt.channelName || attempt.channel || '—'}
+                        {t('Channel name')}: {attempt.channelName || '—'}
                       </span>
                       <span>
                         {t('Execution Profile')}:{' '}

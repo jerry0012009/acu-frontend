@@ -22,12 +22,13 @@ func GetACUWorkTimeline(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
 		return
 	}
-	timeline, err := service.GetOwnedACUWorkTimelineAccurateTiming(targetUserID, from, to)
+	isAdmin := c.GetInt("role") >= common.RoleAdminUser
+	timeline, err := service.GetOwnedACUWorkTimelineAccurateTiming(targetUserID, from, to, isAdmin)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	if c.GetInt("role") < common.RoleAdminUser {
+	if !isAdmin {
 		timeline = service.PublicACUWorkTimeline(timeline)
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": timeline})

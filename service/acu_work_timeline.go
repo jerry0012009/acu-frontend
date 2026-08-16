@@ -11,15 +11,15 @@ import (
 	"github.com/QuantumNous/new-api/model"
 )
 
-func GetOwnedACUWorkTimeline(userID int, from, to int64) (dto.ACUWorkTimeline, error) {
+func GetOwnedACUWorkTimeline(userID int, from, to int64, allowAdminAttemptHydration bool) (dto.ACUWorkTimeline, error) {
 	logs, err := model.GetUserACUTimelineLogs(userID, from, to)
 	if err != nil {
 		return dto.ACUWorkTimeline{}, err
 	}
-	return buildACUWorkTimeline(logs, from, to), nil
+	return buildACUWorkTimeline(logs, from, to, allowAdminAttemptHydration), nil
 }
 
-func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline {
+func buildACUWorkTimeline(logs []*model.Log, from, to int64, allowAdminAttemptHydration bool) dto.ACUWorkTimeline {
 	byRequest := map[string]dto.ACUWorkTimelineItem{}
 	for _, log := range logs {
 		var other map[string]interface{}
@@ -35,7 +35,7 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64) dto.ACUWorkTimeline
 		adminBreakdown := mapValue(adminInfo, "acu_cost_breakdown")
 		breakdown = timelineBreakdownWithJudgeTelemetry(breakdown, adminBreakdown)
 		billingStatus := stringValue(other, "acu_billing_status")
-		attempts := timelineChannelAttempts(breakdown, adminBreakdown)
+		attempts := timelineChannelAttempts(breakdown, adminBreakdown, allowAdminAttemptHydration)
 		decision := mapValue(breakdown, "decision_summary")
 		firstLatency, totalLatency, errorClass, cooldown := attemptFields(attempts)
 		status := stringValue(breakdown, "logical_request_status")
@@ -369,9 +369,12 @@ func mapValue(value map[string]interface{}, key string) map[string]interface{} {
 	return result
 }
 
-func timelineChannelAttempts(public, admin map[string]interface{}) []interface{} {
+func timelineChannelAttempts(public, admin map[string]interface{}, allowAdminHydration bool) []interface{} {
 	if values, ok := public["channel_attempts"].([]interface{}); ok && len(values) > 0 {
 		return values
+	}
+	if !allowAdminHydration {
+		return nil
 	}
 	if values, ok := admin["channel_attempts"].([]interface{}); ok {
 		return values

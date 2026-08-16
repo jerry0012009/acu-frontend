@@ -744,6 +744,11 @@ test('admin execution attempts expose profile and millisecond timestamps', () =>
   assert.match(source, /formatAttemptTimestamp\(attempt\.firstModelEventAt\)/)
   assert.match(source, /formatAttemptTimestamp\(attempt\.completedAt\)/)
   assert.match(source, /attempt\.errorCategory \|\| '—'/)
+  assert.match(source, /attempt\.channelName \|\| '—'/)
+  assert.doesNotMatch(
+    source,
+    /\{attempt\.channelName \|\| attempt\.channel \|\| '—'\}/
+  )
 })
 
 test('execution rows do not inspect nullable Judge attempts', () => {

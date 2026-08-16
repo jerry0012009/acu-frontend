@@ -18,7 +18,7 @@ func TestBuildACUWorkTimelineCompactsLogicalRequests(t *testing.T) {
 		{CreatedAt: 130, Type: model.LogTypeError, ModelName: "gpt-5.6-luna", Other: `{"acu_logical_request_id":"req-4","acu_cost_breakdown":{"logical_request_status":"failed","session_id":"ses-1","task_id":"task-2","segment_id":"seg-3","canonical_model":"gpt-5.6-luna","channel_attempts":[{"status":"error","latency_ms":45000,"error_class":"provider_edge_timeout"}]}}`},
 		{CreatedAt: 131, Type: model.LogTypeConsume, ModelName: "gpt-5.6-luna", Other: `{"acu_logical_request_id":"req-4","acu_cost_breakdown":{"logical_request_status":"completed_with_recovery","end_to_end_latency_ms":51000,"judge_latency_ms":1000,"provider_latency_ms":50000,"session_id":"ses-1","task_id":"task-2","segment_id":"seg-3","canonical_model":"gpt-5.6-luna","channel_attempts":[{"status":"error","latency_ms":45000,"error_class":"provider_edge_timeout"},{"status":"success","latency_ms":5000,"first_model_event_latency_ms":600}]}}`},
 	}
-	result := buildACUWorkTimeline(logs, 0, 200)
+	result := buildACUWorkTimeline(logs, 0, 200, true)
 	require.Len(t, result.Items, 4)
 	assert.Equal(t, 4, result.Summary.APISteps)
 	assert.Equal(t, 0.0, result.Summary.JudgeFirstAttemptSuccessRate)
@@ -56,7 +56,7 @@ func TestBuildACUWorkTimelineMapsV2DecisionSummary(t *testing.T) {
 		CreatedAt: 100, Type: model.LogTypeConsume, ModelName: "gpt-5.6-luna", PromptTokens: 1000, CompletionTokens: 200,
 		Other: `{"acu_logical_request_id":"req-v2","cached_input_tokens":600,"reasoning_tokens":120,"acu_cost_breakdown":{"session_id":"ses-1","task_id":"task-v2","segment_id":"seg-v2","judge_calls":1,"difficulty":72,"canonical_model":"gpt-5.6-luna","channel_id":"blackai","logical_request_status":"completed_with_recovery","decision_summary":{"work_phase":"inspection","work_phase_quality_target_offset":-4,"judge_trigger":"human_message","judge_status":"rules_fallback","judge_result_source":"rules_strategy","judge_first_attempt_succeeded":false,"judge_profile_attempt_count":3,"judge_same_model_failover_used":true,"selected_candidate_id":"gpt-5.6-luna@max","selected_display_name":"GPT-5.6 Luna · Max","selected_execution_preset_id":"gpt-5.6-luna:max","client_requested_reasoning_effort":"high","preset_reasoning_effort":"max","resolved_reasoning_effort":"max","reasoning_mapping_status":"exact","profile_attempt_count":2,"recovery_decision_reason":"same_model_profile_retry","cache_hit_ratio":0.6,"top_candidates":[{"candidateId":"gpt-5.6-luna@max","displayName":"GPT-5.6 Luna · Max","estimatedQuality":91.5,"estimatedCallCost":0.02,"valueUtility":0.9,"selected":true}]},"channel_attempts":[{"attempt_index":1,"channel":"a","execution_profile_id":"profile-a","status":"error","latency_ms":1000},{"attempt_index":2,"channel":"b","execution_profile_id":"profile-b","status":"success","latency_ms":500}]}}`,
 	}}
-	result := buildACUWorkTimeline(logs, 0, 200)
+	result := buildACUWorkTimeline(logs, 0, 200, true)
 	require.Len(t, result.Items, 1)
 	item := result.Items[0]
 	assert.Equal(t, "inspection", item.WorkPhase)
@@ -83,7 +83,7 @@ func TestBuildACUWorkTimelineReturnsRecordedExecutionProtocol(t *testing.T) {
 		Other:     `{"acu_logical_request_id":"req-messages","acu_cost_breakdown":{"task_id":"task-1","protocol":"messages","channel_attempts":[{"execution_profile_id":"profile-claude","status":"success"}]}}`,
 	}}
 
-	result := buildACUWorkTimeline(logs, 0, 200)
+	result := buildACUWorkTimeline(logs, 0, 200, true)
 	require.Len(t, result.Items, 1)
 	assert.Equal(t, "messages", result.Items[0].Protocol)
 }
@@ -94,7 +94,7 @@ func TestBuildACUWorkTimelineSplitsFreshJudgeAndExecutionWithoutSplittingBilling
 		Other: `{"acu_logical_request_id":"req-points","acu_billing_status":"finalized","acu_cost_breakdown":{"task_id":"task-1","segment_id":"seg-1","judge_calls":2,"judge_reused":false,"judge_protocol":"responses","judge_reasoning_effort":"default","judge_model":"gpt-5.6-sol","judge_cash_cost_cny":0.03,"failed_judge_attempt_cash_cost_cny":0.01,"judge_user_charge_cny":0.025,"provider_user_charge_cny":0.1,"effective_provider_cash_cost_cny":0.08,"failed_attempt_cash_cost_cny":0.005,"user_charge_cny":0.125,"actual_total_cash_cost_cny":0.125,"decision_summary":{"judge_result_source":"upstream_live"},"judge_profile_selection":{"formulaVersion":"acu-profile-utility-v2.1","supplyStrategy":"balanced","candidateCount":3,"selectedExecutionProfileId":"judge-b","selectedProfileRank":1,"selectedProfileUtility":0.9},"judge_attempts":[{"attempt_index":1,"attempt_role":"primary","model":"gpt-5.6-sol","provider":"lucen","execution_profile_id":"judge-a","channel_id":"cx-a","status":"error","input_tokens":100,"cached_input_tokens":20,"output_tokens":0,"latency_ms":500,"effective_cost_cny":0.01,"cost_status":"verified","usage_status":"reported"},{"attempt_index":2,"attempt_role":"same_model_failover","model":"gpt-5.6-sol","provider":"lucen","execution_profile_id":"judge-b","channel_id":"cx-b","status":"success","input_tokens":120,"cached_input_tokens":50,"output_tokens":20,"latency_ms":600,"effective_cost_cny":0.02,"cost_status":"verified","usage_status":"reported"}],"channel_attempts":[{"attempt_index":1,"status":"success","latency_ms":1000}]}}`,
 	}}
 
-	result := buildACUWorkTimeline(logs, 0, 200)
+	result := buildACUWorkTimeline(logs, 0, 200, true)
 	require.Len(t, result.Items, 2)
 	judge, execution := result.Items[0], result.Items[1]
 	assert.Equal(t, "judge", judge.PointType)
@@ -114,7 +114,7 @@ func TestBuildACUWorkTimelineSplitsFreshJudgeAndExecutionWithoutSplittingBilling
 
 func TestBuildACUWorkTimelineKeepsJudgeReuseOnExecutionPoint(t *testing.T) {
 	logs := []*model.Log{{CreatedAt: 100, Type: model.LogTypeConsume, Other: `{"acu_logical_request_id":"req-reused","acu_cost_breakdown":{"task_id":"task-1","judge_calls":0,"judge_reused":true,"judge_protocol":"responses","decision_summary":{"judge_result_source":"recent_evaluation"}}}`}}
-	result := buildACUWorkTimeline(logs, 0, 200)
+	result := buildACUWorkTimeline(logs, 0, 200, true)
 	require.Len(t, result.Items, 1)
 	assert.Equal(t, "execution", result.Items[0].PointType)
 	assert.True(t, result.Items[0].JudgeReused)
@@ -157,7 +157,7 @@ func TestBuildACUWorkTimelineRecoversFinalizedJudgeTelemetryFromAdminInfo(t *tes
 		}`,
 	}}
 
-	result := buildACUWorkTimeline(logs, 0, 200)
+	result := buildACUWorkTimeline(logs, 0, 200, true)
 	require.Len(t, result.Items, 2)
 	judge := result.Items[0]
 	assert.True(t, judge.JudgeCalled)
@@ -195,7 +195,7 @@ func TestBuildACUWorkTimelineHydratesProviderAttemptsFromAdminInfo(t *testing.T)
 				"task_id":"task-1",
 				"segment_id":"seg-1",
 				"canonical_model":"gpt-5.6-sol",
-				"logical_request_status":"completed_with_recovery"
+				"logical_request_status":"completed"
 			},
 			"admin_info":{
 				"actual_provider":"lucen",
@@ -212,6 +212,8 @@ func TestBuildACUWorkTimelineHydratesProviderAttemptsFromAdminInfo(t *testing.T)
 							"endpoint_host":"1pkapi.example",
 							"status":"error",
 							"error_category":"slow_first_model_event",
+							"error_class":"slow_first_model_event",
+							"cooldown_until":"2026-08-16T16:12:35.348Z",
 							"latency_ms":30004,
 							"started_at":"2026-08-16T16:07:35.348Z",
 							"completed_at":"2026-08-16T16:08:05.352Z"
@@ -239,11 +241,15 @@ func TestBuildACUWorkTimelineHydratesProviderAttemptsFromAdminInfo(t *testing.T)
 		}`,
 	}}
 
-	result := buildACUWorkTimeline(logs, 0, 200)
-	require.Len(t, result.Items, 1)
-	item := result.Items[0]
+	admin := buildACUWorkTimeline(logs, 0, 200, true)
+	require.Len(t, admin.Items, 1)
+	item := admin.Items[0]
 	assert.Equal(t, "completed_with_recovery", item.Status)
 	assert.Equal(t, 2, item.ProfileAttemptCount)
+	assert.Equal(t, 14377, item.FirstModelEventLatencyMs)
+	assert.Equal(t, 66421, item.ProviderLatencyMs)
+	assert.Equal(t, "slow_first_model_event", item.ErrorClass)
+	assert.Equal(t, "2026-08-16T16:12:35.348Z", item.CooldownUntil)
 	require.Len(t, item.ProviderAttempts, 2)
 	assert.Equal(t, "1pkapi-responses-x006:gpt-5.6-sol:responses", item.ProviderAttempts[0].ExecutionProfileID)
 	assert.Equal(t, "7737", item.ProviderAttempts[0].ChannelID)
@@ -255,8 +261,14 @@ func TestBuildACUWorkTimelineHydratesProviderAttemptsFromAdminInfo(t *testing.T)
 	assert.Equal(t, 14377, item.ProviderAttempts[1].FirstModelEventLatencyMs)
 	assert.Equal(t, "2026-08-16T16:08:42.088Z", item.ProviderAttempts[1].CompletedAt)
 
-	public := PublicACUWorkTimeline(result)
+	public := PublicACUWorkTimeline(buildACUWorkTimeline(logs, 0, 200, false))
 	require.Len(t, public.Items, 1)
+	assert.Equal(t, "completed", public.Items[0].Status)
+	assert.Zero(t, public.Items[0].ProfileAttemptCount)
+	assert.Zero(t, public.Items[0].FirstModelEventLatencyMs)
+	assert.Zero(t, public.Items[0].ProviderLatencyMs)
+	assert.Empty(t, public.Items[0].ErrorClass)
+	assert.Empty(t, public.Items[0].CooldownUntil)
 	assert.Nil(t, public.Items[0].ProviderAttempts)
 	assert.Empty(t, public.Items[0].ProviderAttempts)
 }
@@ -290,7 +302,7 @@ func TestBuildACUWorkTimelinePrefersPublicIdentityAndSplitCharges(t *testing.T) 
 		}`,
 	}}
 
-	result := buildACUWorkTimeline(logs, 0, 200)
+	result := buildACUWorkTimeline(logs, 0, 200, true)
 	require.Len(t, result.Items, 2)
 	judge, execution := result.Items[0], result.Items[1]
 	require.NotNil(t, judge.UserChargeCNY)
@@ -317,7 +329,7 @@ func TestBuildACUWorkTimelineRecoversRulesFallbackFromAdminInfo(t *testing.T) {
 		}`,
 	}}
 
-	result := buildACUWorkTimeline(logs, 0, 200)
+	result := buildACUWorkTimeline(logs, 0, 200, true)
 	require.Len(t, result.Items, 2)
 	judge := result.Items[0]
 	assert.Equal(t, "judge", judge.PointType)
@@ -346,7 +358,7 @@ func TestBuildACUWorkTimelineRecoversWorkPhaseFromAdminInfo(t *testing.T) {
 					"admin_only_decision_detail":"must not be projected"
 				}}}
 			}`
-			result := buildACUWorkTimeline([]*model.Log{{CreatedAt: 100, Type: model.LogTypeConsume, Other: other}}, 0, 200)
+			result := buildACUWorkTimeline([]*model.Log{{CreatedAt: 100, Type: model.LogTypeConsume, Other: other}}, 0, 200, true)
 			require.Len(t, result.Items, 1)
 			assert.Equal(t, phase.name, result.Items[0].WorkPhase)
 			assert.Equal(t, phase.offset, result.Items[0].WorkPhaseQualityTargetOffset)
@@ -431,7 +443,7 @@ func TestBuildACUWorkTimelineUsesAuthoritativeSettledCosts(t *testing.T) {
 		}`,
 	}}
 
-	result := buildACUWorkTimeline(logs, 0, 200)
+	result := buildACUWorkTimeline(logs, 0, 200, true)
 	require.Len(t, result.Items, 1)
 	item := result.Items[0]
 	require.NotNil(t, item.UserChargeCNY)
@@ -460,7 +472,7 @@ func TestBuildACUWorkTimelineDoesNotInventMissingCostSemantics(t *testing.T) {
 		},
 	}
 
-	result := buildACUWorkTimeline(logs, 0, 200)
+	result := buildACUWorkTimeline(logs, 0, 200, true)
 	require.Len(t, result.Items, 2)
 	require.NotNil(t, result.Items[0].UserChargeCNY)
 	assert.Nil(t, result.Items[0].ActualCashCostCNY)
@@ -477,7 +489,7 @@ func TestBuildACUWorkTimelineShowsUnsettledWithoutCountingCollectedCharge(t *tes
 		Other: `{"acu_billing_status":"unsettled","acu_finalize_error_code":"insufficient_quota","acu_logical_request_id":"req-unsettled","user_charge_cny":"0.12","actual_total_cash_cost_cny":"0.08","acu_cost_breakdown":{"logical_request_status":"success","task_id":"task-1","canonical_model":"gpt-5.6-luna"}}`,
 	}}
 
-	result := buildACUWorkTimeline(logs, 0, 200)
+	result := buildACUWorkTimeline(logs, 0, 200, true)
 	require.Len(t, result.Items, 1)
 	assert.Equal(t, "completed", result.Items[0].Status)
 	assert.Equal(t, "unsettled", result.Items[0].BillingStatus)
@@ -493,7 +505,7 @@ func TestBuildACUWorkTimelineKeepsExplicitModelChargeWithoutDifficulty(t *testin
 		Other: `{"acu_billing_status":"finalized","acu_logical_request_id":"req-explicit-terra","user_charge_cny":"0.0125","acu_cost_breakdown":{"requested_model":"gpt-5.6-terra","canonical_model":"gpt-5.6-terra","judge_calls":0,"logical_request_status":"completed","user_charge_cny":"0.0125"}}`,
 	}}
 
-	result := buildACUWorkTimeline(logs, 0, 200)
+	result := buildACUWorkTimeline(logs, 0, 200, true)
 	require.Len(t, result.Items, 1)
 	item := result.Items[0]
 	assert.Equal(t, "gpt-5.6-terra", item.RequestedModel)
@@ -516,7 +528,7 @@ func TestBuildACUWorkTimelinePreservesAllDetectedWorkPhases(t *testing.T) {
 	for _, phase := range phases {
 		t.Run(phase.name, func(t *testing.T) {
 			other := `{"acu_logical_request_id":"req-` + phase.name + `","acu_cost_breakdown":{"phase":"execution","decision_summary":{"work_phase":"` + phase.name + `","work_phase_quality_target_offset":` + formatTimelineNumber(phase.offset) + `}}}`
-			result := buildACUWorkTimeline([]*model.Log{{CreatedAt: 100, Type: model.LogTypeConsume, Other: other}}, 0, 200)
+			result := buildACUWorkTimeline([]*model.Log{{CreatedAt: 100, Type: model.LogTypeConsume, Other: other}}, 0, 200, true)
 			require.Len(t, result.Items, 1)
 			assert.Equal(t, phase.name, result.Items[0].WorkPhase)
 			assert.Equal(t, phase.offset, result.Items[0].WorkPhaseQualityTargetOffset)
