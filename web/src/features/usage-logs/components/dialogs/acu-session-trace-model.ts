@@ -8,7 +8,11 @@ type JudgeAttempt = NonNullable<
 >['attempts'][number]
 
 export function isMissingACUSessionTrace(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false
+  if (!error) return false
+  if (typeof error === 'string') {
+    return error.toLowerCase().includes('not found')
+  }
+  if (typeof error !== 'object') return false
   const response =
     'response' in error && error.response && typeof error.response === 'object'
       ? error.response

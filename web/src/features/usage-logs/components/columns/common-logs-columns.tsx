@@ -383,8 +383,8 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
                   <div className='relative inline-flex w-fit items-center gap-1'>
                     <StatusBadge
                       label={channelIdDisplay}
-                      autoColor={String(log.channel)}
-                      copyText={String(log.channel)}
+                      autoColor={displayChannelId}
+                      copyText={displayChannelId}
                       size='sm'
                       showDot={false}
                       className='font-mono'

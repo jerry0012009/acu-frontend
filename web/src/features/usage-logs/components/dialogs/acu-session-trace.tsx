@@ -596,7 +596,9 @@ export function ACUSessionTracePanel(props: ACUSessionTracePanelProps) {
     !traceQuery.data?.success ||
     !traceQuery.data.data
   ) {
-    const missing = isMissingACUSessionTrace(traceQuery.error)
+    const missing =
+      isMissingACUSessionTrace(traceQuery.error) ||
+      isMissingACUSessionTrace(traceQuery.data)
     return (
       <div className='rounded border p-4 text-sm'>
         <div className='text-muted-foreground'>

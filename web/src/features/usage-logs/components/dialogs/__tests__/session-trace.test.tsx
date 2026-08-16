@@ -328,6 +328,13 @@ test('treats all explicitly client-cancelled requests as neutral', () => {
 test('recognizes missing trace responses without treating network failures as not found', () => {
   assert.equal(
     isMissingACUSessionTrace({
+      success: false,
+      message: 'ACU session trace was not found',
+    }),
+    true
+  )
+  assert.equal(
+    isMissingACUSessionTrace({
       response: {
         status: 500,
         data: { message: 'ACU session trace was not found' },
