@@ -24,9 +24,11 @@ type ACUWorkTimelineSummary struct {
 	UnsettledRequests               int     `json:"unsettledRequests"`
 	// ActualTotalCostCNY is retained for clients that have not migrated yet.
 	// It means total user charge, with actual cash cost as the legacy fallback.
-	ActualTotalCostCNY          float64 `json:"actualTotalCostCny,omitempty"`
-	P50FirstModelEventLatencyMs int     `json:"p50FirstModelEventLatencyMs"`
-	P95FirstModelEventLatencyMs int     `json:"p95FirstModelEventLatencyMs"`
+	ActualTotalCostCNY float64 `json:"actualTotalCostCny,omitempty"`
+	// Legacy field names are retained for API compatibility. These summary
+	// percentiles now represent request start -> first meaningful model event.
+	P50FirstModelEventLatencyMs int `json:"p50FirstModelEventLatencyMs"`
+	P95FirstModelEventLatencyMs int `json:"p95FirstModelEventLatencyMs"`
 }
 
 type ACUWorkTimelineItem struct {
@@ -52,13 +54,16 @@ type ACUWorkTimelineItem struct {
 	Status                   string   `json:"status"`
 	BillingStatus            string   `json:"billingStatus"`
 	BillingErrorCode         string   `json:"billingErrorCode,omitempty"`
-	FirstModelEventLatencyMs int      `json:"firstModelEventLatencyMs"`
-	EndToEndLatencyMs        int      `json:"endToEndLatencyMs"`
-	LatencySource            string   `json:"latencySource"`
-	JudgeLatencyMs           int      `json:"judgeLatencyMs"`
-	ProviderLatencyMs        int      `json:"providerLatencyMs"`
-	UserChargeCNY            *float64 `json:"userChargeCny,omitempty"`
-	ActualCashCostCNY        *float64 `json:"actualCashCostCny,omitempty"`
+	// FirstModelEventLatencyMs is request start -> first meaningful model event.
+	FirstModelEventLatencyMs int `json:"firstModelEventLatencyMs"`
+	// ProviderFirstModelEventLatencyMs remains provider-attempt-local TTFT.
+	ProviderFirstModelEventLatencyMs int      `json:"providerFirstModelEventLatencyMs"`
+	EndToEndLatencyMs                int      `json:"endToEndLatencyMs"`
+	LatencySource                    string   `json:"latencySource"`
+	JudgeLatencyMs                   int      `json:"judgeLatencyMs"`
+	ProviderLatencyMs                int      `json:"providerLatencyMs"`
+	UserChargeCNY                    *float64 `json:"userChargeCny,omitempty"`
+	ActualCashCostCNY                *float64 `json:"actualCashCostCny,omitempty"`
 	// ActualCostCNY is retained for compatibility and means user charge,
 	// falling back to actual cash cost for legacy records.
 	ActualCostCNY                  float64                       `json:"actualCostCny,omitempty"`

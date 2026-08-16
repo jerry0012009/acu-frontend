@@ -22,7 +22,7 @@ func GetACUWorkTimeline(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
 		return
 	}
-	timeline, err := service.GetOwnedACUWorkTimeline(targetUserID, from, to)
+	timeline, err := service.GetOwnedACUWorkTimelineAccurateTiming(targetUserID, from, to)
 	if err != nil {
 		common.ApiError(c, err)
 		return

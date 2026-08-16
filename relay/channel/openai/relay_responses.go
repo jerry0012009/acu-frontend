@@ -95,6 +95,9 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 			return
 		}
 		sendResponsesStreamData(c, streamResponse, data)
+		if relaycommon.IsACUResponsesModelEvent(streamResponse.Type) {
+			relaycommon.MarkACUFirstModelEvent(c, info)
+		}
 		switch streamResponse.Type {
 		case "response.completed", "response.done":
 			if streamResponse.Response != nil {

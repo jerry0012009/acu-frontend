@@ -112,6 +112,16 @@ function formatLatency(value: number): string {
     : `${(value / 1000).toFixed(1)} s`
 }
 
+type TimelineTimingItem = ACUWorkTimelineItem & {
+  providerFirstModelEventLatencyMs?: number
+}
+
+function providerFirstModelEventLatency(item: ACUWorkTimelineItem): number {
+  return Number(
+    (item as TimelineTimingItem).providerFirstModelEventLatencyMs ?? 0
+  )
+}
+
 function formatMoney(value: number): string {
   return `¥${value.toFixed(value < 0.01 ? 6 : 3)}`
 }
@@ -271,8 +281,12 @@ function tooltipHtml(item: ACUWorkTimelineItem, chartOrder: number): string {
       : '',
     `<div>${escapeHtml(t(judgeLabel(item)))}${backup}</div>`,
     `<div>${escapeHtml(executionRoute)}</div>`,
-    `<div>${escapeHtml(t('End-to-end'))} ${formatLatency(item.endToEndLatencyMs)} · ${escapeHtml(t('First model event'))} ${formatLatency(item.firstModelEventLatencyMs)}</div>`,
-    `<div>${escapeHtml(t('Judge'))} ${formatLatency(item.judgeLatencyMs)} · ${escapeHtml(t('Execution route'))} ${formatLatency(item.providerLatencyMs)}</div>`,
+    item.pointType === 'execution'
+      ? `<div>${escapeHtml(t('First visible response'))} ${formatLatency(item.firstModelEventLatencyMs)} · ${escapeHtml(t('Full duration'))} ${formatLatency(item.endToEndLatencyMs)}</div>`
+      : `<div>${escapeHtml(t('Judge duration'))} ${formatLatency(item.judgeLatencyMs)}</div>`,
+    item.pointType === 'execution'
+      ? `<div>${escapeHtml(t('Judge'))} ${formatLatency(item.judgeLatencyMs)} · ${escapeHtml(t('Provider TTFT'))} ${formatLatency(providerFirstModelEventLatency(item))} · ${escapeHtml(t('Provider total'))} ${formatLatency(item.providerLatencyMs)}</div>`
+      : '',
     `<div>${escapeHtml(t('User charge'))} ${formatOptionalMoney(timelineUserCharge(item))}</div>`,
     item.billingStatus === 'unsettled'
       ? `<div style="color:#f97316;margin-top:4px">${escapeHtml(t('Billing unsettled · insufficient quota'))}</div>`
