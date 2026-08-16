@@ -205,6 +205,88 @@ test('renders the complete historical ACU route decision fixture', async () => {
   await act(async () => root.unmount())
 })
 
+test('keeps execution-preset candidates distinct when modelId is shared', async () => {
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  const presetCandidates = [
+    {
+      candidateId: 'gpt-5.6-sol',
+      modelId: 'gpt-5.6-sol',
+      displayName: 'GPT-5.6 Sol',
+      estimatedQuality: 0.91,
+      expectedTotalCost: 0.12,
+      paretoEfficient: true,
+    },
+    {
+      candidateId: 'gpt-5.6-sol@high',
+      modelId: 'gpt-5.6-sol',
+      displayName: 'GPT-5.6 Sol · High',
+      estimatedQuality: 0.94,
+      expectedTotalCost: 0.16,
+      paretoEfficient: true,
+    },
+    {
+      candidateId: 'gpt-5.6-sol@xhigh',
+      modelId: 'gpt-5.6-sol',
+      displayName: 'GPT-5.6 Sol · XHigh',
+      estimatedQuality: 0.97,
+      expectedTotalCost: 0.21,
+      paretoEfficient: true,
+    },
+  ]
+  const presetRoute = {
+    ...routeDecision,
+    selected_profile: { modelId: 'gpt-5.6-sol' },
+    candidate_estimates: presetCandidates,
+    pareto_frontier: presetCandidates.map((candidate) => candidate.candidateId),
+    curves: {
+      'gpt-5.6-sol': [{ difficulty: 72, estimatedQuality: 94 }],
+    },
+    decision_snapshot: {
+      ...routeDecision.decision_snapshot,
+      selectedModel: 'gpt-5.6-sol',
+      selectedCandidateId: 'gpt-5.6-sol@high',
+      candidates: presetCandidates.map((candidate) => ({
+        candidateId: candidate.candidateId,
+        modelId: candidate.modelId,
+        displayName: candidate.displayName,
+        effectiveCashCost: candidate.expectedTotalCost,
+      })),
+    },
+  }
+
+  await act(async () => {
+    root.render(
+      createElement(AcuDecisionVisualization, {
+        route: presetRoute,
+        breakdown: {
+          ...breakdown,
+          route_decision: presetRoute,
+          selected_model: 'gpt-5.6-sol',
+        },
+        other: {},
+        actualModel: 'gpt-5.6-sol',
+        isAdmin: true,
+      })
+    )
+  })
+
+  const rows = [...host.querySelectorAll('[class*="py-1.5"]')].map(
+    (row) => row.textContent ?? ''
+  )
+  assert.equal(rows.length, 3)
+  assert.match(rows[0] ?? '', /GPT-5\.6 Sol/)
+  assert.doesNotMatch(rows[0] ?? '', /Selected/)
+  assert.match(rows[1] ?? '', /GPT-5\.6 Sol · High/)
+  assert.match(rows[1] ?? '', /Selected/)
+  assert.match(rows[2] ?? '', /GPT-5\.6 Sol · XHigh/)
+  assert.doesNotMatch(rows[2] ?? '', /Selected/)
+
+  await act(async () => root.unmount())
+  host.remove()
+})
+
 test('hides provider, channel, and profile identities for ordinary users', async () => {
   const host = document.createElement('div')
   document.body.append(host)

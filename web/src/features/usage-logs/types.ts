@@ -95,12 +95,16 @@ export interface ToolSurchargeItem {
 }
 
 export interface AcuRouteCandidateEstimate {
+  candidateId?: string
   modelId?: string
+  executionPresetId?: string
+  reasoningEffort?: string
   displayName?: string
   estimatedQuality?: number
   expectedTotalCost?: number
   paretoEfficient?: boolean
   selectionReason?: string
+  selected?: boolean
   [key: string]: unknown
 }
 
@@ -125,19 +129,27 @@ export interface AcuRouteDecisionView {
   }>
   decision_snapshot?: {
     selectedModel?: string
+    selectedCandidateId?: string
+    selectedExecutionPresetId?: string
+    resolvedReasoningEffort?: string
     selectedChannel?: string
     modelSelectionReason?: string
     channelSelectionReason?: string
     qualityCeilingModel?: string
     costReductionVsCeiling?: number
     candidates?: Array<{
+      candidateId?: string
       modelId?: string
+      displayName?: string
+      executionPresetId?: string
+      reasoningEffort?: string
       estimatedQuality?: number
       nominalCost?: number | null
       effectiveCashCost?: number | null
       valueScore?: number | null
       pareto?: boolean | null
       exclusionReason?: string | null
+      selected?: boolean
     }>
     [key: string]: unknown
   }

@@ -918,12 +918,42 @@ export function AcuDecisionVisualization(props: {
     String(route.selected_profile?.modelId ?? breakdown.selected_model ?? '')
   const difficulty = Number(route.difficulty ?? breakdown.difficulty ?? 0)
   const pareto = new Set(route.pareto_frontier ?? [])
-  const candidateByModel = new Map(
-    candidates.map((candidate) => [candidate.modelId ?? '', candidate])
+  const candidateIdentity = (candidate: {
+    candidateId?: string
+    modelId?: string
+  }) => candidate.candidateId ?? candidate.modelId ?? ''
+  const selectedCandidateId =
+    route.decision_snapshot?.selectedCandidateId ??
+    (route.decision_snapshot as { selected_candidate_id?: string } | undefined)
+      ?.selected_candidate_id
+  const candidateById = new Map(
+    candidates.map((candidate) => [candidateIdentity(candidate), candidate])
   )
-  const snapshotByModel = new Map(
-    snapshotCandidates.map((candidate) => [candidate.modelId ?? '', candidate])
+  const snapshotById = new Map(
+    snapshotCandidates.map((candidate) => [
+      candidateIdentity(candidate),
+      candidate,
+    ])
   )
+  const candidateForModel = (modelId: string) =>
+    candidates.find((candidate) => candidate.modelId === modelId)
+  const snapshotForModel = (modelId: string) =>
+    snapshotCandidates.find((candidate) => candidate.modelId === modelId)
+  const selectedCandidate =
+    (selectedCandidateId
+      ? candidateById.get(selectedCandidateId)
+      : undefined) ??
+    candidates.find((candidate) => candidate.selected === true)
+  const isSelectedCandidate = (candidate: {
+    candidateId?: string
+    modelId?: string
+    selected?: boolean
+  }) =>
+    selectedCandidateId
+      ? candidateIdentity(candidate) === selectedCandidateId
+      : candidate.selected === true ||
+        (!candidates.some((item) => item.candidateId) &&
+          candidate.modelId === selectedModel)
   const curveData = Array.from({ length: 101 }, (_, difficultyValue) => {
     const row: Record<string, number> = { difficulty: difficultyValue }
     for (const modelId of modelIds) {
@@ -935,34 +965,59 @@ export function AcuDecisionVisualization(props: {
     }
     return row
   })
-  const qualityFor = (modelId: string) => {
-    const value = Number(candidateByModel.get(modelId)?.estimatedQuality ?? 0)
+  const qualityForCandidate = (candidateId: string) => {
+    const value = Number(candidateById.get(candidateId)?.estimatedQuality ?? 0)
     return value <= 1 ? value * 100 : value
   }
-  const cashCostFor = (modelId: string): number | null => {
-    const snapshotCost = snapshotByModel.get(modelId)?.effectiveCashCost
+  const qualityForModel = (modelId: string) =>
+    qualityForCandidate(candidateIdentity(candidateForModel(modelId) ?? {}))
+  const cashCostForCandidate = (candidateId: string): number | null => {
+    const snapshotCost = snapshotById.get(candidateId)?.effectiveCashCost
     const rawCost =
-      snapshotCost ?? candidateByModel.get(modelId)?.expectedTotalCost
+      snapshotCost ?? candidateById.get(candidateId)?.expectedTotalCost
     if (rawCost == null) return null
     const cost = Number(rawCost)
     return Number.isFinite(cost) ? cost : null
   }
-  const displayNameFor = (modelId: string) =>
-    candidateByModel.get(modelId)?.displayName || modelId
-  const selectedQuality = qualityFor(selectedModel)
-  const selectedCost = cashCostFor(selectedModel)
-  const candidateReason = (modelId: string) => {
-    const candidate = candidateByModel.get(modelId)
+  const cashCostForModel = (modelId: string): number | null => {
+    const snapshot = snapshotForModel(modelId)
+    const candidate = candidateForModel(modelId)
+    const snapshotCost = snapshot?.effectiveCashCost
+    const rawCost = snapshotCost ?? candidate?.expectedTotalCost
+    if (rawCost == null) return null
+    const cost = Number(rawCost)
+    return Number.isFinite(cost) ? cost : null
+  }
+  const displayNameForCandidate = (candidateId: string) =>
+    candidateById.get(candidateId)?.displayName ||
+    snapshotById.get(candidateId)?.displayName ||
+    candidateId
+  const displayNameForModel = (modelId: string) =>
+    candidateForModel(modelId)?.displayName ||
+    snapshotForModel(modelId)?.displayName ||
+    modelId
+  const selectedCandidateKey = selectedCandidate
+    ? candidateIdentity(selectedCandidate)
+    : selectedCandidateId
+  const selectedQuality = selectedCandidateKey
+    ? qualityForCandidate(selectedCandidateKey)
+    : qualityForModel(selectedModel)
+  const selectedCost = selectedCandidateKey
+    ? cashCostForCandidate(selectedCandidateKey)
+    : cashCostForModel(selectedModel)
+  const candidateReason = (candidateId: string) => {
+    const candidate = candidateById.get(candidateId)
     if (!candidate) return '-'
-    if (modelId === selectedModel) return t('Selected')
-    const isPareto = pareto.has(modelId) || candidate.paretoEfficient === true
+    if (isSelectedCandidate(candidate)) return t('Selected')
+    const isPareto =
+      pareto.has(candidateId) || candidate.paretoEfficient === true
     if (!isPareto) {
       return t(
         'Dominated by another option with higher quality and lower cost.'
       )
     }
-    const quality = qualityFor(modelId)
-    const cost = cashCostFor(modelId)
+    const quality = qualityForCandidate(candidateId)
+    const cost = cashCostForCandidate(candidateId)
     if (cost == null || selectedCost == null) {
       return candidate.selectionReason ?? '-'
     }
@@ -1076,13 +1131,13 @@ export function AcuDecisionVisualization(props: {
                           const modelId = String(
                             entry.dataKey ?? entry.name ?? ''
                           )
-                          const cost = cashCostFor(modelId)
+                          const cost = cashCostForModel(modelId)
                           return (
                             <div
                               key={modelId}
                               className='grid grid-cols-[minmax(7rem,1fr)_auto] gap-x-3'
                             >
-                              <span>{displayNameFor(modelId)}</span>
+                              <span>{displayNameForModel(modelId)}</span>
                               <span className='font-mono'>
                                 {t('Quality')} {Number(entry.value).toFixed(1)}{' '}
                                 ·{' '}
@@ -1097,7 +1152,9 @@ export function AcuDecisionVisualization(props: {
                     )
                   }}
                 />
-                <Legend formatter={(value) => displayNameFor(String(value))} />
+                <Legend
+                  formatter={(value) => displayNameForModel(String(value))}
+                />
                 <ReferenceLine
                   x={difficulty}
                   stroke='#111827'
@@ -1122,20 +1179,22 @@ export function AcuDecisionVisualization(props: {
                 {candidates.map((candidate, index) => {
                   const modelId = candidate.modelId ?? ''
                   if (!modelId) return null
-                  const selected = modelId === selectedModel
-                  const cost = cashCostFor(modelId)
+                  const candidateId = candidateIdentity(candidate)
+                  const selected = isSelectedCandidate(candidate)
+                  const quality = qualityForCandidate(candidateId)
+                  const cost = cashCostForCandidate(candidateId)
                   const labelPosition = index % 2 === 0 ? 'top' : 'bottom'
                   return (
                     <ReferenceDot
-                      key={modelId}
+                      key={candidateId}
                       x={difficulty}
-                      y={qualityFor(modelId)}
+                      y={quality}
                       r={selected ? 6 : 4}
                       fill={ACU_CURVE_COLORS[index % ACU_CURVE_COLORS.length]}
                       stroke={selected ? '#111827' : '#ffffff'}
                       strokeWidth={selected ? 2 : 1}
                       label={{
-                        value: `${displayNameFor(modelId)} · Q ${qualityFor(modelId).toFixed(1)} · ${cost == null ? t('Cost unavailable') : `¥${cost.toFixed(6)}`}`,
+                        value: `${displayNameForCandidate(candidateId)} · Q ${quality.toFixed(1)} · ${cost == null ? t('Cost unavailable') : `¥${cost.toFixed(6)}`}`,
                         position: labelPosition,
                         offset: 10 + Math.floor(index / 2) * 12,
                         fill: selected ? '#111827' : '#4b5563',
@@ -1170,30 +1229,32 @@ export function AcuDecisionVisualization(props: {
               <span>{t('Selection')}</span>
             </div>
             {candidates.map((candidate) => {
-              const modelId = candidate.modelId ?? ''
-              const selected = modelId === selectedModel
+              const candidateId = candidateIdentity(candidate)
+              const selected = isSelectedCandidate(candidate)
               return (
                 <div
-                  key={modelId}
+                  key={candidateId}
                   className={cn(
                     'grid grid-cols-[minmax(11rem,1.6fr)_6rem_7.5rem_6rem_minmax(10rem,1.4fr)] gap-2 border-b py-1.5 text-xs last:border-b-0',
                     selected &&
                       'bg-emerald-50 font-medium dark:bg-emerald-950/25'
                   )}
                 >
-                  <span className='font-mono'>{displayNameFor(modelId)}</span>
-                  <span>{qualityFor(modelId).toFixed(1)}</span>
                   <span className='font-mono'>
-                    {cashCostFor(modelId) == null
+                    {displayNameForCandidate(candidateId)}
+                  </span>
+                  <span>{qualityForCandidate(candidateId).toFixed(1)}</span>
+                  <span className='font-mono'>
+                    {cashCostForCandidate(candidateId) == null
                       ? t('Cost unavailable')
-                      : `¥${Number(cashCostFor(modelId)).toFixed(6)}`}
+                      : `¥${Number(cashCostForCandidate(candidateId)).toFixed(6)}`}
                   </span>
                   <span>
-                    {pareto.has(modelId) || candidate.paretoEfficient
+                    {pareto.has(candidateId) || candidate.paretoEfficient
                       ? t('Yes')
                       : t('No')}
                   </span>
-                  <span>{candidateReason(modelId)}</span>
+                  <span>{candidateReason(candidateId)}</span>
                 </div>
               )
             })}
