@@ -732,6 +732,25 @@ test('timeline route label adds the real channel only for admins', () => {
   assert.match(source, /timelineRouteLabel\([\s\S]{0,160}props\.isAdmin/)
 })
 
+test('admin execution attempts expose profile and millisecond timestamps', () => {
+  const source = readFileSync(
+    new URL('../acu-work-timeline.tsx', import.meta.url),
+    'utf8'
+  )
+  assert.match(source, /props\.isAdmin \? \(/)
+  assert.match(source, /attempt\.executionProfileId/)
+  assert.match(source, /attempt\.channelId/)
+  assert.match(source, /formatAttemptTimestamp\(attempt\.startedAt\)/)
+  assert.match(source, /formatAttemptTimestamp\(attempt\.firstModelEventAt\)/)
+  assert.match(source, /formatAttemptTimestamp\(attempt\.completedAt\)/)
+  assert.match(source, /attempt\.errorCategory \|\| '—'/)
+  assert.match(source, /attempt\.channelName \|\| '—'/)
+  assert.doesNotMatch(
+    source,
+    /\{attempt\.channelName \|\| attempt\.channel \|\| '—'\}/
+  )
+})
+
 test('execution rows do not inspect nullable Judge attempts', () => {
   const source = readFileSync(
     new URL('../acu-work-timeline.tsx', import.meta.url),

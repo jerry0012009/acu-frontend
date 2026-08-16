@@ -38,7 +38,7 @@ func TestApplyACUWorkTimelineLatencySemanticsKeepsLogicalE2EAndProviderTTFTSepar
 		}`,
 	}}
 
-	timeline := buildACUWorkTimeline(logs, 0, 200)
+	timeline := buildACUWorkTimeline(logs, 0, 200, true)
 	require.Len(t, timeline.Items, 2)
 	// The legacy projection overwrites execution E2E with provider latency.
 	assert.Equal(t, 12000, timeline.Items[1].EndToEndLatencyMs)
@@ -82,7 +82,7 @@ func TestApplyACUWorkTimelineLatencySemanticsDoesNotMislabelProviderTTFTWhenRequ
 		}`,
 	}}
 
-	timeline := buildACUWorkTimeline(logs, 0, 200)
+	timeline := buildACUWorkTimeline(logs, 0, 200, true)
 	applyACUWorkTimelineLatencySemantics(&timeline, logs)
 	require.Len(t, timeline.Items, 1)
 	assert.Zero(t, timeline.Items[0].FirstModelEventLatencyMs)

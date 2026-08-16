@@ -18,12 +18,12 @@ type acuTimelineLatencyEvidence struct {
 // GetOwnedACUWorkTimelineAccurateTiming keeps the existing timeline builder
 // and repairs the latency semantics from the original finalized log evidence.
 // This deliberately avoids duplicating the routing/billing projection logic.
-func GetOwnedACUWorkTimelineAccurateTiming(userID int, from, to int64) (dto.ACUWorkTimeline, error) {
+func GetOwnedACUWorkTimelineAccurateTiming(userID int, from, to int64, allowAdminAttemptHydration bool) (dto.ACUWorkTimeline, error) {
 	logs, err := model.GetUserACUTimelineLogs(userID, from, to)
 	if err != nil {
 		return dto.ACUWorkTimeline{}, err
 	}
-	timeline := buildACUWorkTimeline(logs, from, to)
+	timeline := buildACUWorkTimeline(logs, from, to, allowAdminAttemptHydration)
 	applyACUWorkTimelineLatencySemantics(&timeline, logs)
 	return timeline, nil
 }
