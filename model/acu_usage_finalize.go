@@ -415,6 +415,7 @@ var acuPublicRoutingTelemetryKeys = []string{
 	"end_to_end_latency_ms",
 	"judge_latency_ms",
 	"provider_latency_ms",
+	"first_model_event_latency_ms",
 	"usageSource",
 	"billing_status",
 }
@@ -444,8 +445,31 @@ func acuUsageLogOther(input ACUUsageChargeInput, pending bool, status, errorCode
 		if value, exists := breakdown["costCompletenessStatus"]; exists {
 			publicBreakdown["cost_status"] = value
 		}
-		if value, exists := breakdown["billing_multiplier"]; exists {
-			publicBreakdown["channel_multiplier"] = value
+		if attempts, ok := breakdown["channel_attempts"].([]interface{}); ok {
+			publicAttempts := make([]interface{}, 0, len(attempts))
+			for _, value := range attempts {
+				attempt, ok := value.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				publicAttempt := map[string]interface{}{}
+				for _, key := range []string{
+					"attempt_index",
+					"status",
+					"latency_ms",
+					"first_model_event_latency_ms",
+				} {
+					if field, exists := attempt[key]; exists {
+						publicAttempt[key] = field
+					}
+				}
+				if len(publicAttempt) > 0 {
+					publicAttempts = append(publicAttempts, publicAttempt)
+				}
+			}
+			if len(publicAttempts) > 0 {
+				publicBreakdown["channel_attempts"] = publicAttempts
+			}
 		}
 		other["acu_cost_breakdown"] = publicBreakdown
 		other["admin_info"] = map[string]interface{}{

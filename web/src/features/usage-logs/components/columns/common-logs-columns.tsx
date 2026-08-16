@@ -25,6 +25,12 @@ import { cn } from '@/lib/utils'
 import { LOG_TYPE_ALL_VALUE } from '../../constants'
 import type { UsageLog } from '../../data/schema'
 import {
+  acuBreakdownForView,
+  acuHasRecovery,
+  acuResolvedReasoningEffort,
+  acuSuccessfulAttempt,
+} from '../../lib/acu-log-view'
+import {
   formatModelName,
   getTieredBillingSummary,
   hasAnyCacheTokens,
@@ -44,6 +50,7 @@ import {
 } from '../../lib/utils'
 import type { LogOtherData } from '../../types'
 import { DetailsDialog } from '../dialogs/details-dialog'
+import { isFinalizedAcuUsageLog } from '../dialogs/details-dialog-model'
 import { LogCostDisplay } from '../log-cost-display'
 import { ModelBadge } from '../model-badge'
 import { TimingMetricsCell, StreamTpsCell } from '../timing-metrics-cell'
@@ -319,6 +326,18 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
           if (!isDisplayableLogType(log.type)) return null
 
           const other = parseLogOther(log.other)
+          const acuBreakdown = acuBreakdownForView(other, true)
+          const finalAcuAttempt = acuSuccessfulAttempt(acuBreakdown)
+          const acuChannelId =
+            finalAcuAttempt?.channel_id ??
+            finalAcuAttempt?.channel ??
+            acuBreakdown?.channel_id
+          const acuProvider =
+            finalAcuAttempt?.provider ?? acuBreakdown?.actual_provider
+          const acuChannelName =
+            finalAcuAttempt?.channel_name ?? acuBreakdown?.channel_name
+          const acuRecovered = acuHasRecovery(acuBreakdown)
+          const isAcuFinalized = isFinalizedAcuUsageLog(log, other)
           const affinity = other?.admin_info?.channel_affinity
           const rawUseChannel = other?.admin_info?.use_channel ?? []
           const useChannel = Array.isArray(rawUseChannel)
@@ -328,11 +347,25 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
           const channelChain = hasRetryChain
             ? useChannel.join(' → ')
             : undefined
-          const channelDisplay = log.channel_name
-            ? `${log.channel_name} #${log.channel}`
-            : `#${log.channel}`
-          const channelIdDisplay = `#${log.channel}`
-          const channelName = sensitiveVisible ? log.channel_name : '••••'
+          const displayChannelId =
+            isAcuFinalized && acuChannelId ? acuChannelId : String(log.channel)
+          const displayChannelName = isAcuFinalized
+            ? acuChannelName
+            : log.channel_name
+          let channelDisplay = `#${log.channel}`
+          if (isAcuFinalized) {
+            channelDisplay = [
+              acuProvider,
+              `#${displayChannelId}`,
+              displayChannelName,
+            ]
+              .filter(Boolean)
+              .join(' · ')
+          } else if (log.channel_name) {
+            channelDisplay = `${log.channel_name} #${log.channel}`
+          }
+          const channelIdDisplay = `#${displayChannelId}`
+          const channelName = sensitiveVisible ? displayChannelName : '••••'
           const multiKeyIndex = other?.admin_info?.multi_key_index
           const showMultiKeyIndex =
             other?.admin_info?.is_multi_key === true &&
@@ -398,6 +431,15 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
                         </PopoverContent>
                       </Popover>
                     )}
+                    {acuRecovered && (
+                      <StatusBadge
+                        label={t('Recovered')}
+                        size='sm'
+                        showDot={false}
+                        copyable={false}
+                        variant='orange'
+                      />
+                    )}
                     {affinity && (
                       <button
                         type='button'
@@ -420,9 +462,11 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
                       </button>
                     )}
                   </div>
-                  {log.channel_name && (
+                  {(displayChannelName || (isAcuFinalized && acuProvider)) && (
                     <span className='text-muted-foreground/70 truncate [font-family:var(--font-body)] !text-xs'>
-                      {channelName}
+                      {sensitiveVisible
+                        ? [acuProvider, channelName].filter(Boolean).join(' · ')
+                        : channelName}
                     </span>
                   )}
                 </TooltipTrigger>
@@ -594,6 +638,13 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         const modelInfo = formatModelName(log)
         const other = parseLogOther(log.other)
         const presentation = acuLogPresentation(other)
+        const acuBreakdown = acuBreakdownForView(other, isAdmin)
+        const finalizedAcu = isFinalizedAcuUsageLog(log, other)
+        const reasoningEffort = finalizedAcu
+          ? acuResolvedReasoningEffort(other, acuBreakdown)
+          : undefined
+        const reasoningLabel =
+          reasoningEffort === 'default' ? t('Model default') : reasoningEffort
         let judgeLine = t('Judge unavailable')
         if (presentation.judgeMode === 'pending') {
           judgeLine = t('Waiting for ACU finalize')
@@ -628,6 +679,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
               </div>
               <span className='text-muted-foreground truncate text-[11px]'>
                 {judgeLine}
+                {finalizedAcu && ` · ${t('Thinking')} ${reasoningLabel}`}
               </span>
             </div>
           )
@@ -740,13 +792,14 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
 
         const other = parseLogOther(log.other)
         const useTime = acuDurationSeconds(log, other)
+        const finalizedAcu = isFinalizedAcuUsageLog(log, other)
 
         return (
           <TimingMetricsCell
             useTimeSec={useTime}
             completionTokens={log.completion_tokens}
             frtMs={acuFirstTokenMs(other)}
-            isStream={log.is_stream}
+            isStream={log.is_stream || finalizedAcu}
           />
         )
       },

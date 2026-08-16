@@ -40,6 +40,7 @@ test('ACU logs use end-to-end latency and successful provider first token fallba
       cached_input_tokens: 12640,
       acu_cost_breakdown: {
         end_to_end_latency_ms: 36000,
+        first_model_event_latency_ms: 310,
         channel_attempts: [
           { status: 'error', first_model_event_latency_ms: 100 },
           { status: 'success', first_model_event_latency_ms: 420 },
@@ -49,7 +50,23 @@ test('ACU logs use end-to-end latency and successful provider first token fallba
   )
   assert.equal(acuCacheReadTokens(other), 12640)
   assert.equal(acuDurationSeconds(log, other), 36)
-  assert.equal(acuFirstTokenMs(other), 420)
+  assert.equal(acuFirstTokenMs(other), 310)
+})
+
+test('ACU first response timing keeps legacy and attempt fallbacks', () => {
+  assert.equal(acuFirstTokenMs({ frt: 250 }), 250)
+  assert.equal(
+    acuFirstTokenMs({
+      acu_cost_breakdown: {
+        channel_attempts: [
+          { status: 'error', first_model_event_latency_ms: 100 },
+          { status: 'success', first_model_event_latency_ms: 420 },
+        ],
+      },
+    }),
+    420
+  )
+  assert.equal(acuFirstTokenMs({}), undefined)
 })
 
 test('ACU presentation reads Judge status from decision summary and separates explicit requests', () => {

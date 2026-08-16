@@ -165,6 +165,8 @@ export function acuDurationSeconds(
 export function acuFirstTokenMs(
   other: LogOtherData | null
 ): number | undefined {
+  const requestLatency = other?.acu_cost_breakdown?.first_model_event_latency_ms
+  if (requestLatency != null && requestLatency > 0) return requestLatency
   if (other?.frt != null && other.frt > 0) return other.frt
   const attempts = other?.acu_cost_breakdown?.channel_attempts ?? []
   const successful = attempts

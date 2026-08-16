@@ -7,6 +7,36 @@ type JudgeAttempt = NonNullable<
   ACUSessionTraceSegment['judge']
 >['attempts'][number]
 
+export function isMissingACUSessionTrace(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const response =
+    'response' in error && error.response && typeof error.response === 'object'
+      ? error.response
+      : undefined
+  const status =
+    ('status' in error ? Number(error.status) : undefined) ??
+    (response && 'status' in response ? Number(response.status) : undefined)
+  if (status === 404) return true
+
+  const responseData =
+    response &&
+    'data' in response &&
+    response.data &&
+    typeof response.data === 'object'
+      ? response.data
+      : undefined
+  const values = [
+    'message' in error ? error.message : undefined,
+    responseData && 'message' in responseData
+      ? responseData.message
+      : undefined,
+  ]
+  return values.some(
+    (value) =>
+      typeof value === 'string' && value.toLowerCase().includes('not found')
+  )
+}
+
 export function latestTraceRequest(trace: ACUSessionTrace) {
   return trace.segments.flatMap((segment) => segment.logicalRequests).at(-1)
 }

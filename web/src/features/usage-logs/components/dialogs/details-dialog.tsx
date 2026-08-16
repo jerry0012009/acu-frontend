@@ -16,6 +16,7 @@ import {
   Target,
   TimerReset,
 } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   CartesianGrid,
@@ -37,12 +38,19 @@ import { IconBadge, type IconBadgeTone } from '@/components/ui/icon-badge'
 import { Label } from '@/components/ui/label'
 import { publicChannelAlias } from '@/features/acu/lib/public-channel-alias'
 import { DynamicPricingBreakdown } from '@/features/pricing/components/dynamic-pricing-breakdown'
+import { usePricingData } from '@/features/pricing/hooks/use-pricing-data'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
 import { formatLogQuota, formatTokens, formatUseTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import type { UsageLog } from '../../data/schema'
+import {
+  acuBreakdownForView,
+  acuPriceComparisonRows,
+  acuResolvedReasoningEffort,
+  acuSuccessfulAttempt,
+} from '../../lib/acu-log-view'
 import {
   parseLogOther,
   getParamOverrideActionLabel,
@@ -57,6 +65,7 @@ import {
   acuCacheReadTokens,
   acuDurationSeconds,
   acuFirstTokenMs,
+  acuLogPresentation,
 } from '../../lib/format'
 import {
   getLogTypeConfig,
@@ -65,7 +74,10 @@ import {
 } from '../../lib/utils'
 import { USAGE_BILLING_PATH, type LogOtherData } from '../../types'
 import { ACUSessionTracePanel } from './acu-session-trace'
-import { shouldShowAcuInternalDetails } from './details-dialog-model'
+import {
+  isFinalizedAcuUsageLog,
+  shouldShowAcuInternalDetails,
+} from './details-dialog-model'
 
 const ACU_CURVE_COLORS = [
   '#0f766e',
@@ -154,6 +166,426 @@ function DetailSection(props: {
         {props.children}
       </div>
     </div>
+  )
+}
+
+function formatAttemptTimestamp(value?: string | null): React.ReactNode {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+  return (
+    <span title={date.toISOString()}>
+      {date.toLocaleString(undefined, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        fractionalSecondDigits: 3,
+        hour12: false,
+      })}
+    </span>
+  )
+}
+
+export function AcuSessionTraceDisclosure(props: {
+  identifier: string
+  isAdmin: boolean
+}) {
+  const { t } = useTranslation()
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <details
+      open={expanded}
+      onToggle={(event) => setExpanded(event.currentTarget.open)}
+      className='border-border/70 min-w-0 rounded-md border p-3 text-xs'
+    >
+      <summary className='cursor-pointer font-medium'>
+        {t('View full Session Trace')}
+      </summary>
+      {expanded && (
+        <div className='mt-3'>
+          <ACUSessionTracePanel
+            identifier={props.identifier}
+            isAdmin={props.isAdmin}
+          />
+        </div>
+      )}
+    </details>
+  )
+}
+
+export function AcuExecutionAttempts(props: {
+  breakdown: NonNullable<LogOtherData['acu_cost_breakdown']>
+  isAdmin: boolean
+}) {
+  const { t } = useTranslation()
+  const attempts = [...(props.breakdown.channel_attempts ?? [])].sort(
+    (left, right) => (left.attempt_index ?? 0) - (right.attempt_index ?? 0)
+  )
+  if (attempts.length === 0) return null
+
+  return (
+    <DetailSection
+      icon={<Route className='size-3' aria-hidden='true' />}
+      iconTone='info'
+      label={t('Execution Attempts')}
+    >
+      <div className='space-y-2'>
+        {attempts.map((attempt, index) => {
+          const attemptIndex = attempt.attempt_index ?? index + 1
+          const successful = attempt.status === 'success'
+          const channelId = attempt.channel_id ?? attempt.channel
+          const failureReason =
+            attempt.error_category ?? attempt.error_class ?? undefined
+          let firstEventAt = attempt.first_model_event_at
+          if (
+            !firstEventAt &&
+            attempt.started_at &&
+            attempt.first_model_event_latency_ms != null
+          ) {
+            const startedAt = new Date(attempt.started_at)
+            if (!Number.isNaN(startedAt.getTime())) {
+              firstEventAt = new Date(
+                startedAt.getTime() + attempt.first_model_event_latency_ms
+              ).toISOString()
+            }
+          }
+          const firstEventValue = firstEventAt
+            ? formatAttemptTimestamp(firstEventAt)
+            : '—'
+          const title = props.isAdmin
+            ? [attempt.provider, channelId ? `#${channelId}` : undefined]
+                .filter(Boolean)
+                .join(' · ') || `${t('Attempt')} ${attemptIndex}`
+            : `${t('ACU Route')} #${attemptIndex}`
+          let statusLabel = t('Retry')
+          if (successful) {
+            statusLabel = t('Completed')
+          } else if (props.isAdmin) {
+            statusLabel = attempt.status || t('Failed')
+          }
+
+          return (
+            <div
+              key={`${attemptIndex}:${attempt.execution_profile_id ?? ''}:${attempt.status ?? ''}`}
+              className='border-border/70 min-w-0 rounded border p-2.5'
+            >
+              <div className='mb-2 flex min-w-0 items-center justify-between gap-2'>
+                <span className='min-w-0 truncate font-medium'>{title}</span>
+                <StatusBadge
+                  label={statusLabel}
+                  variant={successful ? 'green' : 'orange'}
+                  size='sm'
+                  copyable={false}
+                />
+              </div>
+              {props.isAdmin ? (
+                <div className='grid gap-1.5 sm:grid-cols-2'>
+                  <DetailRow
+                    label={t('Provider')}
+                    value={attempt.provider || '—'}
+                    mono
+                  />
+                  <DetailRow
+                    label={t('Channel ID')}
+                    value={channelId || '—'}
+                    mono
+                  />
+                  {attempt.channel_name && (
+                    <DetailRow
+                      label={t('Channel Name')}
+                      value={attempt.channel_name}
+                      mono
+                    />
+                  )}
+                  <DetailRow
+                    label={t('Execution Profile')}
+                    value={attempt.execution_profile_id || '—'}
+                    mono
+                  />
+                  <DetailRow
+                    label={t('Actual Model')}
+                    value={attempt.actual_model ?? attempt.model ?? '—'}
+                    mono
+                  />
+                  <DetailRow
+                    label={t('Protocol')}
+                    value={attempt.protocol || '—'}
+                    mono
+                  />
+                  <DetailRow
+                    label={t('Network Endpoint')}
+                    value={
+                      attempt.network_endpoint ??
+                      attempt.endpoint_host ??
+                      attempt.endpoint ??
+                      '—'
+                    }
+                    mono
+                  />
+                  <DetailRow
+                    label={t('Start Time')}
+                    value={formatAttemptTimestamp(attempt.started_at)}
+                    mono
+                  />
+                  <DetailRow
+                    label={t('First response')}
+                    value={firstEventValue}
+                    mono
+                  />
+                  <DetailRow
+                    label={t('Completion Time')}
+                    value={formatAttemptTimestamp(attempt.completed_at)}
+                    mono
+                  />
+                  <DetailRow
+                    label={t('Provider Duration')}
+                    value={
+                      attempt.latency_ms != null
+                        ? formatUseTime(attempt.latency_ms / 1000)
+                        : '—'
+                    }
+                    mono
+                  />
+                  {attempt.input_price_per_million != null && (
+                    <DetailRow
+                      label={t('Provider input price')}
+                      value={`$${Number(attempt.input_price_per_million).toFixed(6)} / M`}
+                      mono
+                    />
+                  )}
+                  {attempt.output_price_per_million != null && (
+                    <DetailRow
+                      label={t('Provider output price')}
+                      value={`$${Number(attempt.output_price_per_million).toFixed(6)} / M`}
+                      mono
+                    />
+                  )}
+                  {attempt.nominal_cost_usd != null && (
+                    <DetailRow
+                      label={t('Attempt provider cost')}
+                      value={`$${Number(attempt.nominal_cost_usd).toFixed(8)}`}
+                      mono
+                    />
+                  )}
+                  <DetailRow
+                    label={t('Status')}
+                    value={attempt.status || '—'}
+                    mono
+                  />
+                  {attempt.http_status != null && (
+                    <DetailRow
+                      label={t('HTTP Status')}
+                      value={String(attempt.http_status)}
+                      mono
+                    />
+                  )}
+                  {!successful && (
+                    <DetailRow
+                      label={t('Failure Reason')}
+                      value={failureReason || '—'}
+                      mono
+                    />
+                  )}
+                </div>
+              ) : (
+                <div className='text-muted-foreground text-xs'>
+                  {successful ? t('Request completed') : t('Route retry')}
+                  {attempt.latency_ms != null &&
+                    ` · ${formatUseTime(attempt.latency_ms / 1000)}`}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </DetailSection>
+  )
+}
+
+function AcuPricingDetails(props: {
+  breakdown: NonNullable<LogOtherData['acu_cost_breakdown']>
+  modelId: string
+  isAdmin: boolean
+}) {
+  const { t } = useTranslation()
+  const { models } = usePricingData()
+  const pricing = models.find((model) => model.model_name === props.modelId)
+  const rows = acuPriceComparisonRows(pricing, props.breakdown.protocol)
+  const successfulAttempt = acuSuccessfulAttempt(props.breakdown)
+  const hasAdminEconomics =
+    props.isAdmin &&
+    (props.breakdown.billing_multiplier != null ||
+      props.breakdown.retail_markup_multiplier != null ||
+      props.breakdown.effective_provider_cash_cost_cny != null ||
+      props.breakdown.actual_total_cash_cost_cny != null)
+  if (rows.length === 0 && !hasAdminEconomics) return null
+
+  const reference = pricing?.reference
+  const referencePrice = (cny: number): string => {
+    if (
+      reference?.original_currency === 'USD' &&
+      reference.fx_cny_per_usd != null &&
+      reference.fx_cny_per_usd > 0
+    ) {
+      return `$${(cny / reference.fx_cny_per_usd).toFixed(4)} / M`
+    }
+    return `¥${cny.toFixed(4)} / M`
+  }
+  const kindLabel = {
+    input: t('Input'),
+    cached: t('Cached Input'),
+    output: t('Output'),
+  }
+
+  return (
+    <DetailSection label={t('Price Comparison')}>
+      {rows.length > 0 && (
+        <div className='space-y-2'>
+          <div className='overflow-x-auto'>
+            <div className='grid min-w-[34rem] grid-cols-[minmax(4rem,0.7fr)_repeat(4,minmax(5rem,1fr))] gap-2 text-[11px]'>
+              <span />
+              <span className='text-muted-foreground'>
+                {t('Official reference price')}
+              </span>
+              <span className='text-muted-foreground'>{t('ACU price')}</span>
+              <span className='text-muted-foreground'>
+                {t('Actual price multiplier')}
+              </span>
+              <span className='text-muted-foreground'>{t('Savings')}</span>
+              {rows.map((row) => (
+                <div key={row.kind} className='contents'>
+                  <span>{kindLabel[row.kind]}</span>
+                  <span className='font-mono'>
+                    {referencePrice(row.referenceCnyPerMillion)}
+                  </span>
+                  <span className='font-mono'>
+                    ¥{row.payableCnyPerMillion.toFixed(4)} / M
+                  </span>
+                  <span className='font-mono'>
+                    {(row.multiplier * 100).toFixed(2)}%
+                  </span>
+                  <span className='font-mono'>
+                    {(row.savings * 100).toFixed(2)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+          {reference && (
+            <div className='text-muted-foreground text-[11px]'>
+              {t('Current catalog reference')} · {t('Reference source')}:{' '}
+              {reference.source_name} · {t('Pricing version')}:{' '}
+              {pricing?.pricing_version ||
+                props.breakdown.route_decision?.price_version ||
+                '—'}
+            </div>
+          )}
+        </div>
+      )}
+      {hasAdminEconomics && (
+        <div className='mt-2 grid gap-1.5 border-t pt-2 sm:grid-cols-2'>
+          <DetailRow
+            label={t('Provider')}
+            value={
+              successfulAttempt?.provider ??
+              props.breakdown.actual_provider ??
+              '—'
+            }
+            mono
+          />
+          <DetailRow
+            label={t('Channel ID')}
+            value={
+              successfulAttempt?.channel_id ??
+              successfulAttempt?.channel ??
+              props.breakdown.channel_id ??
+              '—'
+            }
+            mono
+          />
+          <DetailRow
+            label={t('Execution Profile')}
+            value={successfulAttempt?.execution_profile_id || '—'}
+            mono
+          />
+          {props.breakdown.billing_multiplier != null && (
+            <DetailRow
+              label={t('Supplier billing multiplier')}
+              value={String(props.breakdown.billing_multiplier)}
+              mono
+            />
+          )}
+          {props.breakdown.provider_credit_cash_cost_cny != null && (
+            <DetailRow
+              label={t('Recharge conversion')}
+              value={`¥${Number(props.breakdown.provider_credit_cash_cost_cny).toFixed(6)} / credit`}
+              mono
+            />
+          )}
+          {props.breakdown.billing_multiplier != null &&
+            props.breakdown.provider_credit_cash_cost_cny != null && (
+              <DetailRow
+                label={t('Provider cash conversion')}
+                value={`¥${(
+                  props.breakdown.billing_multiplier *
+                  Number(props.breakdown.provider_credit_cash_cost_cny)
+                ).toFixed(6)} / nominal USD`}
+                mono
+              />
+            )}
+          {props.breakdown.retail_markup_multiplier != null && (
+            <DetailRow
+              label={t('Retail markup')}
+              value={`${props.breakdown.retail_markup_multiplier}×`}
+              mono
+            />
+          )}
+          {props.breakdown.effective_provider_cash_cost_cny != null && (
+            <DetailRow
+              label={t('Effective provider cash cost')}
+              value={`¥${Number(props.breakdown.effective_provider_cash_cost_cny).toFixed(8)}`}
+              mono
+            />
+          )}
+          {props.breakdown.user_charge_cny != null && (
+            <DetailRow
+              label={t('Actual charge')}
+              value={`¥${Number(props.breakdown.user_charge_cny).toFixed(8)}`}
+              mono
+            />
+          )}
+          <DetailRow
+            label={t('Billing / pricing version')}
+            value={
+              [
+                props.breakdown.billing_policy_version,
+                props.breakdown.route_decision?.price_version,
+                props.breakdown.effective_cost_version,
+              ]
+                .filter(Boolean)
+                .join(' · ') || '—'
+            }
+            mono
+          />
+          <DetailRow
+            label={t('Cost source / status')}
+            value={
+              [
+                props.breakdown.effective_cost_source,
+                props.breakdown.effective_cost_status,
+              ]
+                .filter(Boolean)
+                .join(' · ') || '—'
+            }
+            mono
+          />
+        </div>
+      )}
+    </DetailSection>
   )
 }
 
@@ -954,17 +1386,22 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const { copiedText, copyToClipboard } = useCopyToClipboard({ notify: false })
   const details = props.log.content ?? ''
   const other = parseLogOther(props.log.other)
+  const finalizedAcu = isFinalizedAcuUsageLog(props.log, other)
   const showAcuInternalDetails = shouldShowAcuInternalDetails(
     props.log,
     other,
     props.isAdmin
   )
-  const acuRoute = other?.acu_cost_breakdown
+  const acuRoute = acuBreakdownForView(other, props.isAdmin)
   const acuDecision = acuRoute?.route_decision
-  const actualRouteChannel = other?.actual_channel ?? acuRoute?.channel_id
+  const actualRouteChannel =
+    acuRoute?.channel_id ??
+    other?.admin_info?.actual_channel ??
+    other?.actual_channel
   const actualRouteProvider =
-    other?.actual_provider ??
     acuRoute?.actual_provider ??
+    other?.admin_info?.actual_provider ??
+    other?.actual_provider ??
     acuRoute?.selected_provider
   const advancedOther = other ?? ({} as LogOtherData)
   const showAcuAdvancedDetails =
@@ -1100,12 +1537,35 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const useChannel = other?.admin_info?.use_channel
   const channelChain =
     useChannel && useChannel.length > 0 ? useChannel.join(' → ') : undefined
-  const reasoningEffort = other?.reasoning_effort || acuRoute?.reasoning_effort
+  const reasoningEffort = acuRoute
+    ? acuResolvedReasoningEffort(other, acuRoute)
+    : other?.reasoning_effort
   let reasoningEffortVariant: StatusBadgeProps['variant'] = 'green'
-  if (reasoningEffort === 'high') {
+  if (
+    reasoningEffort === 'high' ||
+    reasoningEffort === 'xhigh' ||
+    reasoningEffort === 'max'
+  ) {
     reasoningEffortVariant = 'orange'
   } else if (reasoningEffort === 'medium') {
     reasoningEffortVariant = 'yellow'
+  }
+  const acuPresentation = acuLogPresentation(other)
+  let acuJudgeLabel = t('Judge unavailable')
+  if (acuPresentation.judgeMode === 'reused') {
+    acuJudgeLabel = t('Judge reused')
+  } else if (acuPresentation.judgeMode === 'cache') {
+    acuJudgeLabel = t('Judge cache')
+  } else if (acuPresentation.judgeMode === 'rules_fallback') {
+    acuJudgeLabel = t('Judge rules fallback')
+  } else if (acuPresentation.judgeMode === 'profile_failover') {
+    acuJudgeLabel = t('Judge Profile failover')
+  } else if (acuPresentation.judgeMode === 'judge') {
+    acuJudgeLabel = `${t('Judge')} · ${acuPresentation.judgeModel || '—'}`
+  } else if (acuPresentation.judgeMode === 'not_required') {
+    acuJudgeLabel = t('Judge not required')
+  } else if (acuPresentation.judgeMode === 'pending') {
+    acuJudgeLabel = t('Waiting for ACU finalize')
   }
 
   return (
@@ -1138,14 +1598,12 @@ export function DetailsDialog(props: DetailsDialogProps) {
       bodyClassName='pr-2 sm:pr-4'
     >
       <div className='w-full max-w-full min-w-0 space-y-2.5 overflow-x-hidden py-1 sm:space-y-3'>
-        {showAcuInternalDetails &&
-          props.open &&
-          other?.acu_logical_request_id && (
-            <ACUSessionTracePanel
-              identifier={other.acu_logical_request_id}
-              isAdmin={props.isAdmin}
-            />
-          )}
+        {props.isAdmin && props.open && other?.acu_logical_request_id && (
+          <AcuSessionTraceDisclosure
+            identifier={other.acu_logical_request_id}
+            isAdmin={props.isAdmin}
+          />
+        )}
         {showAcuInternalDetails && !!other?.acu_related_events?.length && (
           <details className='border-border/70 min-w-0 rounded-md border p-3 text-xs'>
             <summary className='cursor-pointer font-medium'>
@@ -1172,7 +1630,33 @@ export function DetailsDialog(props: DetailsDialogProps) {
             </div>
           </details>
         )}
-        {showAcuInternalDetails && acuDecision && acuRoute && (
+        {finalizedAcu && acuRoute && (
+          <DetailSection label={t('Request')}>
+            <div className='grid gap-1.5 sm:grid-cols-2'>
+              <DetailRow
+                label={t('Requested Model')}
+                value={acuRoute.requested_model || '—'}
+                mono
+              />
+              <DetailRow
+                label={t('Actual Model')}
+                value={acuRoute.canonical_model || props.log.model_name}
+                mono
+              />
+              <DetailRow
+                label={t('Thinking effort')}
+                value={
+                  reasoningEffort === 'default'
+                    ? t('Model default')
+                    : reasoningEffort || t('Model default')
+                }
+                mono
+              />
+              <DetailRow label={t('Judge')} value={acuJudgeLabel} mono />
+            </div>
+          </DetailSection>
+        )}
+        {showAcuInternalDetails && acuDecision && acuRoute && other && (
           <AcuDecisionVisualization
             route={acuDecision}
             breakdown={acuRoute}
@@ -1272,27 +1756,32 @@ export function DetailsDialog(props: DetailsDialogProps) {
                   )}
                 >
                   {formatUseTime(acuDurationSeconds(props.log, other))}
-                  {props.log.is_stream && acuFirstTokenMs(other) != null && (
-                    <span
-                      className={cn(
-                        'font-normal',
-                        timingTextColorClass(
-                          getFirstResponseTimeColor(
-                            (acuFirstTokenMs(other) ?? 0) / 1000
+                  {(props.log.is_stream || acuRoute) &&
+                    acuFirstTokenMs(other) != null && (
+                      <span
+                        className={cn(
+                          'font-normal',
+                          timingTextColorClass(
+                            getFirstResponseTimeColor(
+                              (acuFirstTokenMs(other) ?? 0) / 1000
+                            )
                           )
-                        )
-                      )}
-                    >
-                      {' '}
-                      (FRT:{' '}
-                      {formatUseTime((acuFirstTokenMs(other) ?? 0) / 1000)})
-                    </span>
-                  )}
+                        )}
+                      >
+                        {' '}
+                        ({t('First response')}:{' '}
+                        {formatUseTime((acuFirstTokenMs(other) ?? 0) / 1000)})
+                      </span>
+                    )}
                 </span>
               }
             />
           )}
         </div>
+
+        {finalizedAcu && acuRoute && (
+          <AcuExecutionAttempts breakdown={acuRoute} isAdmin={props.isAdmin} />
+        )}
 
         {showAcuAdvancedDetails && (
           <DetailSection label={t('ACU Advanced Details')}>
@@ -1499,20 +1988,10 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 mono
               />
             )}
-            {acuRoute?.billing_multiplier != null && (
+            {props.isAdmin && acuRoute?.billing_multiplier != null && (
               <DetailRow
-                label={
-                  props.isAdmin
-                    ? t('Billing Multiplier')
-                    : t('Channel price multiplier', {
-                        defaultValue: '渠道价格系数',
-                      })
-                }
-                value={
-                  props.isAdmin
-                    ? String(acuRoute.billing_multiplier)
-                    : `${acuRoute.billing_multiplier}×`
-                }
+                label={t('Supplier billing multiplier')}
+                value={String(acuRoute.billing_multiplier)}
                 mono
               />
             )}
@@ -2015,6 +2494,14 @@ export function DetailsDialog(props: DetailsDialogProps) {
         {/* Token breakdown (for consume/error types with token data) */}
         {isDisplayableType(props.log.type) && other && (
           <TokenBreakdown log={props.log} other={other} />
+        )}
+
+        {finalizedAcu && acuRoute && (
+          <AcuPricingDetails
+            breakdown={acuRoute}
+            modelId={acuRoute.canonical_model || props.log.model_name}
+            isAdmin={props.isAdmin}
+          />
         )}
 
         {/* Billing breakdown (consume type) */}

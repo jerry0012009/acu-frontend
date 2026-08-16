@@ -28,6 +28,7 @@ import {
 } from '../acu-work-timeline-model'
 import {
   aggregateJudgeAttempts,
+  isMissingACUSessionTrace,
   isNeutralTraceCancellation,
   isSuccessfulTraceStatus,
   latestTraceRequest,
@@ -595,21 +596,26 @@ export function ACUSessionTracePanel(props: ACUSessionTracePanelProps) {
     !traceQuery.data?.success ||
     !traceQuery.data.data
   ) {
+    const missing = isMissingACUSessionTrace(traceQuery.error)
     return (
       <div className='rounded border p-4 text-sm'>
         <div className='text-muted-foreground'>
-          {t('ACU Session Trace is unavailable.')}
+          {missing
+            ? t('No Session Trace is available for this request.')
+            : t('ACU Session Trace could not be loaded.')}
         </div>
-        <Button
-          type='button'
-          size='sm'
-          variant='outline'
-          className='mt-3'
-          onClick={() => void traceQuery.refetch()}
-        >
-          <RefreshCw className='mr-1.5 size-3.5' aria-hidden='true' />
-          {t('Retry')}
-        </Button>
+        {!missing && (
+          <Button
+            type='button'
+            size='sm'
+            variant='outline'
+            className='mt-3'
+            onClick={() => void traceQuery.refetch()}
+          >
+            <RefreshCw className='mr-1.5 size-3.5' aria-hidden='true' />
+            {t('Retry')}
+          </Button>
+        )}
       </div>
     )
   }
