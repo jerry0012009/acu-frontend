@@ -63,7 +63,8 @@ func GetACUChannelMonitor(ctx context.Context, rangeValue, supplyStrategy, scena
 		"profileCostLogScale": config.ProfileCostLogScale, "profileSpeedLogScale": config.ProfileSpeedLogScale,
 		"latency": config.Latency, "reliability": config.Reliability,
 		"allowedCandidateIds": []string{}, "candidatePreferenceScores": map[string]int{},
-		"routingUtilityVersion": config.SchemaVersion, "workPhaseBiasOffsets": config.WorkPhaseBiasOffsets,
+		"profilePreferenceScores": config.DefaultProfilePreferenceScores,
+		"routingUtilityVersion":   config.SchemaVersion, "workPhaseBiasOffsets": config.WorkPhaseBiasOffsets,
 	})
 	if err != nil {
 		return dto.ACUChannelMonitor{}, err
@@ -204,7 +205,8 @@ func buildACUSelectionCorridorBody(inputTokens, expectedOutputTokens int, policy
 		"latencyPolicy": policy.LatencyPolicy, "reliabilityPolicy": policy.ReliabilityPolicy,
 		"workPhaseBiasOffsets": policy.WorkPhaseBiasOffsets,
 		"routeMode":            "acu-auto", "routingUtilityVersion": policy.RoutingUtilityVersion,
-		"formulaMode": policy.FormulaMode,
+		"formulaMode":             policy.FormulaMode,
+		"profilePreferenceScores": policy.ProfilePreferenceScores,
 	}
 	if includeCandidatePreferenceScores {
 		payload["candidatePreferenceScores"] = policy.CandidatePreferenceScores

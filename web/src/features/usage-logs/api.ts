@@ -528,6 +528,7 @@ export type ACURoutingUtilityConfig = {
     number
   >
   defaultCandidatePreferenceScores: Record<string, number>
+  defaultProfilePreferenceScores: Record<string, number>
 }
 
 export async function getACURoutingUtilityConfig(): Promise<ACURoutingUtilityConfig> {

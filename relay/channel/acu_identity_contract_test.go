@@ -11,29 +11,40 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
 
-type acuV4ContractRequest struct {
+type acuV5ContractRequest struct {
 	Body    string      `json:"body"`
 	Headers http.Header `json:"headers"`
 }
 
-func TestNewAPIV4HeadersVerifyWithClawRouter(t *testing.T) {
+func TestNewAPIV5HeadersVerifyWithClawRouter(t *testing.T) {
 	routerRepo := os.Getenv("CLAWROUTER_REPO")
 	if routerRepo == "" {
 		routerRepo = filepath.Clean(filepath.Join("..", "..", "..", "claw-router-timeline"))
 	}
-	runner := filepath.Join(routerRepo, "test", "new-api-v4-contract-runner.ts")
+	runner := filepath.Join(routerRepo, "test", "new-api-v5-contract-runner.ts")
 	if _, err := os.Stat(runner); err != nil {
 		t.Skipf("ClawRouter contract runner is unavailable: %v", err)
 	}
 
 	gin.SetMode(gin.TestMode)
-	const secret = "new-api-router-v4-contract-secret"
+	const secret = "new-api-router-v5-contract-secret"
 	t.Setenv("ACU_TRUSTED_IDENTITY_SECRET", secret)
-	build := func(requestID string, candidates []string, scores map[string]float64) acuV4ContractRequest {
+	previousOptions := common.OptionMap
+	t.Cleanup(func() { common.OptionMap = previousOptions })
+	config, err := service.GetACURoutingUtilityConfig()
+	require.NoError(t, err)
+	config.DefaultProfilePreferenceScores = map[string]float64{
+		"cockpit-codex-pool-01:gpt-5.6-sol:responses": 125.5,
+	}
+	rawConfig, err := common.Marshal(config)
+	require.NoError(t, err)
+	common.OptionMap = map[string]string{"ACURoutingUtilityConfig": string(rawConfig)}
+	build := func(requestID string, candidates []string, scores map[string]float64) acuV5ContractRequest {
 		ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
 		ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
 		ctx.Request.Header.Set("User-Agent", "codex_exec/0.145.0")
@@ -43,17 +54,17 @@ func TestNewAPIV4HeadersVerifyWithClawRouter(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "http://acu-router/v1/responses", nil)
 		info := &relaycommon.RelayInfo{IsACUChannel: true, UserId: 17, TokenId: 29, RequestId: requestID}
 		require.NoError(t, applyACUTrustedIdentity(req, ctx, info, []byte(body)))
-		return acuV4ContractRequest{Body: body, Headers: req.Header}
+		return acuV5ContractRequest{Body: body, Headers: req.Header}
 	}
 
 	payload, err := common.Marshal(map[string]interface{}{
 		"secret": secret,
 		"scoped": build(
-			"req_v4_scoped",
+			"req_v5_scoped",
 			[]string{"gpt-5.6-luna", "gpt-5.6-luna@max"},
 			map[string]float64{"gpt-5.6-luna@max": 150.5},
 		),
-		"emptyScope": build("req_v4_empty", nil, nil),
+		"emptyScope": build("req_v5_empty", nil, nil),
 	})
 	require.NoError(t, err)
 

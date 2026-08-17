@@ -260,6 +260,10 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	if err != nil {
 		return fmt.Errorf("marshal ACU candidate preference scores: %w", err)
 	}
+	profilePreferenceScoresJSON, err := common2.Marshal(policy.ProfilePreferenceScores)
+	if err != nil {
+		return fmt.Errorf("marshal ACU Profile preference scores: %w", err)
+	}
 	qualityBias := strconv.Itoa(policy.QualityBias)
 	highBiasOffset := strconv.Itoa(policy.ACUHighBiasOffset)
 	modelCostLogScale := strconv.FormatFloat(policy.ModelCostLogScale, 'g', -1, 64)
@@ -272,7 +276,8 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 		modelCostLogScale, profileCostLogScale, profileSpeedLogScale,
 		string(latencyPolicyJSON), string(reliabilityPolicyJSON), string(workPhaseBiasOffsetsJSON),
 		string(allowedCandidateIDsJSON), string(candidatePreferenceScoresJSON),
-		policy.RoutingUtilityVersion, policy.FormulaMode, "v4", timestamp, bodySHA,
+		string(profilePreferenceScoresJSON),
+		policy.RoutingUtilityVersion, policy.FormulaMode, "v5", timestamp, bodySHA,
 	}, "\n")
 	mac := hmac.New(sha256.New, []byte(secret))
 	_, _ = mac.Write([]byte(payload))
@@ -298,9 +303,10 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	req.Header.Set("X-ACU-Work-Phase-Bias-Offsets", string(workPhaseBiasOffsetsJSON))
 	req.Header.Set("X-ACU-Allowed-Candidate-Ids", string(allowedCandidateIDsJSON))
 	req.Header.Set("X-ACU-Candidate-Preference-Scores", string(candidatePreferenceScoresJSON))
+	req.Header.Set("X-ACU-Profile-Preference-Scores", string(profilePreferenceScoresJSON))
 	req.Header.Set("X-ACU-Routing-Utility-Version", policy.RoutingUtilityVersion)
 	req.Header.Set("X-ACU-Formula-Mode", policy.FormulaMode)
-	req.Header.Set("X-ACU-Identity-Version", "v4")
+	req.Header.Set("X-ACU-Identity-Version", "v5")
 	req.Header.Set("X-ACU-Timestamp", timestamp)
 	req.Header.Set("X-ACU-Body-SHA256", bodySHA)
 	req.Header.Set("X-ACU-Signature", hex.EncodeToString(mac.Sum(nil)))
