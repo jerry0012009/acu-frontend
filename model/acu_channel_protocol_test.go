@@ -16,7 +16,7 @@ func TestACUChannelPreservesNativeProtocolDuringSelection(t *testing.T) {
 	require.False(t, openAI.SupportsRequestPath("/v1/messages", "acu-auto"))
 	require.True(t, anthropic.SupportsRequestPath("/v1/messages", "acu-auto"))
 	require.False(t, anthropic.SupportsRequestPath("/v1/responses", "acu-auto"))
-	require.False(t, openAI.SupportsRequestPath("/v1/chat/completions", "acu-auto"))
+	require.True(t, openAI.SupportsRequestPath("/v1/chat/completions", "acu-auto"))
 	require.True(t, openAI.SupportsRequestPath("/pg/chat/completions", "acu-auto"))
 	require.True(t, openAI.SupportsRequestPath("/pg/chat/completions", "acu-high"))
 	require.True(t, openAI.SupportsRequestPath("/pg/chat/completions", "future-root-catalog-model"))

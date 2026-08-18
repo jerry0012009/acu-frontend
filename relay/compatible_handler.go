@@ -71,12 +71,7 @@ func TextHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types
 	adaptor.Init(info)
 
 	passThroughGlobal := model_setting.GetGlobalSettings().PassThroughRequestEnabled
-	acuPlaygroundBridge := shouldUseACUPlaygroundResponsesBridge(info)
-	if info.RelayMode == relayconstant.RelayModeChatCompletions &&
-		!passThroughGlobal &&
-		!info.ChannelSetting.PassThroughBodyEnabled &&
-		(acuPlaygroundBridge ||
-			service.ShouldChatCompletionsUseResponsesGlobal(info.ChannelId, info.ChannelType, info.OriginModelName)) {
+	if shouldUseChatCompletionsResponsesBridge(info, passThroughGlobal, info.ChannelSetting.PassThroughBodyEnabled) {
 		applySystemPromptIfNeeded(c, info, request)
 		usage, newApiErr := chatCompletionsViaResponses(c, info, adaptor, request)
 		if newApiErr != nil {
@@ -96,7 +91,7 @@ func TextHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types
 
 	var requestBody io.Reader
 
-	if passThroughGlobal || info.ChannelSetting.PassThroughBodyEnabled {
+	if passThroughGlobal || info.ChannelSetting.PassThroughBodyEnabled || info.IsACUChannel {
 		storage, err := common.GetBodyStorage(c)
 		if err != nil {
 			return types.NewErrorWithStatusCode(err, types.ErrorCodeReadRequestBodyFailed, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
@@ -229,4 +224,20 @@ func shouldUseACUPlaygroundResponsesBridge(info *relaycommon.RelayInfo) bool {
 		info.IsACUChannel &&
 		info.IsPlayground &&
 		info.RelayMode == relayconstant.RelayModeChatCompletions
+}
+
+func shouldUseChatCompletionsResponsesBridge(
+	info *relaycommon.RelayInfo,
+	passThroughGlobal bool,
+	passThroughChannel bool,
+) bool {
+	if info == nil ||
+		info.RelayMode != relayconstant.RelayModeChatCompletions ||
+		passThroughGlobal ||
+		passThroughChannel {
+		return false
+	}
+	return shouldUseACUPlaygroundResponsesBridge(info) ||
+		(!info.IsACUChannel &&
+			service.ShouldChatCompletionsUseResponsesGlobal(info.ChannelId, info.ChannelType, info.OriginModelName))
 }

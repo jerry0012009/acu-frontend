@@ -29,6 +29,9 @@ func TestACUPublicCanonicalModelRequiresRouterTag(t *testing.T) {
 	require.True(t, HasEnabledChannelTagForGroupModel(
 		"default", "gpt-5.6-terra", "/v1/responses", constant.ChannelTagACURouter,
 	))
+	require.True(t, HasEnabledChannelTagForGroupModel(
+		"default", "gpt-5.6-terra", "/v1/chat/completions", constant.ChannelTagACURouter,
+	))
 	for range 20 {
 		channel, err := GetRandomSatisfiedChannel(
 			"default", "gpt-5.6-terra", 0, "/v1/responses", constant.ChannelTagACURouter,

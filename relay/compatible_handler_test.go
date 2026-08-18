@@ -20,3 +20,11 @@ func TestResponsesBridgeDoesNotChangeNonACUChatCompletions(t *testing.T) {
 		IsPlayground: true, RelayMode: relayconstant.RelayModeChatCompletions,
 	}))
 }
+
+func TestOrdinaryACUChatCompletionsDoNotUseResponsesBridge(t *testing.T) {
+	require.False(t, shouldUseChatCompletionsResponsesBridge(
+		&relaycommon.RelayInfo{IsACUChannel: true, RelayMode: relayconstant.RelayModeChatCompletions},
+		false,
+		false,
+	))
+}
