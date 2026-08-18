@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/tooltip'
 import { formatLogQuota } from '@/lib/format'
 
-import { hasToolSurcharge } from '../lib/format'
+import { formatMultiplier, hasToolSurcharge } from '../lib/format'
 import type { LogOtherData } from '../types'
 
 interface LogCostDisplayProps {
@@ -104,14 +104,6 @@ function formatUsd(
 ): string | undefined {
   const number = Number(value)
   return Number.isFinite(number) ? `$${number.toFixed(8)}` : undefined
-}
-
-export function formatMultiplier(
-  value: number | string | null | undefined
-): string | undefined {
-  const number = Number(value)
-  if (!Number.isFinite(number)) return undefined
-  return `${number.toFixed(Math.abs(number) < 0.1 ? 3 : 2)}x`
 }
 
 function CostReferenceTooltip(props: {

@@ -58,7 +58,8 @@ await i18n.use(initReactI18next).init({
   },
 })
 
-const { LogCostDisplay, formatMultiplier } = await import('../log-cost-display')
+const { LogCostDisplay } = await import('../log-cost-display')
+const { formatMultiplier } = await import('../../lib/format')
 const { formatLogQuota } = await import('@/lib/format')
 const reactTestGlobals = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
