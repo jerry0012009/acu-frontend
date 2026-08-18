@@ -418,6 +418,14 @@ var acuPublicRoutingTelemetryKeys = []string{
 	"first_model_event_latency_ms",
 	"usageSource",
 	"billing_status",
+	"official_catalog_cost_usd",
+	"official_reference_cost_usd",
+	"official_input_price_per_million_usd",
+	"official_output_price_per_million_usd",
+	"official_cached_input_price_per_million_usd",
+	"official_cache_write_price_per_million_usd",
+	"official_judge_reference_cost_usd",
+	"channel_discount_multiplier",
 }
 
 func acuUsageLogOther(input ACUUsageChargeInput, pending bool, status, errorCode string) map[string]interface{} {

@@ -150,8 +150,11 @@ func TestFinalizeACUUsageChargesAndUpdatesLogExactlyOnce(t *testing.T) {
 		FailedBilledCostUSD:  "0.0000000000",
 		FinalUserCostUSD:     "0.0010000000",
 		CostBreakdown: map[string]interface{}{
-			"judge": "0.0002000000", "provider": "0.0008000000",
-			"first_model_event_latency_ms": 420,
+			"judge":                                "0.0002000000",
+			"provider":                             "0.0008000000",
+			"official_catalog_cost_usd":            "0.0048250000",
+			"official_input_price_per_million_usd": 5.0,
+			"first_model_event_latency_ms":         420,
 			"channel_attempts": []interface{}{
 				map[string]interface{}{
 					"attempt_index": 1, "provider": "one", "channel_id": "7737",
@@ -206,6 +209,8 @@ func TestFinalizeACUUsageChargesAndUpdatesLogExactlyOnce(t *testing.T) {
 	publicBreakdown, ok := logOther["acu_cost_breakdown"].(map[string]interface{})
 	require.True(t, ok)
 	require.Equal(t, 420.0, publicBreakdown["first_model_event_latency_ms"])
+	require.Equal(t, "0.0048250000", publicBreakdown["official_catalog_cost_usd"])
+	require.Equal(t, 5.0, publicBreakdown["official_input_price_per_million_usd"])
 	require.NotContains(t, publicBreakdown, "channel_multiplier")
 	require.NotContains(t, publicBreakdown, "billing_multiplier")
 	publicAttempts, ok := publicBreakdown["channel_attempts"].([]interface{})
@@ -385,4 +390,35 @@ func TestFinalizeACUUsageKeepsExplicitModelWithoutInventingDifficulty(t *testing
 	_, hasDifficultyScore := breakdown["difficultyScore"]
 	assert.False(t, hasDifficultyScore)
 	assert.Equal(t, "gpt-5.6-terra", breakdown["requested_model"])
+}
+
+func TestAddACUOfficialReferenceCostUsesUserChargeAndJudgeSemantics(t *testing.T) {
+	breakdown := map[string]interface{}{
+		"official_catalog_cost_usd": "0.0048250000",
+		"judge_user_charge_cny":     "0",
+	}
+	addACUOfficialReferenceCost(breakdown, "0.0020000000", "0.0005000000", "CNY", 5)
+	assert.Equal(t, "0.0048250000", breakdown["official_reference_cost_usd"])
+	assert.Equal(t, "0.0829015544", breakdown["channel_discount_multiplier"])
+	_, hasJudgeReference := breakdown["official_judge_reference_cost_usd"]
+	assert.False(t, hasJudgeReference)
+
+	breakdown = map[string]interface{}{
+		"official_catalog_cost_usd": "0.0048250000",
+		"judge_user_charge_cny":     "0.0010000000",
+	}
+	addACUOfficialReferenceCost(breakdown, "0.0030000000", "0.0005000000", "CNY", 5)
+	assert.Equal(t, "0.0001000000", breakdown["official_judge_reference_cost_usd"])
+	assert.Equal(t, "0.0049250000", breakdown["official_reference_cost_usd"])
+	assert.Equal(t, "0.1218274112", breakdown["channel_discount_multiplier"])
+
+	breakdown = map[string]interface{}{
+		"official_catalog_cost_usd": "0.0048250000",
+		"judge_user_charge_cny":     "0.0010000000",
+	}
+	addACUOfficialReferenceCost(breakdown, "0.0030000000", "0", "CNY", 5)
+	_, hasReference := breakdown["official_reference_cost_usd"]
+	_, hasMultiplier := breakdown["channel_discount_multiplier"]
+	assert.False(t, hasReference)
+	assert.False(t, hasMultiplier)
 }

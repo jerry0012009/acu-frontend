@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -33,6 +34,64 @@ func parseACUCost(name, value string) (decimal.Decimal, error) {
 		return decimal.Zero, fmt.Errorf("%s has more than 10 decimal places", name)
 	}
 	return cost, nil
+}
+
+func parseOptionalACUCost(value interface{}) (decimal.Decimal, bool) {
+	switch typed := value.(type) {
+	case string:
+		cost, err := decimal.NewFromString(strings.TrimSpace(typed))
+		return cost, err == nil && !cost.IsNegative()
+	case float64:
+		if typed < 0 {
+			return decimal.Zero, false
+		}
+		cost, err := decimal.NewFromString(strconv.FormatFloat(typed, 'f', -1, 64))
+		return cost, err == nil
+	case float32:
+		return parseOptionalACUCost(float64(typed))
+	case int:
+		return decimal.NewFromInt(int64(typed)), typed >= 0
+	case int64:
+		return decimal.NewFromInt(typed), typed >= 0
+	case json.Number:
+		cost, err := decimal.NewFromString(string(typed))
+		return cost, err == nil && !cost.IsNegative()
+	default:
+		return decimal.Zero, false
+	}
+}
+
+func addACUOfficialReferenceCost(
+	breakdown map[string]interface{},
+	userChargeCny, judgeOfficialPaygEquivalent, judgeCostCurrency string,
+	usdExchangeRate float64,
+) {
+	officialCatalogCost, ok := parseOptionalACUCost(breakdown["official_catalog_cost_usd"])
+	if !ok || officialCatalogCost.IsNegative() || usdExchangeRate <= 0 {
+		return
+	}
+	officialReferenceCny := officialCatalogCost.Mul(decimal.NewFromFloat(usdExchangeRate))
+	judgeUserCharge, judgeCharged := parseOptionalACUCost(breakdown["judge_user_charge_cny"])
+	judgeOfficialCost, judgeReferenceKnown := parseOptionalACUCost(judgeOfficialPaygEquivalent)
+	if judgeCharged && !judgeUserCharge.IsZero() {
+		if judgeReferenceKnown && judgeCostCurrency == "CNY" && !judgeOfficialCost.IsZero() {
+			breakdown["official_judge_reference_cost_usd"] =
+				judgeOfficialCost.Div(decimal.NewFromFloat(usdExchangeRate)).StringFixed(10)
+			officialReferenceCny = officialReferenceCny.Add(judgeOfficialCost)
+		} else {
+			return
+		}
+	}
+	if officialReferenceCny.IsZero() {
+		return
+	}
+	officialReferenceUsd := officialReferenceCny.Div(decimal.NewFromFloat(usdExchangeRate))
+	breakdown["official_reference_cost_usd"] = officialReferenceUsd.StringFixed(10)
+	userCharge, err := decimal.NewFromString(strings.TrimSpace(userChargeCny))
+	if err == nil && !userCharge.IsNegative() {
+		breakdown["channel_discount_multiplier"] =
+			userCharge.Div(officialReferenceCny).StringFixed(10)
+	}
 }
 
 func FinalizeACUUsage(request dto.ACUUsageFinalizeRequest, payloadHash string) (dto.ACUUsageFinalizeResponse, error) {
@@ -195,6 +254,16 @@ func FinalizeACUUsage(request dto.ACUUsageFinalizeRequest, payloadHash string) (
 			return dto.ACUUsageFinalizeResponse{}, errors.New("USD/CNY exchange rate is invalid")
 		}
 		finalCost = userChargeCny.Div(decimal.NewFromFloat(operation_setting.USDExchangeRate))
+		if request.CostBreakdown == nil {
+			request.CostBreakdown = map[string]interface{}{}
+		}
+		addACUOfficialReferenceCost(
+			request.CostBreakdown,
+			request.UserChargeCNY,
+			request.JudgeOfficialPaygEquivalentCost,
+			judgeCostCurrency,
+			operation_setting.USDExchangeRate,
+		)
 	} else if !judgeCost.Add(providerCost).Add(failedCost).Equal(finalCost) {
 		return dto.ACUUsageFinalizeResponse{}, errors.New("final_user_cost_usd does not match the cost components")
 	}

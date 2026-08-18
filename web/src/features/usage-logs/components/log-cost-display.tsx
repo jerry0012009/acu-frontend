@@ -1,4 +1,4 @@
-import { Wrench01Icon } from '@hugeicons/core-free-icons'
+import { BadgeInfoIcon, Wrench01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 
@@ -99,12 +99,132 @@ function SubscriptionBadge(props: { quota: number }) {
   )
 }
 
+function formatUsd(
+  value: number | string | null | undefined
+): string | undefined {
+  const number = Number(value)
+  return Number.isFinite(number) ? `$${number.toFixed(8)}` : undefined
+}
+
+function formatMultiplier(
+  value: number | string | null | undefined
+): string | undefined {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return undefined
+  const rounded = number.toFixed(3).replace(/0+$/, '').replace(/\.$/, '')
+  return `${rounded.includes('.') ? rounded.padEnd(4, '0') : `${rounded}.00`}x`
+}
+
+function CostReferenceTooltip(props: {
+  breakdown: NonNullable<LogOtherData['acu_cost_breakdown']>
+  adminBreakdown?: NonNullable<LogOtherData['admin_info']>['acu_cost_breakdown']
+}) {
+  const { t } = useTranslation()
+  const reference = formatUsd(props.breakdown.official_reference_cost_usd)
+  const multiplier = formatMultiplier(
+    props.breakdown.channel_discount_multiplier
+  )
+  if (!reference || !multiplier) return null
+
+  const admin = props.adminBreakdown
+  const rows = [
+    ['Input', props.breakdown.official_input_price_per_million_usd],
+    [
+      'Cached Input',
+      props.breakdown.official_cached_input_price_per_million_usd,
+    ],
+    ['Cache Write', props.breakdown.official_cache_write_price_per_million_usd],
+    ['Output', props.breakdown.official_output_price_per_million_usd],
+  ].filter(([, value]) => value != null && Number.isFinite(Number(value)))
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            type='button'
+            className='text-muted-foreground/70 hover:text-foreground inline-flex size-5 cursor-help items-center justify-center rounded-full'
+            aria-label={t('View official cost reference')}
+            data-cost-reference-indicator='true'
+          >
+            <HugeiconsIcon
+              icon={BadgeInfoIcon}
+              size={14}
+              strokeWidth={2}
+              aria-hidden='true'
+            />
+          </button>
+        }
+      />
+      <TooltipContent className='max-w-xs'>
+        <div className='flex flex-col gap-1.5'>
+          <div className='font-semibold'>{t('Cost reference')}</div>
+          <div className='grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5'>
+            <span>{t('Actual charge')}</span>
+            <span>{`¥${Number(props.breakdown.user_charge_cny ?? 0).toFixed(8)}`}</span>
+            <span>{t('Official reference')}</span>
+            <span>{reference}</span>
+            <span>{t('Channel discount')}</span>
+            <span>{`${multiplier} (${(Number(props.breakdown.channel_discount_multiplier) * 100).toFixed(1)}%)`}</span>
+          </div>
+          {rows.length > 0 && (
+            <div className='border-background/20 mt-1 border-t pt-1'>
+              <div className='mb-0.5 font-semibold'>
+                {t('Official unit prices')}
+              </div>
+              {rows.map(([label, value]) => (
+                <div key={label} className='grid grid-cols-[auto_1fr] gap-x-3'>
+                  <span>{label}</span>
+                  <span>{`$${Number(value).toFixed(4)} / 1M`}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {props.breakdown.official_judge_reference_cost_usd != null && (
+            <div>
+              {t('Includes Judge official reference')}:{' '}
+              {formatUsd(props.breakdown.official_judge_reference_cost_usd)}
+            </div>
+          )}
+          {admin && (
+            <div className='border-background/20 mt-1 border-t pt-1 opacity-70'>
+              <div className='mb-0.5 font-semibold'>
+                {t('Internal billing')}
+              </div>
+              {admin.billing_multiplier != null && (
+                <div>{`${t('Profile multiplier')}: ${formatMultiplier(admin.billing_multiplier)}`}</div>
+              )}
+              {admin.provider_balance_charge != null && (
+                <div>{`${t('Platform debit')}: ${admin.provider_balance_charge} credits`}</div>
+              )}
+              {admin.provider_credit_cash_cost_cny != null && (
+                <div>{`${t('Credit cost')}: ¥${Number(admin.provider_credit_cash_cost_cny).toFixed(8)} / credit`}</div>
+              )}
+            </div>
+          )}
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
 export function LogCostDisplay(props: LogCostDisplayProps) {
   if (props.other?.user_charge_cny != null) {
+    const breakdown = props.other.acu_cost_breakdown
     return (
-      <span className='border-border/80 bg-muted/60 inline-flex h-6 w-fit items-center rounded-md border px-2 [font-family:var(--font-body)] text-sm leading-none font-semibold tabular-nums'>
-        {`¥${Number(props.other.user_charge_cny).toFixed(8)}`}
-      </span>
+      <TooltipProvider>
+        <div className='inline-flex items-center gap-1'>
+          <span className='border-border/80 bg-muted/60 inline-flex h-6 w-fit items-center rounded-md border px-2 [font-family:var(--font-body)] text-sm leading-none font-semibold tabular-nums'>
+            {`¥${Number(props.other.user_charge_cny).toFixed(8)}`}
+          </span>
+          {breakdown ? (
+            <CostReferenceTooltip
+              breakdown={breakdown}
+              adminBreakdown={props.other.admin_info?.acu_cost_breakdown}
+            />
+          ) : null}
+        </div>
+      </TooltipProvider>
     )
   }
   const isSubscription = props.other?.billing_source === 'subscription'

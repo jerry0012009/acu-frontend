@@ -47,6 +47,12 @@ await i18n.use(initReactI18next).init({
         Subscription: 'Subscription',
         'Deducted by subscription': 'Deducted by subscription',
         'Includes tool-call surcharge': 'Includes tool-call surcharge',
+        'View official cost reference': 'View official cost reference',
+        'Cost reference': 'Cost reference',
+        'Actual charge': 'Actual charge',
+        'Official reference': 'Official reference',
+        'Channel discount': 'Channel discount',
+        'Official unit prices': 'Official unit prices',
       },
     },
   },
@@ -164,6 +170,47 @@ describe('log cost display', () => {
     })
 
     assert.equal(normalizedText(rendered.container.textContent), '¥0.00000000')
+
+    await unmountCost(rendered)
+  })
+
+  test('shows the official reference indicator without exposing internal billing', async () => {
+    const rendered = await renderCost({
+      quota: 848,
+      other: {
+        user_charge_cny: '0.0020000000',
+        acu_cost_breakdown: {
+          user_charge_cny: '0.0020000000',
+          official_catalog_cost_usd: '0.0048250000',
+          official_reference_cost_usd: '0.0048250000',
+          official_input_price_per_million_usd: 5,
+          official_cached_input_price_per_million_usd: 0.5,
+          official_output_price_per_million_usd: 30,
+          channel_discount_multiplier: '0.0829015544',
+        },
+        admin_info: {
+          acu_cost_breakdown: {
+            billing_multiplier: 0.12,
+            provider_balance_charge: 0.001,
+            provider_credit_cash_cost_cny: 1,
+          },
+        },
+      },
+    })
+
+    assert.ok(
+      rendered.container.querySelector('[data-cost-reference-indicator="true"]')
+    )
+    assert.equal(
+      rendered.container.textContent?.includes('0.0048250000'),
+      false
+    )
+    assert.equal(
+      rendered.container
+        .querySelector('[data-cost-reference-indicator="true"]')
+        ?.getAttribute('aria-label'),
+      'View official cost reference'
+    )
 
     await unmountCost(rendered)
   })

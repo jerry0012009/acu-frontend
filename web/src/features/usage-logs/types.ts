@@ -249,6 +249,14 @@ export interface AcuCostBreakdown {
   effective_cash_cost_cny?: number
   user_charge?: string
   user_charge_cny?: number | string
+  official_catalog_cost_usd?: number | string
+  official_reference_cost_usd?: number | string
+  official_input_price_per_million_usd?: number
+  official_output_price_per_million_usd?: number
+  official_cached_input_price_per_million_usd?: number | null
+  official_cache_write_price_per_million_usd?: number | null
+  official_judge_reference_cost_usd?: number | string
+  channel_discount_multiplier?: number | string
   actual_total_cash_cost_cny?: number
   judge_cash_cost_cny?: number
   judge_input_tokens?: number
