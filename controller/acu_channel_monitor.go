@@ -106,3 +106,45 @@ func ApplyACUExecutionProfiles(c *gin.Context) {
 	}
 	c.JSON(http.StatusAccepted, gin.H{"success": true, "message": "", "data": result})
 }
+
+func QuickAddACUProviderDiscover(c *gin.Context) {
+	var input map[string]interface{}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	result, err := service.QuickAddACUProviderDiscover(c.Request.Context(), input)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
+func QuickAddACUProviderProbe(c *gin.Context) {
+	var input map[string]interface{}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	result, err := service.QuickAddACUProviderProbe(c.Request.Context(), input)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
+func QuickAddACUProviderSave(c *gin.Context) {
+	var input map[string]interface{}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	result, err := service.QuickAddACUProviderSave(c.Request.Context(), input)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}

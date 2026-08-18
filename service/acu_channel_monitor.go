@@ -299,6 +299,16 @@ func acuExecutionProfileRequest(
 	path string,
 	payload map[string]interface{},
 ) (map[string]interface{}, error) {
+	return acuExecutionProfileRequestWithTimeout(ctx, 20*time.Second, method, path, payload)
+}
+
+func acuExecutionProfileRequestWithTimeout(
+	ctx context.Context,
+	timeout time.Duration,
+	method string,
+	path string,
+	payload map[string]interface{},
+) (map[string]interface{}, error) {
 	var body []byte
 	var err error
 	if payload != nil {
@@ -307,7 +317,7 @@ func acuExecutionProfileRequest(
 			return nil, err
 		}
 	}
-	response, err := acuRouterAdminRequest(ctx, method, path, body)
+	response, err := acuRouterAdminRequestWithTimeout(ctx, timeout, method, path, body)
 	if err != nil {
 		return nil, err
 	}
@@ -377,5 +387,44 @@ func ApplyACUExecutionProfiles(ctx context.Context) (map[string]interface{}, err
 		http.MethodPost,
 		"/internal/admin/execution-profiles/apply",
 		nil,
+	)
+}
+
+func QuickAddACUProviderDiscover(
+	ctx context.Context,
+	input map[string]interface{},
+) (map[string]interface{}, error) {
+	return acuExecutionProfileRequestWithTimeout(
+		ctx,
+		20*time.Second,
+		http.MethodPost,
+		"/internal/admin/execution-profiles/quick-add/discover",
+		input,
+	)
+}
+
+func QuickAddACUProviderProbe(
+	ctx context.Context,
+	input map[string]interface{},
+) (map[string]interface{}, error) {
+	return acuExecutionProfileRequestWithTimeout(
+		ctx,
+		60*time.Second,
+		http.MethodPost,
+		"/internal/admin/execution-profiles/quick-add/probe",
+		input,
+	)
+}
+
+func QuickAddACUProviderSave(
+	ctx context.Context,
+	input map[string]interface{},
+) (map[string]interface{}, error) {
+	return acuExecutionProfileRequestWithTimeout(
+		ctx,
+		20*time.Second,
+		http.MethodPost,
+		"/internal/admin/execution-profiles/quick-add/save",
+		input,
 	)
 }

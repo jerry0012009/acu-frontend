@@ -296,6 +296,9 @@ func SetApiRouter(router *gin.Engine) {
 			executionProfileRoute.PUT("/:id", controller.UpdateACUExecutionProfile)
 			executionProfileRoute.POST("/probe", controller.ProbeACUExecutionProfile)
 			executionProfileRoute.POST("/apply", controller.ApplyACUExecutionProfiles)
+			executionProfileRoute.POST("/quick-add/discover", controller.QuickAddACUProviderDiscover)
+			executionProfileRoute.POST("/quick-add/probe", controller.QuickAddACUProviderProbe)
+			executionProfileRoute.POST("/quick-add/save", controller.QuickAddACUProviderSave)
 		}
 
 		systemTaskRoute := apiRouter.Group("/system-task")

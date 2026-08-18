@@ -567,6 +567,53 @@ export type ACUExecutionProfileProbeResult = {
   productionRoutingChanged: boolean
 }
 
+export type ACUQuickAddConnection = {
+  providerName?: string
+  baseUrl: string
+  apiKey: string
+  creditsPerCny: number
+  defaultBillingMultiplier: number
+}
+
+export type ACUQuickAddDiscoveredModel = {
+  providerModelId: string
+  catalogKnown: boolean
+  catalog?: {
+    modelId: string
+    displayName: string
+    vendor: string
+    inputPricePerMillion: number | null
+    outputPricePerMillion: number | null
+    cachedInputPricePerMillion: number | null
+    cacheWritePricePerMillion: number | null
+    contextWindow: number | null
+    toolCallSupport: boolean
+  }
+}
+
+export type ACUQuickAddDiscovery = {
+  normalizedBaseUrl: string
+  modelDirectoryUrl: string
+  authMode: 'bearer' | 'x-api-key' | null
+  httpStatus: number | null
+  directoryAvailable: boolean
+  authFailed: boolean
+  providerId: string
+  channelId: string
+  routingGroupName: string
+  baseUrlEnv: string
+  apiKeyEnv: string
+  connectionFingerprint: string
+  models: ACUQuickAddDiscoveredModel[]
+  existingProfiles: Array<{
+    executionProfileId: string
+    modelId: string
+    providerModelId: string
+    protocols: Array<'responses' | 'messages' | 'chat_completions'>
+  }>
+  message?: string
+}
+
 export type ACUGlobalRoutingPolicy = {
   modelPolicy: 'all_routing_eligible' | 'custom_allowlist'
   allowedModelIds: string[]
@@ -721,6 +768,76 @@ export async function applyACUExecutionProfiles() {
       status: string
       routerOnly: boolean
       profileCount: number
+      savedConfigDigest: string
+    }
+  }
+}
+
+export async function quickAddACUProviderDiscover(
+  connection: ACUQuickAddConnection
+) {
+  const res = await api.post(
+    '/api/log/acu-execution-profiles/quick-add/discover',
+    connection
+  )
+  return res.data as {
+    success: boolean
+    message?: string
+    data?: ACUQuickAddDiscovery
+  }
+}
+
+export async function quickAddACUProviderProbe(input: {
+  connection: ACUQuickAddConnection
+  authMode: 'bearer' | 'x-api-key'
+  model: {
+    providerModelId: string
+    modelId?: string
+    billingPrice?: Record<string, number>
+    observedBillingMultiplier?: number
+  }
+  protocol: 'responses' | 'messages' | 'chat_completions'
+}) {
+  const res = await api.post(
+    '/api/log/acu-execution-profiles/quick-add/probe',
+    input
+  )
+  return res.data as {
+    success: boolean
+    message?: string
+    data?: ACUExecutionProfileProbeResult & {
+      profile?: Record<string, unknown>
+      profileProbeIdentityDigest?: string
+    }
+  }
+}
+
+export async function quickAddACUProviderSave(input: {
+  connection: ACUQuickAddConnection
+  authMode: 'bearer' | 'x-api-key'
+  models: Array<{
+    providerModelId: string
+    modelId?: string
+    protocols: Array<'responses' | 'messages' | 'chat_completions'>
+    billingPrice?: Record<string, number>
+    observedBillingMultiplier?: number
+    activeInAcuAuto?: boolean
+  }>
+}) {
+  const res = await api.post(
+    '/api/log/acu-execution-profiles/quick-add/save',
+    input
+  )
+  return res.data as {
+    success: boolean
+    message?: string
+    data?: {
+      status: string
+      created: string[]
+      skippedDuplicates: string[]
+      createdCount: number
+      skippedDuplicateCount: number
+      applyRequired: boolean
       savedConfigDigest: string
     }
   }

@@ -23,6 +23,7 @@ import {
   type ACUExecutionProfile,
   type ACUExecutionProfileProbeResult,
 } from '../api'
+import { ACUProviderQuickAdd } from './acu-provider-quick-add'
 
 const PROTOCOLS = ['responses', 'messages', 'chat_completions'] as const
 type Protocol = (typeof PROTOCOLS)[number]
@@ -168,9 +169,10 @@ export function ACUExecutionProfileManager() {
             </p>
           </div>
           <div className='flex flex-wrap gap-2'>
+            <ACUProviderQuickAdd />
             <Button size='sm' variant='outline' onClick={() => openEditor()}>
               <Plus className='size-3.5' />
-              {t('Add Profile')}
+              {t('Advanced Add Profile')}
             </Button>
             <Button
               size='sm'

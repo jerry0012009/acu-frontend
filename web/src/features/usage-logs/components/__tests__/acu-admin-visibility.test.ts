@@ -14,6 +14,10 @@ const profileManagerSource = readFileSync(
   new URL('../acu-execution-profile-manager.tsx', import.meta.url),
   'utf8'
 )
+const quickAddSource = readFileSync(
+  new URL('../acu-provider-quick-add.tsx', import.meta.url),
+  'utf8'
+)
 const sidebarSource = readFileSync(
   new URL('../../../../hooks/use-sidebar-data.ts', import.meta.url),
   'utf8'
@@ -128,4 +132,15 @@ test('root execution profile manager separates save, targeted probe, and apply',
   assert.doesNotMatch(profileManagerSource, /recentSuccessRate/)
   assert.doesNotMatch(profileManagerSource, /observedLatency/)
   assert.doesNotMatch(profileManagerSource, /actualModelVerified/)
+})
+
+test('root execution profile manager exposes Quick Add without leaking advanced runtime fields', () => {
+  assert.match(profileManagerSource, /<ACUProviderQuickAdd \/>/)
+  assert.match(quickAddSource, /quickAddACUProviderDiscover/)
+  assert.match(quickAddSource, /quickAddACUProviderProbe/)
+  assert.match(quickAddSource, /quickAddACUProviderSave/)
+  assert.match(quickAddSource, /models\.map/)
+  assert.match(quickAddSource, /Actual platform debit/)
+  assert.doesNotMatch(quickAddSource, /apiKeyEnv/)
+  assert.doesNotMatch(quickAddSource, /recentSuccessRate/)
 })
