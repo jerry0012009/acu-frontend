@@ -74,8 +74,15 @@ function hasRequiredPrice(model: QuickModel) {
   )
 }
 
+function displayPrice(value: number | undefined) {
+  return value === undefined ? 'n/a' : `$${value} / 1M`
+}
+
 function ProbeSummary(props: {
   result: ACUExecutionProfileProbeResult
+  price?: PriceDraft
+  currentMultiplier: number
+  creditsPerCny: number
   actualDebit: string
   onActualDebitChange: (value: string) => void
   onUseRecommended: () => void
@@ -87,6 +94,11 @@ function ProbeSummary(props: {
     nominal > 0 && Number.isFinite(actualDebit) && actualDebit >= 0
       ? actualDebit / nominal
       : undefined
+  const estimatedPlatformDebit = nominal * props.currentMultiplier
+  const estimatedCny =
+    props.creditsPerCny > 0
+      ? estimatedPlatformDebit / props.creditsPerCny
+      : undefined
   return (
     <div className='space-y-2 rounded border p-2 text-[11px]'>
       <div
@@ -97,21 +109,35 @@ function ProbeSummary(props: {
         ms
       </div>
       <div className='text-muted-foreground grid grid-cols-2 gap-x-3 gap-y-1'>
-        <span>Input / output</span>
+        <span>Input price / 1M</span>
+        <span>{displayPrice(props.price?.inputPricePerMillion)}</span>
+        <span>Output price / 1M</span>
+        <span>{displayPrice(props.price?.outputPricePerMillion)}</span>
+        <span>Cached input price / 1M</span>
+        <span>{displayPrice(props.price?.cachedInputPricePerMillion)}</span>
+        <span>Cache write price / 1M</span>
+        <span>{displayPrice(props.price?.cacheWritePricePerMillion)}</span>
+        <span>Input tokens</span>
+        <span>{props.result.inputTokens}</span>
+        <span>Cached input tokens</span>
+        <span>{props.result.cachedInputTokens}</span>
+        <span>Cache creation tokens</span>
+        <span>{props.result.cacheCreationInputTokens}</span>
+        <span>Output tokens</span>
+        <span>{props.result.outputTokens}</span>
+        <span>Reasoning tokens</span>
+        <span>{props.result.reasoningTokens}</span>
+        <span>Nominal model cost USD</span>
+        <span>{nominal.toFixed(8)}</span>
+        <span>Current billing multiplier</span>
+        <span>{props.currentMultiplier.toFixed(4)}×</span>
+        <span>Estimated platform debit</span>
+        <span>{estimatedPlatformDebit.toFixed(8)} credits</span>
+        <span>Credits per CNY</span>
+        <span>1 RMB = {props.creditsPerCny} credits</span>
+        <span>Estimated CNY cost</span>
         <span>
-          {props.result.inputTokens} / {props.result.outputTokens}
-        </span>
-        <span>Cached / reasoning</span>
-        <span>
-          {props.result.cachedInputTokens} / {props.result.reasoningTokens}
-        </span>
-        <span>ACU cost</span>
-        <span>¥{props.result.costCny.toFixed(6)}</span>
-        <span>Provider charge</span>
-        <span>
-          {String(
-            props.result.costBreakdown.providerBalanceCharge ?? 'unavailable'
-          )}
+          ¥{estimatedCny === undefined ? 'n/a' : estimatedCny.toFixed(8)}
         </span>
       </div>
       {props.result.success && (
@@ -179,6 +205,16 @@ export function ACUProviderQuickAdd() {
       const data = response.data
       if (!data) return
       setDiscovery(data)
+      const existingEconomics = data.existingProviderEconomics
+      if (existingEconomics) {
+        setConnection((current) => ({
+          ...current,
+          providerName:
+            current.providerName || existingEconomics.displayName || '',
+          creditsPerCny: existingEconomics.creditsPerCny,
+          defaultBillingMultiplier: existingEconomics.defaultBillingMultiplier,
+        }))
+      }
       setModels(
         data.models.map((model) => {
           const existingProtocols = data.existingProfiles
@@ -189,10 +225,13 @@ export function ACUProviderQuickAdd() {
                   (model.catalog?.modelId ?? model.providerModelId)
             )
             .flatMap((profile) => profile.protocols)
+          const defaultProtocols = PROTOCOLS.filter(
+            (protocol) => !existingProtocols.includes(protocol)
+          )
           return {
             ...model,
             selected: model.catalogKnown,
-            protocols: ['responses'],
+            protocols: defaultProtocols,
             activeInAcuAuto: model.catalogKnown,
             existingProtocols: [...new Set(existingProtocols)],
           }
@@ -244,6 +283,9 @@ export function ACUProviderQuickAdd() {
               ? { modelId: pair.model.catalog.modelId }
               : {}),
             ...(pair.model.price ? { billingPrice: pair.model.price } : {}),
+            observedBillingMultiplier:
+              pair.model.observedBillingMultiplier ??
+              connection.defaultBillingMultiplier,
           },
           protocol: pair.protocol,
         })
@@ -331,7 +373,7 @@ export function ACUProviderQuickAdd() {
         providerModelId,
         catalogKnown: false,
         selected: true,
-        protocols: ['responses'],
+        protocols: [...PROTOCOLS],
         activeInAcuAuto: false,
         existingProtocols: [],
       },
@@ -464,6 +506,17 @@ export function ACUProviderQuickAdd() {
                 {discovery?.message && (
                   <div className='rounded border border-amber-300 p-2 text-amber-800'>
                     {t(discovery.message)}
+                  </div>
+                )}
+                {discovery?.existingProviderEconomics && (
+                  <div className='rounded border border-blue-300 p-2 text-blue-800'>
+                    {t('Using existing Provider Economics')}: 1 RMB ={' '}
+                    {discovery.existingProviderEconomics.creditsPerCny}{' '}
+                    {t('credits')},{' '}
+                    {discovery.existingProviderEconomics.defaultBillingMultiplier.toFixed(
+                      4
+                    )}
+                    ×
                   </div>
                 )}
                 <div className='flex gap-2'>
@@ -641,6 +694,12 @@ export function ACUProviderQuickAdd() {
                       {result && (
                         <ProbeSummary
                           result={result}
+                          price={pair.model.price ?? knownPrice(pair.model)}
+                          currentMultiplier={
+                            pair.model.observedBillingMultiplier ??
+                            connection.defaultBillingMultiplier
+                          }
+                          creditsPerCny={connection.creditsPerCny}
                           actualDebit={actualDebits[key] ?? ''}
                           onActualDebitChange={(value) =>
                             setActualDebits((current) => ({

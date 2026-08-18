@@ -141,6 +141,15 @@ test('root execution profile manager exposes Quick Add without leaking advanced 
   assert.match(quickAddSource, /quickAddACUProviderSave/)
   assert.match(quickAddSource, /models\.map/)
   assert.match(quickAddSource, /Actual platform debit/)
+  assert.match(quickAddSource, /const defaultProtocols = PROTOCOLS\.filter/)
+  assert.match(
+    quickAddSource,
+    /observedBillingMultiplier:\s*pair\.model\.observedBillingMultiplier/
+  )
+  assert.match(quickAddSource, /Cache creation tokens/)
+  assert.match(quickAddSource, /Estimated platform debit/)
+  assert.match(quickAddSource, /estimatedPlatformDebit \/ props\.creditsPerCny/)
+  assert.match(quickAddSource, /existingProviderEconomics/)
   assert.doesNotMatch(quickAddSource, /apiKeyEnv/)
   assert.doesNotMatch(quickAddSource, /recentSuccessRate/)
 })

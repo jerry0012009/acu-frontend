@@ -604,6 +604,11 @@ export type ACUQuickAddDiscovery = {
   baseUrlEnv: string
   apiKeyEnv: string
   connectionFingerprint: string
+  existingProviderEconomics?: {
+    creditsPerCny: number
+    defaultBillingMultiplier: number
+    displayName?: string
+  }
   models: ACUQuickAddDiscoveredModel[]
   existingProfiles: Array<{
     executionProfileId: string
