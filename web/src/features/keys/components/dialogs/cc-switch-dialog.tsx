@@ -9,7 +9,7 @@ import { ComboboxInput } from '@/components/ui/combobox-input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { getUserModels } from '@/lib/api'
-import { resolveServerAddress } from '@/lib/server-address'
+import { resolveApiBaseUrl, resolveServerAddress } from '@/lib/server-address'
 
 const APP_CONFIGS = {
   claude: {
@@ -51,7 +51,8 @@ function buildCCSwitchURL(
   apiKey: string
 ): string {
   const serverAddress = getServerAddress()
-  const endpoint = app === 'codex' ? `${serverAddress}/v1` : serverAddress
+  const endpoint =
+    app === 'codex' ? resolveApiBaseUrl(serverAddress) : serverAddress
   const params = new URLSearchParams()
   params.set('resource', 'provider')
   params.set('app', app)

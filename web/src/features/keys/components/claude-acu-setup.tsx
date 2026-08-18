@@ -1,11 +1,15 @@
 import { useState } from 'react'
 
-import { AcuQuickStart } from '@/features/acu/components/acu-quick-start'
+import {
+  AcuQuickStart,
+  type AcuQuickStartTab,
+} from '@/features/acu/components/acu-quick-start'
 
 import { CCSwitchDialog } from './dialogs/cc-switch-dialog'
 
 type ClaudeACUSetupProps = {
   tokenKey: string
+  initialTab?: AcuQuickStartTab
 }
 
 export function ClaudeACUSetup(props: ClaudeACUSetupProps) {
@@ -16,6 +20,7 @@ export function ClaudeACUSetup(props: ClaudeACUSetupProps) {
       <AcuQuickStart
         mode='credentialed'
         tokenKey={props.tokenKey}
+        initialTab={props.initialTab}
         onOpenCCSwitch={() => setCCSwitchOpen(true)}
       />
       <CCSwitchDialog

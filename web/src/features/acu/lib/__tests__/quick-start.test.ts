@@ -5,6 +5,9 @@ import {
   ACU_API_BASE_URL,
   ACU_DEFAULT_MODEL,
   ACU_MASKED_API_KEY,
+  CC_SWITCH_CLAUDE_API_BASE_URL,
+  CC_SWITCH_CODEX_API_BASE_URL,
+  CC_SWITCH_MODEL_MAPPINGS,
   buildApiCurl,
   buildHermesConfig,
   buildOpenClawConfig,
@@ -130,4 +133,24 @@ test('preview display masks credentials while credentialed copy values remain us
   const hermesDisplayed = maskCredentialText(hermesConfig, secret)
   assert.doesNotMatch(hermesDisplayed, /sk-test-secret-123/)
   assert.match(hermesDisplayed, /sk-••••••/)
+})
+
+test('CC Switch setup exposes canonical endpoints and the Codex model mapping', () => {
+  assert.equal(CC_SWITCH_CODEX_API_BASE_URL, 'https://api.acucompute.com/v1')
+  assert.equal(CC_SWITCH_CLAUDE_API_BASE_URL, 'https://api.acucompute.com')
+  assert.deepEqual(
+    CC_SWITCH_MODEL_MAPPINGS.map((mapping) => [
+      mapping.menuName,
+      mapping.requestModel,
+      mapping.contextWindow,
+    ]),
+    [
+      ['acu-auto', 'acu-auto', 260000],
+      ['gpt-5.6-luna', 'gpt-5.6-luna', 260000],
+      ['gpt-5.6-terra', 'gpt-5.6-terra', 260000],
+      ['gpt-5.6-sol', 'gpt-5.6-sol', 260000],
+      ['gpt-5.5', 'gpt-5.5', 260000],
+      ['gpt-5.4-mini', 'gpt-5.4-mini', 260000],
+    ]
+  )
 })

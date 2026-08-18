@@ -35,7 +35,7 @@ import { resolveChatUrl, type ChatPreset } from '@/features/chat/lib/chat-links'
 import { sendToFluent } from '@/features/chat/lib/send-to-fluent'
 import { encodeChannelConnectionInfo } from '@/lib/channel-connection-info'
 import { copyToClipboard } from '@/lib/copy-to-clipboard'
-import { resolveServerAddress } from '@/lib/server-address'
+import { resolveApiBaseUrl, resolveServerAddress } from '@/lib/server-address'
 
 import { updateApiKeyStatus } from '../api'
 import { API_KEY_STATUS, ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
@@ -66,6 +66,7 @@ export function DataTableRowActions<TData>({
   const apiKey = apiKeySchema.parse(row.original)
   const {
     setOpen,
+    setAcuSetupInitialTab,
     setCurrentRow,
     triggerRefresh,
     setResolvedKey,
@@ -235,10 +236,16 @@ export function DataTableRowActions<TData>({
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={async () => {
-            const realKey = getCachedRealKey()
+            const realKey = await resolveRealKey(apiKey.id)
             if (!realKey) return
             const ok = await copyToClipboard(realKey)
-            if (ok) toast.success(t('Copied'))
+            if (ok) {
+              toast.success(t('Copied'))
+              setAcuSetupInitialTab('ccswitch')
+              setResolvedKey(realKey)
+              setCurrentRow(apiKey)
+              setOpen('acu-setup')
+            }
           }}
         >
           {t('Copy Key')}
@@ -252,7 +259,7 @@ export function DataTableRowActions<TData>({
             if (!realKey) return
             const connStr = encodeChannelConnectionInfo(
               realKey,
-              getServerAddress()
+              resolveApiBaseUrl(getServerAddress())
             )
             const ok = await copyToClipboard(connStr)
             if (ok) toast.success(t('Copied'))
@@ -268,6 +275,7 @@ export function DataTableRowActions<TData>({
           onClick={async () => {
             const realKey = await resolveRealKey(apiKey.id)
             if (!realKey) return
+            setAcuSetupInitialTab('codex')
             setResolvedKey(realKey)
             setCurrentRow(apiKey)
             setOpen('acu-setup')

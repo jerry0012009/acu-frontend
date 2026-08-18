@@ -237,6 +237,30 @@ test('ACU Quick Start keeps Chat Completions hidden and exposes verified Hermes 
   assert.match(quickStartSource, /api_mode: codex_responses/)
 })
 
+test('CC Switch has a dedicated quick-start tab with model mapping guidance', () => {
+  assert.match(quickStartComponentSource, /value='ccswitch'/)
+  assert.match(quickStartComponentSource, /Advanced options · Model mapping/)
+  assert.match(quickStartComponentSource, /Menu display name/)
+  assert.match(quickStartComponentSource, /Actual request model/)
+  assert.match(quickStartComponentSource, /Context window/)
+  assert.match(quickStartComponentSource, /model_catalog_json/)
+  assert.match(quickStartSource, /CC_SWITCH_MODEL_MAPPINGS/)
+})
+
+test('copying an API key opens the CC Switch setup guidance', () => {
+  const rowActionsSource = readFileSync(
+    new URL('../data-table-row-actions.tsx', import.meta.url),
+    'utf8'
+  )
+  const providerSource = readFileSync(
+    new URL('../api-keys-provider.tsx', import.meta.url),
+    'utf8'
+  )
+  assert.match(rowActionsSource, /setAcuSetupInitialTab\('ccswitch'\)/)
+  assert.match(rowActionsSource, /setOpen\('acu-setup'\)/)
+  assert.match(providerSource, /acuSetupInitialTab/)
+})
+
 test('Claude Unix installer can complete through a private npm prefix and ACU endpoint', () => {
   const root = mkdtempSync(join(tmpdir(), 'claude-acu-install-'))
   const fakeBin = join(root, 'bin')

@@ -1,12 +1,23 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { resolveServerAddress } from '../server-address.ts'
+import { resolveApiBaseUrl, resolveServerAddress } from '../server-address.ts'
 
 test('uses the configured public address when it is not local', () => {
   assert.equal(
     resolveServerAddress('https://eu.example.test/acu/'),
     'https://eu.example.test/acu'
+  )
+})
+
+test('builds a canonical API base URL from an origin or existing v1 URL', () => {
+  assert.equal(
+    resolveApiBaseUrl('https://console.acucompute.com'),
+    'https://console.acucompute.com/v1'
+  )
+  assert.equal(
+    resolveApiBaseUrl('https://console.acucompute.com/v1/'),
+    'https://console.acucompute.com/v1'
   )
 })
 
@@ -26,6 +37,10 @@ test('falls back to the browser origin and ACU prefix for localhost config', () 
     assert.equal(
       resolveServerAddress('http://localhost:3000'),
       'https://eu.example.test/acu'
+    )
+    assert.equal(
+      resolveApiBaseUrl('http://localhost:3000'),
+      'https://eu.example.test/acu/v1'
     )
   } finally {
     if (previousWindow === undefined) {

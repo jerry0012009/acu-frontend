@@ -31,3 +31,9 @@ export function resolveServerAddress(configuredAddress?: unknown): string {
   if (configured && !isLocalhostAddress(configured)) return configured
   return getBrowserServerAddress()
 }
+
+export function resolveApiBaseUrl(configuredAddress?: unknown): string {
+  const serverAddress = resolveServerAddress(configuredAddress)
+  if (serverAddress.endsWith('/v1')) return serverAddress
+  return `${serverAddress}/v1`
+}

@@ -5,7 +5,8 @@ import { AcuSetupDialog } from './dialogs/acu-setup-dialog'
 import { CCSwitchDialog } from './dialogs/cc-switch-dialog'
 
 export function ApiKeysDialogs() {
-  const { open, setOpen, currentRow, resolvedKey } = useApiKeys()
+  const { open, setOpen, currentRow, resolvedKey, acuSetupInitialTab } =
+    useApiKeys()
   let mode: 'create' | 'update' | 'clone' = 'create'
   if (open === 'update') mode = 'update'
   if (open === 'clone') mode = 'clone'
@@ -32,6 +33,7 @@ export function ApiKeysDialogs() {
         open={open === 'acu-setup'}
         onOpenChange={(isOpen) => !isOpen && setOpen(null)}
         tokenKey={resolvedKey}
+        initialTab={acuSetupInitialTab}
       />
     </>
   )

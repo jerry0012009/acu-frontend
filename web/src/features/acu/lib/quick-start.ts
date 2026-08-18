@@ -1,6 +1,41 @@
 export const ACU_API_BASE_URL = 'https://api.acucompute.com/v1'
 export const ACU_DEFAULT_MODEL = 'acu-auto'
 export const ACU_MASKED_API_KEY = 'sk-••••••'
+export const CC_SWITCH_CODEX_API_BASE_URL = ACU_API_BASE_URL
+export const CC_SWITCH_CLAUDE_API_BASE_URL = 'https://api.acucompute.com'
+
+export const CC_SWITCH_MODEL_MAPPINGS = [
+  {
+    menuName: 'acu-auto',
+    requestModel: 'acu-auto',
+    contextWindow: 260000,
+  },
+  {
+    menuName: 'gpt-5.6-luna',
+    requestModel: 'gpt-5.6-luna',
+    contextWindow: 260000,
+  },
+  {
+    menuName: 'gpt-5.6-terra',
+    requestModel: 'gpt-5.6-terra',
+    contextWindow: 260000,
+  },
+  {
+    menuName: 'gpt-5.6-sol',
+    requestModel: 'gpt-5.6-sol',
+    contextWindow: 260000,
+  },
+  {
+    menuName: 'gpt-5.5',
+    requestModel: 'gpt-5.5',
+    contextWindow: 260000,
+  },
+  {
+    menuName: 'gpt-5.4-mini',
+    requestModel: 'gpt-5.4-mini',
+    contextWindow: 260000,
+  },
+] as const
 
 const ACU_INSTALL_BASE_URL = 'https://api.acucompute.com'
 const ACU_DIRECT_INSTALL_BASE_URL = 'https://acu-api-direct.jerrypsy.top'

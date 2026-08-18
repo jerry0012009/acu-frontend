@@ -1,14 +1,17 @@
 import { CherryStudio } from '@lobehub/icons'
 import { Link } from '@tanstack/react-router'
 import {
+  ArrowRightLeft,
   Bot,
   ChevronDown,
   CircleCheck,
   Code2,
   ExternalLink,
+  Settings2,
+  TableProperties,
   Terminal,
 } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
@@ -25,6 +28,9 @@ import {
   ACU_API_BASE_URL,
   ACU_DEFAULT_MODEL,
   ACU_MASKED_API_KEY,
+  CC_SWITCH_CLAUDE_API_BASE_URL,
+  CC_SWITCH_CODEX_API_BASE_URL,
+  CC_SWITCH_MODEL_MAPPINGS,
   buildApiCurl,
   buildHermesConfig,
   buildManualConfig,
@@ -43,7 +49,7 @@ import {
 } from '../lib/quick-start'
 
 type AcuQuickStartMode = 'preview' | 'credentialed'
-type PrimaryTab = 'codex' | 'claude' | 'api' | 'agent'
+export type AcuQuickStartTab = 'codex' | 'claude' | 'ccswitch' | 'api' | 'agent'
 type Platform = 'unix' | 'windows'
 type Agent = 'openclaw' | 'hermes'
 
@@ -52,26 +58,34 @@ type AcuQuickStartProps = {
   tokenKey?: string
   className?: string
   onOpenCCSwitch?: () => void
+  initialTab?: AcuQuickStartTab
 }
 
 const PRIMARY_TABS: Array<{
-  value: PrimaryTab
+  value: AcuQuickStartTab
   label: string
   icon: typeof Terminal
 }> = [
   { value: 'codex', label: 'Codex CLI', icon: Terminal },
   { value: 'claude', label: 'Claude Code', icon: Code2 },
+  { value: 'ccswitch', label: 'CC Switch', icon: ArrowRightLeft },
   { value: 'api', label: 'API / SDK', icon: ExternalLink },
   { value: 'agent', label: 'AI Agent', icon: Bot },
 ]
 
 export function AcuQuickStart(props: AcuQuickStartProps) {
   const { t } = useTranslation()
-  const [primaryTab, setPrimaryTab] = useState<PrimaryTab>('codex')
+  const [primaryTab, setPrimaryTab] = useState<AcuQuickStartTab>(
+    props.initialTab ?? 'codex'
+  )
   const copyKey =
     props.mode === 'credentialed' && props.tokenKey
       ? normalizeApiKey(props.tokenKey)
       : ACU_MASKED_API_KEY
+
+  useEffect(() => {
+    if (props.initialTab) setPrimaryTab(props.initialTab)
+  }, [props.initialTab])
 
   return (
     <section className={cn('mx-auto w-full max-w-2xl', props.className)}>
@@ -88,7 +102,7 @@ export function AcuQuickStart(props: AcuQuickStartProps) {
         <Tabs
           value={primaryTab}
           onValueChange={(value) => {
-            if (value) setPrimaryTab(value as PrimaryTab)
+            if (value) setPrimaryTab(value as AcuQuickStartTab)
           }}
           className='gap-0'
         >
@@ -119,6 +133,13 @@ export function AcuQuickStart(props: AcuQuickStartProps) {
             </TabsContent>
             <TabsContent value='claude' className='m-0'>
               <ClientQuickStart client='claude' copyKey={copyKey} />
+            </TabsContent>
+            <TabsContent value='ccswitch' className='m-0'>
+              <CCSwitchQuickStart
+                mode={props.mode}
+                copyKey={copyKey}
+                onOpenCCSwitch={props.onOpenCCSwitch}
+              />
             </TabsContent>
             <TabsContent value='api' className='m-0'>
               <ApiQuickStart
@@ -240,6 +261,158 @@ function ClientQuickStart(props: { client: AcuClient; copyKey: string }) {
             compact
           />
         </Disclosure>
+      </div>
+    </div>
+  )
+}
+
+function CCSwitchQuickStart(props: {
+  mode: AcuQuickStartMode
+  copyKey: string
+  onOpenCCSwitch?: () => void
+}) {
+  const { t } = useTranslation()
+  const [advancedOpen, setAdvancedOpen] = useState(true)
+
+  return (
+    <div className='p-4 sm:p-5'>
+      <div className='mb-4 flex items-start gap-3'>
+        <div className='flex size-9 shrink-0 items-center justify-center rounded-lg border border-sky-300/20 bg-sky-300/10 text-xs font-bold text-sky-200'>
+          CC
+        </div>
+        <div className='min-w-0'>
+          <div className='flex flex-wrap items-center gap-2'>
+            <h3 className='text-sm font-semibold text-white'>
+              {t('CC Switch connection')}
+            </h3>
+            <span className='rounded-full border border-emerald-300/20 bg-emerald-300/[0.08] px-2 py-0.5 text-[10px] font-medium text-emerald-200'>
+              {t('Codex + Claude')}
+            </span>
+          </div>
+          <p className='mt-1 text-[11px] leading-relaxed text-slate-500'>
+            {t(
+              'Use the values below in CC Switch. The advanced mapping keeps the model names shown by Codex stable.'
+            )}
+          </p>
+        </div>
+      </div>
+
+      <div className='divide-y divide-white/[0.06] border-y border-white/[0.06]'>
+        <ConnectionRow
+          label='API Key'
+          value={ACU_MASKED_API_KEY}
+          copyValue={props.copyKey}
+        />
+        <ConnectionRow
+          label='API request address'
+          value={CC_SWITCH_CODEX_API_BASE_URL}
+          copyValue={CC_SWITCH_CODEX_API_BASE_URL}
+        />
+      </div>
+
+      <p className='mt-2 text-[11px] leading-relaxed text-slate-500'>
+        {t(
+          'Codex uses /v1. Claude Code uses the same host without /v1; the import button fills the matching address for the selected app.'
+        )}
+      </p>
+
+      <div className='mt-4 flex flex-wrap gap-2'>
+        {props.mode === 'credentialed' && props.onOpenCCSwitch ? (
+          <Button
+            type='button'
+            size='sm'
+            onClick={props.onOpenCCSwitch}
+            className='h-8 gap-1.5 bg-sky-300 px-3 text-xs text-slate-950 hover:bg-sky-200'
+          >
+            <ArrowRightLeft className='size-3.5' />
+            {t('Import to CC Switch')}
+          </Button>
+        ) : (
+          <a
+            href='https://ccswitch.io'
+            target='_blank'
+            rel='noopener noreferrer'
+            className='inline-flex h-8 items-center gap-1.5 rounded-md border border-sky-300/20 bg-sky-300/[0.08] px-3 text-xs font-medium text-sky-100 transition-colors hover:bg-sky-300/[0.14]'
+          >
+            <ExternalLink className='size-3.5' />
+            {t('Open CC Switch')}
+          </a>
+        )}
+        <span className='inline-flex h-8 items-center gap-1.5 rounded-md border border-white/[0.08] px-2.5 text-[11px] text-slate-500'>
+          <Settings2 className='size-3.5' />
+          {t('Advanced mapping below')}
+        </span>
+      </div>
+
+      <div className='mt-5 border-t border-white/[0.06] pt-4'>
+        <Disclosure
+          open={advancedOpen}
+          onOpenChange={setAdvancedOpen}
+          label={t('Advanced options · Model mapping')}
+        >
+          <div className='mt-3 overflow-x-auto rounded-lg border border-white/[0.07] bg-black/20'>
+            <table className='w-full min-w-[500px] border-collapse text-left text-[11px]'>
+              <thead>
+                <tr className='border-b border-white/[0.07] text-slate-500'>
+                  <th className='px-3 py-2.5 font-medium'>
+                    {t('Menu display name')}
+                  </th>
+                  <th className='px-3 py-2.5 font-medium'>
+                    {t('Actual request model')}
+                  </th>
+                  <th className='px-3 py-2.5 text-right font-medium'>
+                    {t('Context window')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {CC_SWITCH_MODEL_MAPPINGS.map((mapping) => (
+                  <tr
+                    key={mapping.menuName}
+                    className='border-b border-white/[0.05] last:border-0'
+                  >
+                    <td className='px-3 py-2 font-mono text-slate-200'>
+                      {mapping.menuName}
+                    </td>
+                    <td className='px-3 py-2 font-mono text-slate-400'>
+                      {mapping.requestModel}
+                    </td>
+                    <td className='px-3 py-2 text-right font-mono text-slate-400'>
+                      {mapping.contextWindow}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className='mt-3 flex items-start gap-2 text-[11px] leading-relaxed text-slate-500'>
+            <TableProperties className='mt-0.5 size-3.5 shrink-0 text-sky-300/70' />
+            <p>
+              {t(
+                'This generates Codex model_catalog_json so /model can show these third-party model names. Save the mapping, then restart Codex to refresh the list.'
+              )}
+            </p>
+          </div>
+        </Disclosure>
+      </div>
+
+      <div className='mt-4 grid gap-2 sm:grid-cols-2'>
+        <div className='rounded-lg border border-white/[0.06] bg-white/[0.025] px-3 py-2.5'>
+          <div className='text-[10px] font-medium tracking-[0.08em] text-slate-500 uppercase'>
+            {t('Codex endpoint')}
+          </div>
+          <code className='mt-1 block truncate text-[11px] text-slate-300'>
+            {CC_SWITCH_CODEX_API_BASE_URL}
+          </code>
+        </div>
+        <div className='rounded-lg border border-white/[0.06] bg-white/[0.025] px-3 py-2.5'>
+          <div className='text-[10px] font-medium tracking-[0.08em] text-slate-500 uppercase'>
+            {t('Claude endpoint')}
+          </div>
+          <code className='mt-1 block truncate text-[11px] text-slate-300'>
+            {CC_SWITCH_CLAUDE_API_BASE_URL}
+          </code>
+        </div>
       </div>
     </div>
   )

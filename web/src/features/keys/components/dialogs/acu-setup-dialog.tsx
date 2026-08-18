@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '@/components/dialog'
+import type { AcuQuickStartTab } from '@/features/acu/components/acu-quick-start'
 
 import { ClaudeACUSetup } from '../claude-acu-setup'
 
@@ -8,6 +9,7 @@ type AcuSetupDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   tokenKey: string
+  initialTab?: AcuQuickStartTab
 }
 
 export function AcuSetupDialog(props: AcuSetupDialogProps) {
@@ -22,7 +24,7 @@ export function AcuSetupDialog(props: AcuSetupDialogProps) {
       bodyClassName='min-w-0'
       showCloseButton
     >
-      <ClaudeACUSetup tokenKey={props.tokenKey} />
+      <ClaudeACUSetup tokenKey={props.tokenKey} initialTab={props.initialTab} />
     </Dialog>
   )
 }
