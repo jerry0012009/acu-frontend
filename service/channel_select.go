@@ -164,6 +164,9 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 }
 
 func RequiredPublicChannelTag(c *gin.Context, tokenGroup string, modelName string, requestPath string) string {
+	if requestPath == "/v1/chat/completions" {
+		return constant.ChannelTagACURouter
+	}
 	groups := []string{tokenGroup}
 	if tokenGroup == "auto" {
 		userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)

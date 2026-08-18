@@ -101,6 +101,51 @@ func TestRequiredRouterTagDoesNotAffectOrdinaryModels(t *testing.T) {
 	require.Equal(t, 203, channel.Id)
 }
 
+func TestPublicChatCompletionsDoNotFallBackToRawChannel(t *testing.T) {
+	resetPricingEndpointTestTables(t)
+
+	require.NoError(t, DB.Create(&Channel{
+		Id: 208, Type: constant.ChannelTypeOpenAI, Key: "ordinary-chat-key",
+		Status: common.ChannelStatusEnabled, Name: "ordinary-chat", Models: "gpt-ordinary",
+		Group: "default",
+	}).Error)
+	insertPricingEndpointAbility(t, 208, "gpt-ordinary")
+	InitChannelCache()
+
+	channel, err := GetRandomSatisfiedChannel(
+		"default", "gpt-ordinary", 0, "/v1/chat/completions", constant.ChannelTagACURouter,
+	)
+	require.NoError(t, err)
+	require.Nil(t, channel)
+}
+
+func TestPublicChatCompletionsSelectACURouterForSol(t *testing.T) {
+	resetPricingEndpointTestTables(t)
+
+	acuTag := constant.ChannelTagACURouter
+	require.NoError(t, DB.Create(&Channel{
+		Id: 209, Type: constant.ChannelTypeOpenAI, Key: "acu-sol-key",
+		Status: common.ChannelStatusEnabled, Name: "acu-sol", Models: "gpt-5.6-sol",
+		Group: "default", Tag: &acuTag,
+	}).Error)
+	require.NoError(t, DB.Create(&Channel{
+		Id: 210, Type: constant.ChannelTypeOpenAI, Key: "raw-sol-key",
+		Status: common.ChannelStatusEnabled, Name: "raw-sol", Models: "gpt-5.6-sol",
+		Group: "default",
+	}).Error)
+	insertPricingEndpointAbility(t, 209, "gpt-5.6-sol")
+	insertPricingEndpointAbility(t, 210, "gpt-5.6-sol")
+	InitChannelCache()
+
+	channel, err := GetRandomSatisfiedChannel(
+		"default", "gpt-5.6-sol", 0, "/v1/chat/completions", constant.ChannelTagACURouter,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, channel)
+	require.Equal(t, 209, channel.Id)
+	require.Equal(t, constant.ChannelTagACURouter, channel.GetTag())
+}
+
 func TestRequiredRouterTagHonorsNativeProtocol(t *testing.T) {
 	resetPricingEndpointTestTables(t)
 
