@@ -70,5 +70,7 @@ func TestACUChannelMonitorRequiresAdminWhileRoutingCatalogRemainsUserScoped(t *t
 	require.Equal(t, http.StatusForbidden, request("/api/log/acu-channel-monitor", "regular-user-pat").Code)
 	require.Equal(t, http.StatusOK, request("/api/log/acu-channel-monitor", "admin-user-pat").Code)
 	require.Equal(t, http.StatusOK, request("/api/log/acu-channel-monitor", "root-user-pat").Code)
+	require.Equal(t, http.StatusForbidden, request("/api/log/acu-execution-profiles", "admin-user-pat").Code)
+	require.Equal(t, http.StatusOK, request("/api/log/acu-execution-profiles", "root-user-pat").Code)
 	require.Equal(t, http.StatusOK, request("/api/user/self/acu-routing-catalog", "regular-user-pat").Code)
 }

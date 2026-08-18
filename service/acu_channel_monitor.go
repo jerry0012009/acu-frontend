@@ -17,6 +17,16 @@ import (
 )
 
 func acuRouterAdminRequest(ctx context.Context, method, path string, body []byte, headers ...map[string]string) (*http.Response, error) {
+	return acuRouterAdminRequestWithTimeout(ctx, 20*time.Second, method, path, body, headers...)
+}
+
+func acuRouterAdminRequestWithTimeout(
+	ctx context.Context,
+	timeout time.Duration,
+	method, path string,
+	body []byte,
+	headers ...map[string]string,
+) (*http.Response, error) {
 	baseURL := strings.TrimRight(strings.TrimSpace(os.Getenv("ACU_ROUTER_INTERNAL_URL")), "/")
 	token := strings.TrimSpace(os.Getenv("ACU_ADMIN_TRACE_TOKEN"))
 	if baseURL == "" || token == "" {
@@ -35,7 +45,7 @@ func acuRouterAdminRequest(ctx context.Context, method, path string, body []byte
 	if len(body) > 0 {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	return (&http.Client{Timeout: 20 * time.Second}).Do(req)
+	return (&http.Client{Timeout: timeout}).Do(req)
 }
 
 func GetACUChannelMonitor(ctx context.Context, rangeValue, supplyStrategy, scenario string) (dto.ACUChannelMonitor, error) {
@@ -235,7 +245,13 @@ func GetACUSelectionCorridor(ctx context.Context, inputTokens, expectedOutputTok
 			return nil, err
 		}
 	}
-	response, err := acuRouterAdminRequest(ctx, method, path, body)
+	response, err := acuRouterAdminRequestWithTimeout(
+		ctx,
+		45*time.Second,
+		method,
+		path,
+		body,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -275,4 +291,91 @@ func PauseACUChannel(ctx context.Context, input dto.ACUChannelPauseRequest, acto
 		return result, err
 	}
 	return result, nil
+}
+
+func acuExecutionProfileRequest(
+	ctx context.Context,
+	method string,
+	path string,
+	payload map[string]interface{},
+) (map[string]interface{}, error) {
+	var body []byte
+	var err error
+	if payload != nil {
+		body, err = common.Marshal(payload)
+		if err != nil {
+			return nil, err
+		}
+	}
+	response, err := acuRouterAdminRequest(ctx, method, path, body)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	responseBody, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		var failure struct {
+			Error struct {
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		if common.DecodeJson(bytes.NewReader(responseBody), &failure) == nil &&
+			strings.TrimSpace(failure.Error.Message) != "" {
+			return nil, errors.New(failure.Error.Message)
+		}
+		return nil, fmt.Errorf("ACU execution profile request returned HTTP %d", response.StatusCode)
+	}
+	result := map[string]interface{}{}
+	if err := common.DecodeJson(bytes.NewReader(responseBody), &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func GetACUExecutionProfiles(ctx context.Context) (map[string]interface{}, error) {
+	return acuExecutionProfileRequest(ctx, http.MethodGet, "/internal/admin/execution-profiles", nil)
+}
+
+func CreateACUExecutionProfile(
+	ctx context.Context,
+	input map[string]interface{},
+) (map[string]interface{}, error) {
+	return acuExecutionProfileRequest(ctx, http.MethodPost, "/internal/admin/execution-profiles", input)
+}
+
+func UpdateACUExecutionProfile(
+	ctx context.Context,
+	id string,
+	input map[string]interface{},
+) (map[string]interface{}, error) {
+	return acuExecutionProfileRequest(
+		ctx,
+		http.MethodPut,
+		"/internal/admin/execution-profiles/"+url.PathEscape(id),
+		input,
+	)
+}
+
+func ProbeACUExecutionProfile(
+	ctx context.Context,
+	input map[string]interface{},
+) (map[string]interface{}, error) {
+	return acuExecutionProfileRequest(
+		ctx,
+		http.MethodPost,
+		"/internal/admin/execution-profiles/probe",
+		input,
+	)
+}
+
+func ApplyACUExecutionProfiles(ctx context.Context) (map[string]interface{}, error) {
+	return acuExecutionProfileRequest(
+		ctx,
+		http.MethodPost,
+		"/internal/admin/execution-profiles/apply",
+		nil,
+	)
 }

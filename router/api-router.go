@@ -288,6 +288,15 @@ func SetApiRouter(router *gin.Engine) {
 		logRoute.GET("/self/acu-work-timeline", middleware.UserAuth(), middleware.DisableCache(), controller.GetACUWorkTimeline)
 		logRoute.GET("/acu-channel-monitor", middleware.AdminAuth(), middleware.DisableCache(), controller.GetACUChannelMonitor)
 		logRoute.POST("/acu-channel-monitor/pause", middleware.AdminAuth(), controller.PauseACUChannel)
+		executionProfileRoute := apiRouter.Group("/log/acu-execution-profiles")
+		executionProfileRoute.Use(middleware.RootAuth(), middleware.DisableCache())
+		{
+			executionProfileRoute.GET("", controller.GetACUExecutionProfiles)
+			executionProfileRoute.POST("", controller.CreateACUExecutionProfile)
+			executionProfileRoute.PUT("/:id", controller.UpdateACUExecutionProfile)
+			executionProfileRoute.POST("/probe", controller.ProbeACUExecutionProfile)
+			executionProfileRoute.POST("/apply", controller.ApplyACUExecutionProfiles)
+		}
 
 		systemTaskRoute := apiRouter.Group("/system-task")
 		systemTaskRoute.Use(middleware.RootAuth())

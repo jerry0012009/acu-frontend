@@ -10,6 +10,10 @@ const timelineSource = readFileSync(
   new URL('../acu-work-timeline.tsx', import.meta.url),
   'utf8'
 )
+const profileManagerSource = readFileSync(
+  new URL('../acu-execution-profile-manager.tsx', import.meta.url),
+  'utf8'
+)
 const sidebarSource = readFileSync(
   new URL('../../../../hooks/use-sidebar-data.ts', import.meta.url),
   'utf8'
@@ -106,4 +110,22 @@ test('saved profile scope summary includes the current profile inventory', () =>
     monitorSource,
     /scopeSummary\([\s\S]{0,180}savedPolicy\.profilePolicy[\s\S]{0,180}savedPolicy\.allowedProfileIds[\s\S]{0,220}availableProfileIdList/
   )
+})
+
+test('root execution profile manager separates save, targeted probe, and apply', () => {
+  assert.match(monitorSource, /<ACUExecutionProfileManager \/>/)
+  assert.match(profileManagerSource, /createACUExecutionProfile/)
+  assert.match(profileManagerSource, /updateACUExecutionProfile/)
+  assert.match(
+    profileManagerSource,
+    /probeACUExecutionProfile\(draft, probeProtocol\)/
+  )
+  assert.match(profileManagerSource, /applyACUExecutionProfiles/)
+  assert.match(
+    profileManagerSource,
+    /Saved configuration is waiting for Router apply/
+  )
+  assert.doesNotMatch(profileManagerSource, /recentSuccessRate/)
+  assert.doesNotMatch(profileManagerSource, /observedLatency/)
+  assert.doesNotMatch(profileManagerSource, /actualModelVerified/)
 })

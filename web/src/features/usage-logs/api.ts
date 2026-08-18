@@ -475,6 +475,90 @@ export type ACUChannelMonitor = {
   defaultCandidatePreferenceScores: Record<string, number>
 }
 
+export type ACUExecutionProfile = {
+  executionProfileId: string
+  modelId: string
+  providerModelId?: string
+  actualModelAliases?: string[]
+  provider: string
+  channel: string
+  channelId?: string
+  routingGroupName?: string
+  protocols: Array<'responses' | 'messages' | 'chat_completions'>
+  baseUrl?: string
+  baseUrlEnv?: string
+  networkFallbackBaseUrlEnvs?: string[]
+  apiKeyEnv: string
+  authMode: 'bearer' | 'x-api-key'
+  anthropicVersion?: string
+  stripV1Path?: boolean
+  economicsProviderId?: string
+  observedBillingMultiplier?: number
+  effectiveCostStatus?: 'verified' | 'estimated' | 'missing'
+  billingPrice?: {
+    inputPricePerMillion: number
+    outputPricePerMillion: number
+    cachedInputPricePerMillion?: number
+    cacheWritePricePerMillion?: number
+    currency: 'USD_CREDIT'
+    source: string
+    observedAt: string
+    status: 'verified' | 'estimated'
+  }
+  enabled: boolean
+  administratorAllowed: boolean
+  activeInAcuAuto: boolean
+  toolCallSupport?: boolean
+  supportedToolTypes?: string[]
+  thinkingSupport?: boolean
+  supportedReasoningEfforts?: string[]
+  reasoningControlMode?: string
+  contextWindow?: number
+  canonicalAdvertisedContextWindow?: number
+  modelVendor?: string
+  modelCategory?: 'text_agent' | 'image' | 'audio' | 'realtime' | 'unsupported'
+  capabilityTier?: 'LUNA' | 'TERRA' | 'SOL' | 'FRONTIER'
+}
+
+export type ACUExecutionProfilesResponse = {
+  profiles: ACUExecutionProfile[]
+  profileCount: number
+  runningProfileCount: number
+  runningCommit: string
+  applyRequired: boolean
+  savedConfigDigest: string
+  runningConfigDigest: string
+}
+
+export type ACUExecutionProfileProbeResult = {
+  probeAttemptId: string
+  startedAt: string
+  completedAt: string
+  executionProfileId: string
+  provider: string
+  channel: string
+  requestedModel: string
+  actualModel: string | null
+  protocol: string
+  httpStatus: number | null
+  success: boolean
+  errorClass: string
+  latencyMs: number | null
+  firstEventLatencyMs: number | null
+  inputTokens: string
+  cachedInputTokens: string
+  cacheCreationInputTokens: string
+  outputTokens: string
+  reasoningTokens: string
+  usageTrusted: boolean
+  costCny: number
+  costBreakdown: Record<string, unknown>
+  rawUsage: Record<string, unknown> | null
+  providerRequestId: string | null
+  savedConfigurationChanged: boolean
+  productionRoutingChanged: boolean
+}
+
 export type ACUGlobalRoutingPolicy = {
   modelPolicy: 'all_routing_eligible' | 'custom_allowlist'
   allowedModelIds: string[]
@@ -569,6 +653,68 @@ export async function pauseACUChannel(
     success: boolean
     message?: string
     data?: { channelId: string; state: string; cooldownUntil: string }
+  }
+}
+
+export async function getACUExecutionProfiles() {
+  const res = await api.get('/api/log/acu-execution-profiles')
+  return res.data as {
+    success: boolean
+    message?: string
+    data?: ACUExecutionProfilesResponse
+  }
+}
+
+export async function createACUExecutionProfile(profile: ACUExecutionProfile) {
+  const res = await api.post('/api/log/acu-execution-profiles', { profile })
+  return res.data as {
+    success: boolean
+    message?: string
+    data?: Record<string, unknown>
+  }
+}
+
+export async function updateACUExecutionProfile(
+  id: string,
+  profile: ACUExecutionProfile
+) {
+  const res = await api.put(
+    `/api/log/acu-execution-profiles/${encodeURIComponent(id)}`,
+    { profile }
+  )
+  return res.data as {
+    success: boolean
+    message?: string
+    data?: Record<string, unknown>
+  }
+}
+
+export async function probeACUExecutionProfile(
+  profile: ACUExecutionProfile,
+  protocol: ACUExecutionProfile['protocols'][number]
+) {
+  const res = await api.post('/api/log/acu-execution-profiles/probe', {
+    profile,
+    protocol,
+  })
+  return res.data as {
+    success: boolean
+    message?: string
+    data?: ACUExecutionProfileProbeResult
+  }
+}
+
+export async function applyACUExecutionProfiles() {
+  const res = await api.post('/api/log/acu-execution-profiles/apply')
+  return res.data as {
+    success: boolean
+    message?: string
+    data?: {
+      status: string
+      routerOnly: boolean
+      profileCount: number
+      savedConfigDigest: string
+    }
   }
 }
 

@@ -2,7 +2,11 @@ import type { TFunction } from 'i18next'
 
 import type { ACUChannelMonitorProfile } from '../api'
 
-export type ACUMonitorProtocol = 'all' | 'responses' | 'messages'
+export type ACUMonitorProtocol =
+  | 'all'
+  | 'responses'
+  | 'messages'
+  | 'chat_completions'
 export type ACUMonitorSort =
   | 'recommended'
   | 'usage'
@@ -14,6 +18,7 @@ export type ACUMonitorSort =
 export function protocolLabel(protocol: string, t: TFunction): string {
   if (protocol === 'responses') return t('OpenAI Responses (Codex)')
   if (protocol === 'messages') return t('Anthropic Messages (Claude protocol)')
+  if (protocol === 'chat_completions') return t('OpenAI Chat Completions')
   return protocol
 }
 

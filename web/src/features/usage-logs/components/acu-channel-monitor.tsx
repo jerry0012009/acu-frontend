@@ -39,6 +39,7 @@ import {
 import { ACUChannelHealthCard } from './acu-channel-health-card'
 import { groupACUChannels } from './acu-channel-health-model'
 import { ACUChannelHistory } from './acu-channel-history'
+import { ACUExecutionProfileManager } from './acu-execution-profile-manager'
 import {
   filterProfilesByProtocol,
   monitorReason,
@@ -250,6 +251,9 @@ export function ACUChannelMonitor() {
             <option value='responses'>{t('OpenAI Responses (Codex)')}</option>
             <option value='messages'>
               {t('Anthropic Messages (Claude protocol)')}
+            </option>
+            <option value='chat_completions'>
+              {t('OpenAI Chat Completions')}
             </option>
           </select>
         </label>
@@ -660,6 +664,7 @@ function RouterConfigurationTab(props: {
   }
   return (
     <div className='space-y-4'>
+      <ACUExecutionProfileManager />
       <div className='flex flex-wrap items-center justify-between gap-2'>
         <div>
           <h3 className='text-sm font-semibold'>

@@ -48,6 +48,57 @@ func TestGetACUChannelMonitorValidatesAndForwardsViewParameters(t *testing.T) {
 	require.Equal(t, "standard", defaults.URL.Query().Get("scenario"))
 }
 
+func TestExecutionProfileManagementForwardsOnlyTargetedRouterOperations(t *testing.T) {
+	type observedRequest struct {
+		method string
+		path   string
+		body   []byte
+	}
+	requests := make(chan observedRequest, 5)
+	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		body, _ := io.ReadAll(request.Body)
+		requests <- observedRequest{method: request.Method, path: request.URL.Path, body: body}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"ok","profiles":[]}`))
+	}))
+	defer router.Close()
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
+
+	_, err := GetACUExecutionProfiles(context.Background())
+	require.NoError(t, err)
+	_, err = CreateACUExecutionProfile(context.Background(), map[string]interface{}{
+		"profile": map[string]interface{}{"executionProfileId": "test:model:responses"},
+	})
+	require.NoError(t, err)
+	_, err = UpdateACUExecutionProfile(context.Background(), "test:model:responses", map[string]interface{}{
+		"profile": map[string]interface{}{"enabled": false},
+	})
+	require.NoError(t, err)
+	_, err = ProbeACUExecutionProfile(context.Background(), map[string]interface{}{
+		"executionProfileId": "test:model:responses", "protocol": "responses",
+	})
+	require.NoError(t, err)
+	_, err = ApplyACUExecutionProfiles(context.Background())
+	require.NoError(t, err)
+
+	expected := []struct {
+		method string
+		path   string
+	}{
+		{http.MethodGet, "/internal/admin/execution-profiles"},
+		{http.MethodPost, "/internal/admin/execution-profiles"},
+		{http.MethodPut, "/internal/admin/execution-profiles/test:model:responses"},
+		{http.MethodPost, "/internal/admin/execution-profiles/probe"},
+		{http.MethodPost, "/internal/admin/execution-profiles/apply"},
+	}
+	for _, item := range expected {
+		actual := <-requests
+		require.Equal(t, item.method, actual.method)
+		require.Equal(t, item.path, actual.path)
+	}
+}
+
 func TestGetACURoutingCatalogOmitsSupplyTelemetry(t *testing.T) {
 	previous := common.OptionMap
 	t.Cleanup(func() { common.OptionMap = previous })
