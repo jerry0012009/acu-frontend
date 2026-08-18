@@ -58,7 +58,7 @@ await i18n.use(initReactI18next).init({
   },
 })
 
-const { LogCostDisplay } = await import('../log-cost-display')
+const { LogCostDisplay, formatMultiplier } = await import('../log-cost-display')
 const { formatLogQuota } = await import('@/lib/format')
 const reactTestGlobals = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
@@ -213,5 +213,13 @@ describe('log cost display', () => {
     )
 
     await unmountCost(rendered)
+  })
+
+  test('formats channel discount multipliers with compact precision', () => {
+    assert.equal(formatMultiplier(0.0104), '0.010x')
+    assert.equal(formatMultiplier(0.0412), '0.041x')
+    assert.equal(formatMultiplier(0.8), '0.80x')
+    assert.equal(formatMultiplier(1), '1.00x')
+    assert.equal(formatMultiplier(1.2), '1.20x')
   })
 })

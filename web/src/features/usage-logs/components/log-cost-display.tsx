@@ -106,13 +106,12 @@ function formatUsd(
   return Number.isFinite(number) ? `$${number.toFixed(8)}` : undefined
 }
 
-function formatMultiplier(
+export function formatMultiplier(
   value: number | string | null | undefined
 ): string | undefined {
   const number = Number(value)
   if (!Number.isFinite(number)) return undefined
-  const rounded = number.toFixed(3).replace(/0+$/, '').replace(/\.$/, '')
-  return `${rounded.includes('.') ? rounded.padEnd(4, '0') : `${rounded}.00`}x`
+  return `${number.toFixed(Math.abs(number) < 0.1 ? 3 : 2)}x`
 }
 
 function CostReferenceTooltip(props: {
