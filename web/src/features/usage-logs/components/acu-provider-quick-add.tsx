@@ -127,6 +127,12 @@ function ProbeSummary(props: {
         <span>{props.result.outputTokens}</span>
         <span>Reasoning tokens</span>
         <span>{props.result.reasoningTokens}</span>
+        <span>Input accounting</span>
+        <span>
+          {props.result.inputTokenAccountingMode === 'includes_cached'
+            ? t('Total input includes cached tokens')
+            : t('Input excludes cached tokens')}
+        </span>
         <span>Nominal model cost USD</span>
         <span>{nominal.toFixed(8)}</span>
         <span>Current billing multiplier</span>

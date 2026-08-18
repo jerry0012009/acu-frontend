@@ -306,6 +306,32 @@ export function ACUExecutionProfileManager() {
                   }
                 />
               </label>
+              <label className='space-y-1'>
+                <span className='text-muted-foreground'>
+                  {t('inputTokenAccountingMode')}
+                </span>
+                <select
+                  className='bg-background h-8 w-full rounded border px-2'
+                  value={draft.inputTokenAccountingMode ?? ''}
+                  onChange={(event) =>
+                    update(
+                      'inputTokenAccountingMode',
+                      event.target.value === ''
+                        ? undefined
+                        : (event.target
+                            .value as ACUExecutionProfile['inputTokenAccountingMode'])
+                    )
+                  }
+                >
+                  <option value=''>{t('Protocol default')}</option>
+                  <option value='includes_cached'>
+                    {t('Total input includes cached tokens')}
+                  </option>
+                  <option value='excludes_cached'>
+                    {t('Input excludes cached tokens')}
+                  </option>
+                </select>
+              </label>
             </div>
             <div className='space-y-2'>
               <div className='text-muted-foreground'>{t('protocols')}</div>

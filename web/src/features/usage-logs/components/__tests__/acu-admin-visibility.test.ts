@@ -147,6 +147,8 @@ test('root execution profile manager exposes Quick Add without leaking advanced 
     /observedBillingMultiplier:\s*pair\.model\.observedBillingMultiplier/
   )
   assert.match(quickAddSource, /Cache creation tokens/)
+  assert.match(profileManagerSource, /inputTokenAccountingMode/)
+  assert.match(quickAddSource, /Input accounting/)
   assert.match(quickAddSource, /Estimated platform debit/)
   assert.match(quickAddSource, /estimatedPlatformDebit \/ props\.creditsPerCny/)
   assert.match(quickAddSource, /existingProviderEconomics/)

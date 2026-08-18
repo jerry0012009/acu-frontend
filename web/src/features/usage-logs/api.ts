@@ -492,6 +492,7 @@ export type ACUExecutionProfile = {
   channel: string
   channelId?: string
   routingGroupName?: string
+  inputTokenAccountingMode?: 'includes_cached' | 'excludes_cached'
   protocols: Array<'responses' | 'messages' | 'chat_completions'>
   baseUrl?: string
   baseUrlEnv?: string
@@ -558,6 +559,7 @@ export type ACUExecutionProfileProbeResult = {
   cacheCreationInputTokens: string
   outputTokens: string
   reasoningTokens: string
+  inputTokenAccountingMode: 'includes_cached' | 'excludes_cached'
   usageTrusted: boolean
   costCny: number
   costBreakdown: Record<string, unknown>
