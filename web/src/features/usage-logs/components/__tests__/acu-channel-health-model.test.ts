@@ -199,6 +199,45 @@ test('uses each Profile latest Probe for coverage while retaining all Probe evid
   assert.equal(reversedGroup.probedProfileCount, 1)
 })
 
+test('keeps targeted Probe evidence separate from recovery', () => {
+  const probes = [
+    {
+      execution_profile_id: profile().executionProfileId,
+      status: 'success',
+      started_at: '2026-08-05T12:01:00Z',
+      probeMode: 'full_pool',
+    },
+    {
+      execution_profile_id: profile().executionProfileId,
+      status: 'success',
+      started_at: '2026-08-05T12:02:00Z',
+      probeMode: 'targeted',
+    },
+    {
+      execution_profile_id: profile().executionProfileId,
+      status: 'failed',
+      started_at: '2026-08-05T12:03:00Z',
+      probeMode: 'recovery',
+    },
+  ] as ACUProbeHistoryRow[]
+  const group = groupACUChannels(
+    [profile()],
+    [],
+    '24h',
+    '2026-08-05T12:15:00Z',
+    probes
+  )[0]
+
+  assert.equal(group.probeCount, 3)
+  assert.equal(group.targetedProbeCount, 1)
+  assert.equal(group.targetedProbeSuccessCount, 1)
+  assert.equal(group.latestTargetedProbeAt, '2026-08-05T12:02:00.000Z')
+  assert.equal(group.recoveryProbeCount, 1)
+  assert.equal(group.recoveryProbeSuccessCount, 0)
+  assert.equal(group.probeBuckets.at(-2)?.targetedCount, 1)
+  assert.equal(group.probeBuckets.at(-2)?.recoveryCount, 1)
+})
+
 test('uses all 96 range buckets for 24h availability but displays only 60', () => {
   assert.deepEqual(groupACUChannels([], []), [])
   const history = Array.from({ length: 96 }, (_, index) =>

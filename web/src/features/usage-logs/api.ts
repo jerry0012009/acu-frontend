@@ -301,12 +301,20 @@ export type ACUChannelMonitorProfile = {
   probeSuccessRate: number | null
   fullPoolProbeCount: number
   fullPoolProbeSuccessCount: number
+  targetedProbeCount: number
+  targetedProbeSuccessCount: number
   recoveryProbeCount: number
   recoveryProbeSuccessCount: number
   latestSuccessfulProbeAt: string | null
   latestFullPoolProbeAt: string | null
+  latestTargetedProbeAt: string | null
   healthEvents: Array<{
-    source: 'production' | 'judge' | 'full_pool_probe' | 'recovery_probe'
+    source:
+      | 'production'
+      | 'judge'
+      | 'full_pool_probe'
+      | 'targeted_probe'
+      | 'recovery_probe'
     result: 'success' | 'failed' | 'cooldown' | 'recovered'
     at: string
   }>
@@ -449,7 +457,7 @@ export type ACUProbeHistoryRow = {
   started_at: string
   completed_at: string | null
   metadata_json?: Record<string, unknown>
-  probeMode: 'full_pool' | 'recovery'
+  probeMode: 'full_pool' | 'recovery' | 'targeted'
   trigger: string
 }
 

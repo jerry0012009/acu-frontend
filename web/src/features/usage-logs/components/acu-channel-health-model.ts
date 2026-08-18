@@ -43,6 +43,9 @@ export type ACUChannelOverview = {
   probeCount: number
   probedProfileCount: number
   latestFullPoolProbeAt: string | null
+  latestTargetedProbeAt: string | null
+  targetedProbeCount: number
+  targetedProbeSuccessCount: number
   recoveryProbeCount: number
   recoveryProbeSuccessCount: number
   latestHealthEvent: ACUChannelMonitorProfile['healthEvents'][number] | null
@@ -51,6 +54,7 @@ export type ACUChannelOverview = {
 export type ACUProbeBucket = {
   bucket: string
   fullPoolCount: number
+  targetedCount: number
   recoveryCount: number
   successCount: number
   totalCount: number
@@ -174,6 +178,7 @@ export function groupACUChannels(
         const current = probesByTime.get(bucketTime) ?? {
           bucket: new Date(bucketTime).toISOString(),
           fullPoolCount: 0,
+          targetedCount: 0,
           recoveryCount: 0,
           successCount: 0,
           totalCount: 0,
@@ -181,6 +186,7 @@ export function groupACUChannels(
         current.totalCount += 1
         current.successCount += probe.status === 'success' ? 1 : 0
         if (probe.probeMode === 'full_pool') current.fullPoolCount += 1
+        else if (probe.probeMode === 'targeted') current.targetedCount += 1
         else current.recoveryCount += 1
         probesByTime.set(bucketTime, current)
       }
@@ -190,6 +196,7 @@ export function groupACUChannels(
           probesByTime.get(bucketTime) ?? {
             bucket: new Date(bucketTime).toISOString(),
             fullPoolCount: 0,
+            targetedCount: 0,
             recoveryCount: 0,
             successCount: 0,
             totalCount: 0,
@@ -228,6 +235,16 @@ export function groupACUChannels(
         ...fullPoolTimes,
         Number.NEGATIVE_INFINITY
       )
+      const targetedProbes = channelProbes.filter(
+        (probe) => probe.probeMode === 'targeted'
+      )
+      const targetedTimes = targetedProbes
+        .map((probe) => new Date(probe.started_at).getTime())
+        .filter(Number.isFinite)
+      const latestTargetedTime = Math.max(
+        ...targetedTimes,
+        Number.NEGATIVE_INFINITY
+      )
       const recoveryProbes = channelProbes.filter(
         (probe) => probe.probeMode === 'recovery'
       )
@@ -263,6 +280,13 @@ export function groupACUChannels(
         ).length,
         latestFullPoolProbeAt: Number.isFinite(latestFullPoolTime)
           ? new Date(latestFullPoolTime).toISOString()
+          : null,
+        targetedProbeCount: targetedProbes.length,
+        targetedProbeSuccessCount: targetedProbes.filter(
+          (probe) => probe.status === 'success'
+        ).length,
+        latestTargetedProbeAt: Number.isFinite(latestTargetedTime)
+          ? new Date(latestTargetedTime).toISOString()
           : null,
         recoveryProbeCount: recoveryProbes.length,
         recoveryProbeSuccessCount: recoveryProbes.filter(

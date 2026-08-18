@@ -76,15 +76,19 @@ test('shows separate Production and Probe evidence and expands all Profile evide
             probeBuckets: Array.from({ length: 60 }, (_, index) => ({
               bucket: new Date(Date.UTC(2026, 7, 5, 0, index)).toISOString(),
               fullPoolCount: index === 59 ? 1 : 0,
+              targetedCount: index === 59 ? 1 : 0,
               recoveryCount: 0,
-              successCount: index === 59 ? 1 : 0,
-              totalCount: index === 59 ? 1 : 0,
+              successCount: index === 59 ? 2 : 0,
+              totalCount: index === 59 ? 2 : 0,
             })),
-            probeCount: 1,
+            probeCount: 2,
             probedProfileCount: 1,
             latestFullPoolProbeAt: '2026-08-05T11:00:00Z',
-            recoveryProbeCount: 1,
-            recoveryProbeSuccessCount: 1,
+            latestTargetedProbeAt: '2026-08-05T11:30:00Z',
+            targetedProbeCount: 1,
+            targetedProbeSuccessCount: 1,
+            recoveryProbeCount: 0,
+            recoveryProbeSuccessCount: 0,
             latestHealthEvent: {
               source: 'full_pool_probe',
               result: 'success',
@@ -111,8 +115,10 @@ test('shows separate Production and Probe evidence and expands all Profile evide
                 judgeAttemptCount: 5,
                 fullPoolProbeSuccessCount: 2,
                 fullPoolProbeCount: 2,
-                recoveryProbeSuccessCount: 1,
-                recoveryProbeCount: 1,
+                targetedProbeSuccessCount: 1,
+                targetedProbeCount: 1,
+                recoveryProbeSuccessCount: 0,
+                recoveryProbeCount: 0,
                 firstEventSampleCount: 9,
                 costContribution: 0.3,
                 speedContribution: 0.2,
@@ -126,6 +132,7 @@ test('shows separate Production and Probe evidence and expands all Profile evide
     )
   })
   assert.match(container.textContent ?? '', /11 \/ 12 successful attempts/)
+  assert.match(container.textContent ?? '', /Targeted 1 \/ 1/)
   assert.equal(
     container.querySelectorAll('[aria-label="Production timeline"] span')
       .length,
@@ -177,6 +184,9 @@ test('shows failed Probe coverage without presenting an empty Production success
             probeCount: 1,
             probedProfileCount: 0,
             latestFullPoolProbeAt: '2026-08-05T11:00:00Z',
+            latestTargetedProbeAt: null,
+            targetedProbeCount: 0,
+            targetedProbeSuccessCount: 0,
             recoveryProbeCount: 0,
             recoveryProbeSuccessCount: 0,
             latestHealthEvent: null,

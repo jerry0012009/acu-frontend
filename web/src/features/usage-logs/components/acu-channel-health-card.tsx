@@ -66,7 +66,7 @@ export function ACUChannelHealthCard(props: {
   const [expanded, setExpanded] = useState(false)
   const primary = props.channel.primaryProfile
   return (
-    <section className='bg-background min-w-0 rounded-md border [content-visibility:auto] [contain-intrinsic-size:auto_420px]'>
+    <section className='bg-background min-w-0 rounded-md border [contain-intrinsic-size:auto_420px] [content-visibility:auto]'>
       <button
         type='button'
         className='flex w-full min-w-0 items-start justify-between gap-3 p-4 text-left'
@@ -156,6 +156,10 @@ export function ACUChannelHealthCard(props: {
             {relativeTime(props.channel.latestFullPoolProbeAt, i18n.language)}
           </div>
           <div className='text-muted-foreground text-xs'>
+            {t('Targeted')} {props.channel.targetedProbeSuccessCount} /{' '}
+            {props.channel.targetedProbeCount}
+          </div>
+          <div className='text-muted-foreground text-xs'>
             {t('Recovery')} {props.channel.recoveryProbeSuccessCount} /{' '}
             {props.channel.recoveryProbeCount}
           </div>
@@ -189,7 +193,7 @@ export function ACUChannelHealthCard(props: {
           buckets={props.channel.probeBuckets.map((bucket) => ({
             key: bucket.bucket,
             tone: classifyProbeBucket(bucket),
-            title: `${new Date(bucket.bucket).toLocaleString()} · full-pool ${bucket.fullPoolCount} · recovery ${bucket.recoveryCount} · ${bucket.successCount}/${bucket.totalCount}`,
+            title: `${new Date(bucket.bucket).toLocaleString()} · full-pool ${bucket.fullPoolCount} · targeted ${bucket.targetedCount} · recovery ${bucket.recoveryCount} · ${bucket.successCount}/${bucket.totalCount}`,
           }))}
         />
         <div className='text-muted-foreground flex flex-wrap justify-between gap-2 text-xs'>
@@ -310,6 +314,10 @@ function ChannelProfile(props: { profile: ACUChannelMonitorProfile }) {
         <ProfileField
           label={t('Full-pool Probes')}
           value={`${profile.fullPoolProbeSuccessCount}/${profile.fullPoolProbeCount}`}
+        />
+        <ProfileField
+          label={t('Targeted Probes')}
+          value={`${profile.targetedProbeSuccessCount}/${profile.targetedProbeCount}`}
         />
         <ProfileField
           label={t('Recovery Probes')}
