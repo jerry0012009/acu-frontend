@@ -422,3 +422,15 @@ func TestAddACUOfficialReferenceCostUsesUserChargeAndJudgeSemantics(t *testing.T
 	assert.False(t, hasReference)
 	assert.False(t, hasMultiplier)
 }
+
+func TestAddACUOfficialReferenceCostUsesUnifiedUsdCnyReference(t *testing.T) {
+	breakdown := map[string]interface{}{
+		"official_catalog_cost_usd": "0.12423600",
+		"judge_user_charge_cny":     "0",
+	}
+
+	addACUOfficialReferenceCost(breakdown, "0.00931770", "0", "CNY", 6.74)
+
+	assert.Equal(t, "0.1242360000", breakdown["official_reference_cost_usd"])
+	assert.Equal(t, "0.0111275964", breakdown["channel_discount_multiplier"])
+}
