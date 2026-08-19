@@ -357,3 +357,237 @@ test('redacts credentials from Latest Probe text and timeline titles', async () 
   await act(async () => root.unmount())
   container.remove()
 })
+
+test('renders Root Profile actions and keeps globally disabled Profiles probeable', async () => {
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  const routingChanges: Array<{ id: string; enabled: boolean }> = []
+  const probes: Array<{ id: string; protocol: string }> = []
+  const originalConfirm = window.confirm
+  window.confirm = () => true
+  await act(async () => {
+    root.render(
+      <I18nextProvider i18n={i18n}>
+        <ACUChannelHealthCard
+          generatedAt='2026-08-05T12:00:00Z'
+          channel={{
+            channel: 'cx006',
+            providers: ['lucen'],
+            profiles: [
+              {
+                executionProfileId: 'cx006:gpt-5.6-luna:responses',
+                canonicalModel: 'gpt-5.6-luna',
+                provider: 'lucen',
+                channel: 'cx006',
+                protocol: ['responses', 'chat_completions'],
+                state: 'healthy',
+                routingEligible: true,
+                enabled: true,
+                administratorAllowed: true,
+                autoRouteEnabled: true,
+                profileUtility: null,
+              } as never,
+            ],
+            enabledProfileCount: 1,
+            eligibleProfileCount: 1,
+            modelCount: 1,
+            state: 'healthy',
+            primaryProfile: null,
+            requestCount: 0,
+            successCount: 0,
+            availability: null,
+            buckets: [],
+            probeBuckets: [],
+            probeCount: 0,
+            probedProfileCount: 0,
+            latestFullPoolProbeAt: null,
+            latestTargetedProbeAt: null,
+            targetedProbeCount: 0,
+            targetedProbeSuccessCount: 0,
+            recoveryProbeCount: 0,
+            recoveryProbeSuccessCount: 0,
+            latestHealthEvent: null,
+          }}
+          profileActions={{
+            policy: {
+              modelPolicy: 'all_routing_eligible',
+              allowedModelIds: [],
+              profilePolicy: 'custom_allowlist',
+              allowedProfileIds: [],
+            },
+            isTogglePending: () => false,
+            isProbePending: () => false,
+            onToggleRouting: (profile, enabled) =>
+              routingChanges.push({
+                id: profile.executionProfileId,
+                enabled,
+              }),
+            onProbe: (profile, protocol) =>
+              probes.push({ id: profile.executionProfileId, protocol }),
+          }}
+        />
+      </I18nextProvider>
+    )
+  })
+  const channelToggle = container.querySelector('[aria-expanded]')
+  assert.ok(channelToggle)
+  await act(async () =>
+    channelToggle.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  )
+
+  const enable = [...container.querySelectorAll('button')].find(
+    (button) => button.textContent === 'Enable routing'
+  )
+  const probe = [...container.querySelectorAll('button')].find(
+    (button) => button.textContent === 'Probe test'
+  )
+  assert.ok(enable)
+  assert.ok(probe)
+  await act(async () =>
+    enable.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  )
+  await act(async () =>
+    probe.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  )
+  assert.deepEqual(routingChanges, [
+    { id: 'cx006:gpt-5.6-luna:responses', enabled: true },
+  ])
+  assert.deepEqual(probes, [
+    { id: 'cx006:gpt-5.6-luna:responses', protocol: 'responses' },
+  ])
+
+  await act(async () => root.unmount())
+  container.remove()
+  window.confirm = originalConfirm
+})
+
+test('disables unavailable enable and pending Profile actions without affecting Probe semantics', async () => {
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  await act(async () => {
+    root.render(
+      <I18nextProvider i18n={i18n}>
+        <ACUChannelHealthCard
+          generatedAt='2026-08-05T12:00:00Z'
+          channel={{
+            channel: 'cx006',
+            providers: ['lucen'],
+            profiles: [
+              {
+                executionProfileId: 'cx006:gpt-5.6-sol:responses',
+                canonicalModel: 'gpt-5.6-sol',
+                provider: 'lucen',
+                channel: 'cx006',
+                protocol: ['responses'],
+                state: 'healthy',
+                routingEligible: true,
+                enabled: true,
+                administratorAllowed: true,
+                autoRouteEnabled: true,
+                profileUtility: null,
+              } as never,
+            ],
+            enabledProfileCount: 1,
+            eligibleProfileCount: 1,
+            modelCount: 1,
+            state: 'healthy',
+            primaryProfile: null,
+            requestCount: 0,
+            successCount: 0,
+            availability: null,
+            buckets: [],
+            probeBuckets: [],
+            probeCount: 0,
+            probedProfileCount: 0,
+            latestFullPoolProbeAt: null,
+            latestTargetedProbeAt: null,
+            targetedProbeCount: 0,
+            targetedProbeSuccessCount: 0,
+            recoveryProbeCount: 0,
+            recoveryProbeSuccessCount: 0,
+            latestHealthEvent: null,
+          }}
+          profileActions={{
+            policy: {
+              modelPolicy: 'custom_allowlist',
+              allowedModelIds: ['gpt-5.6-luna'],
+              profilePolicy: 'custom_allowlist',
+              allowedProfileIds: [],
+            },
+            isTogglePending: () => false,
+            isProbePending: () => true,
+            onToggleRouting: () => undefined,
+            onProbe: () => undefined,
+          }}
+        />
+      </I18nextProvider>
+    )
+  })
+  const channelToggle = container.querySelector('[aria-expanded]')
+  assert.ok(channelToggle)
+  await act(async () =>
+    channelToggle.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  )
+  const enable = [...container.querySelectorAll('button')].find(
+    (button) => button.textContent === 'Enable routing'
+  ) as HTMLButtonElement | undefined
+  const probe = [...container.querySelectorAll('button')].find(
+    (button) => button.textContent === 'Probe test'
+  ) as HTMLButtonElement | undefined
+  assert.ok(enable)
+  assert.ok(probe)
+  assert.equal(enable.disabled, true)
+  assert.equal(probe.disabled, true)
+  assert.equal(
+    enable.title,
+    'This model is not allowed by the Global model allowlist'
+  )
+  await act(async () => root.unmount())
+  container.remove()
+})
+
+test('does not render Profile controls without Root action props', async () => {
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  await act(async () => {
+    root.render(
+      <I18nextProvider i18n={i18n}>
+        <ACUChannelHealthCard
+          generatedAt='2026-08-05T12:00:00Z'
+          channel={{
+            channel: 'cx006',
+            providers: ['lucen'],
+            profiles: [],
+            enabledProfileCount: 0,
+            eligibleProfileCount: 0,
+            modelCount: 0,
+            state: 'disabled',
+            primaryProfile: null,
+            requestCount: 0,
+            successCount: 0,
+            availability: null,
+            buckets: [],
+            probeBuckets: [],
+            probeCount: 0,
+            probedProfileCount: 0,
+            latestFullPoolProbeAt: null,
+            latestTargetedProbeAt: null,
+            targetedProbeCount: 0,
+            targetedProbeSuccessCount: 0,
+            recoveryProbeCount: 0,
+            recoveryProbeSuccessCount: 0,
+            latestHealthEvent: null,
+          }}
+        />
+      </I18nextProvider>
+    )
+  })
+  assert.doesNotMatch(container.textContent ?? '', /Probe test/)
+  assert.doesNotMatch(container.textContent ?? '', /Enable routing/)
+  assert.doesNotMatch(container.textContent ?? '', /Disable routing/)
+  await act(async () => root.unmount())
+  container.remove()
+})

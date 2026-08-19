@@ -6,6 +6,10 @@ const monitorSource = readFileSync(
   new URL('../acu-channel-monitor.tsx', import.meta.url),
   'utf8'
 )
+const usageApiSource = readFileSync(
+  new URL('../../api.ts', import.meta.url),
+  'utf8'
+)
 const timelineSource = readFileSync(
   new URL('../acu-work-timeline.tsx', import.meta.url),
   'utf8'
@@ -64,6 +68,26 @@ test('root Router configuration is lazy and keeps saved state separate from draf
   assert.match(monitorSource, /structuredClone\(savedPolicy\)/)
   assert.match(monitorSource, /structuredClone\(savedUtilityConfig\)/)
   assert.match(monitorSource, /currently unavailable/)
+})
+
+test('overview Profile routing controls stay Root-only and reuse existing policy and Probe APIs', () => {
+  assert.match(
+    monitorSource,
+    /profileActions=\{[\s\S]{0,80}isRoot[\s\S]{0,240}globalRoutingPolicyQuery/
+  )
+  assert.match(monitorSource, /probeACUExecutionProfileById/)
+  assert.match(
+    usageApiSource,
+    /probeACUExecutionProfileById[\s\S]{0,360}executionProfileId,\s*protocol/
+  )
+  assert.match(
+    usageApiSource,
+    /api\.post\('\/api\/log\/acu-execution-profiles\/probe',\s*\{\s*executionProfileId,\s*protocol/
+  )
+  assert.match(
+    monitorSource,
+    /queryKey: \['acu-global-routing-policy'\][\s\S]{0,220}queryKey: \['acu-channel-monitor'\]/
+  )
 })
 
 test('router configuration refetches saved state after success or partial failure', () => {

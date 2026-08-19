@@ -778,6 +778,21 @@ export async function probeACUExecutionProfile(
   }
 }
 
+export async function probeACUExecutionProfileById(
+  executionProfileId: string,
+  protocol: ACUExecutionProfile['protocols'][number]
+) {
+  const res = await api.post('/api/log/acu-execution-profiles/probe', {
+    executionProfileId,
+    protocol,
+  })
+  return res.data as {
+    success: boolean
+    message?: string
+    data?: ACUExecutionProfileProbeResult
+  }
+}
+
 export async function applyACUExecutionProfiles() {
   const res = await api.post('/api/log/acu-execution-profiles/apply')
   return res.data as {

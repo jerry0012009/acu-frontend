@@ -4,15 +4,24 @@ import { useTranslation } from 'react-i18next'
 
 import { StatusBadge } from '@/components/status-badge'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-import type { ACUChannelMonitorProfile, ACUProbeBucket } from '../api'
+import type {
+  ACUChannelMonitorProfile,
+  ACUGlobalRoutingPolicy,
+  ACUProbeBucket,
+} from '../api'
 import {
   classifyHistoryBucket,
   classifyProbeBucket,
   formatProbeResult,
   type ACUChannelOverview,
 } from './acu-channel-health-model'
+import {
+  canEnableProfileForGlobalRouting,
+  isProfileGloballyAllowed,
+} from './acu-global-routing-policy'
 import {
   monitorReason,
   monitorStateLabel,
@@ -73,6 +82,16 @@ function probeBucketTitle(bucket: ACUProbeBucket): string {
 export function ACUChannelHealthCard(props: {
   channel: ACUChannelOverview
   generatedAt: string
+  profileActions?: {
+    policy?: ACUGlobalRoutingPolicy
+    isTogglePending: (profileId: string) => boolean
+    isProbePending: (profileId: string) => boolean
+    onToggleRouting: (
+      profile: ACUChannelMonitorProfile,
+      enabled: boolean
+    ) => void
+    onProbe: (profile: ACUChannelMonitorProfile, protocol: string) => void
+  }
 }) {
   const { t, i18n } = useTranslation()
   const [expanded, setExpanded] = useState(false)
@@ -228,6 +247,7 @@ export function ACUChannelHealthCard(props: {
             <ChannelProfile
               key={profile.executionProfileId}
               profile={profile}
+              actions={props.profileActions}
             />
           ))}
         </div>
@@ -266,9 +286,35 @@ function StatusTimeline(props: {
   )
 }
 
-function ChannelProfile(props: { profile: ACUChannelMonitorProfile }) {
+function ChannelProfile(props: {
+  profile: ACUChannelMonitorProfile
+  actions?: {
+    policy?: ACUGlobalRoutingPolicy
+    isTogglePending: (profileId: string) => boolean
+    isProbePending: (profileId: string) => boolean
+    onToggleRouting: (
+      profile: ACUChannelMonitorProfile,
+      enabled: boolean
+    ) => void
+    onProbe: (profile: ACUChannelMonitorProfile, protocol: string) => void
+  }
+}) {
   const { t, i18n } = useTranslation()
   const profile = props.profile
+  const policy = props.actions?.policy
+  const globallyAllowed =
+    policy && isProfileGloballyAllowed(policy, profile.executionProfileId)
+  const modelBlocked =
+    policy && !canEnableProfileForGlobalRouting(policy, profile.canonicalModel)
+  const firstProtocol = profile.protocol[0]
+  const togglePending =
+    props.actions?.isTogglePending(profile.executionProfileId) ?? false
+  const probePending =
+    props.actions?.isProbePending(profile.executionProfileId) ?? false
+  let globalRoutingStatus = t('Loading...')
+  if (policy) {
+    globalRoutingStatus = globallyAllowed ? t('allowed') : t('disabled')
+  }
   return (
     <details className='rounded border p-3 text-xs'>
       <summary className='cursor-pointer list-none'>
@@ -300,6 +346,52 @@ function ChannelProfile(props: { profile: ACUChannelMonitorProfile }) {
           </div>
         </div>
       </summary>
+      {props.actions && (
+        <div className='mt-3 flex flex-wrap items-center gap-2 border-t pt-3'>
+          <span className='text-muted-foreground'>
+            {t('Global routing')}: {globalRoutingStatus}
+          </span>
+          <Button
+            size='sm'
+            variant='outline'
+            title={
+              modelBlocked
+                ? t('This model is not allowed by the Global model allowlist')
+                : undefined
+            }
+            disabled={
+              !policy || togglePending || (!globallyAllowed && modelBlocked)
+            }
+            onClick={() => {
+              if (!policy) return
+              if (globallyAllowed) {
+                if (
+                  !window.confirm(
+                    t('Disable this Profile from global routing?')
+                  )
+                ) {
+                  return
+                }
+                props.actions?.onToggleRouting(profile, false)
+                return
+              }
+              props.actions?.onToggleRouting(profile, true)
+            }}
+          >
+            {globallyAllowed ? t('Disable routing') : t('Enable routing')}
+          </Button>
+          <Button
+            size='sm'
+            variant='outline'
+            disabled={!firstProtocol || probePending}
+            onClick={() => {
+              if (firstProtocol) props.actions?.onProbe(profile, firstProtocol)
+            }}
+          >
+            {t('Probe test')}
+          </Button>
+        </div>
+      )}
       <div className='mt-3 grid gap-3 border-t pt-3 sm:grid-cols-2 lg:grid-cols-4'>
         <ProfileField
           label={t('Protocol')}

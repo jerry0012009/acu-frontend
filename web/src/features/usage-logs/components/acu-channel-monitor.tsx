@@ -24,6 +24,7 @@ import {
   getACUChannelMonitor,
   getACUGlobalRoutingPolicy,
   getACURoutingUtilityConfig,
+  probeACUExecutionProfileById,
   updateACUGlobalRoutingPolicy,
   updateACURoutingUtilityConfig,
   pauseACUChannel,
@@ -40,6 +41,7 @@ import { ACUChannelHealthCard } from './acu-channel-health-card'
 import { groupACUChannels } from './acu-channel-health-model'
 import { ACUChannelHistory } from './acu-channel-history'
 import { ACUExecutionProfileManager } from './acu-execution-profile-manager'
+import { updateGlobalProfileRouting } from './acu-global-routing-policy'
 import {
   filterProfilesByProtocol,
   monitorReason,
@@ -119,6 +121,51 @@ export function ACUChannelMonitor() {
       void queryClient.invalidateQueries({ queryKey: ['acu-channel-monitor'] })
     },
     onError: () => toast.error(t('Channel pause failed')),
+  })
+  const globalRoutingPolicyQuery = useQuery({
+    queryKey: ['acu-global-routing-policy'],
+    queryFn: getACUGlobalRoutingPolicy,
+    enabled: isRoot,
+  })
+  const globalRoutingMutation = useMutation({
+    mutationFn: (input: {
+      profileId: string
+      policy: ACUGlobalRoutingPolicy
+    }) => updateACUGlobalRoutingPolicy(input.policy),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['acu-global-routing-policy'],
+        }),
+        queryClient.invalidateQueries({ queryKey: ['acu-channel-monitor'] }),
+      ])
+      toast.success(t('Global routing updated'))
+    },
+    onError: (error) =>
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t('Global routing update failed')
+      ),
+  })
+  const probeMutation = useMutation({
+    mutationFn: ({
+      executionProfileId,
+      protocol,
+    }: {
+      executionProfileId: string
+      protocol: 'responses' | 'messages' | 'chat_completions'
+    }) => probeACUExecutionProfileById(executionProfileId, protocol),
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: ['acu-channel-monitor'] })
+      if (result.data?.success) {
+        toast.success(t('Targeted Probe passed'))
+        return
+      }
+      toast.error(result.message || t('Targeted Probe failed'))
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : t('Probe failed')),
   })
   const allProfiles = useMemo(
     () => query.data?.data?.profiles ?? [],
@@ -340,6 +387,43 @@ export function ACUChannelMonitor() {
                 key={channel.channel}
                 channel={channel}
                 generatedAt={query.data?.data?.generatedAt ?? ''}
+                profileActions={
+                  isRoot
+                    ? {
+                        policy: globalRoutingPolicyQuery.data,
+                        isTogglePending: (profileId) =>
+                          globalRoutingMutation.isPending &&
+                          globalRoutingMutation.variables?.profileId ===
+                            profileId,
+                        isProbePending: (profileId) =>
+                          probeMutation.isPending &&
+                          probeMutation.variables?.executionProfileId ===
+                            profileId,
+                        onToggleRouting: (profile, enabled) => {
+                          const policy = globalRoutingPolicyQuery.data
+                          if (!policy) return
+                          globalRoutingMutation.mutate({
+                            profileId: profile.executionProfileId,
+                            policy: updateGlobalProfileRouting(
+                              policy,
+                              allProfiles,
+                              profile.executionProfileId,
+                              enabled
+                            ),
+                          })
+                        },
+                        onProbe: (profile, probeProtocol) => {
+                          probeMutation.mutate({
+                            executionProfileId: profile.executionProfileId,
+                            protocol: probeProtocol as
+                              | 'responses'
+                              | 'messages'
+                              | 'chat_completions',
+                          })
+                        },
+                      }
+                    : undefined
+                }
               />
             ))}
           </div>
