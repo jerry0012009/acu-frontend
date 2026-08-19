@@ -10,6 +10,7 @@ import {
   filterProfilesByProtocol,
   monitorReason,
   monitorStateLabel,
+  profileLatencyDisplay,
   sortMonitorProfiles,
   summarizeMonitorProfiles,
 } from '../acu-monitor-presentation.ts'
@@ -109,4 +110,39 @@ test('localizes states and human-readable failure evidence', async () => {
   )
   assert.equal(tZh('Model Supply Monitor'), '模型供给监控')
   assert.equal(tEn('Model Supply Monitor'), 'Model Supply Monitor')
+})
+
+test('formats Router latency evidence without confusing Probe with Production', async () => {
+  const tEn = await translator('en')
+  assert.deepEqual(
+    profileLatencyDisplay(
+      { profileLatencyMs: 1300, metricSource: 'first_event_p50' },
+      tEn
+    ),
+    { value: '1.3 s', source: 'Production P50' }
+  )
+  assert.deepEqual(
+    profileLatencyDisplay(
+      {
+        profileLatencyMs: 7800,
+        metricSource: 'full_pool_probe_latency_conservative',
+      },
+      tEn
+    ),
+    { value: '7.8 s', source: 'Probe estimate' }
+  )
+  assert.deepEqual(
+    profileLatencyDisplay(
+      { profileLatencyMs: null, metricSource: 'all_unknown' },
+      tEn
+    ),
+    { value: 'No samples' }
+  )
+  assert.deepEqual(
+    profileLatencyDisplay(
+      { profileLatencyMs: 900, metricSource: 'total_latency_p50' },
+      tEn
+    ),
+    { value: '900 ms', source: 'Production total latency P50' }
+  )
 })

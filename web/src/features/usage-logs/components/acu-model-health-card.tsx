@@ -21,7 +21,11 @@ import {
   isProfileGloballyAllowed,
 } from './acu-global-routing-policy'
 import { StatusTimeline } from './acu-health-timeline'
-import { monitorStateLabel, protocolLabel } from './acu-monitor-presentation'
+import {
+  monitorStateLabel,
+  profileLatencyDisplay,
+  protocolLabel,
+} from './acu-monitor-presentation'
 
 const stateVariant = {
   healthy: 'success',
@@ -30,13 +34,6 @@ const stateVariant = {
   unavailable: 'danger',
   disabled: 'neutral',
 } as const
-
-function milliseconds(value?: number | null) {
-  if (!value) return 'n/a'
-  return value < 1000
-    ? `${Math.round(value)} ms`
-    : `${(value / 1000).toFixed(1)} s`
-}
 
 export function ACUModelHealthCard(props: {
   model: ACUModelOverview
@@ -145,6 +142,7 @@ function ModelProfile(props: {
   const modelBlocked =
     policy && !canEnableProfileForGlobalRouting(policy, profile.canonicalModel)
   const firstProtocol = profile.protocol[0]
+  const latency = profileLatencyDisplay(profile, t)
   const togglePending =
     props.actions?.isTogglePending(profile.executionProfileId) ?? false
   const probePending =
@@ -177,12 +175,17 @@ function ModelProfile(props: {
       </div>
       <div className='mt-3 grid gap-2 sm:grid-cols-3'>
         <ProfileMetric
-          label={t('Multiplier')}
-          value={`${profile.multiplier}x`}
+          label={t('Price factor')}
+          value={
+            profile.effectivePriceMultiplier == null
+              ? t('No price data')
+              : `${profile.effectivePriceMultiplier.toFixed(2)}×`
+          }
         />
         <ProfileMetric
-          label={t('P50 first event')}
-          value={milliseconds(profile.p50FirstModelEventLatencyMs)}
+          label={t('Response latency')}
+          value={latency.value}
+          detail={latency.source}
         />
         <ProfileMetric
           label={t('Production')}
@@ -258,11 +261,20 @@ function ModelProfile(props: {
   )
 }
 
-function ProfileMetric(props: { label: string; value: string }) {
+function ProfileMetric(props: {
+  label: string
+  value: string
+  detail?: string
+}) {
   return (
     <div className='min-w-0'>
       <div className='text-muted-foreground text-[11px]'>{props.label}</div>
       <div className='mt-0.5 font-medium break-words'>{props.value}</div>
+      {props.detail ? (
+        <div className='text-muted-foreground mt-0.5 text-[10px]'>
+          {props.detail}
+        </div>
+      ) : null}
     </div>
   )
 }

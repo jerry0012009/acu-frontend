@@ -87,7 +87,10 @@ test('renders anonymous model lines and isolates user-facing supply evidence', a
                 channel: 'cx006',
                 protocol: ['responses'],
                 multiplier: 0.85,
+                effectivePriceMultiplier: 0.61,
                 p50FirstModelEventLatencyMs: 1200,
+                profileLatencyMs: 7800,
+                metricSource: 'full_pool_probe_latency_conservative',
                 requestCount: 5,
                 successCount: 5,
                 routingEligible: true,
@@ -109,8 +112,13 @@ test('renders anonymous model lines and isolates user-facing supply evidence', a
   const text = container.textContent ?? ''
   assert.match(text, /gpt-5\.6-luna/)
   assert.match(text, /ACU Route \d{4}/)
-  assert.match(text, /0\.85x/)
-  assert.match(text, /P50 first event/)
+  assert.match(text, /0\.61×/)
+  assert.match(text, /Price factor/)
+  assert.match(text, /Response latency/)
+  assert.match(text, /7\.8 s/)
+  assert.match(text, /Probe estimate/)
+  assert.doesNotMatch(text, /0\.85x/)
+  assert.doesNotMatch(text, /P50 first event/)
   assert.doesNotMatch(text, /lucen/)
   assert.doesNotMatch(text, /cx006/)
   assert.doesNotMatch(text, /cx006:gpt-5\.6-luna:responses/)

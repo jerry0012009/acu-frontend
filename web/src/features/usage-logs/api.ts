@@ -260,6 +260,7 @@ export type ACUChannelMonitorProfile = {
   channel: string
   endpointHost: string
   multiplier: number
+  effectivePriceMultiplier: number | null
   effectiveCostStatus: string
   enabled: boolean
   administratorAllowed: boolean

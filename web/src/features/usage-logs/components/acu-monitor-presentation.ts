@@ -173,3 +173,37 @@ export function sortMonitorProfiles(
     )
   })
 }
+
+const LATENCY_SOURCE_KEYS: Record<string, string> = {
+  first_event_p50: 'Production P50',
+  total_latency_p50: 'Production total latency P50',
+  health_first_token: 'Recent first response observation',
+  health_total_latency: 'Recent observation',
+  full_pool_probe_latency_conservative: 'Probe estimate',
+  unknown: 'Conservative estimate',
+}
+
+export function profileLatencyDisplay(
+  profile: Pick<ACUChannelMonitorProfile, 'profileLatencyMs' | 'metricSource'>,
+  t: TFunction
+): { value: string; source?: string } {
+  if (
+    profile.metricSource === 'all_unknown' ||
+    profile.profileLatencyMs == null ||
+    !Number.isFinite(profile.profileLatencyMs) ||
+    profile.profileLatencyMs <= 0
+  ) {
+    return { value: t('No samples') }
+  }
+  const value =
+    profile.profileLatencyMs < 1000
+      ? `${Math.round(profile.profileLatencyMs)} ms`
+      : `${(profile.profileLatencyMs / 1000).toFixed(1)} s`
+  const sourceKey = profile.metricSource
+    ? LATENCY_SOURCE_KEYS[profile.metricSource]
+    : undefined
+  return {
+    value,
+    ...(sourceKey ? { source: t(sourceKey) } : {}),
+  }
+}

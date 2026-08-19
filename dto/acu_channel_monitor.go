@@ -60,6 +60,7 @@ type ACUChannelMonitorProfile struct {
 	Channel                     string                   `json:"channel"`
 	EndpointHost                string                   `json:"endpointHost"`
 	Multiplier                  float64                  `json:"multiplier"`
+	EffectivePriceMultiplier    *float64                 `json:"effectivePriceMultiplier"`
 	EffectiveCostStatus         string                   `json:"effectiveCostStatus"`
 	Enabled                     bool                     `json:"enabled"`
 	AdministratorAllowed        bool                     `json:"administratorAllowed"`
