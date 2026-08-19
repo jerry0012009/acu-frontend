@@ -14,6 +14,7 @@ import type {
   ACUExecutionProfileProbeResult,
 } from '../api'
 import { ACUProbeResultPanel } from './acu-probe-result-panel'
+import { buildProbeCalibrationInput } from './acu-probe-reconciliation'
 
 export function ACUProfileProbeInspector(props: {
   open: boolean
@@ -34,10 +35,12 @@ export function ACUProfileProbeInspector(props: {
   const [actualDebit, setActualDebit] = useState('')
   const [calibrationMultiplier, setCalibrationMultiplier] = useState('')
   const [calibrationCreditsPerCny, setCalibrationCreditsPerCny] = useState('')
+  const [creditsPerCnyDirty, setCreditsPerCnyDirty] = useState(false)
   const [calibrationError, setCalibrationError] = useState('')
 
   useEffect(() => {
     setActualDebit('')
+    setCreditsPerCnyDirty(false)
     setCalibrationError('')
     const multiplier = Number(props.result?.costBreakdown.billingMultiplier)
     const providerCreditCashCostCny = Number(
@@ -65,20 +68,21 @@ export function ACUProfileProbeInspector(props: {
       setCalibrationError(t('Calibration values must be greater than zero'))
       return
     }
-    const input: {
-      observedBillingMultiplier: number
-      creditsPerCny?: number
-    } = { observedBillingMultiplier }
-    if (calibrationCreditsPerCny.trim()) {
+    if (creditsPerCnyDirty) {
       const creditsPerCny = Number(calibrationCreditsPerCny)
       if (!Number.isFinite(creditsPerCny) || creditsPerCny <= 0) {
         setCalibrationError(t('Calibration values must be greater than zero'))
         return
       }
-      input.creditsPerCny = creditsPerCny
     }
     setCalibrationError('')
-    props.onSaveCalibration(input)
+    props.onSaveCalibration(
+      buildProbeCalibrationInput(
+        observedBillingMultiplier,
+        calibrationCreditsPerCny,
+        creditsPerCnyDirty
+      )
+    )
   }
 
   return (
@@ -131,6 +135,7 @@ export function ACUProfileProbeInspector(props: {
                 }}
                 onCalibrationCreditsPerCnyChange={(value) => {
                   setCalibrationError('')
+                  setCreditsPerCnyDirty(true)
                   setCalibrationCreditsPerCny(value)
                 }}
                 onSaveCalibration={saveCalibration}

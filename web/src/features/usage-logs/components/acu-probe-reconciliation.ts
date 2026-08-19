@@ -10,3 +10,19 @@ export function recommendedProbeMultiplier(
     ? debit / nominalCostUsd
     : undefined
 }
+
+export function buildProbeCalibrationInput(
+  observedBillingMultiplier: number,
+  creditsPerCny: string,
+  creditsPerCnyDirty: boolean
+): {
+  observedBillingMultiplier: number
+  creditsPerCny?: number
+} {
+  const input: {
+    observedBillingMultiplier: number
+    creditsPerCny?: number
+  } = { observedBillingMultiplier }
+  if (creditsPerCnyDirty) input.creditsPerCny = Number(creditsPerCny)
+  return input
+}
