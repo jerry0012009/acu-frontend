@@ -25,10 +25,12 @@ import {
   getACUGlobalRoutingPolicy,
   getACURoutingUtilityConfig,
   probeACUExecutionProfileById,
+  reconcileACUExecutionProfileEconomics,
   updateACUGlobalRoutingPolicy,
   updateACURoutingUtilityConfig,
   pauseACUChannel,
   type ACUChannelMonitorProfile,
+  type ACUExecutionProfileProbeResult,
   type ACUModelPoolEntry,
   type ACUProbeHistoryRow,
   type ACUMonitorRange,
@@ -54,8 +56,16 @@ import {
   type ACUMonitorProtocol,
   type ACUMonitorSort,
 } from './acu-monitor-presentation'
+import { ACUProfileProbeInspector } from './acu-profile-probe-inspector'
 
 const MONITOR_REFRESH_MS = 30 * 60_000
+
+type ProbeInspectorState = {
+  profile: ACUChannelMonitorProfile
+  protocol: 'responses' | 'messages' | 'chat_completions'
+  result: ACUExecutionProfileProbeResult | null
+  requestError?: string
+}
 
 function ms(value?: number) {
   if (!value) return 'n/a'
@@ -108,6 +118,9 @@ export function ACUChannelMonitor() {
     protocol: '',
     state: '',
   })
+  const [probeInspector, setProbeInspector] =
+    useState<ProbeInspectorState | null>(null)
+  const [calibrationMessage, setCalibrationMessage] = useState('')
   const query = useQuery({
     queryKey: [
       'acu-channel-monitor',
@@ -170,15 +183,57 @@ export function ACUChannelMonitor() {
       protocol: 'responses' | 'messages' | 'chat_completions'
     }) => probeACUExecutionProfileById(executionProfileId, protocol),
     onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: ['acu-channel-monitor'] })
-      if (result.data?.success) {
-        toast.success(t('Targeted Probe passed'))
-        return
-      }
-      toast.error(result.message || t('Targeted Probe failed'))
+      await queryClient.invalidateQueries({
+        queryKey: ['acu-channel-monitor'],
+      })
+      setProbeInspector((current) =>
+        current
+          ? {
+              ...current,
+              result: result.data ?? null,
+              requestError: result.data
+                ? undefined
+                : result.message || t('Targeted Probe failed'),
+            }
+          : current
+      )
     },
     onError: (error) =>
-      toast.error(error instanceof Error ? error.message : t('Probe failed')),
+      setProbeInspector((current) =>
+        current
+          ? {
+              ...current,
+              requestError:
+                error instanceof Error ? error.message : t('Probe failed'),
+            }
+          : current
+      ),
+  })
+  const economicsMutation = useMutation({
+    mutationFn: (input: {
+      executionProfileId: string
+      observedBillingMultiplier: number
+      creditsPerCny?: number
+    }) =>
+      reconcileACUExecutionProfileEconomics(input.executionProfileId, {
+        observedBillingMultiplier: input.observedBillingMultiplier,
+        creditsPerCny: input.creditsPerCny,
+      }),
+    onSuccess: async (response) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['acu-channel-monitor'] }),
+        queryClient.invalidateQueries({ queryKey: ['acu-execution-profiles'] }),
+      ])
+      setCalibrationMessage(
+        response.data?.applyRequired
+          ? t('Saved · Apply configuration required')
+          : t('Saved')
+      )
+    },
+    onError: (error) =>
+      setCalibrationMessage(
+        error instanceof Error ? error.message : t('Calibration failed')
+      ),
   })
   const allProfiles = useMemo(
     () => query.data?.data?.profiles ?? [],
@@ -267,6 +322,12 @@ export function ACUChannelMonitor() {
           })
         },
         onProbe: (profile: ACUChannelMonitorProfile, probeProtocol: string) => {
+          setCalibrationMessage('')
+          setProbeInspector({
+            profile,
+            protocol: probeProtocol as ProbeInspectorState['protocol'],
+            result: null,
+          })
           probeMutation.mutate({
             executionProfileId: profile.executionProfileId,
             protocol: probeProtocol as
@@ -614,6 +675,26 @@ export function ACUChannelMonitor() {
           </TabsContent>
         )}
       </Tabs>
+      <ACUProfileProbeInspector
+        open={probeInspector !== null}
+        profile={probeInspector?.profile ?? null}
+        protocol={probeInspector?.protocol ?? null}
+        loading={probeMutation.isPending}
+        result={probeInspector?.result ?? null}
+        requestError={probeInspector?.requestError}
+        savePending={economicsMutation.isPending}
+        saveMessage={calibrationMessage}
+        onOpenChange={(open) => {
+          if (!open) setProbeInspector(null)
+        }}
+        onSaveCalibration={(input) => {
+          if (!probeInspector) return
+          economicsMutation.mutate({
+            executionProfileId: probeInspector.profile.executionProfileId,
+            ...input,
+          })
+        }}
+      />
     </div>
   )
 }

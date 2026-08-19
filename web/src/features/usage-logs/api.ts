@@ -579,6 +579,7 @@ export type ACUExecutionProfileProbeResult = {
   costBreakdown: Record<string, unknown>
   rawUsage: Record<string, unknown> | null
   providerRequestId: string | null
+  errorDetail?: string
   savedConfigurationChanged: boolean
   productionRoutingChanged: boolean
 }
@@ -798,6 +799,33 @@ export async function probeACUExecutionProfileById(
     success: boolean
     message?: string
     data?: ACUExecutionProfileProbeResult
+  }
+}
+
+export async function reconcileACUExecutionProfileEconomics(
+  executionProfileId: string,
+  input: {
+    observedBillingMultiplier?: number
+    creditsPerCny?: number
+  }
+) {
+  const res = await api.patch(
+    `/api/log/acu-execution-profiles/${encodeURIComponent(executionProfileId)}/economics`,
+    input
+  )
+  return res.data as {
+    success: boolean
+    message?: string
+    data?: {
+      status: string
+      changed: {
+        observedBillingMultiplier: boolean
+        creditsPerCny: boolean
+      }
+      applyRequired: boolean
+      executionProfileId: string
+      economicsProviderId: string
+    }
   }
 }
 

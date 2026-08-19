@@ -385,6 +385,19 @@ func ProbeACUExecutionProfile(
 	)
 }
 
+func ReconcileACUExecutionProfileEconomics(
+	ctx context.Context,
+	id string,
+	input map[string]interface{},
+) (map[string]interface{}, error) {
+	return acuExecutionProfileRequest(
+		ctx,
+		http.MethodPatch,
+		"/internal/admin/execution-profiles/"+url.PathEscape(id)+"/economics",
+		input,
+	)
+}
+
 func ApplyACUExecutionProfiles(ctx context.Context) (map[string]interface{}, error) {
 	return acuExecutionProfileRequest(
 		ctx,

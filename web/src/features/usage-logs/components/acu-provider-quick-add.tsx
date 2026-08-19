@@ -23,15 +23,14 @@ import {
   type ACUQuickAddDiscovery,
   type ACUExecutionProfileProbeResult,
 } from '../api'
+import {
+  ACUProbeResultPanel,
+  type ACUProbePriceDraft,
+} from './acu-probe-result-panel'
 
 const PROTOCOLS = ['responses', 'chat_completions', 'messages'] as const
 type Protocol = (typeof PROTOCOLS)[number]
-type PriceDraft = {
-  inputPricePerMillion?: number
-  outputPricePerMillion?: number
-  cachedInputPricePerMillion?: number
-  cacheWritePricePerMillion?: number
-}
+type PriceDraft = ACUProbePriceDraft
 
 type QuickModel = ACUQuickAddDiscoveredModel & {
   selected: boolean
@@ -71,116 +70,6 @@ function hasRequiredPrice(model: QuickModel) {
   return (
     Number.isFinite(model.price?.inputPricePerMillion) &&
     Number.isFinite(model.price?.outputPricePerMillion)
-  )
-}
-
-function displayPrice(value: number | undefined) {
-  return value === undefined ? 'n/a' : `$${value} / 1M`
-}
-
-function ProbeSummary(props: {
-  result: ACUExecutionProfileProbeResult
-  price?: PriceDraft
-  currentMultiplier: number
-  creditsPerCny: number
-  actualDebit: string
-  onActualDebitChange: (value: string) => void
-  onUseRecommended: () => void
-}) {
-  const { t } = useTranslation()
-  const nominal = Number(props.result.costBreakdown.catalogNominalCostUsd)
-  const actualDebit = Number(props.actualDebit)
-  const recommended =
-    nominal > 0 && Number.isFinite(actualDebit) && actualDebit >= 0
-      ? actualDebit / nominal
-      : undefined
-  const estimatedPlatformDebit = nominal * props.currentMultiplier
-  const estimatedCny =
-    props.creditsPerCny > 0
-      ? estimatedPlatformDebit / props.creditsPerCny
-      : undefined
-  return (
-    <div className='space-y-2 rounded border p-2 text-[11px]'>
-      <div
-        className={props.result.success ? 'text-green-700' : 'text-destructive'}
-      >
-        {props.result.success ? t('Success') : t('Failure')} ·{' '}
-        {props.result.httpStatus ?? 'n/a'} · {props.result.latencyMs ?? 'n/a'}{' '}
-        ms
-      </div>
-      <div className='text-muted-foreground grid grid-cols-2 gap-x-3 gap-y-1'>
-        <span>Input price / 1M</span>
-        <span>{displayPrice(props.price?.inputPricePerMillion)}</span>
-        <span>Output price / 1M</span>
-        <span>{displayPrice(props.price?.outputPricePerMillion)}</span>
-        <span>Cached input price / 1M</span>
-        <span>{displayPrice(props.price?.cachedInputPricePerMillion)}</span>
-        <span>Cache write price / 1M</span>
-        <span>{displayPrice(props.price?.cacheWritePricePerMillion)}</span>
-        <span>Input tokens</span>
-        <span>{props.result.inputTokens}</span>
-        <span>Cached input tokens</span>
-        <span>{props.result.cachedInputTokens}</span>
-        <span>Cache creation tokens</span>
-        <span>{props.result.cacheCreationInputTokens}</span>
-        <span>Output tokens</span>
-        <span>{props.result.outputTokens}</span>
-        <span>Reasoning tokens</span>
-        <span>{props.result.reasoningTokens}</span>
-        <span>Input accounting</span>
-        <span>
-          {props.result.inputTokenAccountingMode === 'includes_cached'
-            ? t('Total input includes cached tokens')
-            : t('Input excludes cached tokens')}
-        </span>
-        <span>Nominal model cost USD</span>
-        <span>{nominal.toFixed(8)}</span>
-        <span>Current billing multiplier</span>
-        <span>{props.currentMultiplier.toFixed(4)}×</span>
-        <span>Estimated platform debit</span>
-        <span>{estimatedPlatformDebit.toFixed(8)} credits</span>
-        <span>Credits per CNY</span>
-        <span>1 RMB = {props.creditsPerCny} credits</span>
-        <span>Estimated CNY cost</span>
-        <span>
-          ¥{estimatedCny === undefined ? 'n/a' : estimatedCny.toFixed(8)}
-        </span>
-      </div>
-      {props.result.success && (
-        <div className='grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end'>
-          <label className='space-y-1'>
-            <span className='text-muted-foreground'>
-              {t('Actual platform debit (USD credits)')}
-            </span>
-            <input
-              className='bg-background h-8 w-full rounded border px-2'
-              type='number'
-              min='0'
-              step='0.00000001'
-              value={props.actualDebit}
-              onChange={(event) =>
-                props.onActualDebitChange(event.target.value)
-              }
-            />
-          </label>
-          <div className='text-muted-foreground'>
-            {recommended === undefined
-              ? t('Recommended multiplier unavailable')
-              : `${t('Recommended multiplier')}: ${recommended.toFixed(4)}×`}
-            {recommended !== undefined && (
-              <Button
-                size='sm'
-                variant='ghost'
-                className='ml-1'
-                onClick={props.onUseRecommended}
-              >
-                {t('Use')}
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
   )
 }
 
@@ -701,7 +590,7 @@ export function ACUProviderQuickAdd() {
                         )}
                       </div>
                       {result && (
-                        <ProbeSummary
+                        <ACUProbeResultPanel
                           result={result}
                           price={pair.model.price ?? knownPrice(pair.model)}
                           currentMultiplier={
@@ -716,16 +605,11 @@ export function ACUProviderQuickAdd() {
                               [key]: value,
                             }))
                           }
-                          onUseRecommended={() => {
-                            const nominal = Number(
-                              result.costBreakdown.catalogNominalCostUsd
-                            )
-                            const debit = Number(actualDebits[key])
-                            if (nominal <= 0 || !Number.isFinite(debit)) return
+                          onUseRecommended={(recommended) =>
                             updateModel(pair.model.providerModelId, {
-                              observedBillingMultiplier: debit / nominal,
+                              observedBillingMultiplier: recommended,
                             })
-                          }}
+                          }
                         />
                       )}
                     </div>

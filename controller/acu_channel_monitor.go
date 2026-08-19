@@ -99,6 +99,24 @@ func ProbeACUExecutionProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
 }
 
+func ReconcileACUExecutionProfileEconomics(c *gin.Context) {
+	var input map[string]interface{}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	result, err := service.ReconcileACUExecutionProfileEconomics(
+		c.Request.Context(),
+		c.Param("id"),
+		input,
+	)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
 func ApplyACUExecutionProfiles(c *gin.Context) {
 	result, err := service.ApplyACUExecutionProfiles(c.Request.Context())
 	if err != nil {
