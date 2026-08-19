@@ -73,6 +73,13 @@ export function classifyProbeBucket(
   return 'success'
 }
 
+export function classifyModelProbeBucket(
+  row: Pick<ACUProbeBucket, 'successCount' | 'totalCount'>
+): ACUHistoryBucketTone {
+  if (row.totalCount === 0) return 'empty'
+  return row.successCount > 0 ? 'success' : 'failed'
+}
+
 function probeTimestamp(probe: ACUProbeHistoryRow): number {
   const time = new Date(probe.started_at).getTime()
   return Number.isFinite(time) ? time : Number.NEGATIVE_INFINITY

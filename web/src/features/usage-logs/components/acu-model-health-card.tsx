@@ -10,6 +10,7 @@ import type { ACUChannelMonitorProfile, ACUGlobalRoutingPolicy } from '../api'
 import {
   anonymousACULineId,
   classifyHistoryBucket,
+  classifyModelProbeBucket,
   classifyProbeBucket,
   formatProbeResult,
   probeBucketTitle,
@@ -94,7 +95,7 @@ export function ACUModelHealthCard(props: {
           label={t('Probe')}
           buckets={props.model.probeBuckets.map((bucket) => ({
             key: bucket.bucket,
-            tone: classifyProbeBucket(bucket),
+            tone: classifyModelProbeBucket(bucket),
             title: probeBucketTitle(bucket),
           }))}
         />

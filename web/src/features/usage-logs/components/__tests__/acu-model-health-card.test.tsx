@@ -64,7 +64,7 @@ test('renders anonymous model lines and isolates user-facing supply evidence', a
     targetedCount: 0,
     recoveryCount: 0,
     successCount: index === 59 ? 1 : 0,
-    totalCount: index === 59 ? 1 : 0,
+    totalCount: index === 59 ? 3 : 0,
   }))
   await act(async () => {
     root.render(
@@ -122,5 +122,17 @@ test('renders anonymous model lines and isolates user-facing supply evidence', a
   assert.equal(
     container.querySelectorAll('[aria-label="Probe timeline"] span').length,
     120
+  )
+  const probeTimelines = container.querySelectorAll(
+    '[aria-label="Probe timeline"]'
+  )
+  assert.equal(probeTimelines.length, 2)
+  assert.match(
+    probeTimelines[0]?.querySelectorAll('span').item(59)?.className ?? '',
+    /bg-success/
+  )
+  assert.match(
+    probeTimelines[1]?.querySelectorAll('span').item(59)?.className ?? '',
+    /bg-warning/
   )
 })

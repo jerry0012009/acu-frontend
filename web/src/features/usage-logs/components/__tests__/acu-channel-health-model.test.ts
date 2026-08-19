@@ -8,6 +8,7 @@ import type {
 } from '../../api'
 import {
   classifyHistoryBucket,
+  classifyModelProbeBucket,
   classifyProbeBucket,
   formatProbeResult,
   groupACUChannels,
@@ -153,6 +154,26 @@ test('classifies empty, successful, mixed, and failed production buckets', () =>
     classifyHistoryBucket(bucket({ success_count: 0, error_count: 4 })),
     'failed'
   )
+})
+
+test('uses supply semantics for Model Probe buckets while Profile buckets stay mixed', () => {
+  assert.equal(
+    classifyModelProbeBucket({ successCount: 0, totalCount: 0 }),
+    'empty'
+  )
+  assert.equal(
+    classifyModelProbeBucket({ successCount: 0, totalCount: 3 }),
+    'failed'
+  )
+  assert.equal(
+    classifyModelProbeBucket({ successCount: 1, totalCount: 3 }),
+    'success'
+  )
+  assert.equal(
+    classifyModelProbeBucket({ successCount: 3, totalCount: 3 }),
+    'success'
+  )
+  assert.equal(classifyProbeBucket({ successCount: 1, totalCount: 3 }), 'mixed')
 })
 
 test('uses each Profile latest Probe for coverage while retaining all Probe evidence', () => {
