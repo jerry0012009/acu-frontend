@@ -286,7 +286,7 @@ func SetApiRouter(router *gin.Engine) {
 		logRoute.GET("/self/search", middleware.UserAuth(), middleware.SearchRateLimit(), controller.SearchUserLogs)
 		logRoute.GET("/self/acu-session-trace/:identifier", middleware.UserAuth(), middleware.DisableCache(), controller.GetACUSessionTrace)
 		logRoute.GET("/self/acu-work-timeline", middleware.UserAuth(), middleware.DisableCache(), controller.GetACUWorkTimeline)
-		logRoute.GET("/acu-channel-monitor", middleware.AdminAuth(), middleware.DisableCache(), controller.GetACUChannelMonitor)
+		logRoute.GET("/acu-channel-monitor", middleware.UserAuth(), middleware.DisableCache(), controller.GetACUChannelMonitor)
 		logRoute.POST("/acu-channel-monitor/pause", middleware.AdminAuth(), controller.PauseACUChannel)
 		executionProfileRoute := apiRouter.Group("/log/acu-execution-profiles")
 		executionProfileRoute.Use(middleware.RootAuth(), middleware.DisableCache())

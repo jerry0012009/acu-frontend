@@ -34,8 +34,8 @@ const routeSource = readFileSync(
   'utf8'
 )
 
-test('admin-only navigation and direct route guards cover supply monitor and async tasks', () => {
-  assert.match(
+test('authenticated users can open Supply Monitor while other diagnostic sections remain admin-only', () => {
+  assert.doesNotMatch(
     sidebarSource,
     /title: t\('Supply Monitor'\)[\s\S]{0,160}requiredRole: ROLE\.ADMIN/
   )
@@ -45,7 +45,7 @@ test('admin-only navigation and direct route guards cover supply monitor and asy
   )
   assert.match(
     routeSource,
-    /\['channel-monitor', 'drawing', 'task'\][\s\S]{0,260}role[\s\S]{0,120}ROLE\.ADMIN/
+    /\['drawing', 'task'\][\s\S]{0,260}role[\s\S]{0,120}ROLE\.ADMIN/
   )
 })
 
@@ -73,7 +73,7 @@ test('root Router configuration is lazy and keeps saved state separate from draf
 test('overview Profile routing controls stay Root-only and reuse existing policy and Probe APIs', () => {
   assert.match(
     monitorSource,
-    /profileActions=\{[\s\S]{0,80}isRoot[\s\S]{0,240}globalRoutingPolicyQuery/
+    /const profileActions = isRoot[\s\S]{0,260}globalRoutingPolicyQuery/
   )
   assert.match(monitorSource, /probeACUExecutionProfileById/)
   assert.match(
@@ -87,6 +87,25 @@ test('overview Profile routing controls stay Root-only and reuse existing policy
   assert.match(
     monitorSource,
     /queryKey: \['acu-global-routing-policy'\][\s\S]{0,220}queryKey: \['acu-channel-monitor'\]/
+  )
+  assert.match(monitorSource, /overviewLayout === 'channel'/)
+  assert.match(monitorSource, /overviewLayout === 'model'/)
+  assert.match(monitorSource, /showDiagnostics=\{isAdmin\}/)
+  assert.match(monitorSource, /const profileActions = isRoot/)
+})
+
+test('ordinary users get only the anonymous Model Overview presentation', () => {
+  assert.match(monitorSource, /isAdmin \? 'channel' : 'model'/)
+  assert.match(monitorSource, /t\('By channel'\)/)
+  assert.match(monitorSource, /t\('By model'\)/)
+  assert.match(monitorSource, /\{isAdmin && \(\s*<div className='grid gap-2/)
+  assert.match(monitorSource, /<ACUModelHealthCard/)
+  assert.match(
+    readFileSync(
+      new URL('../acu-model-health-card.tsx', import.meta.url),
+      'utf8'
+    ),
+    /anonymousACULineId\(profile\.executionProfileId\)/
   )
 })
 

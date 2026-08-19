@@ -52,6 +52,18 @@ export type ACUChannelOverview = {
   latestHealthEvent: ACUChannelMonitorProfile['healthEvents'][number] | null
 }
 
+export type ACUModelOverview = {
+  modelId: string
+  profiles: ACUChannelMonitorProfile[]
+  buckets: ACUChannelHistoryRow[]
+  probeBuckets: ACUProbeBucket[]
+  requestCount: number
+  successCount: number
+  availability: number | null
+  eligibleCount: number
+  totalCount: number
+}
+
 export function classifyProbeBucket(
   row: Pick<ACUProbeBucket, 'successCount' | 'totalCount'>
 ): ACUHistoryBucketTone {
@@ -135,7 +147,18 @@ export function formatProbeResult(
   return redactProbeCredentials(parts.join(' · '))
 }
 
-function buildProbeBuckets(
+export function probeBucketTitle(bucket: ACUProbeBucket): string {
+  return [
+    `${new Date(bucket.bucket).toLocaleString()} · full-pool ${bucket.fullPoolCount} · targeted ${bucket.targetedCount} · recovery ${bucket.recoveryCount} · ${bucket.successCount}/${bucket.totalCount}`,
+    bucket.latestProbe
+      ? `Latest: ${formatProbeResult(bucket.latestProbe)}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
+
+export function buildProbeBuckets(
   probes: ACUProbeHistoryRow[],
   bucketMs: number,
   lastBucketTime: number
@@ -179,6 +202,179 @@ function buildProbeBuckets(
       }
     )
   })
+}
+
+function monitorBucketSpec(range: ACUMonitorRange) {
+  return {
+    '1h': 60_000,
+    '6h': 5 * 60_000,
+    '24h': 15 * 60_000,
+    '7d': 60 * 60_000,
+  }[range]
+}
+
+function historyBucket(bucket: string, modelId: string): ACUChannelHistoryRow {
+  return {
+    bucket,
+    scope_type: 'channel_model',
+    scope_id: modelId,
+    execution_profile_id: null,
+    canonical_model: modelId,
+    provider: '',
+    channel: '',
+    request_count: 0,
+    success_count: 0,
+    error_count: 0,
+    rate_limited_count: 0,
+    server_error_count: 0,
+    watchdog_count: 0,
+    recovery_count: 0,
+    p50_first_model_event_ms: null,
+    p95_first_model_event_ms: null,
+  }
+}
+
+function sortProfilesByRank(
+  profiles: ACUChannelMonitorProfile[]
+): ACUChannelMonitorProfile[] {
+  return [...profiles].sort(
+    (left, right) =>
+      (left.profileRank ?? Number.POSITIVE_INFINITY) -
+        (right.profileRank ?? Number.POSITIVE_INFINITY) ||
+      (right.profileUtility ?? Number.NEGATIVE_INFINITY) -
+        (left.profileUtility ?? Number.NEGATIVE_INFINITY) ||
+      left.executionProfileId.localeCompare(right.executionProfileId)
+  )
+}
+
+export function anonymousACULineId(executionProfileId: string): string {
+  let hash = 2166136261
+  for (const character of executionProfileId) {
+    hash ^= character.codePointAt(0) ?? 0
+    hash = Math.imul(hash, 16777619)
+  }
+  return String((hash >>> 0) % 10000).padStart(4, '0')
+}
+
+export function groupACUModels(
+  profiles: ACUChannelMonitorProfile[],
+  history: ACUChannelHistoryRow[],
+  range: ACUMonitorRange = '24h',
+  generatedAt = new Date().toISOString(),
+  probeHistory: ACUProbeHistoryRow[] = []
+): ACUModelOverview[] {
+  const profilesByModel = new Map<string, ACUChannelMonitorProfile[]>()
+  for (const profile of profiles) {
+    const modelProfiles = profilesByModel.get(profile.canonicalModel) ?? []
+    modelProfiles.push(profile)
+    profilesByModel.set(profile.canonicalModel, modelProfiles)
+  }
+  const probesByProfile = new Map<string, ACUProbeHistoryRow[]>()
+  const probesByModel = new Map<string, ACUProbeHistoryRow[]>()
+  const profileModelById = new Map(
+    profiles.map((profile) => [
+      profile.executionProfileId,
+      profile.canonicalModel,
+    ])
+  )
+  for (const probe of probeHistory) {
+    const modelId =
+      profileModelById.get(probe.execution_profile_id) ??
+      probe.canonical_model_id
+    if (!modelId) continue
+    const modelProbes = probesByModel.get(modelId) ?? []
+    modelProbes.push(probe)
+    probesByModel.set(modelId, modelProbes)
+    const profileProbes = probesByProfile.get(probe.execution_profile_id) ?? []
+    profileProbes.push(probe)
+    probesByProfile.set(probe.execution_profile_id, profileProbes)
+  }
+  const bucketMs = monitorBucketSpec(range)
+  const generatedTime = new Date(generatedAt).getTime()
+  const lastBucketTime =
+    Math.floor(
+      (Number.isFinite(generatedTime) ? generatedTime : Date.now()) / bucketMs
+    ) * bucketMs
+
+  return [...profilesByModel.entries()]
+    .map(([modelId, modelProfiles]) => {
+      const modelHistory = history.filter(
+        (row) =>
+          row.scope_type === 'channel_model' && row.canonical_model === modelId
+      )
+      const sourceHistory =
+        modelHistory.length > 0
+          ? modelHistory
+          : history.filter(
+              (row) =>
+                row.scope_type === 'profile' &&
+                row.execution_profile_id != null &&
+                profileModelById.get(row.execution_profile_id) === modelId
+            )
+      const historyByBucket = new Map<number, ACUChannelHistoryRow>()
+      for (const row of sourceHistory) {
+        const bucketTime = new Date(row.bucket).getTime()
+        if (!Number.isFinite(bucketTime)) continue
+        const current =
+          historyByBucket.get(bucketTime) ?? historyBucket(row.bucket, modelId)
+        current.request_count += row.request_count
+        current.success_count += row.success_count
+        current.error_count += row.error_count
+        current.rate_limited_count += row.rate_limited_count
+        current.server_error_count += row.server_error_count
+        current.watchdog_count += row.watchdog_count
+        current.recovery_count += row.recovery_count
+        historyByBucket.set(bucketTime, current)
+      }
+      const buckets = Array.from({ length: 60 }, (_, index) => {
+        const bucketTime = lastBucketTime - (59 - index) * bucketMs
+        return (
+          historyByBucket.get(bucketTime) ??
+          historyBucket(new Date(bucketTime).toISOString(), modelId)
+        )
+      })
+      const modelProbes = probesByModel.get(modelId) ?? []
+      const latestProbeByProfile = new Map<string, ACUProbeHistoryRow>()
+      for (const probe of modelProbes) {
+        const current = latestProbeByProfile.get(probe.execution_profile_id)
+        if (!current || probeTimestamp(probe) > probeTimestamp(current)) {
+          latestProbeByProfile.set(probe.execution_profile_id, probe)
+        }
+      }
+      const profilesWithProbes = sortProfilesByRank(
+        modelProfiles.map((profile) => ({
+          ...profile,
+          latestProbe: latestProbeByProfile.get(profile.executionProfileId),
+          probeBuckets: buildProbeBuckets(
+            probesByProfile.get(profile.executionProfileId) ?? [],
+            bucketMs,
+            lastBucketTime
+          ),
+        }))
+      )
+      const requestCount = sourceHistory.reduce(
+        (total, row) => total + row.request_count,
+        0
+      )
+      const successCount = sourceHistory.reduce(
+        (total, row) => total + row.success_count,
+        0
+      )
+      return {
+        modelId,
+        profiles: profilesWithProbes,
+        buckets,
+        probeBuckets: buildProbeBuckets(modelProbes, bucketMs, lastBucketTime),
+        requestCount,
+        successCount,
+        availability: requestCount > 0 ? successCount / requestCount : null,
+        eligibleCount: modelProfiles.filter(
+          (profile) => profile.routingEligible
+        ).length,
+        totalCount: modelProfiles.length,
+      }
+    })
+    .sort((left, right) => left.modelId.localeCompare(right.modelId))
 }
 
 export function groupACUChannels(

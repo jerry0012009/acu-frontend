@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func TestACUChannelMonitorRequiresAdminWhileRoutingCatalogRemainsUserScoped(t *testing.T) {
+func TestACUChannelMonitorIsUserReadableWhileManagementRemainsRestricted(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	previousDB := model.DB
 	previousType := common.MainDatabaseType()
@@ -67,7 +67,7 @@ func TestACUChannelMonitorRequiresAdminWhileRoutingCatalogRemainsUserScoped(t *t
 		return recorder
 	}
 
-	require.Equal(t, http.StatusForbidden, request("/api/log/acu-channel-monitor", "regular-user-pat").Code)
+	require.Equal(t, http.StatusOK, request("/api/log/acu-channel-monitor", "regular-user-pat").Code)
 	require.Equal(t, http.StatusOK, request("/api/log/acu-channel-monitor", "admin-user-pat").Code)
 	require.Equal(t, http.StatusOK, request("/api/log/acu-channel-monitor", "root-user-pat").Code)
 	require.Equal(t, http.StatusForbidden, request("/api/log/acu-execution-profiles", "admin-user-pat").Code)

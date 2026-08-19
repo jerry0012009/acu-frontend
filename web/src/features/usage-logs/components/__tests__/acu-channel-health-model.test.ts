@@ -11,6 +11,8 @@ import {
   classifyProbeBucket,
   formatProbeResult,
   groupACUChannels,
+  groupACUModels,
+  anonymousACULineId,
 } from '../acu-channel-health-model.ts'
 
 function profile(
@@ -434,5 +436,114 @@ test('selects the eligible primary Profile with the most production requests', (
   assert.equal(
     groups[0].primaryProfile?.executionProfileId,
     sol.executionProfileId
+  )
+})
+
+test('groups model supply by canonical model and reuses profile ranking order', () => {
+  const ranked = profile({
+    executionProfileId: 'cx008:gpt-5.6-luna:responses',
+    channel: 'cx008',
+    profileRank: 2,
+  })
+  const best = profile({
+    executionProfileId: 'cx006:gpt-5.6-luna:responses',
+    profileRank: 1,
+  })
+  const unranked = profile({
+    executionProfileId: 'cx009:gpt-5.6-luna:responses',
+    channel: 'cx009',
+    profileRank: null,
+  })
+  const otherModel = profile({
+    executionProfileId: 'cx010:gpt-5.6-sol:responses',
+    canonicalModel: 'gpt-5.6-sol',
+    channel: 'cx010',
+  })
+
+  const groups = groupACUModels(
+    [ranked, otherModel, unranked, best],
+    [],
+    '24h',
+    '2026-08-05T12:15:00Z'
+  )
+
+  assert.deepEqual(
+    groups
+      .find((group) => group.modelId === 'gpt-5.6-luna')
+      ?.profiles.map((item) => item.executionProfileId),
+    [
+      best.executionProfileId,
+      ranked.executionProfileId,
+      unranked.executionProfileId,
+    ]
+  )
+  assert.equal(
+    groups.find((group) => group.modelId === 'gpt-5.6-luna')?.buckets.length,
+    60
+  )
+  assert.equal(
+    groups.find((group) => group.modelId === 'gpt-5.6-sol')?.profiles.length,
+    1
+  )
+})
+
+test('keeps model production and Probe evidence isolated and uses stable anonymous line IDs', () => {
+  const luna = profile()
+  const sol = profile({
+    executionProfileId: 'cx008:gpt-5.6-sol:responses',
+    canonicalModel: 'gpt-5.6-sol',
+    channel: 'cx008',
+  })
+  const groups = groupACUModels(
+    [luna, sol],
+    [
+      bucket({
+        scope_type: 'channel_model',
+        scope_id: 'cx006:gpt-5.6-luna',
+        canonical_model: 'gpt-5.6-luna',
+        request_count: 3,
+        success_count: 2,
+      }),
+      bucket({
+        scope_type: 'channel_model',
+        scope_id: 'cx008:gpt-5.6-sol',
+        canonical_model: 'gpt-5.6-sol',
+        request_count: 8,
+        success_count: 8,
+        error_count: 0,
+      }),
+    ],
+    '24h',
+    '2026-08-05T12:15:00Z',
+    [
+      {
+        execution_profile_id: luna.executionProfileId,
+        canonical_model_id: 'gpt-5.6-luna',
+        status: 'success',
+        started_at: '2026-08-05T12:01:00Z',
+        probeMode: 'targeted',
+      },
+      {
+        execution_profile_id: sol.executionProfileId,
+        canonical_model_id: 'gpt-5.6-sol',
+        status: 'failed',
+        started_at: '2026-08-05T12:02:00Z',
+        probeMode: 'recovery',
+      },
+    ] as ACUProbeHistoryRow[]
+  )
+  const lunaGroup = groups.find((group) => group.modelId === 'gpt-5.6-luna')
+  const solGroup = groups.find((group) => group.modelId === 'gpt-5.6-sol')
+  assert.equal(lunaGroup?.requestCount, 3)
+  assert.equal(solGroup?.requestCount, 8)
+  assert.equal(lunaGroup?.probeBuckets.length, 60)
+  assert.equal(solGroup?.probeBuckets.length, 60)
+  assert.notEqual(
+    anonymousACULineId(luna.executionProfileId),
+    anonymousACULineId(sol.executionProfileId)
+  )
+  assert.equal(
+    anonymousACULineId(luna.executionProfileId),
+    anonymousACULineId(luna.executionProfileId)
   )
 })

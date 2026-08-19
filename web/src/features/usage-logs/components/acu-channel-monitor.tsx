@@ -38,10 +38,11 @@ import {
   type ACURoutingUtilityConfig,
 } from '../api'
 import { ACUChannelHealthCard } from './acu-channel-health-card'
-import { groupACUChannels } from './acu-channel-health-model'
+import { groupACUChannels, groupACUModels } from './acu-channel-health-model'
 import { ACUChannelHistory } from './acu-channel-history'
 import { ACUExecutionProfileManager } from './acu-execution-profile-manager'
 import { updateGlobalProfileRouting } from './acu-global-routing-policy'
+import { ACUModelHealthCard } from './acu-model-health-card'
 import {
   filterProfilesByProtocol,
   monitorReason,
@@ -90,6 +91,9 @@ export function ACUChannelMonitor() {
   )
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('overview')
+  const [overviewLayout, setOverviewLayout] = useState<'channel' | 'model'>(
+    isAdmin ? 'channel' : 'model'
+  )
   const [range, setRange] = useState<ACUMonitorRange>('24h')
   const [supplyStrategy, setSupplyStrategy] =
     useState<ACUSupplyStrategy>('balanced')
@@ -205,6 +209,63 @@ export function ACUChannelMonitor() {
     query.data?.data?.probeHistory,
     range,
   ])
+  const modelGroups = useMemo(() => {
+    if (activeTab !== 'overview' || (isAdmin && overviewLayout !== 'model')) {
+      return []
+    }
+    return groupACUModels(
+      protocolProfiles,
+      query.data?.data?.history ?? [],
+      range,
+      query.data?.data?.generatedAt,
+      query.data?.data?.probeHistory ?? []
+    )
+  }, [
+    activeTab,
+    isAdmin,
+    overviewLayout,
+    protocolProfiles,
+    query.data?.data?.generatedAt,
+    query.data?.data?.history,
+    query.data?.data?.probeHistory,
+    range,
+  ])
+  const profileActions = isRoot
+    ? {
+        policy: globalRoutingPolicyQuery.data,
+        isTogglePending: (profileId: string) =>
+          globalRoutingMutation.isPending &&
+          globalRoutingMutation.variables?.profileId === profileId,
+        isProbePending: (profileId: string) =>
+          probeMutation.isPending &&
+          probeMutation.variables?.executionProfileId === profileId,
+        onToggleRouting: (
+          profile: ACUChannelMonitorProfile,
+          enabled: boolean
+        ) => {
+          const policy = globalRoutingPolicyQuery.data
+          if (!policy) return
+          globalRoutingMutation.mutate({
+            profileId: profile.executionProfileId,
+            policy: updateGlobalProfileRouting(
+              policy,
+              allProfiles,
+              profile.executionProfileId,
+              enabled
+            ),
+          })
+        },
+        onProbe: (profile: ACUChannelMonitorProfile, probeProtocol: string) => {
+          probeMutation.mutate({
+            executionProfileId: profile.executionProfileId,
+            protocol: probeProtocol as
+              | 'responses'
+              | 'messages'
+              | 'chat_completions',
+          })
+        },
+      }
+    : undefined
   const summary = summarizeMonitorProfiles(protocolProfiles)
   const statItems = [
     [t('Configured'), summary.configured, Activity],
@@ -236,91 +297,99 @@ export function ACUChannelMonitor() {
           <RefreshCw className='size-4' />
         </Button>
       </div>
-      <div className='grid gap-2 sm:grid-cols-2 xl:grid-cols-5'>
-        <label className='space-y-1 text-xs'>
-          <span className='text-muted-foreground'>{t('Time range')}</span>
-          <select
-            aria-label={t('Time range')}
-            className='bg-background h-8 w-full rounded border px-2'
-            value={range}
-            onChange={(event) =>
-              setRange(event.target.value as ACUMonitorRange)
-            }
-          >
-            <option value='1h'>1h</option>
-            <option value='6h'>6h</option>
-            <option value='24h'>24h</option>
-            <option value='7d'>7d</option>
-          </select>
-        </label>
-        <label className='space-y-1 text-xs'>
-          <span className='text-muted-foreground'>{t('Scoring strategy')}</span>
-          <select
-            aria-label={t('Scoring strategy')}
-            className='bg-background h-8 w-full rounded border px-2'
-            value={supplyStrategy}
-            onChange={(event) =>
-              setSupplyStrategy(event.target.value as ACUSupplyStrategy)
-            }
-          >
-            <option value='balanced'>{t('Balanced')}</option>
-            <option value='lowest_cost'>{t('Lowest cost')}</option>
-            <option value='low_latency'>{t('Low latency')}</option>
-            <option value='high_reliability'>{t('High reliability')}</option>
-          </select>
-        </label>
-        <label className='space-y-1 text-xs'>
-          <span className='text-muted-foreground'>{t('Request size')}</span>
-          <select
-            aria-label={t('Request size')}
-            className='bg-background h-8 w-full rounded border px-2'
-            value={scenario}
-            onChange={(event) =>
-              setScenario(event.target.value as ACUMonitorScenario)
-            }
-          >
-            <option value='small'>{t('Small 2k/500')}</option>
-            <option value='standard'>{t('Standard 20k/2k')}</option>
-            <option value='long'>{t('Long context 100k/4k')}</option>
-          </select>
-        </label>
-        <label className='space-y-1 text-xs'>
-          <span className='text-muted-foreground'>{t('Protocol')}</span>
-          <select
-            aria-label={t('Protocol')}
-            className='bg-background h-8 w-full rounded border px-2'
-            value={protocol}
-            onChange={(event) =>
-              setProtocol(event.target.value as ACUMonitorProtocol)
-            }
-          >
-            <option value='all'>{t('All protocols')}</option>
-            <option value='responses'>{t('OpenAI Responses (Codex)')}</option>
-            <option value='messages'>
-              {t('Anthropic Messages (Claude protocol)')}
-            </option>
-            <option value='chat_completions'>
-              {t('OpenAI Chat Completions')}
-            </option>
-          </select>
-        </label>
-        <label className='space-y-1 text-xs'>
-          <span className='text-muted-foreground'>{t('Sort')}</span>
-          <select
-            aria-label={t('Sort')}
-            className='bg-background h-8 w-full rounded border px-2'
-            value={sort}
-            onChange={(event) => setSort(event.target.value as ACUMonitorSort)}
-          >
-            <option value='recommended'>{t('Recommended')}</option>
-            <option value='usage'>{t('Usage high to low')}</option>
-            <option value='cost'>{t('Estimated cost low to high')}</option>
-            <option value='reliability'>{t('Reliability high to low')}</option>
-            <option value='speed'>{t('Response speed fast to slow')}</option>
-            <option value='recent_issue'>{t('Most recent issue')}</option>
-          </select>
-        </label>
-      </div>
+      {isAdmin && (
+        <div className='grid gap-2 sm:grid-cols-2 xl:grid-cols-5'>
+          <label className='space-y-1 text-xs'>
+            <span className='text-muted-foreground'>{t('Time range')}</span>
+            <select
+              aria-label={t('Time range')}
+              className='bg-background h-8 w-full rounded border px-2'
+              value={range}
+              onChange={(event) =>
+                setRange(event.target.value as ACUMonitorRange)
+              }
+            >
+              <option value='1h'>1h</option>
+              <option value='6h'>6h</option>
+              <option value='24h'>24h</option>
+              <option value='7d'>7d</option>
+            </select>
+          </label>
+          <label className='space-y-1 text-xs'>
+            <span className='text-muted-foreground'>
+              {t('Scoring strategy')}
+            </span>
+            <select
+              aria-label={t('Scoring strategy')}
+              className='bg-background h-8 w-full rounded border px-2'
+              value={supplyStrategy}
+              onChange={(event) =>
+                setSupplyStrategy(event.target.value as ACUSupplyStrategy)
+              }
+            >
+              <option value='balanced'>{t('Balanced')}</option>
+              <option value='lowest_cost'>{t('Lowest cost')}</option>
+              <option value='low_latency'>{t('Low latency')}</option>
+              <option value='high_reliability'>{t('High reliability')}</option>
+            </select>
+          </label>
+          <label className='space-y-1 text-xs'>
+            <span className='text-muted-foreground'>{t('Request size')}</span>
+            <select
+              aria-label={t('Request size')}
+              className='bg-background h-8 w-full rounded border px-2'
+              value={scenario}
+              onChange={(event) =>
+                setScenario(event.target.value as ACUMonitorScenario)
+              }
+            >
+              <option value='small'>{t('Small 2k/500')}</option>
+              <option value='standard'>{t('Standard 20k/2k')}</option>
+              <option value='long'>{t('Long context 100k/4k')}</option>
+            </select>
+          </label>
+          <label className='space-y-1 text-xs'>
+            <span className='text-muted-foreground'>{t('Protocol')}</span>
+            <select
+              aria-label={t('Protocol')}
+              className='bg-background h-8 w-full rounded border px-2'
+              value={protocol}
+              onChange={(event) =>
+                setProtocol(event.target.value as ACUMonitorProtocol)
+              }
+            >
+              <option value='all'>{t('All protocols')}</option>
+              <option value='responses'>{t('OpenAI Responses (Codex)')}</option>
+              <option value='messages'>
+                {t('Anthropic Messages (Claude protocol)')}
+              </option>
+              <option value='chat_completions'>
+                {t('OpenAI Chat Completions')}
+              </option>
+            </select>
+          </label>
+          <label className='space-y-1 text-xs'>
+            <span className='text-muted-foreground'>{t('Sort')}</span>
+            <select
+              aria-label={t('Sort')}
+              className='bg-background h-8 w-full rounded border px-2'
+              value={sort}
+              onChange={(event) =>
+                setSort(event.target.value as ACUMonitorSort)
+              }
+            >
+              <option value='recommended'>{t('Recommended')}</option>
+              <option value='usage'>{t('Usage high to low')}</option>
+              <option value='cost'>{t('Estimated cost low to high')}</option>
+              <option value='reliability'>
+                {t('Reliability high to low')}
+              </option>
+              <option value='speed'>{t('Response speed fast to slow')}</option>
+              <option value='recent_issue'>{t('Most recent issue')}</option>
+            </select>
+          </label>
+        </div>
+      )}
       <div className='bg-muted/40 text-muted-foreground rounded border px-3 py-2 text-xs'>
         {t(
           'Route eligible means this Profile can currently take production requests. A fresh Probe only means a recent check ran; it does not mean the check passed.'
@@ -369,69 +438,68 @@ export function ACUChannelMonitor() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className='min-w-0'>
         <TabsList>
           <TabsTrigger value='overview'>{t('Overview')}</TabsTrigger>
-          <TabsTrigger value='current'>{t('Profiles')}</TabsTrigger>
-          <TabsTrigger value='probes'>{t('Probe history')}</TabsTrigger>
-          <TabsTrigger value='history'>{t('History')}</TabsTrigger>
-          <TabsTrigger value='inventory'>{t('Supply inventory')}</TabsTrigger>
-          <TabsTrigger value='models'>{t('Model pool')}</TabsTrigger>
-          {isRoot && (
-            <TabsTrigger value='routing'>
-              {t('Router configuration')}
-            </TabsTrigger>
+          {isAdmin && (
+            <>
+              <TabsTrigger value='current'>{t('Profiles')}</TabsTrigger>
+              <TabsTrigger value='probes'>{t('Probe history')}</TabsTrigger>
+              <TabsTrigger value='history'>{t('History')}</TabsTrigger>
+              <TabsTrigger value='inventory'>
+                {t('Supply inventory')}
+              </TabsTrigger>
+              <TabsTrigger value='models'>{t('Model pool')}</TabsTrigger>
+              {isRoot && (
+                <TabsTrigger value='routing'>
+                  {t('Router configuration')}
+                </TabsTrigger>
+              )}
+            </>
           )}
         </TabsList>
         <TabsContent value='overview' className='min-w-0 space-y-3'>
-          <div className='grid min-w-0 gap-3 xl:grid-cols-2'>
-            {channelGroups.map((channel) => (
-              <ACUChannelHealthCard
-                key={channel.channel}
-                channel={channel}
-                generatedAt={query.data?.data?.generatedAt ?? ''}
-                profileActions={
-                  isRoot
-                    ? {
-                        policy: globalRoutingPolicyQuery.data,
-                        isTogglePending: (profileId) =>
-                          globalRoutingMutation.isPending &&
-                          globalRoutingMutation.variables?.profileId ===
-                            profileId,
-                        isProbePending: (profileId) =>
-                          probeMutation.isPending &&
-                          probeMutation.variables?.executionProfileId ===
-                            profileId,
-                        onToggleRouting: (profile, enabled) => {
-                          const policy = globalRoutingPolicyQuery.data
-                          if (!policy) return
-                          globalRoutingMutation.mutate({
-                            profileId: profile.executionProfileId,
-                            policy: updateGlobalProfileRouting(
-                              policy,
-                              allProfiles,
-                              profile.executionProfileId,
-                              enabled
-                            ),
-                          })
-                        },
-                        onProbe: (profile, probeProtocol) => {
-                          probeMutation.mutate({
-                            executionProfileId: profile.executionProfileId,
-                            protocol: probeProtocol as
-                              | 'responses'
-                              | 'messages'
-                              | 'chat_completions',
-                          })
-                        },
-                      }
-                    : undefined
-                }
-              />
-            ))}
-          </div>
-          {channelGroups.length === 0 && !query.isLoading && (
-            <div className='text-muted-foreground rounded border p-8 text-center text-xs'>
-              {t('No Channel profiles')}
+          {isAdmin && (
+            <div className='flex gap-2'>
+              <Button
+                size='sm'
+                variant={overviewLayout === 'channel' ? 'default' : 'outline'}
+                onClick={() => setOverviewLayout('channel')}
+              >
+                {t('By channel')}
+              </Button>
+              <Button
+                size='sm'
+                variant={overviewLayout === 'model' ? 'default' : 'outline'}
+                onClick={() => setOverviewLayout('model')}
+              >
+                {t('By model')}
+              </Button>
             </div>
           )}
+          <div className='grid min-w-0 gap-3 xl:grid-cols-2'>
+            {overviewLayout === 'channel'
+              ? channelGroups.map((channel) => (
+                  <ACUChannelHealthCard
+                    key={channel.channel}
+                    channel={channel}
+                    generatedAt={query.data?.data?.generatedAt ?? ''}
+                    profileActions={profileActions}
+                  />
+                ))
+              : modelGroups.map((model) => (
+                  <ACUModelHealthCard
+                    key={model.modelId}
+                    model={model}
+                    showDiagnostics={isAdmin}
+                    profileActions={profileActions}
+                  />
+                ))}
+          </div>
+          {((overviewLayout === 'channel' && channelGroups.length === 0) ||
+            (overviewLayout === 'model' && modelGroups.length === 0)) &&
+            !query.isLoading && (
+              <div className='text-muted-foreground rounded border p-8 text-center text-xs'>
+                {t('No model profiles')}
+              </div>
+            )}
           <div className='text-muted-foreground text-xs'>
             {t(
               'Route eligible means the profile is configured, trusted, enabled and not in channel/profile cooldown. Probe status is independent and shows the latest recorded probe.'

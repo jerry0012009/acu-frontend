@@ -5,23 +5,20 @@ import { useTranslation } from 'react-i18next'
 import { StatusBadge } from '@/components/status-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 
-import type {
-  ACUChannelMonitorProfile,
-  ACUGlobalRoutingPolicy,
-  ACUProbeBucket,
-} from '../api'
+import type { ACUChannelMonitorProfile, ACUGlobalRoutingPolicy } from '../api'
 import {
   classifyHistoryBucket,
   classifyProbeBucket,
   formatProbeResult,
+  probeBucketTitle,
   type ACUChannelOverview,
 } from './acu-channel-health-model'
 import {
   canEnableProfileForGlobalRouting,
   isProfileGloballyAllowed,
 } from './acu-global-routing-policy'
+import { StatusTimeline } from './acu-health-timeline'
 import {
   monitorReason,
   monitorStateLabel,
@@ -60,24 +57,6 @@ const stateVariant = {
   unavailable: 'danger',
   disabled: 'neutral',
 } as const
-
-const bucketTone = {
-  empty: 'bg-muted',
-  success: 'bg-success',
-  mixed: 'bg-warning',
-  failed: 'bg-destructive',
-} as const
-
-function probeBucketTitle(bucket: ACUProbeBucket): string {
-  return [
-    `${new Date(bucket.bucket).toLocaleString()} · full-pool ${bucket.fullPoolCount} · targeted ${bucket.targetedCount} · recovery ${bucket.recoveryCount} · ${bucket.successCount}/${bucket.totalCount}`,
-    bucket.latestProbe
-      ? `Latest: ${formatProbeResult(bucket.latestProbe)}`
-      : '',
-  ]
-    .filter(Boolean)
-    .join(' · ')
-}
 
 export function ACUChannelHealthCard(props: {
   channel: ACUChannelOverview
@@ -253,36 +232,6 @@ export function ACUChannelHealthCard(props: {
         </div>
       )}
     </section>
-  )
-}
-
-function StatusTimeline(props: {
-  label: string
-  buckets: Array<{
-    key: string
-    tone: keyof typeof bucketTone
-    title: string
-  }>
-}) {
-  return (
-    <div className='grid min-w-0 grid-cols-[4.5rem_minmax(0,1fr)] items-center gap-2'>
-      <div className='text-muted-foreground text-[11px]'>{props.label}</div>
-      <div
-        className='flex h-4 min-w-0 gap-0.5'
-        aria-label={`${props.label} timeline`}
-      >
-        {props.buckets.map((bucket) => (
-          <span
-            key={bucket.key}
-            className={cn(
-              'min-w-0 flex-1 rounded-[1px]',
-              bucketTone[bucket.tone]
-            )}
-            title={bucket.title}
-          />
-        ))}
-      </div>
-    </div>
   )
 }
 

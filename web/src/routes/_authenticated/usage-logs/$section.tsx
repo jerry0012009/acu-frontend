@@ -42,7 +42,7 @@ export const Route = createFileRoute('/_authenticated/usage-logs/$section')({
       })
     }
     if (
-      ['channel-monitor', 'drawing', 'task'].includes(params.section) &&
+      ['drawing', 'task'].includes(params.section) &&
       (useAuthStore.getState().auth.user?.role ?? ROLE.GUEST) < ROLE.ADMIN
     ) {
       throw redirect({
