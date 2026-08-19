@@ -92,12 +92,10 @@ export function formatProbeResult(
     typeof metadata.errorMessage === 'string'
       ? metadata.errorMessage
       : undefined
-  const detailCandidates =
+  const structuredError =
     probe.status === 'success'
-      ? []
+      ? undefined
       : [
-          preview,
-          errorMessage,
           typeof metadata.primaryErrorCode === 'string'
             ? metadata.primaryErrorCode
             : undefined,
@@ -105,12 +103,16 @@ export function formatProbeResult(
             ? metadata.errorCode
             : undefined,
           probe.error_class ?? undefined,
-        ].filter((value): value is string => Boolean(value?.trim()))
-  const detail = detailCandidates
+        ].find((value): value is string => Boolean(value?.trim()))
+  const responseDetail =
+    probe.status === 'success' ? undefined : preview || errorMessage
+  const detail = [structuredError, responseDetail]
+    .filter((value): value is string => Boolean(value?.trim()))
     .map((value) =>
       redactProbeCredentials(value).replaceAll(/\s+/g, ' ').trim()
     )
-    .find((value, index, values) => values.indexOf(value) === index)
+    .filter((value, index, values) => values.indexOf(value) === index)
+    .join(' · ')
   const parts = includeStatus ? [probe.status] : []
   if (probe.http_status != null) parts.push(`HTTP ${probe.http_status}`)
   if (probe.status === 'success') {

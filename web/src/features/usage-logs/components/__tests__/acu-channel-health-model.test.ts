@@ -193,7 +193,7 @@ test('uses each Profile latest Probe for coverage while retaining all Probe evid
     group.profiles[0]?.latestProbe
       ? formatProbeResult(group.profiles[0].latestProbe)
       : '',
-    /failed · HTTP 429 · rate limit exceeded/
+    /failed · HTTP 429 · rate_limited · rate limit exceeded/
   )
 
   const reversed = probes.map((probe, index) => ({
@@ -340,6 +340,22 @@ test('falls back to Probe status, HTTP status, and error class without metadata'
       error_class: 'rate_limited',
     } as ACUProbeHistoryRow),
     'failed · HTTP 429 · rate_limited'
+  )
+})
+
+test('prioritizes structured Probe errors before response preview', () => {
+  assert.equal(
+    formatProbeResult({
+      status: 'failed',
+      http_status: 200,
+      error_class: 'protocol_incompatible',
+      metadata_json: {
+        primaryErrorCode: 'protocol_incompatible',
+        responsePreview:
+          'event: response.created data: {"type":"response.created"}',
+      },
+    } as unknown as ACUProbeHistoryRow),
+    'failed · HTTP 200 · protocol_incompatible · event: response.created data: {"type":"response.created"}'
   )
 })
 
