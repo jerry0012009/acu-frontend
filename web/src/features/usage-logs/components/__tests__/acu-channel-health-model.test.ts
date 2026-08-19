@@ -9,6 +9,7 @@ import type {
 import {
   classifyHistoryBucket,
   classifyProbeBucket,
+  formatProbeResult,
   groupACUChannels,
 } from '../acu-channel-health-model.ts'
 
@@ -165,8 +166,11 @@ test('uses each Profile latest Probe for coverage while retaining all Probe evid
       status: 'failed',
       started_at: '2026-08-05T12:02:00Z',
       probeMode: 'recovery',
+      http_status: 429,
+      error_class: 'rate_limited',
+      metadata_json: { errorMessage: 'rate limit exceeded' },
     },
-  ] as ACUProbeHistoryRow[]
+  ] as unknown as ACUProbeHistoryRow[]
   const group = groupACUChannels(
     [profile()],
     [],
@@ -184,6 +188,13 @@ test('uses each Profile latest Probe for coverage while retaining all Probe evid
   assert.equal(classifyProbeBucket(probeBucket), 'mixed')
   assert.equal(group.probedProfileCount, 0)
   assert.equal(group.recoveryProbeSuccessCount, 0)
+  assert.equal(group.profiles[0]?.latestProbe?.http_status, 429)
+  assert.match(
+    group.profiles[0]?.latestProbe
+      ? formatProbeResult(group.profiles[0].latestProbe)
+      : '',
+    /failed · HTTP 429 · rate limit exceeded/
+  )
 
   const reversed = probes.map((probe, index) => ({
     ...probe,
@@ -197,6 +208,48 @@ test('uses each Profile latest Probe for coverage while retaining all Probe evid
     reversed
   )[0]
   assert.equal(reversedGroup.probedProfileCount, 1)
+})
+
+test('keeps the newest Probe attempt detail on each timeline bucket', () => {
+  const probes = [
+    {
+      execution_profile_id: profile().executionProfileId,
+      status: 'failed',
+      started_at: '2026-08-05T12:01:00Z',
+      probeMode: 'full_pool',
+      http_status: 500,
+      error_class: 'server_error',
+    },
+    {
+      execution_profile_id: profile().executionProfileId,
+      status: 'success',
+      started_at: '2026-08-05T12:02:00Z',
+      probeMode: 'targeted',
+      http_status: 200,
+      actual_model: 'gpt-5.6-luna',
+      usage_trusted: true,
+    },
+  ] as unknown as ACUProbeHistoryRow[]
+  const group = groupACUChannels(
+    [profile()],
+    [],
+    '24h',
+    '2026-08-05T12:15:00Z',
+    probes
+  )[0]
+  const latestBucket = group.probeBuckets.at(-2)
+  assert.equal(latestBucket?.latestProbe?.started_at, '2026-08-05T12:02:00Z')
+})
+
+test('falls back to Probe status, HTTP status, and error class without metadata', () => {
+  assert.equal(
+    formatProbeResult({
+      status: 'failed',
+      http_status: 429,
+      error_class: 'rate_limited',
+    } as ACUProbeHistoryRow),
+    'failed · HTTP 429 · rate_limited'
+  )
 })
 
 test('keeps targeted Probe evidence separate from recovery', () => {
@@ -219,7 +272,7 @@ test('keeps targeted Probe evidence separate from recovery', () => {
       started_at: '2026-08-05T12:03:00Z',
       probeMode: 'recovery',
     },
-  ] as ACUProbeHistoryRow[]
+  ] as unknown as ACUProbeHistoryRow[]
   const group = groupACUChannels(
     [profile()],
     [],

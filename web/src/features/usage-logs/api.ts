@@ -333,6 +333,7 @@ export type ACUChannelMonitorProfile = {
   reliabilityContribution: number | null
   metricSource: string | null
   formulaVersion: string | null
+  latestProbe?: ACUProbeHistoryRow
 }
 
 export type ACUModelPoolEntry = {

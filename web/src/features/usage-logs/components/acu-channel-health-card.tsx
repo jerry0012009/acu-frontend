@@ -10,6 +10,7 @@ import type { ACUChannelMonitorProfile } from '../api'
 import {
   classifyHistoryBucket,
   classifyProbeBucket,
+  formatProbeResult,
   type ACUChannelOverview,
 } from './acu-channel-health-model'
 import {
@@ -193,7 +194,14 @@ export function ACUChannelHealthCard(props: {
           buckets={props.channel.probeBuckets.map((bucket) => ({
             key: bucket.bucket,
             tone: classifyProbeBucket(bucket),
-            title: `${new Date(bucket.bucket).toLocaleString()} · full-pool ${bucket.fullPoolCount} · targeted ${bucket.targetedCount} · recovery ${bucket.recoveryCount} · ${bucket.successCount}/${bucket.totalCount}`,
+            title: [
+              `${new Date(bucket.bucket).toLocaleString()} · full-pool ${bucket.fullPoolCount} · targeted ${bucket.targetedCount} · recovery ${bucket.recoveryCount} · ${bucket.successCount}/${bucket.totalCount}`,
+              bucket.latestProbe
+                ? `Latest: ${formatProbeResult(bucket.latestProbe)}`
+                : '',
+            ]
+              .filter(Boolean)
+              .join(' · '),
           }))}
         />
         <div className='text-muted-foreground flex flex-wrap justify-between gap-2 text-xs'>
@@ -329,7 +337,12 @@ function ChannelProfile(props: { profile: ACUChannelMonitorProfile }) {
         />
         <ProfileField
           label={t('Latest Probe')}
-          value={`${profile.probeStatus || 'never'} · ${milliseconds(profile.probeLatencyMs)} · ${relativeTime(profile.lastProbeAt, i18n.language)}`}
+          value={[
+            `${profile.probeStatus || 'never'} · ${milliseconds(profile.probeLatencyMs)} · ${relativeTime(profile.lastProbeAt, i18n.language)}`,
+            formatProbeResult(profile.latestProbe),
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         />
         <ProfileField
           label={t('Contributions')}

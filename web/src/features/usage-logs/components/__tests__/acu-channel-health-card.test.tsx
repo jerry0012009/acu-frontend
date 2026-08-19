@@ -80,6 +80,16 @@ test('shows separate Production and Probe evidence and expands all Profile evide
               recoveryCount: 0,
               successCount: index === 59 ? 2 : 0,
               totalCount: index === 59 ? 2 : 0,
+              latestProbe:
+                index === 59
+                  ? ({
+                      status: 'success',
+                      http_status: 200,
+                      canonical_model_id: 'gpt-5.6-luna',
+                      actual_model: 'gpt-5.6-luna',
+                      usage_trusted: true,
+                    } as never)
+                  : undefined,
             })),
             probeCount: 2,
             probedProfileCount: 1,
@@ -124,6 +134,16 @@ test('shows separate Production and Probe evidence and expands all Profile evide
                 speedContribution: 0.2,
                 reliabilityContribution: 0.312,
                 metricSource: 'first_event_p50',
+                probeStatus: 'success',
+                probeLatencyMs: 821,
+                lastProbeAt: '2026-08-05T11:59:00Z',
+                latestProbe: {
+                  status: 'success',
+                  http_status: 200,
+                  canonical_model_id: 'gpt-5.6-luna',
+                  actual_model: 'gpt-5.6-luna',
+                  usage_trusted: true,
+                },
               } as never,
             ],
           }}
@@ -142,6 +162,12 @@ test('shows separate Production and Probe evidence and expands all Profile evide
     container.querySelectorAll('[aria-label="Probe timeline"] span').length,
     60
   )
+  assert.match(
+    container
+      .querySelector('[aria-label="Probe timeline"] span:last-child')
+      ?.getAttribute('title') ?? '',
+    /Latest: success · HTTP 200 · gpt-5\.6-luna · usage verified/
+  )
   const button = container.querySelector('button')
   assert.ok(button)
   await act(async () =>
@@ -154,6 +180,10 @@ test('shows separate Production and Probe evidence and expands all Profile evide
   assert.match(container.textContent ?? '', /1\/1/)
   assert.match(container.textContent ?? '', /9 first-event/)
   assert.match(container.textContent ?? '', /first_event_p50/)
+  assert.match(
+    container.textContent ?? '',
+    /success · 821 ms .*success · HTTP 200 · gpt-5\.6-luna · usage verified/
+  )
   await act(async () => root.unmount())
   container.remove()
 })
@@ -199,6 +229,97 @@ test('shows failed Probe coverage without presenting an empty Production success
   assert.match(container.textContent ?? '', /0 \/ 1 Profiles passed/)
   assert.doesNotMatch(container.textContent ?? '', /Not actively verified/)
   assert.doesNotMatch(container.textContent ?? '', /0\.00%/)
+  await act(async () => root.unmount())
+  container.remove()
+})
+
+test('redacts credentials from Latest Probe text and timeline titles', async () => {
+  const secret = 'probe-secret-key'
+  const probe = {
+    status: 'failed',
+    http_status: 401,
+    started_at: '2026-08-05T12:00:00Z',
+    error_class: 'auth_failed',
+    metadata_json: {
+      errorMessage: `Authorization: Bearer ${secret}; x-api-key: ${secret}; Cookie: session=${secret}`,
+    },
+  } as never
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  await act(async () => {
+    root.render(
+      <I18nextProvider i18n={i18n}>
+        <ACUChannelHealthCard
+          generatedAt='2026-08-05T12:00:00Z'
+          channel={{
+            channel: 'cx006',
+            providers: ['lucen'],
+            profiles: [
+              {
+                executionProfileId: 'cx006:gpt-5.6-luna:responses',
+                canonicalModel: 'gpt-5.6-luna',
+                provider: 'lucen',
+                channel: 'cx006',
+                protocol: ['responses'],
+                state: 'healthy',
+                routingEligible: true,
+                enabled: true,
+                profileUtility: null,
+                latestProbe: probe,
+              } as never,
+            ],
+            enabledProfileCount: 1,
+            eligibleProfileCount: 1,
+            modelCount: 1,
+            state: 'healthy',
+            primaryProfile: null,
+            requestCount: 0,
+            successCount: 0,
+            availability: null,
+            buckets: [],
+            probeBuckets: [
+              {
+                bucket: '2026-08-05T12:00:00Z',
+                fullPoolCount: 0,
+                targetedCount: 1,
+                recoveryCount: 0,
+                successCount: 0,
+                totalCount: 1,
+                latestProbe: probe,
+              },
+            ],
+            probeCount: 1,
+            probedProfileCount: 0,
+            latestFullPoolProbeAt: null,
+            latestTargetedProbeAt: '2026-08-05T12:00:00Z',
+            targetedProbeCount: 1,
+            targetedProbeSuccessCount: 0,
+            recoveryProbeCount: 0,
+            recoveryProbeSuccessCount: 0,
+            latestHealthEvent: null,
+          }}
+        />
+      </I18nextProvider>
+    )
+  })
+
+  const title =
+    container
+      .querySelector('[aria-label="Probe timeline"] span')
+      ?.getAttribute('title') ?? ''
+  assert.doesNotMatch(title, new RegExp(secret))
+  assert.match(title, /redacted/)
+  assert.doesNotMatch(container.textContent ?? '', new RegExp(secret))
+
+  const button = container.querySelector('button')
+  assert.ok(button)
+  await act(async () =>
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  )
+  assert.doesNotMatch(container.textContent ?? '', new RegExp(secret))
+  assert.match(container.textContent ?? '', /redacted/)
+
   await act(async () => root.unmount())
   container.remove()
 })

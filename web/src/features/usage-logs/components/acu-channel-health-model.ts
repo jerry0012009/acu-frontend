@@ -58,6 +58,7 @@ export type ACUProbeBucket = {
   recoveryCount: number
   successCount: number
   totalCount: number
+  latestProbe?: ACUProbeHistoryRow
 }
 
 export function classifyProbeBucket(
@@ -67,6 +68,70 @@ export function classifyProbeBucket(
   if (row.successCount === 0) return 'failed'
   if (row.successCount < row.totalCount) return 'mixed'
   return 'success'
+}
+
+function probeTimestamp(probe: ACUProbeHistoryRow): number {
+  const time = new Date(probe.started_at).getTime()
+  return Number.isFinite(time) ? time : Number.NEGATIVE_INFINITY
+}
+
+function redactProbeCredentials(value: string): string {
+  return value
+    .replaceAll(
+      /((?:["']?(?:authorization|x-api-key)(?:\s+header)?["']?\s*[:=]\s*))([^\r\n,;&}]*)/gi,
+      '$1[redacted]'
+    )
+    .replaceAll(
+      /((?:["']?cookie(?:\s+header)?["']?\s*[:=]\s*))([^\r\n,}]*)/gi,
+      '$1[redacted]'
+    )
+}
+
+export function formatProbeResult(probe?: ACUProbeHistoryRow): string {
+  if (!probe) return ''
+  const metadata = probe.metadata_json ?? {}
+  const preview =
+    typeof metadata.responsePreview === 'string'
+      ? metadata.responsePreview
+      : undefined
+  const errorMessage =
+    typeof metadata.errorMessage === 'string'
+      ? metadata.errorMessage
+      : undefined
+  const detailCandidates = [
+    preview,
+    errorMessage,
+    typeof metadata.primaryErrorCode === 'string'
+      ? metadata.primaryErrorCode
+      : undefined,
+    typeof metadata.errorCode === 'string' ? metadata.errorCode : undefined,
+    probe.error_class ?? undefined,
+  ].filter((value): value is string => Boolean(value?.trim()))
+  const detail = detailCandidates
+    .map((value) =>
+      redactProbeCredentials(value).replaceAll(/\s+/g, ' ').trim()
+    )
+    .find((value, index, values) => values.indexOf(value) === index)
+  const parts = [probe.status]
+  if (probe.http_status != null) parts.push(`HTTP ${probe.http_status}`)
+  if (probe.status === 'success') {
+    const model = probe.actual_model || probe.canonical_model_id
+    if (model) parts.push(model)
+    if (
+      probe.usage_trusted ||
+      metadata.hasUsage === true ||
+      metadata.usageSource === 'provider_usage'
+    ) {
+      parts.push('usage verified')
+    }
+  }
+  if (detail) {
+    const compact = detail.length > 140 ? `${detail.slice(0, 137)}...` : detail
+    if (!parts.some((part) => part.toLowerCase() === compact.toLowerCase())) {
+      parts.push(compact)
+    }
+  }
+  return redactProbeCredentials(parts.join(' · '))
 }
 
 export function groupACUChannels(
@@ -188,6 +253,12 @@ export function groupACUChannels(
         if (probe.probeMode === 'full_pool') current.fullPoolCount += 1
         else if (probe.probeMode === 'targeted') current.targetedCount += 1
         else current.recoveryCount += 1
+        if (
+          !current.latestProbe ||
+          probeTimestamp(probe) > probeTimestamp(current.latestProbe)
+        ) {
+          current.latestProbe = probe
+        }
         probesByTime.set(bucketTime, current)
       }
       const probeBuckets = Array.from({ length: 60 }, (_, index) => {
@@ -222,6 +293,10 @@ export function groupACUChannels(
           latestProbeByProfile.set(probe.execution_profile_id, probe)
         }
       }
+      const profilesWithLatestProbe = channelProfiles.map((profile) => ({
+        ...profile,
+        latestProbe: latestProbeByProfile.get(profile.executionProfileId),
+      }))
       const successfulProbeProfiles = new Set(
         [...latestProbeByProfile.values()]
           .filter((probe) => probe.status === 'success')
@@ -259,7 +334,7 @@ export function groupACUChannels(
         providers: [
           ...new Set(channelProfiles.map((profile) => profile.provider)),
         ],
-        profiles: [...channelProfiles].sort((left, right) =>
+        profiles: [...profilesWithLatestProbe].sort((left, right) =>
           left.canonicalModel.localeCompare(right.canonicalModel)
         ),
         enabledProfileCount: enabledProfiles.length,
