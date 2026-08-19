@@ -70,6 +70,7 @@ test('renders anonymous model lines and isolates user-facing supply evidence', a
     root.render(
       <I18nextProvider i18n={i18n}>
         <ACUModelHealthCard
+          showDiagnostics={false}
           model={{
             modelId: 'gpt-5.6-luna',
             eligibleCount: 1,
@@ -125,8 +126,9 @@ test('renders anonymous model lines and isolates user-facing supply evidence', a
   assert.equal(
     container.querySelectorAll('[aria-label="Production timeline"] span')
       .length,
-    60
+    0
   )
+  assert.doesNotMatch(text, /Production/)
   assert.equal(
     container.querySelectorAll('[aria-label="Probe · 48h timeline"] span')
       .length,
@@ -144,4 +146,48 @@ test('renders anonymous model lines and isolates user-facing supply evidence', a
     probeTimelines[1]?.querySelectorAll('span').item(23)?.className ?? '',
     /bg-warning/
   )
+  await act(async () => root.unmount())
+  container.remove()
+})
+
+test('shows production evidence for an admin model view', async () => {
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  await act(async () => {
+    root.render(
+      <I18nextProvider i18n={i18n}>
+        <ACUModelHealthCard
+          showDiagnostics
+          model={{
+            modelId: 'gpt-5.6-luna',
+            eligibleCount: 0,
+            totalCount: 0,
+            requestCount: 0,
+            successCount: 0,
+            availability: null,
+            buckets: [
+              {
+                bucket: '2026-08-19T00:00:00.000Z',
+                request_count: 0,
+                success_count: 0,
+                error_count: 0,
+              },
+            ] as never,
+            probeBuckets: [],
+            profiles: [],
+          }}
+        />
+      </I18nextProvider>
+    )
+  })
+  const text = container.textContent ?? ''
+  assert.equal(
+    container.querySelectorAll('[aria-label="Production timeline"] span')
+      .length,
+    1
+  )
+  assert.match(text, /No production traffic/)
+  await act(async () => root.unmount())
+  container.remove()
 })

@@ -86,14 +86,16 @@ export function ACUModelHealthCard(props: {
         </div>
       </button>
       <div className='space-y-3 border-t p-4'>
-        <StatusTimeline
-          label={t('Production')}
-          buckets={props.model.buckets.map((bucket) => ({
-            key: bucket.bucket,
-            tone: classifyHistoryBucket(bucket),
-            title: `${new Date(bucket.bucket).toLocaleString()} · ${bucket.success_count}/${bucket.request_count}`,
-          }))}
-        />
+        {props.showDiagnostics ? (
+          <StatusTimeline
+            label={t('Production')}
+            buckets={props.model.buckets.map((bucket) => ({
+              key: bucket.bucket,
+              tone: classifyHistoryBucket(bucket),
+              title: `${new Date(bucket.bucket).toLocaleString()} · ${bucket.success_count}/${bucket.request_count}`,
+            }))}
+          />
+        ) : null}
         <StatusTimeline
           label={`${t('Probe')} · ${probeRange}`}
           buckets={props.model.probeBuckets.map((bucket) => ({
@@ -102,11 +104,13 @@ export function ACUModelHealthCard(props: {
             title: probeBucketTitle(bucket),
           }))}
         />
-        <div className='text-muted-foreground text-xs'>
-          {props.model.availability === null
-            ? t('No production traffic')
-            : `${props.model.successCount}/${props.model.requestCount} · ${(props.model.availability * 100).toFixed(2)}%`}
-        </div>
+        {props.showDiagnostics ? (
+          <div className='text-muted-foreground text-xs'>
+            {props.model.availability === null
+              ? t('No production traffic')
+              : `${props.model.successCount}/${props.model.requestCount} · ${(props.model.availability * 100).toFixed(2)}%`}
+          </div>
+        ) : null}
       </div>
       {expanded && (
         <div className='space-y-2 border-t p-3'>
@@ -195,14 +199,16 @@ function ModelProfile(props: {
           value={latency.value}
           detail={latency.source}
         />
-        <ProfileMetric
-          label={t('Production')}
-          value={
-            profile.requestCount > 0
-              ? `${((profile.successCount / profile.requestCount) * 100).toFixed(1)}% · ${profile.successCount}/${profile.requestCount}`
-              : t('No production sample')
-          }
-        />
+        {props.showDiagnostics ? (
+          <ProfileMetric
+            label={t('Production')}
+            value={
+              profile.requestCount > 0
+                ? `${((profile.successCount / profile.requestCount) * 100).toFixed(1)}% · ${profile.successCount}/${profile.requestCount}`
+                : t('No production sample')
+            }
+          />
+        ) : null}
       </div>
       {props.actions ? (
         <div className='mt-3 flex flex-wrap items-center gap-2 border-t pt-3'>
