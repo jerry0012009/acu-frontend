@@ -6,7 +6,7 @@ import { StatusBadge } from '@/components/status-badge'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
-import type { ACUChannelMonitorProfile } from '../api'
+import type { ACUChannelMonitorProfile, ACUProbeBucket } from '../api'
 import {
   classifyHistoryBucket,
   classifyProbeBucket,
@@ -58,6 +58,17 @@ const bucketTone = {
   mixed: 'bg-warning',
   failed: 'bg-destructive',
 } as const
+
+function probeBucketTitle(bucket: ACUProbeBucket): string {
+  return [
+    `${new Date(bucket.bucket).toLocaleString()} · full-pool ${bucket.fullPoolCount} · targeted ${bucket.targetedCount} · recovery ${bucket.recoveryCount} · ${bucket.successCount}/${bucket.totalCount}`,
+    bucket.latestProbe
+      ? `Latest: ${formatProbeResult(bucket.latestProbe)}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
 
 export function ACUChannelHealthCard(props: {
   channel: ACUChannelOverview
@@ -194,14 +205,7 @@ export function ACUChannelHealthCard(props: {
           buckets={props.channel.probeBuckets.map((bucket) => ({
             key: bucket.bucket,
             tone: classifyProbeBucket(bucket),
-            title: [
-              `${new Date(bucket.bucket).toLocaleString()} · full-pool ${bucket.fullPoolCount} · targeted ${bucket.targetedCount} · recovery ${bucket.recoveryCount} · ${bucket.successCount}/${bucket.totalCount}`,
-              bucket.latestProbe
-                ? `Latest: ${formatProbeResult(bucket.latestProbe)}`
-                : '',
-            ]
-              .filter(Boolean)
-              .join(' · '),
+            title: probeBucketTitle(bucket),
           }))}
         />
         <div className='text-muted-foreground flex flex-wrap justify-between gap-2 text-xs'>
@@ -339,11 +343,21 @@ function ChannelProfile(props: { profile: ACUChannelMonitorProfile }) {
           label={t('Latest Probe')}
           value={[
             `${profile.probeStatus || 'never'} · ${milliseconds(profile.probeLatencyMs)} · ${relativeTime(profile.lastProbeAt, i18n.language)}`,
-            formatProbeResult(profile.latestProbe),
+            formatProbeResult(profile.latestProbe, false),
           ]
             .filter(Boolean)
             .join(' · ')}
         />
+        <div className='sm:col-span-2 lg:col-span-4'>
+          <StatusTimeline
+            label={t('Probe')}
+            buckets={(profile.probeBuckets ?? []).map((bucket) => ({
+              key: bucket.bucket,
+              tone: classifyProbeBucket(bucket),
+              title: probeBucketTitle(bucket),
+            }))}
+          />
+        </div>
         <ProfileField
           label={t('Contributions')}
           value={

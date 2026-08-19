@@ -2,6 +2,7 @@ import type {
   ACUChannelHistoryRow,
   ACUChannelMonitorProfile,
   ACUMonitorRange,
+  ACUProbeBucket,
   ACUProbeHistoryRow,
 } from '../api'
 
@@ -51,16 +52,6 @@ export type ACUChannelOverview = {
   latestHealthEvent: ACUChannelMonitorProfile['healthEvents'][number] | null
 }
 
-export type ACUProbeBucket = {
-  bucket: string
-  fullPoolCount: number
-  targetedCount: number
-  recoveryCount: number
-  successCount: number
-  totalCount: number
-  latestProbe?: ACUProbeHistoryRow
-}
-
 export function classifyProbeBucket(
   row: Pick<ACUProbeBucket, 'successCount' | 'totalCount'>
 ): ACUHistoryBucketTone {
@@ -87,7 +78,10 @@ function redactProbeCredentials(value: string): string {
     )
 }
 
-export function formatProbeResult(probe?: ACUProbeHistoryRow): string {
+export function formatProbeResult(
+  probe?: ACUProbeHistoryRow,
+  includeStatus = true
+): string {
   if (!probe) return ''
   const metadata = probe.metadata_json ?? {}
   const preview =
@@ -98,21 +92,26 @@ export function formatProbeResult(probe?: ACUProbeHistoryRow): string {
     typeof metadata.errorMessage === 'string'
       ? metadata.errorMessage
       : undefined
-  const detailCandidates = [
-    preview,
-    errorMessage,
-    typeof metadata.primaryErrorCode === 'string'
-      ? metadata.primaryErrorCode
-      : undefined,
-    typeof metadata.errorCode === 'string' ? metadata.errorCode : undefined,
-    probe.error_class ?? undefined,
-  ].filter((value): value is string => Boolean(value?.trim()))
+  const detailCandidates =
+    probe.status === 'success'
+      ? []
+      : [
+          preview,
+          errorMessage,
+          typeof metadata.primaryErrorCode === 'string'
+            ? metadata.primaryErrorCode
+            : undefined,
+          typeof metadata.errorCode === 'string'
+            ? metadata.errorCode
+            : undefined,
+          probe.error_class ?? undefined,
+        ].filter((value): value is string => Boolean(value?.trim()))
   const detail = detailCandidates
     .map((value) =>
       redactProbeCredentials(value).replaceAll(/\s+/g, ' ').trim()
     )
     .find((value, index, values) => values.indexOf(value) === index)
-  const parts = [probe.status]
+  const parts = includeStatus ? [probe.status] : []
   if (probe.http_status != null) parts.push(`HTTP ${probe.http_status}`)
   if (probe.status === 'success') {
     const model = probe.actual_model || probe.canonical_model_id
@@ -132,6 +131,52 @@ export function formatProbeResult(probe?: ACUProbeHistoryRow): string {
     }
   }
   return redactProbeCredentials(parts.join(' · '))
+}
+
+function buildProbeBuckets(
+  probes: ACUProbeHistoryRow[],
+  bucketMs: number,
+  lastBucketTime: number
+): ACUProbeBucket[] {
+  const probesByTime = new Map<number, ACUProbeBucket>()
+  for (const probe of probes) {
+    const probeTime = new Date(probe.started_at).getTime()
+    if (!Number.isFinite(probeTime)) continue
+    const bucketTime = Math.floor(probeTime / bucketMs) * bucketMs
+    const current = probesByTime.get(bucketTime) ?? {
+      bucket: new Date(bucketTime).toISOString(),
+      fullPoolCount: 0,
+      targetedCount: 0,
+      recoveryCount: 0,
+      successCount: 0,
+      totalCount: 0,
+    }
+    current.totalCount += 1
+    current.successCount += probe.status === 'success' ? 1 : 0
+    if (probe.probeMode === 'full_pool') current.fullPoolCount += 1
+    else if (probe.probeMode === 'targeted') current.targetedCount += 1
+    else current.recoveryCount += 1
+    if (
+      !current.latestProbe ||
+      probeTimestamp(probe) > probeTimestamp(current.latestProbe)
+    ) {
+      current.latestProbe = probe
+    }
+    probesByTime.set(bucketTime, current)
+  }
+  return Array.from({ length: 60 }, (_, index) => {
+    const bucketTime = lastBucketTime - (59 - index) * bucketMs
+    return (
+      probesByTime.get(bucketTime) ?? {
+        bucket: new Date(bucketTime).toISOString(),
+        fullPoolCount: 0,
+        targetedCount: 0,
+        recoveryCount: 0,
+        successCount: 0,
+        totalCount: 0,
+      }
+    )
+  })
 }
 
 export function groupACUChannels(
@@ -235,45 +280,11 @@ export function groupACUChannels(
         )
       })
       const channelProbes = probesByChannel.get(channel) ?? []
-      const probesByTime = new Map<number, ACUProbeBucket>()
-      for (const probe of channelProbes) {
-        const probeTime = new Date(probe.started_at).getTime()
-        if (!Number.isFinite(probeTime)) continue
-        const bucketTime = Math.floor(probeTime / bucketMs) * bucketMs
-        const current = probesByTime.get(bucketTime) ?? {
-          bucket: new Date(bucketTime).toISOString(),
-          fullPoolCount: 0,
-          targetedCount: 0,
-          recoveryCount: 0,
-          successCount: 0,
-          totalCount: 0,
-        }
-        current.totalCount += 1
-        current.successCount += probe.status === 'success' ? 1 : 0
-        if (probe.probeMode === 'full_pool') current.fullPoolCount += 1
-        else if (probe.probeMode === 'targeted') current.targetedCount += 1
-        else current.recoveryCount += 1
-        if (
-          !current.latestProbe ||
-          probeTimestamp(probe) > probeTimestamp(current.latestProbe)
-        ) {
-          current.latestProbe = probe
-        }
-        probesByTime.set(bucketTime, current)
-      }
-      const probeBuckets = Array.from({ length: 60 }, (_, index) => {
-        const bucketTime = lastBucketTime - (59 - index) * bucketMs
-        return (
-          probesByTime.get(bucketTime) ?? {
-            bucket: new Date(bucketTime).toISOString(),
-            fullPoolCount: 0,
-            targetedCount: 0,
-            recoveryCount: 0,
-            successCount: 0,
-            totalCount: 0,
-          }
-        )
-      })
+      const probeBuckets = buildProbeBuckets(
+        channelProbes,
+        bucketMs,
+        lastBucketTime
+      )
       const requestCount = observedBuckets.reduce(
         (total, row) => total + row.request_count,
         0
@@ -283,7 +294,12 @@ export function groupACUChannels(
         0
       )
       const latestProbeByProfile = new Map<string, ACUProbeHistoryRow>()
+      const probesByProfile = new Map<string, ACUProbeHistoryRow[]>()
       for (const probe of channelProbes) {
+        const profileProbes =
+          probesByProfile.get(probe.execution_profile_id) ?? []
+        profileProbes.push(probe)
+        probesByProfile.set(probe.execution_profile_id, profileProbes)
         const current = latestProbeByProfile.get(probe.execution_profile_id)
         if (
           !current ||
@@ -296,6 +312,11 @@ export function groupACUChannels(
       const profilesWithLatestProbe = channelProfiles.map((profile) => ({
         ...profile,
         latestProbe: latestProbeByProfile.get(profile.executionProfileId),
+        probeBuckets: buildProbeBuckets(
+          probesByProfile.get(profile.executionProfileId) ?? [],
+          bucketMs,
+          lastBucketTime
+        ),
       }))
       const successfulProbeProfiles = new Set(
         [...latestProbeByProfile.values()]

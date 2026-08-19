@@ -52,6 +52,24 @@ test('shows separate Production and Probe evidence and expands all Profile evide
   const container = document.createElement('div')
   document.body.append(container)
   const root = createRoot(container)
+  const profileProbeBuckets = Array.from({ length: 60 }, (_, index) => ({
+    bucket: new Date(Date.UTC(2026, 7, 5, 0, index)).toISOString(),
+    fullPoolCount: index === 59 ? 1 : 0,
+    targetedCount: index === 59 ? 1 : 0,
+    recoveryCount: 0,
+    successCount: index === 59 ? 2 : 0,
+    totalCount: index === 59 ? 2 : 0,
+    latestProbe:
+      index === 59
+        ? ({
+            status: 'success',
+            http_status: 200,
+            canonical_model_id: 'gpt-5.6-luna',
+            actual_model: 'gpt-5.6-luna',
+            usage_trusted: true,
+          } as never)
+        : undefined,
+  }))
   await act(async () => {
     root.render(
       <I18nextProvider i18n={i18n}>
@@ -137,6 +155,7 @@ test('shows separate Production and Probe evidence and expands all Profile evide
                 probeStatus: 'success',
                 probeLatencyMs: 821,
                 lastProbeAt: '2026-08-05T11:59:00Z',
+                probeBuckets: profileProbeBuckets,
                 latestProbe: {
                   status: 'success',
                   http_status: 200,
@@ -182,7 +201,22 @@ test('shows separate Production and Probe evidence and expands all Profile evide
   assert.match(container.textContent ?? '', /first_event_p50/)
   assert.match(
     container.textContent ?? '',
-    /success · 821 ms .*success · HTTP 200 · gpt-5\.6-luna · usage verified/
+    /success · 821 ms .*HTTP 200 · gpt-5\.6-luna · usage verified/
+  )
+  assert.doesNotMatch(
+    container.textContent ?? '',
+    /success · 821 ms .*success · HTTP 200/
+  )
+  assert.equal(
+    container.querySelectorAll('details [aria-label="Probe timeline"] span')
+      .length,
+    60
+  )
+  assert.match(
+    container
+      .querySelector('details [aria-label="Probe timeline"] span:last-child')
+      ?.getAttribute('title') ?? '',
+    /Latest: success · HTTP 200 · gpt-5\.6-luna · usage verified/
   )
   await act(async () => root.unmount())
   container.remove()

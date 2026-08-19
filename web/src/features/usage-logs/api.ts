@@ -334,6 +334,7 @@ export type ACUChannelMonitorProfile = {
   metricSource: string | null
   formulaVersion: string | null
   latestProbe?: ACUProbeHistoryRow
+  probeBuckets?: ACUProbeBucket[]
 }
 
 export type ACUModelPoolEntry = {
@@ -460,6 +461,16 @@ export type ACUProbeHistoryRow = {
   metadata_json?: Record<string, unknown>
   probeMode: 'full_pool' | 'recovery' | 'targeted'
   trigger: string
+}
+
+export type ACUProbeBucket = {
+  bucket: string
+  fullPoolCount: number
+  targetedCount: number
+  recoveryCount: number
+  successCount: number
+  totalCount: number
+  latestProbe?: ACUProbeHistoryRow
 }
 
 export type ACUMonitorRange = '1h' | '6h' | '24h' | '7d'

@@ -241,6 +241,97 @@ test('keeps the newest Probe attempt detail on each timeline bucket', () => {
   assert.equal(latestBucket?.latestProbe?.started_at, '2026-08-05T12:02:00Z')
 })
 
+test('builds independent 60-bucket Probe timelines for each Profile', () => {
+  const luna = profile()
+  const sol = profile({
+    executionProfileId: 'cx006:gpt-5.6-sol:responses',
+    canonicalModel: 'gpt-5.6-sol',
+  })
+  const probes = [
+    {
+      execution_profile_id: luna.executionProfileId,
+      status: 'success',
+      started_at: '2026-08-05T12:01:00Z',
+      probeMode: 'full_pool',
+    },
+    {
+      execution_profile_id: luna.executionProfileId,
+      status: 'failed',
+      started_at: '2026-08-05T12:02:00Z',
+      probeMode: 'recovery',
+      http_status: 429,
+      error_class: 'rate_limited',
+    },
+    {
+      execution_profile_id: sol.executionProfileId,
+      status: 'success',
+      started_at: '2026-08-05T12:02:00Z',
+      probeMode: 'targeted',
+      actual_model: 'gpt-5.6-sol',
+      usage_trusted: true,
+    },
+  ] as unknown as ACUProbeHistoryRow[]
+  const group = groupACUChannels(
+    [luna, sol],
+    [],
+    '24h',
+    '2026-08-05T12:15:00Z',
+    probes
+  )[0]
+  assert.ok(group)
+  const lunaProfile = group.profiles.find(
+    (item) => item.executionProfileId === luna.executionProfileId
+  )
+  const solProfile = group.profiles.find(
+    (item) => item.executionProfileId === sol.executionProfileId
+  )
+  assert.equal(lunaProfile?.probeBuckets?.length, 60)
+  assert.equal(solProfile?.probeBuckets?.length, 60)
+  const lunaBucket = lunaProfile?.probeBuckets?.at(-2)
+  const solBucket = solProfile?.probeBuckets?.at(-2)
+  assert.ok(lunaBucket)
+  assert.ok(solBucket)
+  assert.equal(lunaBucket?.fullPoolCount, 1)
+  assert.equal(lunaBucket?.recoveryCount, 1)
+  assert.equal(lunaBucket?.targetedCount, 0)
+  assert.equal(lunaBucket?.successCount, 1)
+  assert.equal(lunaBucket?.totalCount, 2)
+  assert.equal(classifyProbeBucket(lunaBucket), 'mixed')
+  assert.equal(solBucket?.fullPoolCount, 0)
+  assert.equal(solBucket?.targetedCount, 1)
+  assert.equal(solBucket?.recoveryCount, 0)
+  assert.equal(solBucket?.successCount, 1)
+  assert.equal(solBucket?.totalCount, 1)
+  assert.equal(classifyProbeBucket(solBucket), 'success')
+  assert.equal(lunaProfile?.probeBuckets?.at(-2)?.latestProbe?.status, 'failed')
+  assert.equal(
+    solProfile?.probeBuckets?.at(-2)?.latestProbe?.actual_model,
+    'gpt-5.6-sol'
+  )
+})
+
+test('does not repeat Probe status and omits error detail for success', () => {
+  const probe = {
+    status: 'success',
+    http_status: 200,
+    actual_model: 'gpt-5.6-luna',
+    usage_trusted: true,
+    metadata_json: {
+      responsePreview: 'success response body',
+      errorMessage: 'should not be shown',
+      primaryErrorCode: 'unexpected_error',
+    },
+  } as unknown as ACUProbeHistoryRow
+  assert.equal(
+    formatProbeResult(probe),
+    'success · HTTP 200 · gpt-5.6-luna · usage verified'
+  )
+  assert.equal(
+    formatProbeResult(probe, false),
+    'HTTP 200 · gpt-5.6-luna · usage verified'
+  )
+})
+
 test('falls back to Probe status, HTTP status, and error class without metadata', () => {
   assert.equal(
     formatProbeResult({
