@@ -237,7 +237,10 @@ export function ACUProviderQuickAdd() {
           return {
             ...model,
             selected: model.catalogKnown,
-            protocols: defaultProtocols,
+            protocols:
+              existingProtocols.length > 0
+                ? existingProtocols
+                : defaultProtocols,
             activeInAcuAuto: model.catalogKnown,
             existingProtocols: [...new Set(existingProtocols)],
           }
