@@ -14,6 +14,8 @@ import {
   groupACUChannels,
   groupACUModels,
   anonymousACULineId,
+  buildProbeBuckets,
+  probeTimelineSpec,
 } from '../acu-channel-health-model.ts'
 
 function profile(
@@ -174,6 +176,52 @@ test('uses supply semantics for Model Probe buckets while Profile buckets stay m
     'success'
   )
   assert.equal(classifyProbeBucket({ successCount: 1, totalCount: 3 }), 'mixed')
+})
+
+test('builds cadence-aligned Probe buckets for each supported history range', () => {
+  const generatedAt = new Date('2026-08-19T18:00:00Z').getTime()
+  for (const [range, expected] of [
+    ['24h', { bucketMs: 2 * 60 * 60_000, bucketCount: 12 }],
+    ['48h', { bucketMs: 2 * 60 * 60_000, bucketCount: 24 }],
+    ['7d', { bucketMs: 6 * 60 * 60_000, bucketCount: 28 }],
+  ] as const) {
+    const spec = probeTimelineSpec(range)
+    assert.deepEqual(spec, expected)
+    assert.equal(
+      buildProbeBuckets([], spec.bucketMs, generatedAt, spec.bucketCount)
+        .length,
+      expected.bucketCount
+    )
+  }
+})
+
+test('groups mixed Probe results in one two-hour bucket without changing classifiers', () => {
+  const probes = [
+    {
+      execution_profile_id: profile().executionProfileId,
+      status: 'success',
+      started_at: '2026-08-19T16:10:00Z',
+      probeMode: 'full_pool',
+    },
+    {
+      execution_profile_id: profile().executionProfileId,
+      status: 'failed',
+      started_at: '2026-08-19T17:50:00Z',
+      probeMode: 'recovery',
+    },
+  ] as ACUProbeHistoryRow[]
+  const buckets = buildProbeBuckets(
+    probes,
+    2 * 60 * 60_000,
+    new Date('2026-08-19T18:00:00Z').getTime(),
+    12
+  )
+  const observed = buckets.find((item) => item.totalCount > 0)
+  assert.ok(observed)
+  assert.equal(observed.successCount, 1)
+  assert.equal(observed.totalCount, 2)
+  assert.equal(classifyModelProbeBucket(observed), 'success')
+  assert.equal(classifyProbeBucket(observed), 'mixed')
 })
 
 test('uses each Profile latest Probe for coverage while retaining all Probe evidence', () => {
@@ -503,6 +551,16 @@ test('groups model supply by canonical model and reuses profile ranking order', 
     60
   )
   assert.equal(
+    groups.find((group) => group.modelId === 'gpt-5.6-luna')?.probeBuckets
+      .length,
+    24
+  )
+  assert.equal(
+    groups.find((group) => group.modelId === 'gpt-5.6-luna')?.profiles[0]
+      ?.probeBuckets?.length,
+    24
+  )
+  assert.equal(
     groups.find((group) => group.modelId === 'gpt-5.6-sol')?.profiles.length,
     1
   )
@@ -557,8 +615,8 @@ test('keeps model production and Probe evidence isolated and uses stable anonymo
   const solGroup = groups.find((group) => group.modelId === 'gpt-5.6-sol')
   assert.equal(lunaGroup?.requestCount, 3)
   assert.equal(solGroup?.requestCount, 8)
-  assert.equal(lunaGroup?.probeBuckets.length, 60)
-  assert.equal(solGroup?.probeBuckets.length, 60)
+  assert.equal(lunaGroup?.probeBuckets.length, 24)
+  assert.equal(solGroup?.probeBuckets.length, 24)
   assert.notEqual(
     anonymousACULineId(luna.executionProfileId),
     anonymousACULineId(sol.executionProfileId)
@@ -567,4 +625,20 @@ test('keeps model production and Probe evidence isolated and uses stable anonymo
     anonymousACULineId(luna.executionProfileId),
     anonymousACULineId(luna.executionProfileId)
   )
+})
+
+test('uses 28 six-hour Probe buckets for the seven-day Model history view', () => {
+  const model = profile()
+  const groups = groupACUModels(
+    [model],
+    [],
+    '24h',
+    '2026-08-19T18:00:00Z',
+    [],
+    '7d'
+  )
+
+  assert.equal(groups[0]?.buckets.length, 60)
+  assert.equal(groups[0]?.probeBuckets.length, 28)
+  assert.equal(groups[0]?.profiles[0]?.probeBuckets?.length, 28)
 })

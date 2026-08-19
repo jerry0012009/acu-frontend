@@ -475,6 +475,7 @@ export type ACUProbeBucket = {
 }
 
 export type ACUMonitorRange = '1h' | '6h' | '24h' | '7d'
+export type ACUProbeTimelineRange = '24h' | '48h' | '7d'
 export type ACUSupplyStrategy =
   | 'balanced'
   | 'lowest_cost'
@@ -705,9 +706,15 @@ export async function updateACURoutingUtilityConfig(
 export async function getACUChannelMonitor(
   range: ACUMonitorRange,
   supplyStrategy: ACUSupplyStrategy = 'balanced',
-  scenario: ACUMonitorScenario = 'standard'
+  scenario: ACUMonitorScenario = 'standard',
+  probeRange: ACUProbeTimelineRange = '48h'
 ) {
-  const params = new URLSearchParams({ range, supplyStrategy, scenario })
+  const params = new URLSearchParams({
+    range,
+    supplyStrategy,
+    scenario,
+    probeRange,
+  })
   const res = await api.get(`/api/log/acu-channel-monitor?${params.toString()}`)
   return res.data as {
     success: boolean

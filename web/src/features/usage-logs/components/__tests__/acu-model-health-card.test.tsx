@@ -58,13 +58,13 @@ test('renders anonymous model lines and isolates user-facing supply evidence', a
     success_count: index === 59 ? 5 : 0,
     error_count: 0,
   }))
-  const probeBuckets = Array.from({ length: 60 }, (_, index) => ({
+  const probeBuckets = Array.from({ length: 24 }, (_, index) => ({
     bucket: new Date(Date.UTC(2026, 7, 5, 0, index)).toISOString(),
-    fullPoolCount: index === 59 ? 1 : 0,
+    fullPoolCount: index === 23 ? 1 : 0,
     targetedCount: 0,
     recoveryCount: 0,
-    successCount: index === 59 ? 1 : 0,
-    totalCount: index === 59 ? 3 : 0,
+    successCount: index === 23 ? 1 : 0,
+    totalCount: index === 23 ? 3 : 0,
   }))
   await act(async () => {
     root.render(
@@ -128,19 +128,20 @@ test('renders anonymous model lines and isolates user-facing supply evidence', a
     60
   )
   assert.equal(
-    container.querySelectorAll('[aria-label="Probe timeline"] span').length,
-    120
+    container.querySelectorAll('[aria-label="Probe · 48h timeline"] span')
+      .length,
+    48
   )
   const probeTimelines = container.querySelectorAll(
-    '[aria-label="Probe timeline"]'
+    '[aria-label="Probe · 48h timeline"]'
   )
   assert.equal(probeTimelines.length, 2)
   assert.match(
-    probeTimelines[0]?.querySelectorAll('span').item(59)?.className ?? '',
+    probeTimelines[0]?.querySelectorAll('span').item(23)?.className ?? '',
     /bg-success/
   )
   assert.match(
-    probeTimelines[1]?.querySelectorAll('span').item(59)?.className ?? '',
+    probeTimelines[1]?.querySelectorAll('span').item(23)?.className ?? '',
     /bg-warning/
   )
 })

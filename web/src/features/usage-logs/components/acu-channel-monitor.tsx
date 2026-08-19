@@ -32,6 +32,7 @@ import {
   type ACUModelPoolEntry,
   type ACUProbeHistoryRow,
   type ACUMonitorRange,
+  type ACUProbeTimelineRange,
   type ACUMonitorScenario,
   type ACUSupplyStrategy,
   type ACUGlobalRoutingPolicy,
@@ -95,6 +96,7 @@ export function ACUChannelMonitor() {
     isAdmin ? 'channel' : 'model'
   )
   const [range, setRange] = useState<ACUMonitorRange>('24h')
+  const [probeRange, setProbeRange] = useState<ACUProbeTimelineRange>('48h')
   const [supplyStrategy, setSupplyStrategy] =
     useState<ACUSupplyStrategy>('balanced')
   const [scenario, setScenario] = useState<ACUMonitorScenario>('standard')
@@ -107,8 +109,15 @@ export function ACUChannelMonitor() {
     state: '',
   })
   const query = useQuery({
-    queryKey: ['acu-channel-monitor', range, supplyStrategy, scenario],
-    queryFn: () => getACUChannelMonitor(range, supplyStrategy, scenario),
+    queryKey: [
+      'acu-channel-monitor',
+      range,
+      supplyStrategy,
+      scenario,
+      probeRange,
+    ],
+    queryFn: () =>
+      getACUChannelMonitor(range, supplyStrategy, scenario, probeRange),
     staleTime: MONITOR_REFRESH_MS,
     refetchInterval: MONITOR_REFRESH_MS,
   })
@@ -218,7 +227,8 @@ export function ACUChannelMonitor() {
       query.data?.data?.history ?? [],
       range,
       query.data?.data?.generatedAt,
-      query.data?.data?.probeHistory ?? []
+      query.data?.data?.probeHistory ?? [],
+      probeRange
     )
   }, [
     activeTab,
@@ -228,6 +238,7 @@ export function ACUChannelMonitor() {
     query.data?.data?.generatedAt,
     query.data?.data?.history,
     query.data?.data?.probeHistory,
+    probeRange,
     range,
   ])
   const profileActions = isRoot
@@ -474,6 +485,23 @@ export function ACUChannelMonitor() {
               </Button>
             </div>
           )}
+          {overviewLayout === 'model' && (
+            <div className='flex flex-wrap items-center gap-2'>
+              <span className='text-muted-foreground text-xs'>
+                {t('Probe history')}
+              </span>
+              {(['24h', '48h', '7d'] as const).map((value) => (
+                <Button
+                  key={value}
+                  size='sm'
+                  variant={probeRange === value ? 'default' : 'outline'}
+                  onClick={() => setProbeRange(value)}
+                >
+                  {value}
+                </Button>
+              ))}
+            </div>
+          )}
           <div className='grid min-w-0 gap-3 xl:grid-cols-2'>
             {overviewLayout === 'channel'
               ? channelGroups.map((channel) => (
@@ -489,6 +517,7 @@ export function ACUChannelMonitor() {
                     key={model.modelId}
                     model={model}
                     showDiagnostics={isAdmin}
+                    probeRange={probeRange}
                     profileActions={profileActions}
                   />
                 ))}

@@ -90,6 +90,14 @@ test('overview Profile routing controls stay Root-only and reuse existing policy
   )
   assert.match(monitorSource, /overviewLayout === 'channel'/)
   assert.match(monitorSource, /overviewLayout === 'model'/)
+  assert.match(
+    monitorSource,
+    /queryKey: \[[\s\S]{0,180}'acu-channel-monitor'[\s\S]{0,180}probeRange/
+  )
+  assert.match(
+    usageApiSource,
+    /getACUChannelMonitor[\s\S]{0,260}probeRange[\s\S]{0,180}URLSearchParams/
+  )
   assert.match(monitorSource, /showDiagnostics=\{isAdmin\}/)
   assert.match(monitorSource, /const profileActions = isRoot/)
 })

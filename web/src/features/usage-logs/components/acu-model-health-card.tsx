@@ -6,7 +6,11 @@ import { StatusBadge } from '@/components/status-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
-import type { ACUChannelMonitorProfile, ACUGlobalRoutingPolicy } from '../api'
+import type {
+  ACUChannelMonitorProfile,
+  ACUGlobalRoutingPolicy,
+  ACUProbeTimelineRange,
+} from '../api'
 import {
   anonymousACULineId,
   classifyHistoryBucket,
@@ -38,6 +42,7 @@ const stateVariant = {
 export function ACUModelHealthCard(props: {
   model: ACUModelOverview
   showDiagnostics?: boolean
+  probeRange?: ACUProbeTimelineRange
   profileActions?: {
     policy?: ACUGlobalRoutingPolicy
     isTogglePending: (profileId: string) => boolean
@@ -51,6 +56,7 @@ export function ACUModelHealthCard(props: {
 }) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
+  const probeRange = props.probeRange ?? '48h'
   return (
     <section className='bg-background min-w-0 rounded-md border'>
       <button
@@ -89,7 +95,7 @@ export function ACUModelHealthCard(props: {
           }))}
         />
         <StatusTimeline
-          label={t('Probe')}
+          label={`${t('Probe')} · ${probeRange}`}
           buckets={props.model.probeBuckets.map((bucket) => ({
             key: bucket.bucket,
             tone: classifyModelProbeBucket(bucket),
@@ -110,6 +116,7 @@ export function ACUModelHealthCard(props: {
               index={index + 1}
               profile={profile}
               showDiagnostics={props.showDiagnostics}
+              probeRange={probeRange}
               actions={props.profileActions}
             />
           ))}
@@ -123,6 +130,7 @@ function ModelProfile(props: {
   index: number
   profile: ACUChannelMonitorProfile
   showDiagnostics?: boolean
+  probeRange: ACUProbeTimelineRange
   actions?: {
     policy?: ACUGlobalRoutingPolicy
     isTogglePending: (profileId: string) => boolean
@@ -240,7 +248,7 @@ function ModelProfile(props: {
       ) : null}
       <div className='mt-3 border-t pt-3'>
         <StatusTimeline
-          label={t('Probe')}
+          label={`${t('Probe')} · ${props.probeRange}`}
           buckets={(profile.probeBuckets ?? []).map((bucket) => ({
             key: bucket.bucket,
             tone: classifyProbeBucket(bucket),

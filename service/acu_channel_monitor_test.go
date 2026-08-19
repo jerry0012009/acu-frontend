@@ -17,7 +17,7 @@ func TestGetACUChannelMonitorValidatesAndForwardsViewParameters(t *testing.T) {
 	common.OptionMap = map[string]string{
 		"ACURoutingUtilityConfig": `{"schemaVersion":"acu-routing-utility-config-v1","formulaMode":"active","qualityPresets":{"economy":-10,"balanced":20,"quality":70},"acuHighBiasOffset":40,"modelCostLogScale":0.75,"supplyPresets":{"lowest_cost":{"cost":100,"speed":0,"reliability":0},"balanced":{"cost":40,"speed":25,"reliability":35},"low_latency":{"cost":10,"speed":80,"reliability":10},"high_reliability":{"cost":10,"speed":10,"reliability":80}},"profileCostLogScale":7,"profileSpeedLogScale":2.5,"latency":{"windowHours":24,"longContextThresholdTokens":100000,"minimumSamples":17,"unknownLatencyMultiplier":1.2},"reliability":{"windowHours":24,"minimumSamples":5,"unknownDefault":0.75,"degradedMultiplier":0.85},"workPhaseBiasOffsets":{"inspection":-10,"general":0,"implementation":0,"verification":0,"planning":10,"recovery":20}}`,
 	}
-	requests := make(chan *http.Request, 2)
+	requests := make(chan *http.Request, 3)
 	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		requests <- request.Clone(request.Context())
 		w.Header().Set("Content-Type", "application/json")
@@ -27,25 +27,33 @@ func TestGetACUChannelMonitorValidatesAndForwardsViewParameters(t *testing.T) {
 	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
 	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
 
-	result, err := GetACUChannelMonitor(context.Background(), "7d", "low_latency", "long")
+	result, err := GetACUChannelMonitor(context.Background(), "24h", "low_latency", "long", "48h")
 	require.NoError(t, err)
 	require.Equal(t, float64(118), result.DefaultCandidatePreferenceScores["claude-opus-4-8"])
 	forwarded := <-requests
-	require.Equal(t, "7d", forwarded.URL.Query().Get("range"))
+	require.Equal(t, "24h", forwarded.URL.Query().Get("range"))
 	require.Equal(t, "low_latency", forwarded.URL.Query().Get("supplyStrategy"))
 	require.Equal(t, "long", forwarded.URL.Query().Get("scenario"))
+	require.Equal(t, "48h", forwarded.URL.Query().Get("probeRange"))
 	var forwardedPolicy map[string]interface{}
 	require.NoError(t, common.UnmarshalJsonStr(forwarded.Header.Get("X-ACU-Monitor-Routing-Utility-Policy"), &forwardedPolicy))
 	require.Equal(t, float64(7), forwardedPolicy["profileCostLogScale"])
 	require.Equal(t, float64(17), forwardedPolicy["latency"].(map[string]interface{})["minimumSamples"])
 	require.Equal(t, float64(80), forwardedPolicy["supplyWeights"].(map[string]interface{})["speed"])
 
-	_, err = GetACUChannelMonitor(context.Background(), "invalid", "invalid", "invalid")
+	_, err = GetACUChannelMonitor(context.Background(), "7d", "balanced", "standard", "7d")
+	require.NoError(t, err)
+	sevenDays := <-requests
+	require.Equal(t, "7d", sevenDays.URL.Query().Get("range"))
+	require.Equal(t, "7d", sevenDays.URL.Query().Get("probeRange"))
+
+	_, err = GetACUChannelMonitor(context.Background(), "invalid", "invalid", "invalid", "invalid")
 	require.NoError(t, err)
 	defaults := <-requests
 	require.Equal(t, "24h", defaults.URL.Query().Get("range"))
 	require.Equal(t, "balanced", defaults.URL.Query().Get("supplyStrategy"))
 	require.Equal(t, "standard", defaults.URL.Query().Get("scenario"))
+	require.Equal(t, "48h", defaults.URL.Query().Get("probeRange"))
 }
 
 func TestExecutionProfileManagementForwardsOnlyTargetedRouterOperations(t *testing.T) {

@@ -2,6 +2,7 @@ import type {
   ACUChannelHistoryRow,
   ACUChannelMonitorProfile,
   ACUMonitorRange,
+  ACUProbeTimelineRange,
   ACUProbeBucket,
   ACUProbeHistoryRow,
 } from '../api'
@@ -168,7 +169,8 @@ export function probeBucketTitle(bucket: ACUProbeBucket): string {
 export function buildProbeBuckets(
   probes: ACUProbeHistoryRow[],
   bucketMs: number,
-  lastBucketTime: number
+  lastBucketTime: number,
+  bucketCount = 60
 ): ACUProbeBucket[] {
   const probesByTime = new Map<number, ACUProbeBucket>()
   for (const probe of probes) {
@@ -196,8 +198,8 @@ export function buildProbeBuckets(
     }
     probesByTime.set(bucketTime, current)
   }
-  return Array.from({ length: 60 }, (_, index) => {
-    const bucketTime = lastBucketTime - (59 - index) * bucketMs
+  return Array.from({ length: bucketCount }, (_, index) => {
+    const bucketTime = lastBucketTime - (bucketCount - 1 - index) * bucketMs
     return (
       probesByTime.get(bucketTime) ?? {
         bucket: new Date(bucketTime).toISOString(),
@@ -209,6 +211,22 @@ export function buildProbeBuckets(
       }
     )
   })
+}
+
+export const PROBE_TIMELINE_SPECS: Record<
+  ACUProbeTimelineRange,
+  { bucketMs: number; bucketCount: number }
+> = {
+  '24h': { bucketMs: 2 * 60 * 60_000, bucketCount: 12 },
+  '48h': { bucketMs: 2 * 60 * 60_000, bucketCount: 24 },
+  '7d': { bucketMs: 6 * 60 * 60_000, bucketCount: 28 },
+}
+
+export function probeTimelineSpec(range: ACUProbeTimelineRange): {
+  bucketMs: number
+  bucketCount: number
+} {
+  return PROBE_TIMELINE_SPECS[range]
 }
 
 function monitorBucketSpec(range: ACUMonitorRange) {
@@ -268,7 +286,8 @@ export function groupACUModels(
   history: ACUChannelHistoryRow[],
   range: ACUMonitorRange = '24h',
   generatedAt = new Date().toISOString(),
-  probeHistory: ACUProbeHistoryRow[] = []
+  probeHistory: ACUProbeHistoryRow[] = [],
+  probeRange: ACUProbeTimelineRange = '48h'
 ): ACUModelOverview[] {
   const profilesByModel = new Map<string, ACUChannelMonitorProfile[]>()
   for (const profile of profiles) {
@@ -297,11 +316,17 @@ export function groupACUModels(
     probesByProfile.set(probe.execution_profile_id, profileProbes)
   }
   const bucketMs = monitorBucketSpec(range)
+  const probeSpec = probeTimelineSpec(probeRange)
   const generatedTime = new Date(generatedAt).getTime()
   const lastBucketTime =
     Math.floor(
       (Number.isFinite(generatedTime) ? generatedTime : Date.now()) / bucketMs
     ) * bucketMs
+  const probeLastBucketTime =
+    Math.floor(
+      (Number.isFinite(generatedTime) ? generatedTime : Date.now()) /
+        probeSpec.bucketMs
+    ) * probeSpec.bucketMs
 
   return [...profilesByModel.entries()]
     .map(([modelId, modelProfiles]) => {
@@ -354,8 +379,9 @@ export function groupACUModels(
           latestProbe: latestProbeByProfile.get(profile.executionProfileId),
           probeBuckets: buildProbeBuckets(
             probesByProfile.get(profile.executionProfileId) ?? [],
-            bucketMs,
-            lastBucketTime
+            probeSpec.bucketMs,
+            probeLastBucketTime,
+            probeSpec.bucketCount
           ),
         }))
       )
@@ -371,7 +397,12 @@ export function groupACUModels(
         modelId,
         profiles: profilesWithProbes,
         buckets,
-        probeBuckets: buildProbeBuckets(modelProbes, bucketMs, lastBucketTime),
+        probeBuckets: buildProbeBuckets(
+          modelProbes,
+          probeSpec.bucketMs,
+          probeLastBucketTime,
+          probeSpec.bucketCount
+        ),
         requestCount,
         successCount,
         availability: requestCount > 0 ? successCount / requestCount : null,
