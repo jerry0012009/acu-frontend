@@ -579,6 +579,49 @@ func TestListModelsFiltersBillingConfiguredACUModelsByChatCapability(t *testing.
 	}
 }
 
+func TestListModelsKeepsACUAutoWithoutProfileOrBillingConfig(t *testing.T) {
+	withSelfUseModeDisabled(t)
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&model.User{
+		Id:       1006,
+		Username: "acu-auto-model-list-user",
+		Password: "password",
+		Group:    "default",
+		Status:   common.UserStatusEnabled,
+	}).Error)
+
+	acuTag := constant.ChannelTagACURouter
+	require.NoError(t, db.Create(&model.Channel{
+		Id:     911,
+		Type:   constant.ChannelTypeOpenAI,
+		Key:    "acu-router-key",
+		Status: common.ChannelStatusEnabled,
+		Name:   "acu-router-channel",
+		Group:  "default",
+		Models: "acu-auto",
+		Tag:    &acuTag,
+	}).Error)
+	require.NoError(t, db.Create(&model.Ability{
+		Group: "default", Model: "acu-auto", ChannelId: 911, Enabled: true,
+	}).Error)
+
+	profileServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"profiles":[]}`))
+	}))
+	t.Cleanup(profileServer.Close)
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", profileServer.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-acu-admin-token")
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	ctx.Set("id", 1006)
+	ListModels(ctx, constant.ChannelTypeOpenAI)
+
+	require.Contains(t, decodeListModelsResponse(t, recorder), "acu-auto")
+}
+
 func TestListModelsTokenLimitIncludesTieredBillingModel(t *testing.T) {
 	withSelfUseModeDisabled(t)
 	withTieredBillingConfig(t, map[string]string{

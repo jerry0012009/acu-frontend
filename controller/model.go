@@ -275,6 +275,10 @@ func filterPublicACUModelsByChatCapability(
 
 	filtered := make([]string, 0, len(modelNames))
 	for _, modelName := range modelNames {
+		if modelName == "acu-auto" {
+			filtered = append(filtered, modelName)
+			continue
+		}
 		if hasPublicACURouterModel(ownerGroups, modelName) {
 			if _, ok := chatModels[modelName]; !ok {
 				continue
