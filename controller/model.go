@@ -205,10 +205,10 @@ func getModelListGroups(c *gin.Context) (modelListGroups, error) {
 	}, nil
 }
 
-func hasPublicACURouterModel(ownerGroups []string, modelName string) bool {
+func hasPublicACURouterChatModel(ownerGroups []string, modelName string) bool {
 	for _, group := range ownerGroups {
 		if model.HasEnabledChannelTagForGroupModel(
-			group, modelName, "/v1/responses", constant.ChannelTagACURouter,
+			group, modelName, "/v1/chat/completions", constant.ChannelTagACURouter,
 		) {
 			return true
 		}
@@ -249,7 +249,7 @@ func ListModels(c *gin.Context, modelType int) {
 		}
 		for allowModel, _ := range tokenModelLimit {
 			if !acceptUnsetRatioModel {
-				if !helper.HasModelBillingConfig(allowModel) && !hasPublicACURouterModel(ownerGroups, allowModel) {
+				if !helper.HasModelBillingConfig(allowModel) && !hasPublicACURouterChatModel(ownerGroups, allowModel) {
 					continue
 				}
 			}
@@ -259,7 +259,7 @@ func ListModels(c *gin.Context, modelType int) {
 		models := service.GetGroupsEnabledModels(ownerGroups)
 		for _, modelName := range models {
 			if !acceptUnsetRatioModel {
-				if !helper.HasModelBillingConfig(modelName) && !hasPublicACURouterModel(ownerGroups, modelName) {
+				if !helper.HasModelBillingConfig(modelName) && !hasPublicACURouterChatModel(ownerGroups, modelName) {
 					continue
 				}
 			}

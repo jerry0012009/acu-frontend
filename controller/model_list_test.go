@@ -404,6 +404,8 @@ func TestListModelsExposesOnlyPublicACUCanonicalModels(t *testing.T) {
 	}).Error)
 	publicModels := []string{
 		"acu-auto",
+		"gpt-5.4-mini",
+		"gpt-5.5",
 		"gpt-5.6-sol",
 		"gpt-5.6-terra",
 		"gpt-5.6-luna",
@@ -425,6 +427,30 @@ func TestListModelsExposesOnlyPublicACUCanonicalModels(t *testing.T) {
 			Group: "default", Model: modelName, ChannelId: 801 + index, Enabled: true,
 		}).Error)
 	}
+	responseOnlyChannel := &model.Channel{
+		Id:     810,
+		Type:   constant.ChannelTypeAdvancedCustom,
+		Key:    "acu-router-response-only-key",
+		Status: common.ChannelStatusEnabled,
+		Name:   "acu-router-response-only-channel",
+		Group:  "default",
+		Models: "zz-response-only-acu-model",
+		Tag:    &acuTag,
+	}
+	responseOnlyChannel.SetOtherSettings(dto.ChannelOtherSettings{
+		AdvancedCustom: &dto.AdvancedCustomConfig{
+			Routes: []dto.AdvancedCustomRoute{
+				{
+					IncomingPath: "/v1/responses",
+					UpstreamPath: "/v1/responses",
+				},
+			},
+		},
+	})
+	require.NoError(t, db.Create(responseOnlyChannel).Error)
+	require.NoError(t, db.Create(&model.Ability{
+		Group: "default", Model: "zz-response-only-acu-model", ChannelId: 810, Enabled: true,
+	}).Error)
 
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
@@ -436,6 +462,7 @@ func TestListModelsExposesOnlyPublicACUCanonicalModels(t *testing.T) {
 	for _, modelName := range publicModels {
 		require.Contains(t, ids, modelName)
 	}
+	require.NotContains(t, ids, "zz-response-only-acu-model")
 	for _, internalModel := range []string{
 		"lucen-cx006-gpt-5.6-terra",
 		"blackai-gpt-5.6-sol",
