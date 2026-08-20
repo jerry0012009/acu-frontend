@@ -488,11 +488,15 @@ func TestListModelsExposesOnlyPublicACUCanonicalModels(t *testing.T) {
 	}
 }
 
-func TestListModelsFiltersBillingConfiguredACUModelsByChatCapability(t *testing.T) {
+func TestListModelsFiltersBillingConfiguredACUModelsByProtocolCapability(t *testing.T) {
 	withSelfUseModeDisabled(t)
 	withTieredBillingConfig(t, map[string]string{
 		"zz-response-only-acu-model": "tiered_expr",
+		"zz-messages-only-acu-model": "tiered_expr",
 		"zz-chat-acu-model":          "tiered_expr",
+		"claude-opus-4-8":            "tiered_expr",
+		"claude-sonnet-5":            "tiered_expr",
+		"claude-fable-5":             "tiered_expr",
 		"gpt-5.4-mini":               "tiered_expr",
 		"gpt-5.5":                    "tiered_expr",
 		"gpt-5.6-luna":               "tiered_expr",
@@ -500,7 +504,11 @@ func TestListModelsFiltersBillingConfiguredACUModelsByChatCapability(t *testing.
 		"gpt-5.6-terra":              "tiered_expr",
 	}, map[string]string{
 		"zz-response-only-acu-model": `p * 1 + c * 1`,
+		"zz-messages-only-acu-model": `p * 1 + c * 1`,
 		"zz-chat-acu-model":          `p * 1 + c * 1`,
+		"claude-opus-4-8":            `p * 1 + c * 1`,
+		"claude-sonnet-5":            `p * 1 + c * 1`,
+		"claude-fable-5":             `p * 1 + c * 1`,
 		"gpt-5.4-mini":               `p * 1 + c * 1`,
 		"gpt-5.5":                    `p * 1 + c * 1`,
 		"gpt-5.6-luna":               `p * 1 + c * 1`,
@@ -518,7 +526,11 @@ func TestListModelsFiltersBillingConfiguredACUModelsByChatCapability(t *testing.
 
 	modelNames := []string{
 		"zz-response-only-acu-model",
+		"zz-messages-only-acu-model",
 		"zz-chat-acu-model",
+		"claude-opus-4-8",
+		"claude-sonnet-5",
+		"claude-fable-5",
 		"gpt-5.4-mini",
 		"gpt-5.5",
 		"gpt-5.6-luna",
@@ -528,9 +540,13 @@ func TestListModelsFiltersBillingConfiguredACUModelsByChatCapability(t *testing.
 	acuTag := constant.ChannelTagACURouter
 	for index, modelName := range modelNames {
 		channelID := 901 + index
+		channelType := constant.ChannelTypeOpenAI
+		if strings.HasPrefix(modelName, "claude-") || modelName == "zz-messages-only-acu-model" {
+			channelType = constant.ChannelTypeAnthropic
+		}
 		require.NoError(t, db.Create(&model.Channel{
 			Id:     channelID,
-			Type:   constant.ChannelTypeOpenAI,
+			Type:   channelType,
 			Key:    "acu-router-key",
 			Status: common.ChannelStatusEnabled,
 			Name:   "acu-router-channel",
@@ -547,7 +563,11 @@ func TestListModelsFiltersBillingConfiguredACUModelsByChatCapability(t *testing.
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"profiles":[
 			{"modelId":"zz-response-only-acu-model","protocols":["responses"],"enabled":true},
+			{"modelId":"zz-messages-only-acu-model","protocols":["messages"],"enabled":true},
 			{"modelId":"zz-chat-acu-model","protocols":["responses","chat_completions"],"enabled":true},
+			{"modelId":"claude-opus-4-8","protocols":["messages"],"enabled":true},
+			{"modelId":"claude-sonnet-5","protocols":["messages"],"enabled":true},
+			{"modelId":"claude-fable-5","protocols":["messages"],"enabled":true},
 			{"modelId":"gpt-5.4-mini","protocols":["responses","chat_completions"],"enabled":true},
 			{"modelId":"gpt-5.5","protocols":["responses","chat_completions"],"enabled":true},
 			{"modelId":"gpt-5.6-luna","protocols":["responses","chat_completions"],"enabled":true},
@@ -567,7 +587,15 @@ func TestListModelsFiltersBillingConfiguredACUModelsByChatCapability(t *testing.
 
 	ids := decodeListModelsResponse(t, recorder)
 	require.NotContains(t, ids, "zz-response-only-acu-model")
+	require.NotContains(t, ids, "zz-messages-only-acu-model")
 	require.Contains(t, ids, "zz-chat-acu-model")
+	for _, modelName := range []string{
+		"claude-opus-4-8",
+		"claude-sonnet-5",
+		"claude-fable-5",
+	} {
+		require.Contains(t, ids, modelName)
+	}
 	for _, modelName := range []string{
 		"gpt-5.4-mini",
 		"gpt-5.5",

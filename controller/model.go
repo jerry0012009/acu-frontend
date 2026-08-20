@@ -252,6 +252,7 @@ func filterPublicACUModelsByChatCapability(
 
 	profilePayload, err := service.GetACUExecutionProfiles(ctx)
 	chatModels := make(map[string]struct{})
+	messagesModels := make(map[string]struct{})
 	if err != nil {
 		common.SysError("failed to load ACU execution profiles for model discovery: " + err.Error())
 	} else if profiles, ok := profilePayload["profiles"].([]interface{}); ok {
@@ -267,6 +268,9 @@ func filterPublicACUModelsByChatCapability(
 					chatModels[modelID] = struct{}{}
 					break
 				}
+				if protocol == "messages" && modelID != "" {
+					messagesModels[modelID] = struct{}{}
+				}
 			}
 		}
 	} else {
@@ -280,7 +284,12 @@ func filterPublicACUModelsByChatCapability(
 			continue
 		}
 		if hasPublicACURouterModel(ownerGroups, modelName) {
-			if _, ok := chatModels[modelName]; !ok {
+			_, hasChatCapability := chatModels[modelName]
+			_, hasClaudeMessagesCapability := messagesModels[modelName]
+			isClaudeMessagesAllowlisted := modelName == "claude-opus-4-8" ||
+				modelName == "claude-sonnet-5" ||
+				modelName == "claude-fable-5"
+			if !hasChatCapability && !(isClaudeMessagesAllowlisted && hasClaudeMessagesCapability) {
 				continue
 			}
 		}
