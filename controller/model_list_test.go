@@ -452,6 +452,21 @@ func TestListModelsExposesOnlyPublicACUCanonicalModels(t *testing.T) {
 		Group: "default", Model: "zz-response-only-acu-model", ChannelId: 810, Enabled: true,
 	}).Error)
 
+	profileServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"profiles":[
+			{"modelId":"acu-auto","protocols":["responses","chat_completions"],"enabled":true},
+			{"modelId":"gpt-5.4-mini","protocols":["responses","chat_completions"],"enabled":true},
+			{"modelId":"gpt-5.5","protocols":["responses","chat_completions"],"enabled":true},
+			{"modelId":"gpt-5.6-sol","protocols":["responses","chat_completions"],"enabled":true},
+			{"modelId":"gpt-5.6-terra","protocols":["responses","chat_completions"],"enabled":true},
+			{"modelId":"gpt-5.6-luna","protocols":["responses","chat_completions"],"enabled":true}
+		]}`))
+	}))
+	t.Cleanup(profileServer.Close)
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", profileServer.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-acu-admin-token")
+
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
@@ -470,6 +485,97 @@ func TestListModelsExposesOnlyPublicACUCanonicalModels(t *testing.T) {
 		"execution-profile:terra-primary",
 	} {
 		require.NotContains(t, ids, internalModel)
+	}
+}
+
+func TestListModelsFiltersBillingConfiguredACUModelsByChatCapability(t *testing.T) {
+	withSelfUseModeDisabled(t)
+	withTieredBillingConfig(t, map[string]string{
+		"zz-response-only-acu-model": "tiered_expr",
+		"zz-chat-acu-model":          "tiered_expr",
+		"gpt-5.4-mini":               "tiered_expr",
+		"gpt-5.5":                    "tiered_expr",
+		"gpt-5.6-luna":               "tiered_expr",
+		"gpt-5.6-sol":                "tiered_expr",
+		"gpt-5.6-terra":              "tiered_expr",
+	}, map[string]string{
+		"zz-response-only-acu-model": `p * 1 + c * 1`,
+		"zz-chat-acu-model":          `p * 1 + c * 1`,
+		"gpt-5.4-mini":               `p * 1 + c * 1`,
+		"gpt-5.5":                    `p * 1 + c * 1`,
+		"gpt-5.6-luna":               `p * 1 + c * 1`,
+		"gpt-5.6-sol":                `p * 1 + c * 1`,
+		"gpt-5.6-terra":              `p * 1 + c * 1`,
+	})
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&model.User{
+		Id:       1005,
+		Username: "acu-chat-capability-user",
+		Password: "password",
+		Group:    "default",
+		Status:   common.UserStatusEnabled,
+	}).Error)
+
+	modelNames := []string{
+		"zz-response-only-acu-model",
+		"zz-chat-acu-model",
+		"gpt-5.4-mini",
+		"gpt-5.5",
+		"gpt-5.6-luna",
+		"gpt-5.6-sol",
+		"gpt-5.6-terra",
+	}
+	acuTag := constant.ChannelTagACURouter
+	for index, modelName := range modelNames {
+		channelID := 901 + index
+		require.NoError(t, db.Create(&model.Channel{
+			Id:     channelID,
+			Type:   constant.ChannelTypeOpenAI,
+			Key:    "acu-router-key",
+			Status: common.ChannelStatusEnabled,
+			Name:   "acu-router-channel",
+			Group:  "default",
+			Models: modelName,
+			Tag:    &acuTag,
+		}).Error)
+		require.NoError(t, db.Create(&model.Ability{
+			Group: "default", Model: modelName, ChannelId: channelID, Enabled: true,
+		}).Error)
+	}
+
+	profileServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"profiles":[
+			{"modelId":"zz-response-only-acu-model","protocols":["responses"],"enabled":true},
+			{"modelId":"zz-chat-acu-model","protocols":["responses","chat_completions"],"enabled":true},
+			{"modelId":"gpt-5.4-mini","protocols":["responses","chat_completions"],"enabled":true},
+			{"modelId":"gpt-5.5","protocols":["responses","chat_completions"],"enabled":true},
+			{"modelId":"gpt-5.6-luna","protocols":["responses","chat_completions"],"enabled":true},
+			{"modelId":"gpt-5.6-sol","protocols":["responses","chat_completions"],"enabled":true},
+			{"modelId":"gpt-5.6-terra","protocols":["responses","chat_completions"],"enabled":true}
+		]}`))
+	}))
+	t.Cleanup(profileServer.Close)
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", profileServer.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-acu-admin-token")
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	ctx.Set("id", 1005)
+	ListModels(ctx, constant.ChannelTypeOpenAI)
+
+	ids := decodeListModelsResponse(t, recorder)
+	require.NotContains(t, ids, "zz-response-only-acu-model")
+	require.Contains(t, ids, "zz-chat-acu-model")
+	for _, modelName := range []string{
+		"gpt-5.4-mini",
+		"gpt-5.5",
+		"gpt-5.6-luna",
+		"gpt-5.6-sol",
+		"gpt-5.6-terra",
+	} {
+		require.Contains(t, ids, modelName)
 	}
 }
 

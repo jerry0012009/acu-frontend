@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -216,6 +217,74 @@ func hasPublicACURouterChatModel(ownerGroups []string, modelName string) bool {
 	return false
 }
 
+func hasPublicACURouterModel(ownerGroups []string, modelName string) bool {
+	for _, group := range ownerGroups {
+		for _, requestPath := range []string{
+			"/v1/chat/completions",
+			"/v1/responses",
+			"/v1/messages",
+		} {
+			if model.HasEnabledChannelTagForGroupModel(
+				group, modelName, requestPath, constant.ChannelTagACURouter,
+			) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func filterPublicACUModelsByChatCapability(
+	ctx context.Context,
+	modelNames []string,
+	ownerGroups []string,
+) []string {
+	hasPublicACUModel := false
+	for _, modelName := range modelNames {
+		if hasPublicACURouterModel(ownerGroups, modelName) {
+			hasPublicACUModel = true
+			break
+		}
+	}
+	if !hasPublicACUModel {
+		return modelNames
+	}
+
+	profilePayload, err := service.GetACUExecutionProfiles(ctx)
+	chatModels := make(map[string]struct{})
+	if err != nil {
+		common.SysError("failed to load ACU execution profiles for model discovery: " + err.Error())
+	} else if profiles, ok := profilePayload["profiles"].([]interface{}); ok {
+		for _, item := range profiles {
+			profile, ok := item.(map[string]interface{})
+			if !ok || profile["enabled"] != true {
+				continue
+			}
+			modelID, _ := profile["modelId"].(string)
+			protocols, _ := profile["protocols"].([]interface{})
+			for _, protocol := range protocols {
+				if protocol == "chat_completions" && modelID != "" {
+					chatModels[modelID] = struct{}{}
+					break
+				}
+			}
+		}
+	} else {
+		common.SysError("ACU execution profile response did not include a profiles list")
+	}
+
+	filtered := make([]string, 0, len(modelNames))
+	for _, modelName := range modelNames {
+		if hasPublicACURouterModel(ownerGroups, modelName) {
+			if _, ok := chatModels[modelName]; !ok {
+				continue
+			}
+		}
+		filtered = append(filtered, modelName)
+	}
+	return filtered
+}
+
 func ListModels(c *gin.Context, modelType int) {
 	acceptUnsetRatioModel := operation_setting.SelfUseModeEnabled
 	if !acceptUnsetRatioModel {
@@ -265,6 +334,14 @@ func ListModels(c *gin.Context, modelType int) {
 			}
 			userModelNames = append(userModelNames, modelName)
 		}
+	}
+
+	if modelType == constant.ChannelTypeOpenAI {
+		userModelNames = filterPublicACUModelsByChatCapability(
+			c.Request.Context(),
+			userModelNames,
+			ownerGroups,
+		)
 	}
 
 	ownerByModel := map[string]string{}
