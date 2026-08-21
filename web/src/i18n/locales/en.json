@@ -5435,6 +5435,7 @@
     "production": "production",
     "judge": "judge",
     "full_pool_probe": "full-pool Probe",
+    "historical_probe": "historical Probe",
     "recovery_probe": "recovery Probe",
     "Event type": "Event type",
     "Result": "Result",

@@ -4,7 +4,10 @@ import { after, test } from 'node:test'
 import { Window } from 'happy-dom'
 import React from 'react'
 
-Object.defineProperty(globalThis, 'React', { configurable: true, value: React })
+Object.defineProperty(globalThis, 'React', {
+  configurable: true,
+  value: React,
+})
 const domWindow = new Window({ url: 'http://localhost/' })
 for (const key of [
   'window',
@@ -56,7 +59,7 @@ test('shows separate Production and Probe evidence and expands all Profile evide
     bucket: new Date(Date.UTC(2026, 7, 5, 0, index)).toISOString(),
     fullPoolCount: index === 59 ? 1 : 0,
     targetedCount: index === 59 ? 1 : 0,
-    recoveryCount: 0,
+    historicalCount: 0,
     successCount: index === 59 ? 2 : 0,
     totalCount: index === 59 ? 2 : 0,
     latestProbe:
@@ -95,7 +98,7 @@ test('shows separate Production and Probe evidence and expands all Profile evide
               bucket: new Date(Date.UTC(2026, 7, 5, 0, index)).toISOString(),
               fullPoolCount: index === 59 ? 1 : 0,
               targetedCount: index === 59 ? 1 : 0,
-              recoveryCount: 0,
+              historicalCount: 0,
               successCount: index === 59 ? 2 : 0,
               totalCount: index === 59 ? 2 : 0,
               latestProbe:
@@ -115,8 +118,6 @@ test('shows separate Production and Probe evidence and expands all Profile evide
             latestTargetedProbeAt: '2026-08-05T11:30:00Z',
             targetedProbeCount: 1,
             targetedProbeSuccessCount: 1,
-            recoveryProbeCount: 0,
-            recoveryProbeSuccessCount: 0,
             latestHealthEvent: {
               source: 'full_pool_probe',
               result: 'success',
@@ -145,8 +146,6 @@ test('shows separate Production and Probe evidence and expands all Profile evide
                 fullPoolProbeCount: 2,
                 targetedProbeSuccessCount: 1,
                 targetedProbeCount: 1,
-                recoveryProbeSuccessCount: 0,
-                recoveryProbeCount: 0,
                 firstEventSampleCount: 9,
                 costContribution: 0.3,
                 speedContribution: 0.2,
@@ -251,8 +250,6 @@ test('shows failed Probe coverage without presenting an empty Production success
             latestTargetedProbeAt: null,
             targetedProbeCount: 0,
             targetedProbeSuccessCount: 0,
-            recoveryProbeCount: 0,
-            recoveryProbeSuccessCount: 0,
             latestHealthEvent: null,
           }}
         />
@@ -317,7 +314,7 @@ test('redacts credentials from Latest Probe text and timeline titles', async () 
                 bucket: '2026-08-05T12:00:00Z',
                 fullPoolCount: 0,
                 targetedCount: 1,
-                recoveryCount: 0,
+                historicalCount: 0,
                 successCount: 0,
                 totalCount: 1,
                 latestProbe: probe,
@@ -329,8 +326,6 @@ test('redacts credentials from Latest Probe text and timeline titles', async () 
             latestTargetedProbeAt: '2026-08-05T12:00:00Z',
             targetedProbeCount: 1,
             targetedProbeSuccessCount: 0,
-            recoveryProbeCount: 0,
-            recoveryProbeSuccessCount: 0,
             latestHealthEvent: null,
           }}
         />
@@ -405,8 +400,6 @@ test('renders Root Profile actions and keeps globally disabled Profiles probeabl
             latestTargetedProbeAt: null,
             targetedProbeCount: 0,
             targetedProbeSuccessCount: 0,
-            recoveryProbeCount: 0,
-            recoveryProbeSuccessCount: 0,
             latestHealthEvent: null,
           }}
           profileActions={{
@@ -505,8 +498,6 @@ test('disables unavailable enable and pending Profile actions without affecting 
             latestTargetedProbeAt: null,
             targetedProbeCount: 0,
             targetedProbeSuccessCount: 0,
-            recoveryProbeCount: 0,
-            recoveryProbeSuccessCount: 0,
             latestHealthEvent: null,
           }}
           profileActions={{
@@ -577,8 +568,6 @@ test('does not render Profile controls without Root action props', async () => {
             latestTargetedProbeAt: null,
             targetedProbeCount: 0,
             targetedProbeSuccessCount: 0,
-            recoveryProbeCount: 0,
-            recoveryProbeSuccessCount: 0,
             latestHealthEvent: null,
           }}
         />

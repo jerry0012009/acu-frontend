@@ -296,7 +296,7 @@ export type ACUChannelMonitorProfile = {
   probeStatus: string
   probeLatencyMs: number
   probeCostCny: number
-  nextEligibleProbeAt: string
+  nextRoutingEligibleAt: string
   probeFreshness: string
   probeDailySpendCny: number
   probeSuccessRate: number | null
@@ -304,8 +304,6 @@ export type ACUChannelMonitorProfile = {
   fullPoolProbeSuccessCount: number
   targetedProbeCount: number
   targetedProbeSuccessCount: number
-  recoveryProbeCount: number
-  recoveryProbeSuccessCount: number
   latestSuccessfulProbeAt: string | null
   latestFullPoolProbeAt: string | null
   latestTargetedProbeAt: string | null
@@ -315,7 +313,7 @@ export type ACUChannelMonitorProfile = {
       | 'judge'
       | 'full_pool_probe'
       | 'targeted_probe'
-      | 'recovery_probe'
+      | 'historical_probe'
     result: 'success' | 'failed' | 'cooldown' | 'recovered'
     at: string
   }>
@@ -460,7 +458,7 @@ export type ACUProbeHistoryRow = {
   started_at: string
   completed_at: string | null
   metadata_json?: Record<string, unknown>
-  probeMode: 'full_pool' | 'recovery' | 'targeted'
+  probeMode: 'full_pool' | 'historical' | 'targeted'
   trigger: string
 }
 
@@ -468,7 +466,7 @@ export type ACUProbeBucket = {
   bucket: string
   fullPoolCount: number
   targetedCount: number
-  recoveryCount: number
+  historicalCount: number
   successCount: number
   totalCount: number
   latestProbe?: ACUProbeHistoryRow

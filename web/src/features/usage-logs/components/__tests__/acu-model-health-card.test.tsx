@@ -4,7 +4,10 @@ import { after, test } from 'node:test'
 import { Window } from 'happy-dom'
 import React from 'react'
 
-Object.defineProperty(globalThis, 'React', { configurable: true, value: React })
+Object.defineProperty(globalThis, 'React', {
+  configurable: true,
+  value: React,
+})
 const domWindow = new Window({ url: 'http://localhost/' })
 for (const key of [
   'window',
@@ -62,7 +65,7 @@ test('renders anonymous model lines and isolates user-facing supply evidence', a
     bucket: new Date(Date.UTC(2026, 7, 5, 0, index)).toISOString(),
     fullPoolCount: index === 23 ? 1 : 0,
     targetedCount: 0,
-    recoveryCount: 0,
+    historicalCount: 0,
     successCount: index === 23 ? 1 : 0,
     totalCount: index === 23 ? 3 : 0,
   }))

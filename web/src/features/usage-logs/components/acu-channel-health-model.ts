@@ -48,8 +48,6 @@ export type ACUChannelOverview = {
   latestTargetedProbeAt: string | null
   targetedProbeCount: number
   targetedProbeSuccessCount: number
-  recoveryProbeCount: number
-  recoveryProbeSuccessCount: number
   latestHealthEvent: ACUChannelMonitorProfile['healthEvents'][number] | null
 }
 
@@ -157,7 +155,7 @@ export function formatProbeResult(
 
 export function probeBucketTitle(bucket: ACUProbeBucket): string {
   return [
-    `${new Date(bucket.bucket).toLocaleString()} · full-pool ${bucket.fullPoolCount} · targeted ${bucket.targetedCount} · recovery ${bucket.recoveryCount} · ${bucket.successCount}/${bucket.totalCount}`,
+    `${new Date(bucket.bucket).toLocaleString()} · full-pool ${bucket.fullPoolCount} · targeted ${bucket.targetedCount} · historical ${bucket.historicalCount} · ${bucket.successCount}/${bucket.totalCount}`,
     bucket.latestProbe
       ? `Latest: ${formatProbeResult(bucket.latestProbe)}`
       : '',
@@ -181,7 +179,7 @@ export function buildProbeBuckets(
       bucket: new Date(bucketTime).toISOString(),
       fullPoolCount: 0,
       targetedCount: 0,
-      recoveryCount: 0,
+      historicalCount: 0,
       successCount: 0,
       totalCount: 0,
     }
@@ -189,7 +187,7 @@ export function buildProbeBuckets(
     current.successCount += probe.status === 'success' ? 1 : 0
     if (probe.probeMode === 'full_pool') current.fullPoolCount += 1
     else if (probe.probeMode === 'targeted') current.targetedCount += 1
-    else current.recoveryCount += 1
+    else current.historicalCount += 1
     if (
       !current.latestProbe ||
       probeTimestamp(probe) > probeTimestamp(current.latestProbe)
@@ -205,7 +203,7 @@ export function buildProbeBuckets(
         bucket: new Date(bucketTime).toISOString(),
         fullPoolCount: 0,
         targetedCount: 0,
-        recoveryCount: 0,
+        historicalCount: 0,
         successCount: 0,
         totalCount: 0,
       }
@@ -577,9 +575,6 @@ export function groupACUChannels(
         ...targetedTimes,
         Number.NEGATIVE_INFINITY
       )
-      const recoveryProbes = channelProbes.filter(
-        (probe) => probe.probeMode === 'recovery'
-      )
       const latestHealthEvent = channelProfiles
         .flatMap((profile) => profile.healthEvents ?? [])
         .sort(
@@ -620,10 +615,6 @@ export function groupACUChannels(
         latestTargetedProbeAt: Number.isFinite(latestTargetedTime)
           ? new Date(latestTargetedTime).toISOString()
           : null,
-        recoveryProbeCount: recoveryProbes.length,
-        recoveryProbeSuccessCount: recoveryProbes.filter(
-          (probe) => probe.status === 'success'
-        ).length,
         latestHealthEvent: latestHealthEvent ?? null,
       }
     })

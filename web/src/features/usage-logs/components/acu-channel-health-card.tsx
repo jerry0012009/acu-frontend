@@ -169,10 +169,6 @@ export function ACUChannelHealthCard(props: {
             {t('Targeted')} {props.channel.targetedProbeSuccessCount} /{' '}
             {props.channel.targetedProbeCount}
           </div>
-          <div className='text-muted-foreground text-xs'>
-            {t('Recovery')} {props.channel.recoveryProbeSuccessCount} /{' '}
-            {props.channel.recoveryProbeCount}
-          </div>
         </div>
         <div className='bg-background min-w-0 space-y-1 p-3'>
           <div className='text-muted-foreground text-[11px]'>
@@ -371,10 +367,6 @@ function ChannelProfile(props: {
         <ProfileField
           label={t('Targeted Probes')}
           value={`${profile.targetedProbeSuccessCount}/${profile.targetedProbeCount}`}
-        />
-        <ProfileField
-          label={t('Recovery Probes')}
-          value={`${profile.recoveryProbeSuccessCount}/${profile.recoveryProbeCount}`}
         />
         <ProfileField
           label={t('p50 / p95')}

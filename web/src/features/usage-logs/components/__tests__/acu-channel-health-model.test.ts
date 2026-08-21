@@ -125,7 +125,7 @@ test('keeps production and probe evidence isolated by channel', () => {
         execution_profile_id: channelB.executionProfileId,
         status: 'failed',
         started_at: '2026-08-05T12:02:00Z',
-        probeMode: 'recovery',
+        probeMode: 'historical',
       },
     ] as ACUProbeHistoryRow[]
   )
@@ -207,7 +207,7 @@ test('groups mixed Probe results in one two-hour bucket without changing classif
       execution_profile_id: profile().executionProfileId,
       status: 'failed',
       started_at: '2026-08-19T17:50:00Z',
-      probeMode: 'recovery',
+      probeMode: 'historical',
     },
   ] as ACUProbeHistoryRow[]
   const buckets = buildProbeBuckets(
@@ -236,7 +236,7 @@ test('uses each Profile latest Probe for coverage while retaining all Probe evid
       execution_profile_id: profile().executionProfileId,
       status: 'failed',
       started_at: '2026-08-05T12:02:00Z',
-      probeMode: 'recovery',
+      probeMode: 'historical',
       http_status: 429,
       error_class: 'rate_limited',
       metadata_json: { errorMessage: 'rate limit exceeded' },
@@ -253,12 +253,11 @@ test('uses each Profile latest Probe for coverage while retaining all Probe evid
   assert.equal(group.probeBuckets.length, 60)
   assert.equal(group.probeCount, 2)
   assert.equal(group.probeBuckets.at(-2)?.fullPoolCount, 1)
-  assert.equal(group.probeBuckets.at(-2)?.recoveryCount, 1)
+  assert.equal(group.probeBuckets.at(-2)?.historicalCount, 1)
   const probeBucket = group.probeBuckets.at(-2)
   assert.ok(probeBucket)
   assert.equal(classifyProbeBucket(probeBucket), 'mixed')
   assert.equal(group.probedProfileCount, 0)
-  assert.equal(group.recoveryProbeSuccessCount, 0)
   assert.equal(group.profiles[0]?.latestProbe?.http_status, 429)
   assert.match(
     group.profiles[0]?.latestProbe
@@ -329,7 +328,7 @@ test('builds independent 60-bucket Probe timelines for each Profile', () => {
       execution_profile_id: luna.executionProfileId,
       status: 'failed',
       started_at: '2026-08-05T12:02:00Z',
-      probeMode: 'recovery',
+      probeMode: 'historical',
       http_status: 429,
       error_class: 'rate_limited',
     },
@@ -363,14 +362,14 @@ test('builds independent 60-bucket Probe timelines for each Profile', () => {
   assert.ok(lunaBucket)
   assert.ok(solBucket)
   assert.equal(lunaBucket?.fullPoolCount, 1)
-  assert.equal(lunaBucket?.recoveryCount, 1)
+  assert.equal(lunaBucket?.historicalCount, 1)
   assert.equal(lunaBucket?.targetedCount, 0)
   assert.equal(lunaBucket?.successCount, 1)
   assert.equal(lunaBucket?.totalCount, 2)
   assert.equal(classifyProbeBucket(lunaBucket), 'mixed')
   assert.equal(solBucket?.fullPoolCount, 0)
   assert.equal(solBucket?.targetedCount, 1)
-  assert.equal(solBucket?.recoveryCount, 0)
+  assert.equal(solBucket?.historicalCount, 0)
   assert.equal(solBucket?.successCount, 1)
   assert.equal(solBucket?.totalCount, 1)
   assert.equal(classifyProbeBucket(solBucket), 'success')
@@ -430,7 +429,7 @@ test('prioritizes structured Probe errors before response preview', () => {
   )
 })
 
-test('keeps targeted Probe evidence separate from recovery', () => {
+test('keeps targeted Probe evidence separate from historical probes', () => {
   const probes = [
     {
       execution_profile_id: profile().executionProfileId,
@@ -448,7 +447,7 @@ test('keeps targeted Probe evidence separate from recovery', () => {
       execution_profile_id: profile().executionProfileId,
       status: 'failed',
       started_at: '2026-08-05T12:03:00Z',
-      probeMode: 'recovery',
+      probeMode: 'historical',
     },
   ] as unknown as ACUProbeHistoryRow[]
   const group = groupACUChannels(
@@ -463,10 +462,8 @@ test('keeps targeted Probe evidence separate from recovery', () => {
   assert.equal(group.targetedProbeCount, 1)
   assert.equal(group.targetedProbeSuccessCount, 1)
   assert.equal(group.latestTargetedProbeAt, '2026-08-05T12:02:00.000Z')
-  assert.equal(group.recoveryProbeCount, 1)
-  assert.equal(group.recoveryProbeSuccessCount, 0)
   assert.equal(group.probeBuckets.at(-2)?.targetedCount, 1)
-  assert.equal(group.probeBuckets.at(-2)?.recoveryCount, 1)
+  assert.equal(group.probeBuckets.at(-2)?.historicalCount, 1)
 })
 
 test('uses all 96 range buckets for 24h availability but displays only 60', () => {
@@ -607,7 +604,7 @@ test('keeps model production and Probe evidence isolated and uses stable anonymo
         canonical_model_id: 'gpt-5.6-sol',
         status: 'failed',
         started_at: '2026-08-05T12:02:00Z',
-        probeMode: 'recovery',
+        probeMode: 'historical',
       },
     ] as ACUProbeHistoryRow[]
   )

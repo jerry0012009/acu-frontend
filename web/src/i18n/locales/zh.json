@@ -5454,6 +5454,7 @@
     "production": "生产调用",
     "judge": "Judge",
     "full_pool_probe": "全量探针",
+    "historical_probe": "历史探针",
     "recovery_probe": "恢复探针",
     "Event type": "事件类型",
     "Result": "结果",

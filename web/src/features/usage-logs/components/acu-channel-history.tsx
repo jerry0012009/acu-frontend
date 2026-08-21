@@ -488,8 +488,8 @@ export function ACUChannelHistory(props: {
                 dot={false}
               />
               <Line
-                dataKey='recoveryCount'
-                name={t('Recovery')}
+                dataKey='historicalCount'
+                name={t('historical_probe')}
                 stroke='#0f766e'
                 dot={false}
               />

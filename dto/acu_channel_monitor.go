@@ -96,14 +96,12 @@ type ACUChannelMonitorProfile struct {
 	ProbeStatus                 string                   `json:"probeStatus"`
 	ProbeLatencyMs              float64                  `json:"probeLatencyMs"`
 	ProbeCostCNY                float64                  `json:"probeCostCny"`
-	NextEligibleProbeAt         string                   `json:"nextEligibleProbeAt"`
+	NextRoutingEligibleAt       string                   `json:"nextRoutingEligibleAt"`
 	ProbeFreshness              string                   `json:"probeFreshness"`
 	ProbeDailySpendCNY          float64                  `json:"probeDailySpendCny"`
 	ProbeSuccessRate            *float64                 `json:"probeSuccessRate"`
 	FullPoolProbeCount          int                      `json:"fullPoolProbeCount"`
 	FullPoolProbeSuccessCount   int                      `json:"fullPoolProbeSuccessCount"`
-	RecoveryProbeCount          int                      `json:"recoveryProbeCount"`
-	RecoveryProbeSuccessCount   int                      `json:"recoveryProbeSuccessCount"`
 	LatestSuccessfulProbeAt     string                   `json:"latestSuccessfulProbeAt"`
 	LatestFullPoolProbeAt       string                   `json:"latestFullPoolProbeAt"`
 	HealthEvents                []map[string]interface{} `json:"healthEvents"`
