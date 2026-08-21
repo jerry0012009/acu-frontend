@@ -129,7 +129,7 @@ test('formats Router latency evidence without confusing Probe with Production', 
       },
       tEn
     ),
-    { value: '7.8 s', source: 'Full Probe P50/P90 score' }
+    { value: '7.8 s', source: 'Probe-led latency score' }
   )
   assert.deepEqual(
     profileLatencyDisplay(

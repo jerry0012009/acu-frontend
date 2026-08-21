@@ -179,7 +179,7 @@ const LATENCY_SOURCE_KEYS: Record<string, string> = {
   total_latency_p50: 'Production total latency P50',
   health_first_token: 'Recent first response observation',
   health_total_latency: 'Recent observation',
-  full_pool_probe_latency: 'Full Probe P50/P90 score',
+  full_pool_probe_latency: 'Probe-led latency score',
   unknown: 'Conservative estimate',
 }
 
