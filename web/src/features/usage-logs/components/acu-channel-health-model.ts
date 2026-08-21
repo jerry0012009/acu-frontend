@@ -328,19 +328,15 @@ export function groupACUModels(
 
   return [...profilesByModel.entries()]
     .map(([modelId, modelProfiles]) => {
-      const modelHistory = history.filter(
-        (row) =>
-          row.scope_type === 'channel_model' && row.canonical_model === modelId
+      const modelProfileIds = new Set(
+        modelProfiles.map((profile) => profile.executionProfileId)
       )
-      const sourceHistory =
-        modelHistory.length > 0
-          ? modelHistory
-          : history.filter(
-              (row) =>
-                row.scope_type === 'profile' &&
-                row.execution_profile_id != null &&
-                profileModelById.get(row.execution_profile_id) === modelId
-            )
+      const sourceHistory = history.filter(
+        (row) =>
+          row.scope_type === 'profile' &&
+          row.execution_profile_id != null &&
+          modelProfileIds.has(row.execution_profile_id)
+      )
       const historyByBucket = new Map<number, ACUChannelHistoryRow>()
       for (const row of sourceHistory) {
         const bucketTime = new Date(row.bucket).getTime()

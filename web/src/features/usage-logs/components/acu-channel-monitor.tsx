@@ -110,7 +110,7 @@ export function ACUChannelMonitor() {
   const [supplyStrategy, setSupplyStrategy] =
     useState<ACUSupplyStrategy>('balanced')
   const [scenario, setScenario] = useState<ACUMonitorScenario>('standard')
-  const [protocol, setProtocol] = useState<ACUMonitorProtocol>('all')
+  const [protocol, setProtocol] = useState<ACUMonitorProtocol>('responses')
   const [sort, setSort] = useState<ACUMonitorSort>('recommended')
   const [filters, setFilters] = useState({
     model: '',
@@ -128,9 +128,16 @@ export function ACUChannelMonitor() {
       supplyStrategy,
       scenario,
       probeRange,
+      protocol,
     ],
     queryFn: () =>
-      getACUChannelMonitor(range, supplyStrategy, scenario, probeRange),
+      getACUChannelMonitor(
+        range,
+        supplyStrategy,
+        scenario,
+        probeRange,
+        protocol
+      ),
     staleTime: MONITOR_REFRESH_MS,
     refetchInterval: MONITOR_REFRESH_MS,
   })
@@ -420,26 +427,29 @@ export function ACUChannelMonitor() {
               <option value='long'>{t('Long context 100k/4k')}</option>
             </select>
           </label>
-          <label className='space-y-1 text-xs'>
+          <div className='space-y-1 text-xs'>
             <span className='text-muted-foreground'>{t('Protocol')}</span>
-            <select
-              aria-label={t('Protocol')}
-              className='bg-background h-8 w-full rounded border px-2'
-              value={protocol}
-              onChange={(event) =>
-                setProtocol(event.target.value as ACUMonitorProtocol)
-              }
-            >
-              <option value='all'>{t('All protocols')}</option>
-              <option value='responses'>{t('OpenAI Responses (Codex)')}</option>
-              <option value='messages'>
-                {t('Anthropic Messages (Claude protocol)')}
-              </option>
-              <option value='chat_completions'>
-                {t('OpenAI Chat Completions')}
-              </option>
-            </select>
-          </label>
+            <div className='flex flex-wrap gap-1' aria-label={t('Protocol')}>
+              {(
+                [
+                  ['responses', t('Responses')],
+                  ['messages', t('Messages')],
+                  ['chat_completions', t('Chat')],
+                ] as const
+              ).map(([value, label]) => (
+                <Button
+                  key={value}
+                  type='button'
+                  size='sm'
+                  variant={protocol === value ? 'default' : 'outline'}
+                  className='h-8 px-2'
+                  onClick={() => setProtocol(value)}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </div>
           <label className='space-y-1 text-xs'>
             <span className='text-muted-foreground'>{t('Sort')}</span>
             <select
@@ -1979,10 +1989,19 @@ function MonitorTable(props: {
                 )}
               </td>
               <td className='px-3 py-2'>
-                {profile.p50FirstModelEventLatencyMs ? (
+                {profile.fullPoolProbeLatencyP50Ms ? (
                   <>
                     <div className='font-medium'>
-                      P50 {ms(profile.p50FirstModelEventLatencyMs)}
+                      Full Probe P50 {ms(profile.fullPoolProbeLatencyP50Ms)}
+                    </div>
+                    <div className='text-muted-foreground'>
+                      P90 {ms(profile.fullPoolProbeLatencyP90Ms)}
+                    </div>
+                  </>
+                ) : profile.p50FirstModelEventLatencyMs ? (
+                  <>
+                    <div className='font-medium'>
+                      Production P50 {ms(profile.p50FirstModelEventLatencyMs)}
                     </div>
                     <div className='text-muted-foreground'>
                       P95 {ms(profile.p95FirstModelEventLatencyMs)}

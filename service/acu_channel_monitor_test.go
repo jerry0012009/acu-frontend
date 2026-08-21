@@ -27,7 +27,7 @@ func TestGetACUChannelMonitorValidatesAndForwardsViewParameters(t *testing.T) {
 	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
 	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
 
-	result, err := GetACUChannelMonitor(context.Background(), "24h", "low_latency", "long", "48h")
+	result, err := GetACUChannelMonitor(context.Background(), "24h", "low_latency", "long", "48h", "messages")
 	require.NoError(t, err)
 	require.Equal(t, float64(118), result.DefaultCandidatePreferenceScores["claude-opus-4-8"])
 	forwarded := <-requests
@@ -35,25 +35,28 @@ func TestGetACUChannelMonitorValidatesAndForwardsViewParameters(t *testing.T) {
 	require.Equal(t, "low_latency", forwarded.URL.Query().Get("supplyStrategy"))
 	require.Equal(t, "long", forwarded.URL.Query().Get("scenario"))
 	require.Equal(t, "48h", forwarded.URL.Query().Get("probeRange"))
+	require.Equal(t, "messages", forwarded.URL.Query().Get("protocol"))
 	var forwardedPolicy map[string]interface{}
 	require.NoError(t, common.UnmarshalJsonStr(forwarded.Header.Get("X-ACU-Monitor-Routing-Utility-Policy"), &forwardedPolicy))
 	require.Equal(t, float64(7), forwardedPolicy["profileCostLogScale"])
 	require.Equal(t, float64(17), forwardedPolicy["latency"].(map[string]interface{})["minimumSamples"])
 	require.Equal(t, float64(80), forwardedPolicy["supplyWeights"].(map[string]interface{})["speed"])
 
-	_, err = GetACUChannelMonitor(context.Background(), "7d", "balanced", "standard", "7d")
+	_, err = GetACUChannelMonitor(context.Background(), "7d", "balanced", "standard", "7d", "all")
 	require.NoError(t, err)
 	sevenDays := <-requests
 	require.Equal(t, "7d", sevenDays.URL.Query().Get("range"))
 	require.Equal(t, "7d", sevenDays.URL.Query().Get("probeRange"))
+	require.Equal(t, "all", sevenDays.URL.Query().Get("protocol"))
 
-	_, err = GetACUChannelMonitor(context.Background(), "invalid", "invalid", "invalid", "invalid")
+	_, err = GetACUChannelMonitor(context.Background(), "invalid", "invalid", "invalid", "invalid", "invalid")
 	require.NoError(t, err)
 	defaults := <-requests
 	require.Equal(t, "24h", defaults.URL.Query().Get("range"))
 	require.Equal(t, "balanced", defaults.URL.Query().Get("supplyStrategy"))
 	require.Equal(t, "standard", defaults.URL.Query().Get("scenario"))
 	require.Equal(t, "48h", defaults.URL.Query().Get("probeRange"))
+	require.Equal(t, "responses", defaults.URL.Query().Get("protocol"))
 }
 
 func TestExecutionProfileManagementForwardsOnlyTargetedRouterOperations(t *testing.T) {

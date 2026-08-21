@@ -125,11 +125,11 @@ test('formats Router latency evidence without confusing Probe with Production', 
     profileLatencyDisplay(
       {
         profileLatencyMs: 7800,
-        metricSource: 'full_pool_probe_latency_conservative',
+        metricSource: 'full_pool_probe_latency',
       },
       tEn
     ),
-    { value: '7.8 s', source: 'Probe estimate' }
+    { value: '7.8 s', source: 'Full Probe P50/P90 score' }
   )
   assert.deepEqual(
     profileLatencyDisplay(

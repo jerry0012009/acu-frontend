@@ -4,6 +4,7 @@ type ACUChannelMonitor struct {
 	Range                            string                     `json:"range"`
 	SupplyStrategy                   string                     `json:"supplyStrategy"`
 	Scenario                         string                     `json:"scenario"`
+	Protocol                         string                     `json:"protocol"`
 	GeneratedAt                      string                     `json:"generatedAt"`
 	Profiles                         []ACUChannelMonitorProfile `json:"profiles"`
 	History                          []map[string]interface{}   `json:"history"`
@@ -102,6 +103,8 @@ type ACUChannelMonitorProfile struct {
 	ProbeSuccessRate            *float64                 `json:"probeSuccessRate"`
 	FullPoolProbeCount          int                      `json:"fullPoolProbeCount"`
 	FullPoolProbeSuccessCount   int                      `json:"fullPoolProbeSuccessCount"`
+	FullPoolProbeLatencyP50Ms   float64                  `json:"fullPoolProbeLatencyP50Ms"`
+	FullPoolProbeLatencyP90Ms   float64                  `json:"fullPoolProbeLatencyP90Ms"`
 	LatestSuccessfulProbeAt     string                   `json:"latestSuccessfulProbeAt"`
 	LatestFullPoolProbeAt       string                   `json:"latestFullPoolProbeAt"`
 	HealthEvents                []map[string]interface{} `json:"healthEvents"`

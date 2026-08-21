@@ -302,6 +302,8 @@ export type ACUChannelMonitorProfile = {
   probeSuccessRate: number | null
   fullPoolProbeCount: number
   fullPoolProbeSuccessCount: number
+  fullPoolProbeLatencyP50Ms: number
+  fullPoolProbeLatencyP90Ms: number
   targetedProbeCount: number
   targetedProbeSuccessCount: number
   latestSuccessfulProbeAt: string | null
@@ -485,6 +487,7 @@ export type ACUChannelMonitor = {
   range: string
   supplyStrategy: ACUSupplyStrategy
   scenario: ACUMonitorScenario
+  protocol: 'all' | 'responses' | 'messages' | 'chat_completions'
   generatedAt: string
   profiles: ACUChannelMonitorProfile[]
   history: ACUChannelHistoryRow[]
@@ -706,13 +709,15 @@ export async function getACUChannelMonitor(
   range: ACUMonitorRange,
   supplyStrategy: ACUSupplyStrategy = 'balanced',
   scenario: ACUMonitorScenario = 'standard',
-  probeRange: ACUProbeTimelineRange = '48h'
+  probeRange: ACUProbeTimelineRange = '48h',
+  protocol: 'all' | 'responses' | 'messages' | 'chat_completions' = 'responses'
 ) {
   const params = new URLSearchParams({
     range,
     supplyStrategy,
     scenario,
     probeRange,
+    protocol,
   })
   const res = await api.get(`/api/log/acu-channel-monitor?${params.toString()}`)
   return res.data as {

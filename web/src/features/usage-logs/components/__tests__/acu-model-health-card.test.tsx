@@ -94,7 +94,7 @@ test('renders anonymous model lines and isolates user-facing supply evidence', a
                 effectivePriceMultiplier: 0.61,
                 p50FirstModelEventLatencyMs: 1200,
                 profileLatencyMs: 7800,
-                metricSource: 'full_pool_probe_latency_conservative',
+                metricSource: 'full_pool_probe_latency',
                 requestCount: 5,
                 successCount: 5,
                 routingEligible: true,

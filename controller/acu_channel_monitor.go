@@ -17,6 +17,7 @@ func GetACUChannelMonitor(c *gin.Context) {
 		c.DefaultQuery("supplyStrategy", "balanced"),
 		c.DefaultQuery("scenario", "standard"),
 		c.DefaultQuery("probeRange", "48h"),
+		c.DefaultQuery("protocol", "responses"),
 	)
 	if err != nil {
 		common.ApiError(c, err)

@@ -48,7 +48,7 @@ func acuRouterAdminRequestWithTimeout(
 	return (&http.Client{Timeout: timeout}).Do(req)
 }
 
-func GetACUChannelMonitor(ctx context.Context, rangeValue, supplyStrategy, scenario, probeRange string) (dto.ACUChannelMonitor, error) {
+func GetACUChannelMonitor(ctx context.Context, rangeValue, supplyStrategy, scenario, probeRange, protocol string) (dto.ACUChannelMonitor, error) {
 	if rangeValue != "1h" && rangeValue != "6h" && rangeValue != "24h" && rangeValue != "7d" {
 		rangeValue = "24h"
 	}
@@ -61,11 +61,15 @@ func GetACUChannelMonitor(ctx context.Context, rangeValue, supplyStrategy, scena
 	if probeRange != "24h" && probeRange != "48h" && probeRange != "7d" {
 		probeRange = "48h"
 	}
+	if protocol != "all" && protocol != "responses" && protocol != "messages" && protocol != "chat_completions" {
+		protocol = "responses"
+	}
 	query := url.Values{}
 	query.Set("range", rangeValue)
 	query.Set("supplyStrategy", supplyStrategy)
 	query.Set("scenario", scenario)
 	query.Set("probeRange", probeRange)
+	query.Set("protocol", protocol)
 	config, err := GetACURoutingUtilityConfig()
 	if err != nil {
 		return dto.ACUChannelMonitor{}, err
@@ -106,7 +110,7 @@ func GetACUChannelMonitor(ctx context.Context, rangeValue, supplyStrategy, scena
 }
 
 func GetACURoutingCatalog(ctx context.Context) (dto.ACURoutingCatalog, error) {
-	monitor, err := GetACUChannelMonitor(ctx, "24h", "balanced", "standard", "48h")
+	monitor, err := GetACUChannelMonitor(ctx, "24h", "balanced", "standard", "48h", "all")
 	if err != nil {
 		return dto.ACURoutingCatalog{}, err
 	}

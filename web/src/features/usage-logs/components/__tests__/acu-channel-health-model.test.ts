@@ -574,15 +574,17 @@ test('keeps model production and Probe evidence isolated and uses stable anonymo
     [luna, sol],
     [
       bucket({
-        scope_type: 'channel_model',
-        scope_id: 'cx006:gpt-5.6-luna',
+        scope_type: 'profile',
+        scope_id: luna.executionProfileId,
+        execution_profile_id: luna.executionProfileId,
         canonical_model: 'gpt-5.6-luna',
         request_count: 3,
         success_count: 2,
       }),
       bucket({
-        scope_type: 'channel_model',
-        scope_id: 'cx008:gpt-5.6-sol',
+        scope_type: 'profile',
+        scope_id: sol.executionProfileId,
+        execution_profile_id: sol.executionProfileId,
         canonical_model: 'gpt-5.6-sol',
         request_count: 8,
         success_count: 8,
