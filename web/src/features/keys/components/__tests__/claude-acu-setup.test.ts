@@ -86,6 +86,7 @@ test('Unix installer is syntactically valid and keeps the credential local', () 
     shellInstaller,
     /exec "\$NATIVE_CLAUDE" --settings "\$MODEL_SETTINGS" --model acu-auto/
   )
+  assert.match(shellInstaller, /has_saved_model\(\)/)
   assert.match(shellInstaller, /unsupported Claude ACU model/)
   assert.match(shellInstaller, /unset CLAUDE_CODE_SUBAGENT_MODEL/)
   assert.match(shellInstaller, /CLAUDE_ACU_UPDATE_CLAUDE/)
@@ -124,6 +125,11 @@ test('PowerShell installer uses a private config and never puts the key in a URL
     /\$env:ANTHROPIC_DEFAULT_FABLE_MODEL = 'claude-fable-5'/
   )
   assert.match(powerShellInstaller, /\$nativeArgs = @\('--settings'/)
+  assert.match(
+    powerShellInstaller,
+    /\$NativeSettings = Join-Path \$AcuHome 'config\\settings\.json'/
+  )
+  assert.match(powerShellInstaller, /ConvertFrom-Json/)
   assert.match(powerShellInstaller, /unsupported Claude ACU model/)
   assert.match(
     powerShellInstaller,
@@ -390,6 +396,12 @@ chmod 755 "$prefix/bin/claude"
     encoding: 'utf8',
   })
   assert.equal(defaultLaunch.status, 0, defaultLaunch.stderr)
+  writeFileSync(join(acuHome, 'config', 'settings.json'), '{"model":"opus"}\n')
+  const persistedModelLaunch = spawnSync(launcher, ['-p', 'test task'], {
+    env: launcherEnv,
+    encoding: 'utf8',
+  })
+  assert.equal(persistedModelLaunch.status, 0, persistedModelLaunch.stderr)
   const explicitLaunch = spawnSync(
     launcher,
     ['--model', 'claude-opus-4-8', '-p', 'test task'],
@@ -412,6 +424,12 @@ chmod 755 "$prefix/bin/claude"
     claudeCalls,
     new RegExp(
       `https://api\\.acucompute\\.com\\|--settings ${settingsPath} --model acu-auto -p test task`
+    )
+  )
+  assert.match(
+    claudeCalls,
+    new RegExp(
+      `https://api\\.acucompute\\.com\\|--settings ${settingsPath} -p test task`
     )
   )
   assert.match(

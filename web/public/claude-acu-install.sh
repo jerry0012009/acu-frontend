@@ -9,6 +9,7 @@ ACU_CREDENTIAL="${ACU_HOME}/credential"
 ACU_BASE_URL_FILE="${ACU_HOME}/base-url"
 ACU_NATIVE_PATH_FILE="${ACU_HOME}/native-claude-path"
 ACU_MODEL_SETTINGS_FILE="${ACU_HOME}/config/acu-model-settings.json"
+ACU_NATIVE_SETTINGS_FILE="${ACU_HOME}/config/settings.json"
 ACU_LAUNCHER="${ACU_BIN_DIR}/claude-acu"
 PREFER_NPM=${CLAUDE_ACU_PREFER_NPM:-1}
 UPDATE_CLAUDE=${CLAUDE_ACU_UPDATE_CLAUDE:-1}
@@ -265,6 +266,7 @@ ACU_TOKEN=$(sed -n '1p' "${ACU_HOME}/credential")
 ACU_BASE_URL=$(sed -n '1p' "${ACU_HOME}/base-url")
 NATIVE_CLAUDE=$(sed -n '1p' "${ACU_HOME}/native-claude-path")
 MODEL_SETTINGS="${ACU_HOME}/config/acu-model-settings.json"
+ACU_NATIVE_SETTINGS_FILE="${ACU_HOME}/config/settings.json"
 [ -x "$NATIVE_CLAUDE" ] || { printf '%s\n' "Native Claude Code is missing; rerun the installer." >&2; exit 1; }
 [ -r "$MODEL_SETTINGS" ] || { printf '%s\n' "Claude ACU model settings are missing; rerun the installer." >&2; exit 1; }
 
@@ -303,6 +305,12 @@ validate_model_args() {
   done
 }
 
+has_saved_model() {
+  [ -r "${ACU_NATIVE_SETTINGS_FILE}" ] || return 1
+  sed -nE 's/.*"model"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' \
+    "${ACU_NATIVE_SETTINGS_FILE}" | sed -n '1p' | grep -q .
+}
+
 export CLAUDE_CONFIG_DIR="${ACU_HOME}/config"
 export ANTHROPIC_BASE_URL="$ACU_BASE_URL"
 export ANTHROPIC_AUTH_TOKEN="$ACU_TOKEN"
@@ -322,7 +330,7 @@ unset ANTHROPIC_DEFAULT_HAIKU_MODEL ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME ANTHROPIC
 unset CLAUDE_CODE_SUBAGENT_MODEL
 
 validate_model_args "$@"
-if [ -n "$selected_model" ]; then
+if [ -n "$selected_model" ] || has_saved_model; then
   exec "$NATIVE_CLAUDE" --settings "$MODEL_SETTINGS" "$@"
 fi
 exec "$NATIVE_CLAUDE" --settings "$MODEL_SETTINGS" --model acu-auto "$@"

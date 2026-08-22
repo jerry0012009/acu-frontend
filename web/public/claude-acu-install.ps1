@@ -227,6 +227,7 @@ $ErrorActionPreference = 'Stop'
 $AcuHome = if ($env:CLAUDE_ACU_HOME) { $env:CLAUDE_ACU_HOME } else { Join-Path $env:USERPROFILE '.claude-acu' }
 $NativeClaude = [System.IO.File]::ReadAllText((Join-Path $AcuHome 'native-claude-path')).Trim()
 $ModelSettings = Join-Path $AcuHome 'config\acu-model-settings.json'
+$NativeSettings = Join-Path $AcuHome 'config\settings.json'
 $env:CLAUDE_CONFIG_DIR = Join-Path $AcuHome 'config'
 $env:ANTHROPIC_BASE_URL = [System.IO.File]::ReadAllText((Join-Path $AcuHome 'base-url')).Trim()
 $env:ANTHROPIC_AUTH_TOKEN = [System.IO.File]::ReadAllText((Join-Path $AcuHome 'credential')).Trim()
@@ -266,7 +267,17 @@ for ($index = 0; $index -lt $args.Count; $index++) {
 }
 
 $nativeArgs = @('--settings', $ModelSettings)
-if (-not $selectedModel) { $nativeArgs += @('--model', 'acu-auto') }
+$savedModel = $null
+if (Test-Path $NativeSettings) {
+  try {
+    $savedModel = ((Get-Content -Raw -LiteralPath $NativeSettings | ConvertFrom-Json).model)
+  } catch {
+    $savedModel = $null
+  }
+}
+if (-not $selectedModel -and [string]::IsNullOrWhiteSpace([string]$savedModel)) {
+  $nativeArgs += @('--model', 'acu-auto')
+}
 $nativeArgs += $args
 & $NativeClaude @nativeArgs
 exit $LASTEXITCODE
