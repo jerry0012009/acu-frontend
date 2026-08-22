@@ -301,13 +301,19 @@ if ($env:CODEX_ACU_SKIP_ENDPOINT_PREFLIGHT -ne '1') {
 }
 
 if ($args.Count -gt 0 -and $args[0] -eq 'doctor') {
+  $configuredModelMatch = [regex]::Match($config, '(?m)^model = "([^"]+)"$')
+  $configuredReasoningMatch = [regex]::Match($config, '(?m)^model_reasoning_effort = "([^"]+)"$')
+  if (-not $configuredModelMatch.Success -or -not (Test-AllowedModel $configuredModelMatch.Groups[1].Value)) {
+    throw 'Unsupported configured ACU model.'
+  }
+  $configuredReasoning = if ($configuredReasoningMatch.Success) { $configuredReasoningMatch.Groups[1].Value } else { 'default' }
   Write-Output 'codex-acu: healthy'
   Write-Output "Codex version: $(& $NativeCodexPath --version)"
   Write-Output "CODEX_HOME: $AcuHome"
   Write-Output "base_url: $effectiveBaseUrl"
   Write-Output 'model_provider: acu-founder-alpha'
-  Write-Output 'effective model: acu-auto'
-  Write-Output 'reasoning effort: medium'
+  Write-Output "effective model: $($configuredModelMatch.Groups[1].Value)"
+  Write-Output "reasoning effort: $configuredReasoning"
   Write-Output 'credential loaded: yes'
   exit 0
 }
@@ -332,14 +338,10 @@ for ($index = 0; $index -lt $args.Count; $index++) {
 }
 
 $nativeArgs = @(
-  '-c', 'model_reasoning_effort="medium"',
   '-c', 'model_provider="acu-founder-alpha"',
   '-c', "model_providers.acu-founder-alpha.base_url=`"$effectiveBaseUrl`"",
   '-c', 'model_providers.acu-founder-alpha.wire_api="responses"'
 )
-if (-not ($args -contains '-m' -or $args -contains '--model' -or $args -match '^--model=')) {
-  $nativeArgs += @('-m', 'acu-auto')
-}
 $nativeArgs += $args
 & $NativeCodexPath @nativeArgs
 exit $LASTEXITCODE

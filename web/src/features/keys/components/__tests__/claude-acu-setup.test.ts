@@ -189,7 +189,9 @@ test('Codex installers install the latest CLI with China and overseas fallbacks'
   )
   assert.match(codexLauncher, /model=\*\|model_provider=\*/)
   assert.match(codexLauncher, /model_provider="acu-founder-alpha"/)
-  assert.match(codexLauncher, /model_reasoning_effort="medium"/)
+  assert.match(codexLauncher, /configured_model=/)
+  assert.doesNotMatch(codexLauncher, /model_reasoning_effort="medium"/)
+  assert.doesNotMatch(codexLauncher, /-m acu-auto/)
   assert.deepEqual(
     codexModelCatalog.models.map(({ slug }) => slug),
     ['acu-auto', 'gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol']
