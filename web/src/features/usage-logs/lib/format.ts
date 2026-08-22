@@ -213,8 +213,12 @@ export function acuLogPresentation(other: LogOtherData | null): {
     breakdown?.requested_model === 'acu-auto' ||
     breakdown?.requested_model === 'acu-high'
   let judgeMode: ACUJudgePresentationMode = 'unavailable'
-  if (other?.acu_pending_finalize === true) judgeMode = 'pending'
-  else if (breakdown?.judge_reused) judgeMode = 'reused'
+  if (
+    other?.acu_pending_finalize === true ||
+    breakdown?.judge_pending === true
+  ) {
+    judgeMode = 'pending'
+  } else if (breakdown?.judge_reused) judgeMode = 'reused'
   else if (decision?.judge_result_source === 'disk_cache') judgeMode = 'cache'
   else if (
     decision?.judge_result_source === 'rules_strategy' ||

@@ -205,6 +205,7 @@ export interface AcuCostBreakdown {
   judge_trigger?: string
   judge_calls?: number
   judge_reused?: boolean
+  judge_pending?: boolean
   reused_judge_evaluation_id?: string
   route_refresh_reason?: string
   judge?: string

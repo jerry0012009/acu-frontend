@@ -100,3 +100,15 @@ test('ACU presentation reads Judge status from decision summary and separates ex
   assert.equal(explicit.automaticRouting, false)
   assert.equal(explicit.judgeMode, 'not_required')
 })
+
+test('ACU presentation shows background Judge work as pending', () => {
+  const presentation = acuLogPresentation({
+    acu_logical_request_id: 'req-background-judge',
+    acu_cost_breakdown: {
+      requested_model: 'acu-auto',
+      judge_pending: true,
+    },
+  })
+  assert.equal(presentation.automaticRouting, true)
+  assert.equal(presentation.judgeMode, 'pending')
+})
