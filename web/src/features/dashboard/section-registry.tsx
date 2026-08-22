@@ -22,6 +22,11 @@ const DASHBOARD_SECTIONS = [
     build: () => null,
   },
   {
+    id: 'acu-advisor',
+    titleKey: 'Advisor',
+    build: () => null,
+  },
+  {
     id: 'users',
     titleKey: 'User Analytics',
     adminOnly: true,

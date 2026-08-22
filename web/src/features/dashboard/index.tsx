@@ -20,6 +20,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import { ModelsChartPreferences } from './components/models/models-chart-preferences'
 import { ModelsFilter } from './components/models/models-filter-dialog'
 import { OverviewDashboard } from './components/overview/overview-dashboard'
+import { PrivateACUAdvisor } from './components/advisor/private-acu-advisor'
 import { DEFAULT_TIME_GRANULARITY } from './constants'
 import {
   buildDefaultDashboardFilters,
@@ -167,6 +168,9 @@ const SECTION_META: Record<DashboardSectionId, { titleKey: string }> = {
   },
   flow: {
     titleKey: 'Flow',
+  },
+  'acu-advisor': {
+    titleKey: 'Advisor',
   },
   users: {
     titleKey: 'User Analytics',
@@ -371,6 +375,11 @@ export function Dashboard() {
                 </Suspense>
               </FadeIn>
             </>
+          )}
+          {activeSection === 'acu-advisor' && (
+            <FadeIn>
+              <PrivateACUAdvisor />
+            </FadeIn>
           )}
           {activeSection === 'users' && (
             <FadeIn>
