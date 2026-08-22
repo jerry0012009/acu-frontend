@@ -7,7 +7,7 @@ import {
 } from '@/features/pricing/lib/billing-expr'
 
 import type { UsageLog } from '../data/schema'
-import type { LogOtherData } from '../types'
+import type { AcuCostBreakdown, LogOtherData } from '../types'
 
 export { normalizeTierLabel }
 
@@ -199,13 +199,16 @@ type ACUJudgePresentationMode =
   | 'unavailable'
   | 'not_required'
 
-export function acuLogPresentation(other: LogOtherData | null): {
+export function acuLogPresentation(
+  other: LogOtherData | null,
+  breakdownOverride?: AcuCostBreakdown
+): {
   acuManaged: boolean
   automaticRouting: boolean
   judgeMode: ACUJudgePresentationMode
   judgeModel?: string
 } {
-  const breakdown = other?.acu_cost_breakdown
+  const breakdown = breakdownOverride ?? other?.acu_cost_breakdown
   const decision = breakdown?.decision_summary
   const acuManaged = !!other?.acu_logical_request_id || !!breakdown
   const automaticRouting =

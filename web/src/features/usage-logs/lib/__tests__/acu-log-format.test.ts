@@ -112,3 +112,23 @@ test('ACU presentation shows background Judge work as pending', () => {
   assert.equal(presentation.automaticRouting, true)
   assert.equal(presentation.judgeMode, 'pending')
 })
+
+test('ACU presentation accepts the admin breakdown used by administrator logs', () => {
+  const presentation = acuLogPresentation(
+    {
+      acu_logical_request_id: 'req-admin-judge',
+      acu_cost_breakdown: {
+        requested_model: 'acu-auto',
+        judge_pending: true,
+      },
+    },
+    {
+      requested_model: 'acu-auto',
+      judge_pending: false,
+      judge_model: 'gpt-5.6-sol',
+      judge_cash_cost_cny: 0.0042,
+    }
+  )
+  assert.equal(presentation.judgeMode, 'judge')
+  assert.equal(presentation.judgeModel, 'gpt-5.6-sol')
+})

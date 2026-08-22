@@ -637,8 +637,8 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
 
         const modelInfo = formatModelName(log)
         const other = parseLogOther(log.other)
-        const presentation = acuLogPresentation(other)
         const acuBreakdown = acuBreakdownForView(other, isAdmin)
+        const presentation = acuLogPresentation(other, acuBreakdown)
         const finalizedAcu = isFinalizedAcuUsageLog(log, other)
         const reasoningEffort = finalizedAcu
           ? acuResolvedReasoningEffort(other, acuBreakdown)

@@ -1615,7 +1615,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
   } else if (reasoningEffort === 'medium') {
     reasoningEffortVariant = 'yellow'
   }
-  const acuPresentation = acuLogPresentation(other)
+  const acuPresentation = acuLogPresentation(other, acuRoute)
   let acuJudgeLabel = t('Judge unavailable')
   if (acuPresentation.judgeMode === 'reused') {
     acuJudgeLabel = t('Judge reused')
