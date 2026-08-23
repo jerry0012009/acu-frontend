@@ -139,6 +139,7 @@ export function ACUChannelMonitor() {
         protocol
       ),
     staleTime: MONITOR_REFRESH_MS,
+    gcTime: MONITOR_REFRESH_MS,
     refetchInterval: MONITOR_REFRESH_MS,
   })
   const pause = useMutation({
@@ -427,29 +428,6 @@ export function ACUChannelMonitor() {
               <option value='long'>{t('Long context 100k/4k')}</option>
             </select>
           </label>
-          <div className='space-y-1 text-xs'>
-            <span className='text-muted-foreground'>{t('Protocol')}</span>
-            <div className='flex flex-wrap gap-1' aria-label={t('Protocol')}>
-              {(
-                [
-                  ['responses', t('Responses')],
-                  ['messages', t('Messages')],
-                  ['chat_completions', t('Chat')],
-                ] as const
-              ).map(([value, label]) => (
-                <Button
-                  key={value}
-                  type='button'
-                  size='sm'
-                  variant={protocol === value ? 'default' : 'outline'}
-                  className='h-8 px-2'
-                  onClick={() => setProtocol(value)}
-                >
-                  {label}
-                </Button>
-              ))}
-            </div>
-          </div>
           <label className='space-y-1 text-xs'>
             <span className='text-muted-foreground'>{t('Sort')}</span>
             <select
@@ -472,6 +450,29 @@ export function ACUChannelMonitor() {
           </label>
         </div>
       )}
+      <div className='flex flex-wrap items-center gap-2'>
+        <span className='text-muted-foreground text-xs'>{t('Protocol')}</span>
+        <div className='flex flex-wrap gap-1' aria-label={t('Protocol')}>
+          {(
+            [
+              ['responses', t('Responses')],
+              ['messages', t('Messages')],
+              ['chat_completions', t('Chat')],
+            ] as const
+          ).map(([value, label]) => (
+            <Button
+              key={value}
+              type='button'
+              size='sm'
+              variant={protocol === value ? 'default' : 'outline'}
+              className='h-8 px-2'
+              onClick={() => setProtocol(value)}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
+      </div>
       <div className='bg-muted/40 text-muted-foreground rounded border px-3 py-2 text-xs'>
         {t(
           'Route eligible means this Profile can currently take production requests. A fresh Probe only means a recent check ran; it does not mean the check passed.'
@@ -1848,6 +1849,37 @@ function ModelPoolTable({ rows }: { rows: ACUModelPoolEntry[] }) {
   )
 }
 
+function MonitorLatencyCell(props: {
+  profile: ACUChannelMonitorProfile
+  t: ReturnType<typeof useTranslation>['t']
+}) {
+  if (props.profile.fullPoolProbeLatencyP50Ms) {
+    return (
+      <>
+        <div className='font-medium'>
+          Full Probe P50 {ms(props.profile.fullPoolProbeLatencyP50Ms)}
+        </div>
+        <div className='text-muted-foreground'>
+          P90 {ms(props.profile.fullPoolProbeLatencyP90Ms)}
+        </div>
+      </>
+    )
+  }
+  if (props.profile.p50FirstModelEventLatencyMs) {
+    return (
+      <>
+        <div className='font-medium'>
+          Production P50 {ms(props.profile.p50FirstModelEventLatencyMs)}
+        </div>
+        <div className='text-muted-foreground'>
+          P95 {ms(props.profile.p95FirstModelEventLatencyMs)}
+        </div>
+      </>
+    )
+  }
+  return <span className='text-muted-foreground'>{props.t('No samples')}</span>
+}
+
 function MonitorTable(props: {
   profiles: ACUChannelMonitorProfile[]
   canPause: boolean
@@ -1989,29 +2021,7 @@ function MonitorTable(props: {
                 )}
               </td>
               <td className='px-3 py-2'>
-                {profile.fullPoolProbeLatencyP50Ms ? (
-                  <>
-                    <div className='font-medium'>
-                      Full Probe P50 {ms(profile.fullPoolProbeLatencyP50Ms)}
-                    </div>
-                    <div className='text-muted-foreground'>
-                      P90 {ms(profile.fullPoolProbeLatencyP90Ms)}
-                    </div>
-                  </>
-                ) : profile.p50FirstModelEventLatencyMs ? (
-                  <>
-                    <div className='font-medium'>
-                      Production P50 {ms(profile.p50FirstModelEventLatencyMs)}
-                    </div>
-                    <div className='text-muted-foreground'>
-                      P95 {ms(profile.p95FirstModelEventLatencyMs)}
-                    </div>
-                  </>
-                ) : (
-                  <span className='text-muted-foreground'>
-                    {t('No samples')}
-                  </span>
-                )}
+                <MonitorLatencyCell profile={profile} t={t} />
               </td>
               <td className='px-3 py-2'>
                 <div>{monitorStateLabel(profile.probeStatus || 'none', t)}</div>

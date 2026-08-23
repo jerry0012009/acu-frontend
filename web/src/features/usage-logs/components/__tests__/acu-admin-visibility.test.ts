@@ -104,6 +104,10 @@ test('overview Profile routing controls stay Root-only and reuse existing policy
 
 test('ordinary users get only the anonymous Model Overview presentation', () => {
   assert.match(monitorSource, /isAdmin \? 'channel' : 'model'/)
+  assert.match(
+    monitorSource,
+    /aria-label=\{t\('Protocol'\)\}[\s\S]{0,500}setProtocol\(value\)/
+  )
   assert.match(monitorSource, /t\('By channel'\)/)
   assert.match(monitorSource, /t\('By model'\)/)
   assert.match(monitorSource, /\{isAdmin && \(\s*<div className='grid gap-2/)

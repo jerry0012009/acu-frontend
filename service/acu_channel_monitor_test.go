@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -57,6 +58,41 @@ func TestGetACUChannelMonitorValidatesAndForwardsViewParameters(t *testing.T) {
 	require.Equal(t, "standard", defaults.URL.Query().Get("scenario"))
 	require.Equal(t, "48h", defaults.URL.Query().Get("probeRange"))
 	require.Equal(t, "responses", defaults.URL.Query().Get("protocol"))
+}
+
+func TestGetACUChannelMonitorCachesEachProtocolViewSeparately(t *testing.T) {
+	clearACUChannelMonitorCache()
+
+	previous := common.OptionMap
+	t.Cleanup(func() {
+		common.OptionMap = previous
+		clearACUChannelMonitorCache()
+	})
+	common.OptionMap = map[string]string{}
+
+	var requests atomic.Int32
+	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		requests.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"range":"24h","supplyStrategy":"balanced","scenario":"standard","protocol":"` + request.URL.Query().Get("protocol") + `","profiles":[],"history":[],"cooldownIntervals":[],"probeHistory":[],"supplyInventory":[],"modelPool":[]}`))
+	}))
+	defer router.Close()
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
+
+	messages, err := GetACUChannelMonitor(context.Background(), "24h", "balanced", "standard", "48h", "messages")
+	require.NoError(t, err)
+	require.Equal(t, "messages", messages.Protocol)
+
+	cachedMessages, err := GetACUChannelMonitor(context.Background(), "24h", "balanced", "standard", "48h", "messages")
+	require.NoError(t, err)
+	require.Equal(t, "messages", cachedMessages.Protocol)
+	require.Equal(t, int32(1), requests.Load())
+
+	responses, err := GetACUChannelMonitor(context.Background(), "24h", "balanced", "standard", "48h", "responses")
+	require.NoError(t, err)
+	require.Equal(t, "responses", responses.Protocol)
+	require.Equal(t, int32(2), requests.Load())
 }
 
 func TestExecutionProfileManagementForwardsOnlyTargetedRouterOperations(t *testing.T) {

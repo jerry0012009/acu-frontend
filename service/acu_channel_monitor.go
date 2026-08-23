@@ -10,11 +10,30 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 )
+
+const acuChannelMonitorCacheTTL = 15 * time.Second
+
+type acuChannelMonitorCacheEntry struct {
+	result    dto.ACUChannelMonitor
+	expiresAt time.Time
+}
+
+var acuChannelMonitorCache = struct {
+	sync.Mutex
+	entries map[string]acuChannelMonitorCacheEntry
+}{entries: make(map[string]acuChannelMonitorCacheEntry)}
+
+func clearACUChannelMonitorCache() {
+	acuChannelMonitorCache.Lock()
+	clear(acuChannelMonitorCache.entries)
+	acuChannelMonitorCache.Unlock()
+}
 
 func acuRouterAdminRequest(ctx context.Context, method, path string, body []byte, headers ...map[string]string) (*http.Response, error) {
 	return acuRouterAdminRequestWithTimeout(ctx, 20*time.Second, method, path, body, headers...)
@@ -87,6 +106,17 @@ func GetACUChannelMonitor(ctx context.Context, rangeValue, supplyStrategy, scena
 	if err != nil {
 		return dto.ACUChannelMonitor{}, err
 	}
+	cacheKey := query.Encode() + "|" + string(utilityPolicy)
+	now := time.Now()
+	acuChannelMonitorCache.Lock()
+	if entry, ok := acuChannelMonitorCache.entries[cacheKey]; ok {
+		if now.Before(entry.expiresAt) {
+			acuChannelMonitorCache.Unlock()
+			return entry.result, nil
+		}
+		delete(acuChannelMonitorCache.entries, cacheKey)
+	}
+	acuChannelMonitorCache.Unlock()
 	response, err := acuRouterAdminRequest(
 		ctx,
 		http.MethodGet,
@@ -106,6 +136,12 @@ func GetACUChannelMonitor(ctx context.Context, rangeValue, supplyStrategy, scena
 		return result, err
 	}
 	result.DefaultCandidatePreferenceScores = config.DefaultCandidatePreferenceScores
+	acuChannelMonitorCache.Lock()
+	acuChannelMonitorCache.entries[cacheKey] = acuChannelMonitorCacheEntry{
+		result:    result,
+		expiresAt: time.Now().Add(acuChannelMonitorCacheTTL),
+	}
+	acuChannelMonitorCache.Unlock()
 	return result, nil
 }
 
@@ -298,6 +334,7 @@ func PauseACUChannel(ctx context.Context, input dto.ACUChannelPauseRequest, acto
 	if err := common.DecodeJson(response.Body, &result); err != nil {
 		return result, err
 	}
+	clearACUChannelMonitorCache()
 	return result, nil
 }
 
