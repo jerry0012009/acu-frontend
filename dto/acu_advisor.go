@@ -57,8 +57,15 @@ type ACUPrivateMemorySkill struct {
 }
 
 type ACUPrivateMemory struct {
-	Enabled bool                    `json:"enabled"`
-	UserID  string                  `json:"userId"`
-	SpaceID string                  `json:"spaceId,omitempty"`
-	Skills  []ACUPrivateMemorySkill `json:"skills"`
+	Enabled         bool                      `json:"enabled"`
+	UserID          string                    `json:"userId"`
+	SpaceID         string                    `json:"spaceId,omitempty"`
+	Skills          []ACUPrivateMemorySkill   `json:"skills"`
+	InternalPrompts []ACUPrivateMemoryPrompt  `json:"internalPrompts,omitempty"`
+}
+
+type ACUPrivateMemoryPrompt struct {
+	Path    string `json:"path"`
+	Mime    string `json:"mime"`
+	Content string `json:"content"`
 }

@@ -71,6 +71,31 @@ function MemorySection(props: { memory?: PrivateACUMemory; loading: boolean }) {
   )
 }
 
+function InternalPromptsSection(props: {
+  prompts?: PrivateACUMemory['internalPrompts']
+}) {
+  const { t } = useTranslation()
+  if (!props.prompts) {
+    return (
+      <p className='text-muted-foreground text-sm'>
+        {t('Acontext internal prompts are unavailable')}
+      </p>
+    )
+  }
+  return (
+    <div className='space-y-3'>
+      {props.prompts.map((prompt) => (
+        <details key={prompt.path} className='border-border rounded-md border p-3'>
+          <summary className='cursor-pointer font-mono text-xs'>{prompt.path}</summary>
+          <pre className='bg-muted/30 mt-3 max-h-[32rem] overflow-auto rounded-md p-3 whitespace-pre-wrap text-xs'>
+            {prompt.content}
+          </pre>
+        </details>
+      ))}
+    </div>
+  )
+}
+
 export function PrivateACUAdmin() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -197,9 +222,7 @@ export function PrivateACUAdmin() {
       </section>
       <section className='border-border space-y-2 rounded-md border p-4'>
         <h2 className='text-base font-semibold'>{t('Acontext internal prompts')}</h2>
-        <p className='text-muted-foreground text-sm'>
-          {t('Internal Acontext prompts are read-only and will be exposed in a later inspection step.')}
-        </p>
+        <InternalPromptsSection prompts={memoryQuery.data?.internalPrompts} />
       </section>
     </div>
   )

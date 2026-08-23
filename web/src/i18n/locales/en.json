@@ -5641,6 +5641,6 @@
     "Learning space": "Learning space",
     "Not created": "Not created",
     "No content": "No content",
-    "Internal Acontext prompts are read-only and will be exposed in a later inspection step.": "Internal Acontext prompts are read-only and will be exposed in a later inspection step."
+    "Acontext internal prompts are unavailable": "Acontext internal prompts are unavailable"
   }
 }

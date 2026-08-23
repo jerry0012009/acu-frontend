@@ -5660,6 +5660,6 @@
     "Learning space": "Learning space",
     "Not created": "尚未创建",
     "No content": "暂无内容",
-    "Internal Acontext prompts are read-only and will be exposed in a later inspection step.": "Acontext 内部提示词当前只读，后续通过 inspection 页面展示。"
+    "Acontext internal prompts are unavailable": "Acontext 内部提示词暂不可用"
   }
 }

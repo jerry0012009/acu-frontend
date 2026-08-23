@@ -29,6 +29,13 @@ export type PrivateACUMemory = {
   userId: string
   spaceId?: string
   skills: PrivateACUMemorySkill[]
+  internalPrompts?: PrivateACUMemoryPrompt[]
+}
+
+export type PrivateACUMemoryPrompt = {
+  path: string
+  mime: string
+  content: string
 }
 
 export async function getPrivateACUPrompts() {
