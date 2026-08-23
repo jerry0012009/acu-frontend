@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, Pencil } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -10,6 +10,7 @@ import type {
   ACUChannelMonitorProfile,
   ACUGlobalRoutingPolicy,
   ACUProbeTimelineRange,
+  ACUTokenProfileRoutingScope,
 } from '../api'
 import {
   anonymousACULineId,
@@ -43,6 +44,17 @@ export function ACUModelHealthCard(props: {
   model: ACUModelOverview
   showDiagnostics?: boolean
   probeRange?: ACUProbeTimelineRange
+  tokenProfileActions?: {
+    tokenName: string
+    maskedKey: string
+    scope?: ACUTokenProfileRoutingScope
+    isPending: (profileId: string) => boolean
+    onToggle: (profile: ACUChannelMonitorProfile, enabled: boolean) => void
+  }
+  profileNoteActions?: {
+    isPending: (profileId: string) => boolean
+    onEdit: (profile: ACUChannelMonitorProfile) => void
+  }
   profileActions?: {
     policy?: ACUGlobalRoutingPolicy
     isTogglePending: (profileId: string) => boolean
@@ -122,6 +134,8 @@ export function ACUModelHealthCard(props: {
               showDiagnostics={props.showDiagnostics}
               probeRange={probeRange}
               actions={props.profileActions}
+              tokenActions={props.tokenProfileActions}
+              noteActions={props.profileNoteActions}
             />
           ))}
         </div>
@@ -135,6 +149,17 @@ function ModelProfile(props: {
   profile: ACUChannelMonitorProfile
   showDiagnostics?: boolean
   probeRange: ACUProbeTimelineRange
+  tokenActions?: {
+    tokenName: string
+    maskedKey: string
+    scope?: ACUTokenProfileRoutingScope
+    isPending: (profileId: string) => boolean
+    onToggle: (profile: ACUChannelMonitorProfile, enabled: boolean) => void
+  }
+  noteActions?: {
+    isPending: (profileId: string) => boolean
+    onEdit: (profile: ACUChannelMonitorProfile) => void
+  }
   actions?: {
     policy?: ACUGlobalRoutingPolicy
     isTogglePending: (profileId: string) => boolean
@@ -159,6 +184,17 @@ function ModelProfile(props: {
     props.actions?.isTogglePending(profile.executionProfileId) ?? false
   const probePending =
     props.actions?.isProbePending(profile.executionProfileId) ?? false
+  const tokenScope = props.tokenActions?.scope
+  const globallyAvailableForToken =
+    tokenScope?.globalProfileIds.includes(profile.executionProfileId) ?? false
+  const tokenAllowed =
+    tokenScope?.effectiveProfileIds.includes(profile.executionProfileId) ?? false
+  const tokenTogglePending =
+    props.tokenActions?.isPending(profile.executionProfileId) ?? false
+  const isLastTokenProfile =
+    tokenAllowed && tokenScope?.effectiveProfileIds.length === 1
+  const notePending =
+    props.noteActions?.isPending(profile.executionProfileId) ?? false
   return (
     <div className='rounded border p-3 text-xs'>
       <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
@@ -185,6 +221,29 @@ function ModelProfile(props: {
           copyable={false}
         />
       </div>
+      {profile.publicNote || props.noteActions ? (
+        <div className='mt-3 flex min-w-0 flex-wrap items-start justify-between gap-2 rounded border px-3 py-2'>
+          <div className='min-w-0'>
+            <div className='text-muted-foreground text-[11px]'>
+              {t('Route note')}
+            </div>
+            <div className='mt-0.5 break-words'>
+              {profile.publicNote || t('No public note')}
+            </div>
+          </div>
+          {props.noteActions ? (
+            <Button
+              size='sm'
+              variant='ghost'
+              disabled={notePending}
+              onClick={() => props.noteActions?.onEdit(profile)}
+            >
+              <Pencil className='size-3.5' aria-hidden='true' />
+              {t('Edit note')}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       <div className='mt-3 grid gap-2 sm:grid-cols-3'>
         <ProfileMetric
           label={t('Price factor')}
@@ -249,6 +308,53 @@ function ModelProfile(props: {
             }}
           >
             {t('Probe test')}
+          </Button>
+        </div>
+      ) : null}
+      {props.tokenActions ? (
+        <div className='mt-3 flex flex-wrap items-center gap-2 border-t pt-3'>
+          <span className='text-muted-foreground'>
+            {t('Global routing')}:{' '}
+            {globallyAvailableForToken ? t('Allowed') : t('Disabled')}
+          </span>
+          <span className='text-muted-foreground'>
+            {t('This API key')}:{' '}
+            {tokenAllowed ? t('Allowed') : t('Disabled')}
+          </span>
+          <Button
+            size='sm'
+            variant='outline'
+            title={
+              isLastTokenProfile
+                ? t('At least one ACU Profile must remain enabled')
+                : undefined
+            }
+            disabled={
+              !tokenScope ||
+              !globallyAvailableForToken ||
+              tokenTogglePending ||
+              isLastTokenProfile
+            }
+            onClick={() => {
+              const action = tokenAllowed ? t('Disable') : t('Enable')
+              const confirmed = window.confirm(
+                t(
+                  'Confirm {{action}} this Profile for API key {{name}} ({{key}})?',
+                  {
+                    action,
+                    name: props.tokenActions?.tokenName,
+                    key: props.tokenActions?.maskedKey,
+                  }
+                )
+              )
+              if (confirmed) {
+                props.tokenActions?.onToggle(profile, !tokenAllowed)
+              }
+            }}
+          >
+            {tokenAllowed
+              ? t('Disable for this API key')
+              : t('Enable for this API key')}
           </Button>
         </div>
       ) : null}

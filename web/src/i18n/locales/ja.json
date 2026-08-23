@@ -5293,6 +5293,24 @@
     "Model default": "モデル既定値",
     "Thinking": "思考",
     "Recovered": "復旧済み",
-    "Cached Input": "キャッシュ済み入力"
+    "Cached Input": "キャッシュ済み入力",
+    "API key routing updated": "API キーのルーティングを更新しました",
+    "API key routing update failed": "API キーのルーティング更新に失敗しました",
+    "No API keys": "API キーがありません",
+    "Profile scope": "Profile の範囲",
+    "Following global routing": "グローバルルーティングに従う",
+    "{{enabled}} of {{total}} globally allowed Profiles enabled": "グローバルで許可された {{total}} 個中 {{enabled}} 個の Profile が有効",
+    "Global routing": "グローバルルーティング",
+    "This API key": "この API キー",
+    "At least one ACU Profile must remain enabled": "少なくとも 1 つの ACU Profile を有効にする必要があります",
+    "Confirm {{action}} this Profile for API key {{name}} ({{key}})?": "API キー {{name}}（{{key}}）でこの Profile を {{action}} しますか？",
+    "Disable for this API key": "この API キーで無効化",
+    "Enable for this API key": "この API キーで有効化",
+    "Profile note updated": "Profile のメモを更新しました",
+    "Profile note update failed": "Profile のメモ更新に失敗しました",
+    "Public note visible to users": "ユーザーに表示される公開メモ",
+    "Route note": "ルートのメモ",
+    "No public note": "公開メモはありません",
+    "Edit note": "メモを編集"
   }
 }

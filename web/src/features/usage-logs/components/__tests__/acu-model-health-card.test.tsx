@@ -90,6 +90,7 @@ test('renders anonymous model lines and isolates user-facing supply evidence', a
                 provider: 'lucen',
                 channel: 'cx006',
                 protocol: ['responses'],
+                publicNote: 'Preferred route for long coding tasks',
                 multiplier: 0.85,
                 effectivePriceMultiplier: 0.61,
                 p50FirstModelEventLatencyMs: 1200,
@@ -119,8 +120,9 @@ test('renders anonymous model lines and isolates user-facing supply evidence', a
   assert.match(text, /0\.61×/)
   assert.match(text, /Price factor/)
   assert.match(text, /Response latency/)
+  assert.match(text, /Preferred route for long coding tasks/)
   assert.match(text, /7\.8 s/)
-  assert.match(text, /Probe estimate/)
+  assert.match(text, /Probe-led latency score/)
   assert.doesNotMatch(text, /0\.85x/)
   assert.doesNotMatch(text, /P50 first event/)
   assert.doesNotMatch(text, /lucen/)
@@ -191,6 +193,107 @@ test('shows production evidence for an admin model view', async () => {
     1
   )
   assert.match(text, /No production traffic/)
+  await act(async () => root.unmount())
+  container.remove()
+})
+
+test('toggles only the selected API key profile from the profile row', async () => {
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  const toggles: Array<{ profileId: string; enabled: boolean }> = []
+  const editedNotes: string[] = []
+  Object.defineProperty(window, 'confirm', {
+    configurable: true,
+    value: () => true,
+  })
+  await act(async () => {
+    root.render(
+      <I18nextProvider i18n={i18n}>
+        <ACUModelHealthCard
+          showDiagnostics={false}
+          tokenProfileActions={{
+            tokenName: 'primary',
+            maskedKey: 'sk-a**********1234',
+            scope: {
+              tokenId: 12,
+              custom: false,
+              globalProfileIds: [
+                'cx006:gpt-5.6-luna:responses',
+                'cx007:gpt-5.6-luna:responses',
+              ],
+              configuredProfileIds: [],
+              effectiveProfileIds: [
+                'cx006:gpt-5.6-luna:responses',
+                'cx007:gpt-5.6-luna:responses',
+              ],
+            },
+            isPending: () => false,
+            onToggle: (profile, enabled) =>
+              toggles.push({
+                profileId: profile.executionProfileId,
+                enabled,
+              }),
+          }}
+          profileNoteActions={{
+            isPending: () => false,
+            onEdit: (profile) => editedNotes.push(profile.executionProfileId),
+          }}
+          model={{
+            modelId: 'gpt-5.6-luna',
+            eligibleCount: 1,
+            totalCount: 1,
+            requestCount: 0,
+            successCount: 0,
+            availability: null,
+            buckets: [],
+            probeBuckets: [],
+            profiles: [
+              {
+                executionProfileId: 'cx006:gpt-5.6-luna:responses',
+                canonicalModel: 'gpt-5.6-luna',
+                provider: 'lucen',
+                channel: 'cx006',
+                protocol: ['responses'],
+                publicNote: 'Low-latency route',
+                routingEligible: true,
+                state: 'healthy',
+                probeBuckets: [],
+              } as never,
+            ],
+          }}
+        />
+      </I18nextProvider>
+    )
+  })
+  const header = container.querySelector('button')
+  assert.ok(header)
+  await act(async () =>
+    header.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  )
+  const profileButton = [...container.querySelectorAll('button')].find(
+    (button) => button.textContent === 'Disable for this API key'
+  )
+  assert.ok(profileButton)
+  assert.match(container.textContent ?? '', /Global routing: Allowed/)
+  assert.match(container.textContent ?? '', /This API key: Allowed/)
+  await act(async () =>
+    profileButton.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  )
+  assert.deepEqual(toggles, [
+    {
+      profileId: 'cx006:gpt-5.6-luna:responses',
+      enabled: false,
+    },
+  ])
+  const noteButton = [...container.querySelectorAll('button')].find(
+    (button) => button.textContent?.includes('Edit note')
+  )
+  assert.ok(noteButton)
+  await act(async () =>
+    noteButton.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  )
+  assert.deepEqual(editedNotes, ['cx006:gpt-5.6-luna:responses'])
   await act(async () => root.unmount())
   container.remove()
 })

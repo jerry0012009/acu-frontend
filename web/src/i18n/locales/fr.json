@@ -5293,6 +5293,24 @@
     "Model default": "Valeur par défaut du modèle",
     "Thinking": "Réflexion",
     "Recovered": "Récupéré",
-    "Cached Input": "Entrée en cache"
+    "Cached Input": "Entrée en cache",
+    "API key routing updated": "Routage de la clé API mis à jour",
+    "API key routing update failed": "Échec de la mise à jour du routage de la clé API",
+    "No API keys": "Aucune clé API",
+    "Profile scope": "Portée des profils",
+    "Following global routing": "Suit le routage global",
+    "{{enabled}} of {{total}} globally allowed Profiles enabled": "{{enabled}} profils activés sur {{total}} autorisés globalement",
+    "Global routing": "Routage global",
+    "This API key": "Cette clé API",
+    "At least one ACU Profile must remain enabled": "Au moins un profil ACU doit rester activé",
+    "Confirm {{action}} this Profile for API key {{name}} ({{key}})?": "Confirmer l'action {{action}} pour ce profil avec la clé API {{name}} ({{key}}) ?",
+    "Disable for this API key": "Désactiver pour cette clé API",
+    "Enable for this API key": "Activer pour cette clé API",
+    "Profile note updated": "Note du profil mise à jour",
+    "Profile note update failed": "Échec de la mise à jour de la note du profil",
+    "Public note visible to users": "Note publique visible par les utilisateurs",
+    "Route note": "Note de la route",
+    "No public note": "Aucune note publique",
+    "Edit note": "Modifier la note"
   }
 }

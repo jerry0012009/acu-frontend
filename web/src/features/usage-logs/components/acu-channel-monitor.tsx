@@ -9,13 +9,15 @@ import {
   Table2,
   RefreshCw,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { getApiKeys } from '@/features/keys/api'
+import type { ApiKey } from '@/features/keys/types'
 import { useIsAdmin } from '@/hooks/use-admin'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
@@ -24,10 +26,13 @@ import {
   getACUChannelMonitor,
   getACUGlobalRoutingPolicy,
   getACURoutingUtilityConfig,
+  getACUTokenProfileRouting,
   probeACUExecutionProfileById,
   reconcileACUExecutionProfileEconomics,
   updateACUGlobalRoutingPolicy,
+  updateACUProfilePublicNote,
   updateACURoutingUtilityConfig,
+  updateACUTokenProfileRouting,
   pauseACUChannel,
   type ACUChannelMonitorProfile,
   type ACUExecutionProfileProbeResult,
@@ -121,6 +126,7 @@ export function ACUChannelMonitor() {
   const [probeInspector, setProbeInspector] =
     useState<ProbeInspectorState | null>(null)
   const [calibrationMessage, setCalibrationMessage] = useState('')
+  const [selectedTokenId, setSelectedTokenId] = useState<number | null>(null)
   const query = useQuery({
     queryKey: [
       'acu-channel-monitor',
@@ -141,6 +147,82 @@ export function ACUChannelMonitor() {
     staleTime: MONITOR_REFRESH_MS,
     gcTime: MONITOR_REFRESH_MS,
     refetchInterval: MONITOR_REFRESH_MS,
+  })
+  const apiKeysQuery = useQuery({
+    queryKey: ['channel-monitor-api-keys'],
+    queryFn: () => getApiKeys({ p: 1, size: 100 }),
+    staleTime: 60_000,
+  })
+  const apiKeys = useMemo(
+    () => apiKeysQuery.data?.data?.items ?? [],
+    [apiKeysQuery.data?.data?.items]
+  )
+  useEffect(() => {
+    if (
+      selectedTokenId != null &&
+      apiKeys.some((token) => token.id === selectedTokenId)
+    ) {
+      return
+    }
+    const defaultToken =
+      apiKeys.find((token) => token.status === 1) ?? apiKeys[0]
+    setSelectedTokenId(defaultToken?.id ?? null)
+  }, [apiKeys, selectedTokenId])
+  const selectedToken = useMemo<ApiKey | undefined>(
+    () => apiKeys.find((token) => token.id === selectedTokenId),
+    [apiKeys, selectedTokenId]
+  )
+  const tokenProfileRoutingQuery = useQuery({
+    queryKey: ['acu-token-profile-routing', selectedTokenId],
+    queryFn: () => getACUTokenProfileRouting(selectedTokenId as number),
+    enabled: selectedTokenId != null,
+    staleTime: 15_000,
+  })
+  const tokenProfileRoutingMutation = useMutation({
+    mutationFn: (input: {
+      tokenId: number
+      executionProfileId: string
+      enabled: boolean
+    }) =>
+      updateACUTokenProfileRouting(
+        input.tokenId,
+        input.executionProfileId,
+        input.enabled
+      ),
+    onSuccess: async (response) => {
+      queryClient.setQueryData(
+        ['acu-token-profile-routing', response.data?.tokenId],
+        response
+      )
+      await queryClient.invalidateQueries({
+        queryKey: ['channel-monitor-api-keys'],
+      })
+      toast.success(t('API key routing updated'))
+    },
+    onError: (error) =>
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t('API key routing update failed')
+      ),
+  })
+  const profileNoteMutation = useMutation({
+    mutationFn: (input: {
+      executionProfileId: string
+      note: string
+    }) => updateACUProfilePublicNote(input.executionProfileId, input.note),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ['acu-channel-monitor'],
+      })
+      toast.success(t('Profile note updated'))
+    },
+    onError: (error) =>
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t('Profile note update failed')
+      ),
   })
   const pause = useMutation({
     mutationFn: ({
@@ -346,6 +428,46 @@ export function ACUChannelMonitor() {
         },
       }
     : undefined
+  const tokenProfileActions =
+    selectedToken && selectedTokenId != null
+      ? {
+          tokenName: selectedToken.name,
+          maskedKey: selectedToken.key,
+          scope: tokenProfileRoutingQuery.data?.data,
+          isPending: (profileId: string) =>
+            tokenProfileRoutingMutation.isPending &&
+            tokenProfileRoutingMutation.variables?.executionProfileId ===
+              profileId,
+          onToggle: (
+            profile: ACUChannelMonitorProfile,
+            enabled: boolean
+          ) => {
+            tokenProfileRoutingMutation.mutate({
+              tokenId: selectedTokenId,
+              executionProfileId: profile.executionProfileId,
+              enabled,
+            })
+          },
+        }
+      : undefined
+  const profileNoteActions = isAdmin
+    ? {
+        isPending: (profileId: string) =>
+          profileNoteMutation.isPending &&
+          profileNoteMutation.variables?.executionProfileId === profileId,
+        onEdit: (profile: ACUChannelMonitorProfile) => {
+          const note = window.prompt(
+            t('Public note visible to users'),
+            profile.publicNote ?? ''
+          )
+          if (note == null) return
+          profileNoteMutation.mutate({
+            executionProfileId: profile.executionProfileId,
+            note,
+          })
+        },
+      }
+    : undefined
   const summary = summarizeMonitorProfiles(protocolProfiles)
   const statItems = [
     [t('Configured'), summary.configured, Activity],
@@ -376,6 +498,51 @@ export function ACUChannelMonitor() {
         >
           <RefreshCw className='size-4' />
         </Button>
+      </div>
+      <div className='flex flex-wrap items-end gap-3 rounded border p-3'>
+        <label className='min-w-56 space-y-1 text-xs'>
+          <span className='text-muted-foreground'>{t('API key')}</span>
+          <select
+            aria-label={t('API key')}
+            className='bg-background h-8 w-full rounded border px-2'
+            value={selectedTokenId ?? ''}
+            disabled={apiKeysQuery.isLoading || apiKeys.length === 0}
+            onChange={(event) =>
+              setSelectedTokenId(
+                event.target.value ? Number(event.target.value) : null
+              )
+            }
+          >
+            {apiKeys.length === 0 ? (
+              <option value=''>{t('No API keys')}</option>
+            ) : null}
+            {apiKeys.map((token) => (
+              <option key={token.id} value={token.id}>
+                {token.name} · {token.key}
+              </option>
+            ))}
+          </select>
+        </label>
+        {selectedToken ? (
+          <div className='text-muted-foreground text-xs'>
+            <div>
+              {t('Profile scope')}:{' '}
+              {tokenProfileRoutingQuery.data?.data?.custom
+                ? t('Custom')
+                : t('Following global routing')}
+            </div>
+            <div>
+              {t('{{enabled}} of {{total}} globally allowed Profiles enabled', {
+                enabled:
+                  tokenProfileRoutingQuery.data?.data?.effectiveProfileIds
+                    .length ?? 0,
+                total:
+                  tokenProfileRoutingQuery.data?.data?.globalProfileIds
+                    .length ?? 0,
+              })}
+            </div>
+          </div>
+        ) : null}
       </div>
       {isAdmin && (
         <div className='grid gap-2 sm:grid-cols-2 xl:grid-cols-5'>
@@ -582,6 +749,8 @@ export function ACUChannelMonitor() {
                     channel={channel}
                     generatedAt={query.data?.data?.generatedAt ?? ''}
                     profileActions={profileActions}
+                    profileNoteActions={profileNoteActions}
+                    tokenProfileActions={tokenProfileActions}
                   />
                 ))
               : modelGroups.map((model) => (
@@ -591,6 +760,8 @@ export function ACUChannelMonitor() {
                     showDiagnostics={isAdmin}
                     probeRange={probeRange}
                     profileActions={profileActions}
+                    tokenProfileActions={tokenProfileActions}
+                    profileNoteActions={profileNoteActions}
                   />
                 ))}
           </div>

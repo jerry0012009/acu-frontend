@@ -5345,6 +5345,24 @@
     "Model default": "模型預設",
     "Thinking": "思考",
     "Recovered": "已恢復",
-    "Cached Input": "快取輸入"
+    "Cached Input": "快取輸入",
+    "API key routing updated": "API 金鑰路由已更新",
+    "API key routing update failed": "API 金鑰路由更新失敗",
+    "No API keys": "暫無 API 金鑰",
+    "Profile scope": "Profile 範圍",
+    "Following global routing": "跟隨全域路由",
+    "{{enabled}} of {{total}} globally allowed Profiles enabled": "已啟用全域允許的 {{total}} 個 Profile 中的 {{enabled}} 個",
+    "Global routing": "全域路由",
+    "This API key": "此 API 金鑰",
+    "At least one ACU Profile must remain enabled": "至少需要保留一個已啟用的 ACU Profile",
+    "Confirm {{action}} this Profile for API key {{name}} ({{key}})?": "確認要為 API 金鑰 {{name}}（{{key}}）{{action}}此 Profile 嗎？",
+    "Disable for this API key": "對此 API 金鑰停用",
+    "Enable for this API key": "對此 API 金鑰啟用",
+    "Profile note updated": "Profile 備註已更新",
+    "Profile note update failed": "Profile 備註更新失敗",
+    "Public note visible to users": "一般使用者可見的路線備註",
+    "Route note": "路線備註",
+    "No public note": "暫無公開備註",
+    "Edit note": "編輯備註"
   }
 }

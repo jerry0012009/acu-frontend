@@ -3,9 +3,11 @@ package controller
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 )
@@ -32,6 +34,74 @@ func GetACURoutingCatalog(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
+func GetACUTokenProfileRouting(c *gin.Context) {
+	tokenID, err := strconv.Atoi(c.Param("id"))
+	if err != nil || tokenID <= 0 {
+		common.ApiError(c, fmt.Errorf("invalid API key ID"))
+		return
+	}
+	result, err := service.GetACUTokenProfileRoutingScope(
+		c.Request.Context(),
+		c.GetInt("id"),
+		tokenID,
+	)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
+func UpdateACUTokenProfileRouting(c *gin.Context) {
+	tokenID, err := strconv.Atoi(c.Param("id"))
+	if err != nil || tokenID <= 0 {
+		common.ApiError(c, fmt.Errorf("invalid API key ID"))
+		return
+	}
+	var input dto.ACUTokenProfileRoutingUpdate
+	if err := c.ShouldBindJSON(&input); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	result, err := service.UpdateACUTokenProfileRouting(
+		c.Request.Context(),
+		c.GetInt("id"),
+		tokenID,
+		input,
+	)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
+func UpdateACUProfilePublicNote(c *gin.Context) {
+	var input dto.ACUProfilePublicNoteUpdate
+	if err := c.ShouldBindJSON(&input); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	result, err := service.UpdateACUProfilePublicNote(c.Request.Context(), input)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	model.RecordOperationAuditLog(
+		c.GetInt("id"),
+		"Updated ACU Profile public note",
+		c.ClientIP(),
+		"acu_profile_public_note.update",
+		map[string]interface{}{
+			"execution_profile_id": input.ExecutionProfileID,
+			"note_length":          len(result.Note),
+		},
+		auditOperatorInfo(c),
+		nil,
+	)
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
 }
 

@@ -5293,6 +5293,24 @@
     "Model default": "По умолчанию модели",
     "Thinking": "Рассуждение",
     "Recovered": "Восстановлено",
-    "Cached Input": "Кэшированный ввод"
+    "Cached Input": "Кэшированный ввод",
+    "API key routing updated": "Маршрутизация API-ключа обновлена",
+    "API key routing update failed": "Не удалось обновить маршрутизацию API-ключа",
+    "No API keys": "Нет API-ключей",
+    "Profile scope": "Область профилей",
+    "Following global routing": "Следует глобальной маршрутизации",
+    "{{enabled}} of {{total}} globally allowed Profiles enabled": "Включено профилей: {{enabled}} из {{total}}, разрешенных глобально",
+    "Global routing": "Глобальная маршрутизация",
+    "This API key": "Этот API-ключ",
+    "At least one ACU Profile must remain enabled": "Хотя бы один профиль ACU должен оставаться включенным",
+    "Confirm {{action}} this Profile for API key {{name}} ({{key}})?": "Подтвердить действие {{action}} для этого профиля и API-ключа {{name}} ({{key}})?",
+    "Disable for this API key": "Отключить для этого API-ключа",
+    "Enable for this API key": "Включить для этого API-ключа",
+    "Profile note updated": "Примечание профиля обновлено",
+    "Profile note update failed": "Не удалось обновить примечание профиля",
+    "Public note visible to users": "Публичное примечание, видимое пользователям",
+    "Route note": "Примечание маршрута",
+    "No public note": "Нет публичного примечания",
+    "Edit note": "Изменить примечание"
   }
 }

@@ -1,6 +1,7 @@
 package router
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -73,4 +74,20 @@ func TestACUChannelMonitorIsUserReadableWhileManagementRemainsRestricted(t *test
 	require.Equal(t, http.StatusForbidden, request("/api/log/acu-execution-profiles", "admin-user-pat").Code)
 	require.Equal(t, http.StatusOK, request("/api/log/acu-execution-profiles", "root-user-pat").Code)
 	require.Equal(t, http.StatusOK, request("/api/user/self/acu-routing-catalog", "regular-user-pat").Code)
+
+	updateNote := func(token string) *httptest.ResponseRecorder {
+		recorder := httptest.NewRecorder()
+		req := httptest.NewRequest(
+			http.MethodPut,
+			"/api/log/acu-channel-monitor/profile-note",
+			bytes.NewBufferString(`{"executionProfileId":"test:model:messages","note":"public"}`),
+		)
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+		engine.ServeHTTP(recorder, req)
+		return recorder
+	}
+	require.Equal(t, http.StatusForbidden, updateNote("regular-user-pat").Code)
+	require.NotEqual(t, http.StatusForbidden, updateNote("admin-user-pat").Code)
+	require.NotEqual(t, http.StatusForbidden, updateNote("root-user-pat").Code)
 }

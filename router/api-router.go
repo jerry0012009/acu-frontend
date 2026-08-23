@@ -248,6 +248,8 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			tokenRoute.GET("/", controller.GetAllTokens)
 			tokenRoute.GET("/search", middleware.SearchRateLimit(), controller.SearchTokens)
+			tokenRoute.GET("/:id/acu-profile-routing", middleware.DisableCache(), controller.GetACUTokenProfileRouting)
+			tokenRoute.PUT("/:id/acu-profile-routing", middleware.DisableCache(), controller.UpdateACUTokenProfileRouting)
 			tokenRoute.GET("/:id", controller.GetToken)
 			tokenRoute.POST("/:id/key", middleware.CriticalRateLimit(), middleware.DisableCache(), controller.GetTokenKey)
 			tokenRoute.POST("/", controller.AddToken)
@@ -290,6 +292,7 @@ func SetApiRouter(router *gin.Engine) {
 		logRoute.GET("/self/acu-work-timeline", middleware.UserAuth(), middleware.DisableCache(), controller.GetACUWorkTimeline)
 		logRoute.GET("/acu-channel-monitor", middleware.UserAuth(), middleware.DisableCache(), controller.GetACUChannelMonitor)
 		logRoute.POST("/acu-channel-monitor/pause", middleware.AdminAuth(), controller.PauseACUChannel)
+		logRoute.PUT("/acu-channel-monitor/profile-note", middleware.AdminAuth(), middleware.DisableCache(), controller.UpdateACUProfilePublicNote)
 		executionProfileRoute := apiRouter.Group("/log/acu-execution-profiles")
 		executionProfileRoute.Use(middleware.RootAuth(), middleware.DisableCache())
 		{

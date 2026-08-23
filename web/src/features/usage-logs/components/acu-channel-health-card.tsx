@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, Pencil } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -6,7 +6,11 @@ import { StatusBadge } from '@/components/status-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
-import type { ACUChannelMonitorProfile, ACUGlobalRoutingPolicy } from '../api'
+import type {
+  ACUChannelMonitorProfile,
+  ACUGlobalRoutingPolicy,
+  ACUTokenProfileRoutingScope,
+} from '../api'
 import {
   classifyHistoryBucket,
   classifyProbeBucket,
@@ -61,6 +65,17 @@ const stateVariant = {
 export function ACUChannelHealthCard(props: {
   channel: ACUChannelOverview
   generatedAt: string
+  profileNoteActions?: {
+    isPending: (profileId: string) => boolean
+    onEdit: (profile: ACUChannelMonitorProfile) => void
+  }
+  tokenProfileActions?: {
+    tokenName: string
+    maskedKey: string
+    scope?: ACUTokenProfileRoutingScope
+    isPending: (profileId: string) => boolean
+    onToggle: (profile: ACUChannelMonitorProfile, enabled: boolean) => void
+  }
   profileActions?: {
     policy?: ACUGlobalRoutingPolicy
     isTogglePending: (profileId: string) => boolean
@@ -223,6 +238,8 @@ export function ACUChannelHealthCard(props: {
               key={profile.executionProfileId}
               profile={profile}
               actions={props.profileActions}
+              noteActions={props.profileNoteActions}
+              tokenActions={props.tokenProfileActions}
             />
           ))}
         </div>
@@ -233,6 +250,17 @@ export function ACUChannelHealthCard(props: {
 
 function ChannelProfile(props: {
   profile: ACUChannelMonitorProfile
+  noteActions?: {
+    isPending: (profileId: string) => boolean
+    onEdit: (profile: ACUChannelMonitorProfile) => void
+  }
+  tokenActions?: {
+    tokenName: string
+    maskedKey: string
+    scope?: ACUTokenProfileRoutingScope
+    isPending: (profileId: string) => boolean
+    onToggle: (profile: ACUChannelMonitorProfile, enabled: boolean) => void
+  }
   actions?: {
     policy?: ACUGlobalRoutingPolicy
     isTogglePending: (profileId: string) => boolean
@@ -256,6 +284,17 @@ function ChannelProfile(props: {
     props.actions?.isTogglePending(profile.executionProfileId) ?? false
   const probePending =
     props.actions?.isProbePending(profile.executionProfileId) ?? false
+  const notePending =
+    props.noteActions?.isPending(profile.executionProfileId) ?? false
+  const tokenScope = props.tokenActions?.scope
+  const globallyAvailableForToken =
+    tokenScope?.globalProfileIds.includes(profile.executionProfileId) ?? false
+  const tokenAllowed =
+    tokenScope?.effectiveProfileIds.includes(profile.executionProfileId) ?? false
+  const tokenTogglePending =
+    props.tokenActions?.isPending(profile.executionProfileId) ?? false
+  const isLastTokenProfile =
+    tokenAllowed && tokenScope?.effectiveProfileIds.length === 1
   let globalRoutingStatus = t('Loading...')
   if (policy) {
     globalRoutingStatus = globallyAllowed ? t('allowed') : t('disabled')
@@ -291,6 +330,29 @@ function ChannelProfile(props: {
           </div>
         </div>
       </summary>
+      {profile.publicNote || props.noteActions ? (
+        <div className='mt-3 flex min-w-0 flex-wrap items-start justify-between gap-2 rounded border px-3 py-2'>
+          <div className='min-w-0'>
+            <div className='text-muted-foreground text-[11px]'>
+              {t('Route note')}
+            </div>
+            <div className='mt-0.5 break-words'>
+              {profile.publicNote || t('No public note')}
+            </div>
+          </div>
+          {props.noteActions ? (
+            <Button
+              size='sm'
+              variant='ghost'
+              disabled={notePending}
+              onClick={() => props.noteActions?.onEdit(profile)}
+            >
+              <Pencil className='size-3.5' aria-hidden='true' />
+              {t('Edit note')}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       {props.actions && (
         <div className='mt-3 flex flex-wrap items-center gap-2 border-t pt-3'>
           <span className='text-muted-foreground'>
@@ -337,6 +399,54 @@ function ChannelProfile(props: {
           </Button>
         </div>
       )}
+      {props.tokenActions ? (
+        <div className='mt-3 flex flex-wrap items-center gap-2 border-t pt-3'>
+          <span className='text-muted-foreground'>
+            {t('Global routing')}:{' '}
+            {globallyAvailableForToken ? t('Allowed') : t('Disabled')}
+          </span>
+          <span className='text-muted-foreground'>
+            {t('This API key')}:{' '}
+            {tokenAllowed ? t('Allowed') : t('Disabled')}
+          </span>
+          <Button
+            size='sm'
+            variant='outline'
+            title={
+              isLastTokenProfile
+                ? t('At least one ACU Profile must remain enabled')
+                : undefined
+            }
+            disabled={
+              !tokenScope ||
+              !globallyAvailableForToken ||
+              tokenTogglePending ||
+              isLastTokenProfile
+            }
+            onClick={() => {
+              const action = tokenAllowed ? t('Disable') : t('Enable')
+              if (
+                window.confirm(
+                  t(
+                    'Confirm {{action}} this Profile for API key {{name}} ({{key}})?',
+                    {
+                      action,
+                      name: props.tokenActions?.tokenName,
+                      key: props.tokenActions?.maskedKey,
+                    }
+                  )
+                )
+              ) {
+                props.tokenActions?.onToggle(profile, !tokenAllowed)
+              }
+            }}
+          >
+            {tokenAllowed
+              ? t('Disable for this API key')
+              : t('Enable for this API key')}
+          </Button>
+        </div>
+      ) : null}
       <div className='mt-3 grid gap-3 border-t pt-3 sm:grid-cols-2 lg:grid-cols-4'>
         <ProfileField
           label={t('Protocol')}

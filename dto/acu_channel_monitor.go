@@ -59,6 +59,7 @@ type ACUChannelMonitorProfile struct {
 	Protocol                    []string                 `json:"protocol"`
 	Provider                    string                   `json:"provider"`
 	Channel                     string                   `json:"channel"`
+	PublicNote                  string                   `json:"publicNote"`
 	EndpointHost                string                   `json:"endpointHost"`
 	Multiplier                  float64                  `json:"multiplier"`
 	EffectivePriceMultiplier    *float64                 `json:"effectivePriceMultiplier"`
@@ -135,4 +136,22 @@ type ACUChannelPauseResult struct {
 	State         string `json:"state"`
 	CooldownUntil string `json:"cooldownUntil"`
 	Recovery      string `json:"recovery"`
+}
+
+type ACUTokenProfileRoutingScope struct {
+	TokenID              int      `json:"tokenId"`
+	Custom               bool     `json:"custom"`
+	GlobalProfileIDs     []string `json:"globalProfileIds"`
+	ConfiguredProfileIDs []string `json:"configuredProfileIds"`
+	EffectiveProfileIDs  []string `json:"effectiveProfileIds"`
+}
+
+type ACUTokenProfileRoutingUpdate struct {
+	ExecutionProfileID string `json:"executionProfileId" binding:"required"`
+	Enabled            bool   `json:"enabled"`
+}
+
+type ACUProfilePublicNoteUpdate struct {
+	ExecutionProfileID string `json:"executionProfileId" binding:"required"`
+	Note               string `json:"note"`
 }

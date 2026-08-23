@@ -5622,6 +5622,24 @@
     "View all history": "查看全部历史",
     "Show recommendations only": "仅显示建议",
     "No Advisor history yet": "暂时没有历史记录",
-    "No active Advisor suggestions": "暂时没有需要处理的建议"
+    "No active Advisor suggestions": "暂时没有需要处理的建议",
+    "API key routing updated": "API 密钥路由已更新",
+    "API key routing update failed": "API 密钥路由更新失败",
+    "No API keys": "暂无 API 密钥",
+    "Profile scope": "Profile 范围",
+    "Following global routing": "跟随全局路由",
+    "{{enabled}} of {{total}} globally allowed Profiles enabled": "已启用全局允许的 {{total}} 个 Profile 中的 {{enabled}} 个",
+    "Global routing": "全局路由",
+    "This API key": "此 API 密钥",
+    "At least one ACU Profile must remain enabled": "至少需要保留一个已启用的 ACU Profile",
+    "Confirm {{action}} this Profile for API key {{name}} ({{key}})?": "确认要为 API 密钥 {{name}}（{{key}}）{{action}}此 Profile 吗？",
+    "Disable for this API key": "对此 API 密钥停用",
+    "Enable for this API key": "对此 API 密钥启用",
+    "Profile note updated": "Profile 备注已更新",
+    "Profile note update failed": "Profile 备注更新失败",
+    "Public note visible to users": "普通用户可见的线路备注",
+    "Route note": "线路备注",
+    "No public note": "暂无公开备注",
+    "Edit note": "编辑备注"
   }
 }

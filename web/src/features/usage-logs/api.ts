@@ -258,6 +258,7 @@ export type ACUChannelMonitorProfile = {
   protocol: string[]
   provider: string
   channel: string
+  publicNote: string
   endpointHost: string
   multiplier: number
   effectivePriceMultiplier: number | null
@@ -740,6 +741,66 @@ export async function pauseACUChannel(
     message?: string
     data?: { channelId: string; state: string; cooldownUntil: string }
   }
+}
+
+export type ACUTokenProfileRoutingScope = {
+  tokenId: number
+  custom: boolean
+  globalProfileIds: string[]
+  configuredProfileIds: string[]
+  effectiveProfileIds: string[]
+}
+
+export async function getACUTokenProfileRouting(tokenId: number) {
+  const res = await api.get(`/api/token/${tokenId}/acu-profile-routing`)
+  const response = res.data as {
+    success: boolean
+    message?: string
+    data?: ACUTokenProfileRoutingScope
+  }
+  if (!response.success || !response.data) {
+    throw new Error(response.message || 'Failed to load API key routing')
+  }
+  return response
+}
+
+export async function updateACUTokenProfileRouting(
+  tokenId: number,
+  executionProfileId: string,
+  enabled: boolean
+) {
+  const res = await api.put(`/api/token/${tokenId}/acu-profile-routing`, {
+    executionProfileId,
+    enabled,
+  })
+  const response = res.data as {
+    success: boolean
+    message?: string
+    data?: ACUTokenProfileRoutingScope
+  }
+  if (!response.success || !response.data) {
+    throw new Error(response.message || 'Failed to update API key routing')
+  }
+  return response
+}
+
+export async function updateACUProfilePublicNote(
+  executionProfileId: string,
+  note: string
+) {
+  const res = await api.put('/api/log/acu-channel-monitor/profile-note', {
+    executionProfileId,
+    note,
+  })
+  const response = res.data as {
+    success: boolean
+    message?: string
+    data?: { executionProfileId: string; note: string }
+  }
+  if (!response.success || !response.data) {
+    throw new Error(response.message || 'Failed to update Profile note')
+  }
+  return response
 }
 
 export async function getACUExecutionProfiles() {

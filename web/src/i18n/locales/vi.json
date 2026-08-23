@@ -5293,6 +5293,24 @@
     "Model default": "Mặc định của mô hình",
     "Thinking": "Suy luận",
     "Recovered": "Đã phục hồi",
-    "Cached Input": "Đầu vào được lưu đệm"
+    "Cached Input": "Đầu vào được lưu đệm",
+    "API key routing updated": "Đã cập nhật định tuyến khóa API",
+    "API key routing update failed": "Cập nhật định tuyến khóa API thất bại",
+    "No API keys": "Không có khóa API",
+    "Profile scope": "Phạm vi Profile",
+    "Following global routing": "Theo định tuyến toàn cục",
+    "{{enabled}} of {{total}} globally allowed Profiles enabled": "Đã bật {{enabled}} trên {{total}} Profile được phép toàn cục",
+    "Global routing": "Định tuyến toàn cục",
+    "This API key": "Khóa API này",
+    "At least one ACU Profile must remain enabled": "Phải giữ ít nhất một ACU Profile được bật",
+    "Confirm {{action}} this Profile for API key {{name}} ({{key}})?": "Xác nhận {{action}} Profile này cho khóa API {{name}} ({{key}})?",
+    "Disable for this API key": "Tắt cho khóa API này",
+    "Enable for this API key": "Bật cho khóa API này",
+    "Profile note updated": "Đã cập nhật ghi chú Profile",
+    "Profile note update failed": "Cập nhật ghi chú Profile thất bại",
+    "Public note visible to users": "Ghi chú công khai hiển thị cho người dùng",
+    "Route note": "Ghi chú tuyến",
+    "No public note": "Không có ghi chú công khai",
+    "Edit note": "Sửa ghi chú"
   }
 }

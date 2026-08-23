@@ -15,9 +15,11 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/model"
 )
 
 const acuChannelMonitorCacheTTL = 15 * time.Second
+const acuProfilePublicNotesOption = "ACUProfilePublicNotes"
 
 type acuChannelMonitorCacheEntry struct {
 	result    dto.ACUChannelMonitor
@@ -29,10 +31,26 @@ var acuChannelMonitorCache = struct {
 	entries map[string]acuChannelMonitorCacheEntry
 }{entries: make(map[string]acuChannelMonitorCacheEntry)}
 
+var acuProfilePublicNotesMu sync.Mutex
+
 func clearACUChannelMonitorCache() {
 	acuChannelMonitorCache.Lock()
 	clear(acuChannelMonitorCache.entries)
 	acuChannelMonitorCache.Unlock()
+}
+
+func acuProfilePublicNotes() (map[string]string, error) {
+	common.OptionMapRWMutex.RLock()
+	raw := common.OptionMap[acuProfilePublicNotesOption]
+	common.OptionMapRWMutex.RUnlock()
+	if strings.TrimSpace(raw) == "" {
+		return map[string]string{}, nil
+	}
+	notes := map[string]string{}
+	if err := common.UnmarshalJsonStr(raw, &notes); err != nil {
+		return nil, fmt.Errorf("invalid ACU Profile public notes: %w", err)
+	}
+	return notes, nil
 }
 
 func acuRouterAdminRequest(ctx context.Context, method, path string, body []byte, headers ...map[string]string) (*http.Response, error) {
@@ -135,6 +153,13 @@ func GetACUChannelMonitor(ctx context.Context, rangeValue, supplyStrategy, scena
 	if err := common.DecodeJson(response.Body, &result); err != nil {
 		return result, err
 	}
+	notes, err := acuProfilePublicNotes()
+	if err != nil {
+		return result, err
+	}
+	for index := range result.Profiles {
+		result.Profiles[index].PublicNote = notes[result.Profiles[index].ExecutionProfileID]
+	}
 	result.DefaultCandidatePreferenceScores = config.DefaultCandidatePreferenceScores
 	acuChannelMonitorCache.Lock()
 	acuChannelMonitorCache.entries[cacheKey] = acuChannelMonitorCacheEntry{
@@ -143,6 +168,55 @@ func GetACUChannelMonitor(ctx context.Context, rangeValue, supplyStrategy, scena
 	}
 	acuChannelMonitorCache.Unlock()
 	return result, nil
+}
+
+func UpdateACUProfilePublicNote(
+	ctx context.Context,
+	input dto.ACUProfilePublicNoteUpdate,
+) (dto.ACUProfilePublicNoteUpdate, error) {
+	input.ExecutionProfileID = strings.TrimSpace(input.ExecutionProfileID)
+	input.Note = strings.TrimSpace(input.Note)
+	if input.ExecutionProfileID == "" {
+		return input, errors.New("execution Profile ID is required")
+	}
+	if len([]rune(input.Note)) > 500 {
+		return input, errors.New("Profile public note exceeds 500 characters")
+	}
+	monitor, err := GetACUChannelMonitor(ctx, "24h", "balanced", "standard", "48h", "all")
+	if err != nil {
+		return input, err
+	}
+	found := false
+	for _, profile := range monitor.Profiles {
+		if profile.ExecutionProfileID == input.ExecutionProfileID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return input, errors.New("ACU Profile was not found")
+	}
+
+	acuProfilePublicNotesMu.Lock()
+	defer acuProfilePublicNotesMu.Unlock()
+	notes, err := acuProfilePublicNotes()
+	if err != nil {
+		return input, err
+	}
+	if input.Note == "" {
+		delete(notes, input.ExecutionProfileID)
+	} else {
+		notes[input.ExecutionProfileID] = input.Note
+	}
+	raw, err := common.Marshal(notes)
+	if err != nil {
+		return input, err
+	}
+	if err := model.UpdateOption(acuProfilePublicNotesOption, string(raw)); err != nil {
+		return input, err
+	}
+	clearACUChannelMonitorCache()
+	return input, nil
 }
 
 func GetACURoutingCatalog(ctx context.Context) (dto.ACURoutingCatalog, error) {

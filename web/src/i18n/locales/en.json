@@ -5603,6 +5603,24 @@
     "View all history": "View all history",
     "Show recommendations only": "Show recommendations only",
     "No Advisor history yet": "No Advisor history yet",
-    "No active Advisor suggestions": "No active Advisor suggestions"
+    "No active Advisor suggestions": "No active Advisor suggestions",
+    "API key routing updated": "API key routing updated",
+    "API key routing update failed": "API key routing update failed",
+    "No API keys": "No API keys",
+    "Profile scope": "Profile scope",
+    "Following global routing": "Following global routing",
+    "{{enabled}} of {{total}} globally allowed Profiles enabled": "{{enabled}} of {{total}} globally allowed Profiles enabled",
+    "Global routing": "Global routing",
+    "This API key": "This API key",
+    "At least one ACU Profile must remain enabled": "At least one ACU Profile must remain enabled",
+    "Confirm {{action}} this Profile for API key {{name}} ({{key}})?": "Confirm {{action}} this Profile for API key {{name}} ({{key}})?",
+    "Disable for this API key": "Disable for this API key",
+    "Enable for this API key": "Enable for this API key",
+    "Profile note updated": "Profile note updated",
+    "Profile note update failed": "Profile note update failed",
+    "Public note visible to users": "Public note visible to users",
+    "Route note": "Route note",
+    "No public note": "No public note",
+    "Edit note": "Edit note"
   }
 }
