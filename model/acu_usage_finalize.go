@@ -426,6 +426,7 @@ var acuPublicRoutingTelemetryKeys = []string{
 	"official_cache_write_price_per_million_usd",
 	"official_judge_reference_cost_usd",
 	"channel_discount_multiplier",
+	"cache_creation_input_tokens",
 }
 
 func acuUsageLogOther(input ACUUsageChargeInput, pending bool, status, errorCode string) map[string]interface{} {
@@ -452,6 +453,9 @@ func acuUsageLogOther(input ACUUsageChargeInput, pending bool, status, errorCode
 		publicBreakdown["user_charge_cny"] = input.UserChargeCny
 		if value, exists := breakdown["costCompletenessStatus"]; exists {
 			publicBreakdown["cost_status"] = value
+		}
+		if value, exists := breakdown["cache_creation_input_tokens"]; exists {
+			other["cache_creation_tokens"] = value
 		}
 		if attempts, ok := breakdown["channel_attempts"].([]interface{}); ok {
 			publicAttempts := make([]interface{}, 0, len(attempts))
