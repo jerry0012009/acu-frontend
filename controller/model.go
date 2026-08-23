@@ -287,6 +287,7 @@ func filterPublicACUModelsByChatCapability(
 			_, hasChatCapability := chatModels[modelName]
 			_, hasClaudeMessagesCapability := messagesModels[modelName]
 			isClaudeMessagesAllowlisted := modelName == "claude-opus-4-8" ||
+				modelName == "claude-opus-5" ||
 				modelName == "claude-sonnet-5" ||
 				modelName == "claude-fable-5"
 			if !hasChatCapability && !(isClaudeMessagesAllowlisted && hasClaudeMessagesCapability) {
