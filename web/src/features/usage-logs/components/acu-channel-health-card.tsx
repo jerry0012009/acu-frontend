@@ -331,24 +331,27 @@ function ChannelProfile(props: {
         </div>
       </summary>
       {profile.publicNote || props.noteActions ? (
-        <div className='mt-3 flex min-w-0 flex-wrap items-start justify-between gap-2 rounded border px-3 py-2'>
-          <div className='min-w-0'>
-            <div className='text-muted-foreground text-[11px]'>
-              {t('Route note')}
-            </div>
-            <div className='mt-0.5 break-words'>
-              {profile.publicNote || t('No public note')}
-            </div>
-          </div>
+        <div className='mt-2 flex min-w-0 items-center gap-1 text-[11px]'>
+          <span className='text-muted-foreground shrink-0'>
+            {t('Route note')}:
+          </span>
+          <span
+            className='min-w-0 truncate'
+            title={profile.publicNote || t('No public note')}
+          >
+            {profile.publicNote || t('No public note')}
+          </span>
           {props.noteActions ? (
             <Button
-              size='sm'
+              size='icon-xs'
               variant='ghost'
+              className='shrink-0'
+              title={t('Edit note')}
+              aria-label={t('Edit note')}
               disabled={notePending}
               onClick={() => props.noteActions?.onEdit(profile)}
             >
-              <Pencil className='size-3.5' aria-hidden='true' />
-              {t('Edit note')}
+              <Pencil aria-hidden='true' />
             </Button>
           ) : null}
         </div>

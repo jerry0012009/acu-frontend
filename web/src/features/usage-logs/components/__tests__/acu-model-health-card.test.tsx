@@ -287,7 +287,7 @@ test('toggles only the selected API key profile from the profile row', async () 
     },
   ])
   const noteButton = [...container.querySelectorAll('button')].find(
-    (button) => button.textContent?.includes('Edit note')
+    (button) => button.getAttribute('aria-label') === 'Edit note'
   )
   assert.ok(noteButton)
   await act(async () =>
