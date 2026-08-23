@@ -21,6 +21,7 @@ import { ModelsChartPreferences } from './components/models/models-chart-prefere
 import { ModelsFilter } from './components/models/models-filter-dialog'
 import { OverviewDashboard } from './components/overview/overview-dashboard'
 import { PrivateACUAdvisor } from './components/advisor/private-acu-advisor'
+import { PrivateACUAdmin } from './components/admin/private-acu-admin'
 import { DEFAULT_TIME_GRANULARITY } from './constants'
 import {
   buildDefaultDashboardFilters,
@@ -175,6 +176,9 @@ const SECTION_META: Record<DashboardSectionId, { titleKey: string }> = {
   users: {
     titleKey: 'User Analytics',
   },
+  'acu-private-admin': {
+    titleKey: 'Private ACU Admin',
+  },
 }
 
 export function Dashboard() {
@@ -234,7 +238,10 @@ export function Dashboard() {
   const visibleSections = useMemo(
     () =>
       DASHBOARD_SECTION_IDS.filter(
-        (section) => section !== 'overview' && (section !== 'users' || isAdmin)
+        (section) =>
+          section !== 'overview' &&
+          (section !== 'users' || isAdmin) &&
+          (section !== 'acu-private-admin' || isAdmin)
       ),
     [isAdmin]
   )
@@ -389,6 +396,11 @@ export function Dashboard() {
                   onFiltersChange={setUserChartsFilters}
                 />
               </Suspense>
+            </FadeIn>
+          )}
+          {activeSection === 'acu-private-admin' && isAdmin && (
+            <FadeIn>
+              <PrivateACUAdmin />
             </FadeIn>
           )}
           {activeSection === 'flow' && (

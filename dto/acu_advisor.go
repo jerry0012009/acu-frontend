@@ -25,3 +25,40 @@ type ACUAdvisorList struct {
 type ACUAdvisorFeedbackRequest struct {
 	Feedback string `json:"feedback" binding:"required,oneof=helpful inaccurate ignored"`
 }
+
+type ACUPrivatePrompts struct {
+	ObserverPrompt string `json:"observerPrompt"`
+	AdvisorPrompt  string `json:"advisorPrompt"`
+	LearningPrompt string `json:"learningPrompt"`
+	PromptVersion  int64  `json:"promptVersion"`
+	Source         string `json:"source"`
+	UpdatedAt      string `json:"updatedAt,omitempty"`
+	UpdatedBy      string `json:"updatedBy,omitempty"`
+}
+
+type ACUPrivatePromptsRequest struct {
+	ObserverPrompt string `json:"observerPrompt" binding:"required"`
+	AdvisorPrompt  string `json:"advisorPrompt" binding:"required"`
+	LearningPrompt string `json:"learningPrompt" binding:"required"`
+}
+
+type ACUPrivateMemoryFile struct {
+	Path    string `json:"path"`
+	Mime    string `json:"mime"`
+	Content string `json:"content,omitempty"`
+	URL     string `json:"url,omitempty"`
+}
+
+type ACUPrivateMemorySkill struct {
+	ID          string                 `json:"id"`
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Files       []ACUPrivateMemoryFile `json:"files"`
+}
+
+type ACUPrivateMemory struct {
+	Enabled bool                    `json:"enabled"`
+	UserID  string                  `json:"userId"`
+	SpaceID string                  `json:"spaceId,omitempty"`
+	Skills  []ACUPrivateMemorySkill `json:"skills"`
+}

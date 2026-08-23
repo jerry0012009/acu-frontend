@@ -188,6 +188,13 @@ func SetApiRouter(router *gin.Engine) {
 			subscriptionAdminRoute.POST("/user_subscriptions/:id/invalidate", controller.AdminInvalidateUserSubscription)
 			subscriptionAdminRoute.DELETE("/user_subscriptions/:id", controller.AdminDeleteUserSubscription)
 		}
+		privateACUAdminRoute := apiRouter.Group("/admin/acu-private")
+		{
+			privateACUAdminRoute.GET("/prompts", middleware.AdminAuth(), controller.GetPrivateACUPrompts)
+			privateACUAdminRoute.GET("/memory", middleware.AdminAuth(), controller.GetPrivateACUMemory)
+			privateACUAdminRoute.PUT("/prompts", middleware.RootAuth(), controller.SavePrivateACUPrompts)
+			privateACUAdminRoute.POST("/prompts/reset", middleware.RootAuth(), controller.ResetPrivateACUPrompts)
+		}
 
 		// Subscription payment callbacks (no auth)
 		apiRouter.POST("/subscription/epay/notify", anonymousRequestBodyLimit, controller.SubscriptionEpayNotify)

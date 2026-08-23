@@ -5621,6 +5621,26 @@
     "Public note visible to users": "Public note visible to users",
     "Route note": "Route note",
     "No public note": "No public note",
-    "Edit note": "Edit note"
+    "Edit note": "Edit note",
+    "Private ACU Admin": "Private ACU Admin",
+    "Private ACU prompts": "Private ACU prompts",
+    "Observer prompt": "Observer prompt",
+    "Advisor prompt": "Advisor prompt",
+    "Learning prompt": "Learning prompt",
+    "Version": "Version",
+    "Source": "Source",
+    "Save prompts": "Save prompts",
+    "Reset default": "Reset default",
+    "Private ACU prompts saved": "Private ACU prompts saved",
+    "Failed to save Private ACU prompts": "Failed to save Private ACU prompts",
+    "Private ACU prompts reset": "Private ACU prompts reset",
+    "Failed to reset Private ACU prompts": "Failed to reset Private ACU prompts",
+    "Acontext memory": "Acontext memory",
+    "Acontext internal prompts": "Acontext internal prompts",
+    "Acontext is not configured": "Acontext is not configured",
+    "Learning space": "Learning space",
+    "Not created": "Not created",
+    "No content": "No content",
+    "Internal Acontext prompts are read-only and will be exposed in a later inspection step.": "Internal Acontext prompts are read-only and will be exposed in a later inspection step."
   }
 }

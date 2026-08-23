@@ -5640,6 +5640,26 @@
     "Public note visible to users": "普通用户可见的线路备注",
     "Route note": "线路备注",
     "No public note": "暂无公开备注",
-    "Edit note": "编辑备注"
+    "Edit note": "编辑备注",
+    "Private ACU Admin": "Private ACU 管理",
+    "Private ACU prompts": "Private ACU 提示词",
+    "Observer prompt": "Observer 提示词",
+    "Advisor prompt": "Advisor 提示词",
+    "Learning prompt": "Learning 提示词",
+    "Version": "版本",
+    "Source": "来源",
+    "Save prompts": "保存提示词",
+    "Reset default": "恢复默认",
+    "Private ACU prompts saved": "Private ACU 提示词已保存",
+    "Failed to save Private ACU prompts": "Private ACU 提示词保存失败",
+    "Private ACU prompts reset": "Private ACU 提示词已恢复默认",
+    "Failed to reset Private ACU prompts": "Private ACU 提示词恢复失败",
+    "Acontext memory": "Acontext 记忆",
+    "Acontext internal prompts": "Acontext 内部提示词",
+    "Acontext is not configured": "Acontext 尚未配置",
+    "Learning space": "Learning space",
+    "Not created": "尚未创建",
+    "No content": "暂无内容",
+    "Internal Acontext prompts are read-only and will be exposed in a later inspection step.": "Acontext 内部提示词当前只读，后续通过 inspection 页面展示。"
   }
 }
