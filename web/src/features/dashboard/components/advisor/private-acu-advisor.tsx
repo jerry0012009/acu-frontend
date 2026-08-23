@@ -1,15 +1,16 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertTriangle,
   Check,
   CircleSlash,
+  History,
   Lightbulb,
   RefreshCw,
   ThumbsDown,
   ThumbsUp,
 } from 'lucide-react'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -32,9 +33,7 @@ function AdvisorStatusIcon(props: { status: PrivateACUAdvisor['status'] }) {
   return <Check className='text-emerald-600 dark:text-emerald-400' />
 }
 
-function AdvisorStatusLabel(props: {
-  status: PrivateACUAdvisor['status']
-}) {
+function AdvisorStatusLabel(props: { status: PrivateACUAdvisor['status'] }) {
   const { t } = useTranslation()
   const labels: Record<PrivateACUAdvisor['status'], string> = {
     ok: t('On track'),
@@ -46,9 +45,7 @@ function AdvisorStatusLabel(props: {
 
 function AdvisorFeedback(props: {
   advisor: PrivateACUAdvisor
-  onFeedback: (
-    feedback: NonNullable<PrivateACUAdvisor['userFeedback']>
-  ) => void
+  onFeedback: (feedback: NonNullable<PrivateACUAdvisor['userFeedback']>) => void
   pending: boolean
 }) {
   const { t } = useTranslation()
@@ -175,11 +172,15 @@ function AdvisorCard(props: {
 export function PrivateACUAdvisor() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const [showAllHistory, setShowAllHistory] = useState(false)
   const advisorsQuery = useQuery({
     queryKey: ['dashboard', 'private-acu-advisor'],
-    queryFn: getPrivateACUAdvisors,
+    queryFn: () => getPrivateACUAdvisors(100),
   })
   const advisors = advisorsQuery.data ?? []
+  const visibleAdvisors = showAllHistory
+    ? advisors
+    : advisors.filter((advisor) => advisor.needAdvisor)
   const feedbackMutation = useMutation({
     mutationFn: ({
       advisorId,
@@ -222,26 +223,42 @@ export function PrivateACUAdvisor() {
     )
   }
 
-  if (advisors.length === 0) {
-    return (
-      <div className='text-muted-foreground border-border/70 rounded-xl border border-dashed p-8 text-center text-sm'>
-        {t('No Advisor suggestions yet')}
-      </div>
-    )
-  }
-
   return (
-    <div className={cn('space-y-3', feedbackMutation.isPending && 'opacity-90')}>
-      {advisors.map((advisor) => (
-        <AdvisorCard
-          key={advisor.advisorId}
-          advisor={advisor}
-          onFeedback={(advisorId, feedback) =>
-            feedbackMutation.mutate({ advisorId, feedback })
-          }
-          pending={feedbackMutation.isPending}
-        />
-      ))}
+    <div
+      className={cn('space-y-3', feedbackMutation.isPending && 'opacity-90')}
+    >
+      <div className='flex justify-end'>
+        <Button
+          variant='outline'
+          size='sm'
+          onClick={() => setShowAllHistory((current) => !current)}
+          aria-pressed={showAllHistory}
+        >
+          <History />
+          {showAllHistory
+            ? t('Show recommendations only')
+            : t('View all history')}
+        </Button>
+      </div>
+
+      {visibleAdvisors.length === 0 ? (
+        <div className='text-muted-foreground border-border/70 rounded-xl border border-dashed p-8 text-center text-sm'>
+          {showAllHistory
+            ? t('No Advisor history yet')
+            : t('No active Advisor suggestions')}
+        </div>
+      ) : (
+        visibleAdvisors.map((advisor) => (
+          <AdvisorCard
+            key={advisor.advisorId}
+            advisor={advisor}
+            onFeedback={(advisorId, feedback) =>
+              feedbackMutation.mutate({ advisorId, feedback })
+            }
+            pending={feedbackMutation.isPending}
+          />
+        ))
+      )}
     </div>
   )
 }

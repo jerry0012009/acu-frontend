@@ -5583,6 +5583,26 @@
     "Model default": "Model default",
     "Thinking": "Thinking",
     "Recovered": "Recovered",
-    "Cached Input": "Cached Input"
+    "Cached Input": "Cached Input",
+    "Advisor": "Advisor",
+    "Helpful": "Helpful",
+    "Inaccurate": "Inaccurate",
+    "Was this useful?": "Was this useful?",
+    "On track": "On track",
+    "Needs attention": "Needs attention",
+    "Blocked": "Blocked",
+    "Learning candidate": "Learning candidate",
+    "After {{count}} model calls": "After {{count}} model calls",
+    "Observed problem": "Observed problem",
+    "Advisor suggestion": "Advisor suggestion",
+    "Reference skills": "Reference skills",
+    "Feedback saved": "Feedback saved",
+    "Failed to save feedback": "Failed to save feedback",
+    "Unable to load Advisor suggestions": "Unable to load Advisor suggestions",
+    "No Advisor suggestions yet": "No Advisor suggestions yet",
+    "View all history": "View all history",
+    "Show recommendations only": "Show recommendations only",
+    "No Advisor history yet": "No Advisor history yet",
+    "No active Advisor suggestions": "No active Advisor suggestions"
   }
 }

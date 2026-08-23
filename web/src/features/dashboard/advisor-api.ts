@@ -24,9 +24,11 @@ type PrivateACUAdvisorListResponse = {
   }
 }
 
-export async function getPrivateACUAdvisors(): Promise<PrivateACUAdvisor[]> {
+export async function getPrivateACUAdvisors(
+  limit = 100
+): Promise<PrivateACUAdvisor[]> {
   const response = await api.get<PrivateACUAdvisorListResponse>(
-    '/api/user/self/acu-advisor'
+    `/api/user/self/acu-advisor?limit=${encodeURIComponent(String(limit))}`
   )
   return response.data.data?.advisors ?? []
 }

@@ -5602,6 +5602,26 @@
     "Model default": "模型默认",
     "Thinking": "思考",
     "Recovered": "已恢复",
-    "Cached Input": "缓存输入"
+    "Cached Input": "缓存输入",
+    "Advisor": "建议",
+    "Helpful": "有帮助",
+    "Inaccurate": "不准确",
+    "Was this useful?": "这条建议有用吗？",
+    "On track": "进展正常",
+    "Needs attention": "需要注意",
+    "Blocked": "已阻塞",
+    "Learning candidate": "学习候选",
+    "After {{count}} model calls": "已进行 {{count}} 次模型调用",
+    "Observed problem": "观察到的问题",
+    "Advisor suggestion": "建议",
+    "Reference skills": "参考技能",
+    "Feedback saved": "反馈已保存",
+    "Failed to save feedback": "反馈保存失败",
+    "Unable to load Advisor suggestions": "无法加载建议",
+    "No Advisor suggestions yet": "暂时没有建议",
+    "View all history": "查看全部历史",
+    "Show recommendations only": "仅显示建议",
+    "No Advisor history yet": "暂时没有历史记录",
+    "No active Advisor suggestions": "暂时没有需要处理的建议"
   }
 }
