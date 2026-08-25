@@ -492,8 +492,9 @@ func ProbeACUExecutionProfile(
 	ctx context.Context,
 	input map[string]interface{},
 ) (map[string]interface{}, error) {
-	return acuExecutionProfileRequest(
+	return acuExecutionProfileRequestWithTimeout(
 		ctx,
+		40*time.Second,
 		http.MethodPost,
 		"/internal/admin/execution-profiles/probe",
 		input,
