@@ -84,6 +84,12 @@ type ACUPrivateExperiences struct {
 	Experiences []ACUPrivateExperience `json:"experiences"`
 }
 
+type ACUPrivateExperienceDetail struct {
+	ExperienceID string                 `json:"experienceId"`
+	Ledger       []ACUPrivateUsageEntry `json:"ledger"`
+	Advisor      *ACUAdvisor            `json:"advisor,omitempty"`
+}
+
 type ACUPrivateUsageEntry struct {
 	LedgerID                string  `json:"ledgerId"`
 	NewAPIUserID            string  `json:"newapiUserId"`

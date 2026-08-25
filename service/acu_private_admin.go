@@ -139,3 +139,51 @@ func GetPrivateACUExperiences(ctx context.Context, userID string, limit int) (dt
 	}
 	return envelope, nil
 }
+
+func GetPrivateACUExperienceDetail(
+	ctx context.Context,
+	userID string,
+	experienceID string,
+) (dto.ACUPrivateExperienceDetail, error) {
+	query := url.Values{}
+	query.Set("newapiUserId", strings.TrimSpace(userID))
+	response, err := acuRouterAdminRequest(
+		ctx,
+		http.MethodGet,
+		"/internal/admin/private-acu/experiences/"+url.PathEscape(experienceID)+"?"+query.Encode(),
+		nil,
+	)
+	if err != nil {
+		return dto.ACUPrivateExperienceDetail{}, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return dto.ACUPrivateExperienceDetail{}, fmt.Errorf("Private ACU experience detail request returned HTTP %d", response.StatusCode)
+	}
+	var envelope struct {
+		Experience dto.ACUPrivateExperienceDetail `json:"experience"`
+	}
+	if err := common.DecodeJson(response.Body, &envelope); err != nil {
+		return dto.ACUPrivateExperienceDetail{}, err
+	}
+	return envelope.Experience, nil
+}
+
+func GetPrivateACUAdvisorsByUserID(ctx context.Context, userID string, limit int) (dto.ACUAdvisorList, error) {
+	query := url.Values{}
+	query.Set("newapiUserId", strings.TrimSpace(userID))
+	query.Set("limit", strconv.Itoa(limit))
+	response, err := acuRouterAdminRequest(ctx, http.MethodGet, "/internal/admin/private-advisors?"+query.Encode(), nil)
+	if err != nil {
+		return dto.ACUAdvisorList{}, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return dto.ACUAdvisorList{}, fmt.Errorf("Private ACU advisor request returned HTTP %d", response.StatusCode)
+	}
+	var result dto.ACUAdvisorList
+	if err := common.DecodeJson(response.Body, &result); err != nil {
+		return dto.ACUAdvisorList{}, err
+	}
+	return result, nil
+}

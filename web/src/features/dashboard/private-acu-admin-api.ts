@@ -77,12 +77,20 @@ export type PrivateACUExperience = {
   learningSuccesses: number
   advisor?: {
     advisorId: string
+    logicalRequestId: string
+    createdAt: string
     needAdvisor: boolean
     status: string
     problem: string
     advice?: string
     relevantSkillIds: string[]
   }
+}
+
+export type PrivateACUExperienceDetail = {
+  experienceId: string
+  ledger: PrivateACUUsageEntry[]
+  advisor?: PrivateACUExperience['advisor']
 }
 
 export type PrivateACUMemoryPrompt = {
@@ -137,4 +145,23 @@ export async function getPrivateACUExperiences(userId: string, limit = 50) {
     `/api/admin/acu-private/experiences?newapiUserId=${encodeURIComponent(userId)}&limit=${limit}`
   )
   return response.data.experiences
+}
+
+export async function getPrivateACUExperienceDetail(
+  userId: string,
+  experienceId: string
+) {
+  const response = await api.get<{ data: PrivateACUExperienceDetail }>(
+    `/api/admin/acu-private/experiences/${encodeURIComponent(experienceId)}?newapiUserId=${encodeURIComponent(userId)}`
+  )
+  return response.data.data
+}
+
+export async function getPrivateACUAdvisors(userId: string, limit = 50) {
+  const response = await api.get<{
+    advisors: NonNullable<PrivateACUExperience['advisor']>[]
+  }>(
+    `/api/admin/acu-private/advisors?newapiUserId=${encodeURIComponent(userId)}&limit=${limit}`
+  )
+  return response.data.advisors
 }

@@ -86,3 +86,40 @@ func GetPrivateACUExperiences(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, result)
 }
+
+func GetPrivateACUExperienceDetail(c *gin.Context) {
+	userID := c.Query("newapiUserId")
+	experienceID := c.Param("experienceId")
+	if userID == "" || experienceID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "newapiUserId and experienceId are required"})
+		return
+	}
+	result, err := service.GetPrivateACUExperienceDetail(
+		c.Request.Context(),
+		userID,
+		experienceID,
+	)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
+func GetPrivateACUAdvisorsByUserID(c *gin.Context) {
+	userID := c.Query("newapiUserId")
+	if userID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "newapiUserId is required"})
+		return
+	}
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	if limit <= 0 {
+		limit = 50
+	}
+	result, err := service.GetPrivateACUAdvisorsByUserID(c.Request.Context(), userID, limit)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
