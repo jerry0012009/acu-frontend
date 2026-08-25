@@ -17,7 +17,8 @@ import type {
 // ============================================================================
 
 function buildApiPath(endpoint: string, isAdmin: boolean): string {
-  return isAdmin ? endpoint : `${endpoint}/self`
+  const normalizedEndpoint = endpoint.replace(/\/+$/, '')
+  return isAdmin ? `${normalizedEndpoint}/` : `${normalizedEndpoint}/self`
 }
 
 async function fetchLogs<T>(
