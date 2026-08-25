@@ -30,6 +30,7 @@ type ACUPrivatePrompts struct {
 	ObserverPrompt string `json:"observerPrompt"`
 	AdvisorPrompt  string `json:"advisorPrompt"`
 	LearningPrompt string `json:"learningPrompt"`
+	Enabled        bool   `json:"enabled"`
 	PromptVersion  int64  `json:"promptVersion"`
 	Source         string `json:"source"`
 	UpdatedAt      string `json:"updatedAt,omitempty"`
@@ -40,6 +41,7 @@ type ACUPrivatePromptsRequest struct {
 	ObserverPrompt string `json:"observerPrompt" binding:"required"`
 	AdvisorPrompt  string `json:"advisorPrompt" binding:"required"`
 	LearningPrompt string `json:"learningPrompt" binding:"required"`
+	Enabled        *bool  `json:"enabled"`
 }
 
 type ACUPrivateMemoryFile struct {
@@ -57,15 +59,69 @@ type ACUPrivateMemorySkill struct {
 }
 
 type ACUPrivateMemory struct {
-	Enabled         bool                      `json:"enabled"`
-	UserID          string                    `json:"userId"`
-	SpaceID         string                    `json:"spaceId,omitempty"`
-	Skills          []ACUPrivateMemorySkill   `json:"skills"`
-	InternalPrompts []ACUPrivateMemoryPrompt  `json:"internalPrompts,omitempty"`
+	Enabled         bool                     `json:"enabled"`
+	UserID          string                   `json:"userId"`
+	SpaceID         string                   `json:"spaceId,omitempty"`
+	Skills          []ACUPrivateMemorySkill  `json:"skills"`
+	InternalPrompts []ACUPrivateMemoryPrompt `json:"internalPrompts,omitempty"`
 }
 
 type ACUPrivateMemoryPrompt struct {
 	Path    string `json:"path"`
 	Mime    string `json:"mime"`
 	Content string `json:"content"`
+}
+
+type ACUPrivateExperience struct {
+	ExperienceID      string      `json:"experienceId"`
+	CreatedAt         string      `json:"createdAt"`
+	LearningCalls     int64       `json:"learningCalls"`
+	LearningSuccesses int64       `json:"learningSuccesses"`
+	Advisor           *ACUAdvisor `json:"advisor,omitempty"`
+}
+
+type ACUPrivateExperiences struct {
+	Experiences []ACUPrivateExperience `json:"experiences"`
+}
+
+type ACUPrivateUsageEntry struct {
+	LedgerID                string  `json:"ledgerId"`
+	NewAPIUserID            string  `json:"newapiUserId"`
+	NewAPITokenID           string  `json:"newapiTokenId,omitempty"`
+	LogicalRequestID        string  `json:"logicalRequestId"`
+	Stage                   string  `json:"stage"`
+	Provider                string  `json:"provider,omitempty"`
+	Model                   string  `json:"model,omitempty"`
+	UpstreamRequestID       string  `json:"upstreamRequestId,omitempty"`
+	InputTokens             int64   `json:"inputTokens"`
+	CachedInputTokens       int64   `json:"cachedInputTokens"`
+	OutputTokens            int64   `json:"outputTokens"`
+	TotalTokens             int64   `json:"totalTokens"`
+	UsageStatus             string  `json:"usageStatus"`
+	Status                  string  `json:"status"`
+	NominalCostUSD          string  `json:"nominalCostUsd"`
+	ActualCostCNY           string  `json:"actualCostCny"`
+	UserChargeCNY           string  `json:"userChargeCny"`
+	BillingMarkupMultiplier float64 `json:"billingMarkupMultiplier"`
+	BillingStatus           string  `json:"billingStatus"`
+	BillingAttemptCount     int     `json:"billingAttemptCount"`
+	BillingLastError        string  `json:"billingLastError,omitempty"`
+	CreatedAt               string  `json:"createdAt"`
+}
+
+type ACUPrivateUsageTotal struct {
+	Stage             string `json:"stage"`
+	Status            string `json:"status"`
+	Calls             int64  `json:"calls"`
+	InputTokens       int64  `json:"inputTokens"`
+	CachedInputTokens int64  `json:"cachedInputTokens"`
+	OutputTokens      int64  `json:"outputTokens"`
+	TotalTokens       int64  `json:"totalTokens"`
+	ActualCostCNY     string `json:"actualCostCny"`
+	UserChargeCNY     string `json:"userChargeCny"`
+}
+
+type ACUPrivateUsage struct {
+	Entries []ACUPrivateUsageEntry `json:"entries"`
+	Totals  []ACUPrivateUsageTotal `json:"totals"`
 }

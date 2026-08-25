@@ -192,6 +192,8 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			privateACUAdminRoute.GET("/prompts", middleware.AdminAuth(), controller.GetPrivateACUPrompts)
 			privateACUAdminRoute.GET("/memory", middleware.AdminAuth(), controller.GetPrivateACUMemory)
+			privateACUAdminRoute.GET("/experiences", middleware.AdminAuth(), controller.GetPrivateACUExperiences)
+			privateACUAdminRoute.GET("/usage", middleware.AdminAuth(), controller.GetPrivateACUUsage)
 			privateACUAdminRoute.PUT("/prompts", middleware.RootAuth(), controller.SavePrivateACUPrompts)
 			privateACUAdminRoute.POST("/prompts/reset", middleware.RootAuth(), controller.ResetPrivateACUPrompts)
 		}

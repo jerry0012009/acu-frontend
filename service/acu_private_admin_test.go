@@ -87,12 +87,13 @@ func TestPrivateACUAdminProxySavesPrompts(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(3), result.PromptVersion)
 
-	var payload map[string]string
+	var payload map[string]interface{}
 	require.NoError(t, common.Unmarshal(body, &payload))
-	require.Equal(t, map[string]string{
+	require.Equal(t, map[string]interface{}{
 		"observerPrompt": "updated",
 		"advisorPrompt":  "updated",
 		"learningPrompt": "updated",
+		"enabled":        true,
 		"updatedBy":      "root",
 	}, payload)
 }

@@ -4,6 +4,7 @@ export type PrivateACUPrompts = {
   observerPrompt: string
   advisorPrompt: string
   learningPrompt: string
+  enabled: boolean
   promptVersion: number
   source: 'default' | 'database'
   updatedAt?: string
@@ -30,6 +31,58 @@ export type PrivateACUMemory = {
   spaceId?: string
   skills: PrivateACUMemorySkill[]
   internalPrompts?: PrivateACUMemoryPrompt[]
+}
+
+export type PrivateACUUsageEntry = {
+  ledgerId: string
+  logicalRequestId: string
+  stage: string
+  provider?: string
+  model?: string
+  inputTokens: number
+  cachedInputTokens: number
+  outputTokens: number
+  totalTokens: number
+  usageStatus: string
+  status: string
+  nominalCostUsd: string
+  actualCostCny: string
+  userChargeCny: string
+  billingMarkupMultiplier: number
+  billingStatus: string
+  billingAttemptCount: number
+  billingLastError?: string
+  createdAt: string
+}
+
+export type PrivateACUUsage = {
+  entries: PrivateACUUsageEntry[]
+  totals: Array<{
+    stage: string
+    status: string
+    calls: number
+    inputTokens: number
+    cachedInputTokens: number
+    outputTokens: number
+    totalTokens: number
+    actualCostCny: string
+    userChargeCny: string
+  }>
+}
+
+export type PrivateACUExperience = {
+  experienceId: string
+  createdAt: string
+  learningCalls: number
+  learningSuccesses: number
+  advisor?: {
+    advisorId: string
+    needAdvisor: boolean
+    status: string
+    problem: string
+    advice?: string
+    relevantSkillIds: string[]
+  }
 }
 
 export type PrivateACUMemoryPrompt = {
@@ -70,4 +123,18 @@ export async function getPrivateACUMemory() {
     '/api/admin/acu-private/memory'
   )
   return response.data.data
+}
+
+export async function getPrivateACUUsage(userId: string, limit = 100) {
+  const response = await api.get<PrivateACUUsage>(
+    `/api/admin/acu-private/usage?newapiUserId=${encodeURIComponent(userId)}&limit=${limit}`
+  )
+  return response.data
+}
+
+export async function getPrivateACUExperiences(userId: string, limit = 50) {
+  const response = await api.get<{ experiences: PrivateACUExperience[] }>(
+    `/api/admin/acu-private/experiences?newapiUserId=${encodeURIComponent(userId)}&limit=${limit}`
+  )
+  return response.data.experiences
 }

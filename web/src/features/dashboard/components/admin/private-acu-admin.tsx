@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
@@ -16,6 +17,8 @@ import {
   savePrivateACUPrompts,
   type PrivateACUMemory,
   type PrivateACUPrompts,
+  getPrivateACUUsage,
+  getPrivateACUExperiences,
 } from '../../private-acu-admin-api'
 
 function PromptEditor(props: {
@@ -39,9 +42,14 @@ function PromptEditor(props: {
 
 function MemorySection(props: { memory?: PrivateACUMemory; loading: boolean }) {
   const { t } = useTranslation()
-  if (props.loading) return <div className='text-muted-foreground text-sm'>{t('Loading')}</div>
+  if (props.loading)
+    return <div className='text-muted-foreground text-sm'>{t('Loading')}</div>
   if (!props.memory?.enabled) {
-    return <div className='text-muted-foreground text-sm'>{t('Acontext is not configured')}</div>
+    return (
+      <div className='text-muted-foreground text-sm'>
+        {t('Acontext is not configured')}
+      </div>
+    )
   }
   return (
     <div className='space-y-3'>
@@ -53,13 +61,17 @@ function MemorySection(props: { memory?: PrivateACUMemory; loading: boolean }) {
           <summary className='flex cursor-pointer list-none items-center gap-2 text-sm font-medium'>
             <ChevronDown className='size-4' />
             {skill.name}
-            <span className='text-muted-foreground text-xs'>{skill.description}</span>
+            <span className='text-muted-foreground text-xs'>
+              {skill.description}
+            </span>
           </summary>
           <div className='mt-3 space-y-3'>
             {skill.files.map((file) => (
               <details key={file.path} className='bg-muted/30 rounded-md p-3'>
-                <summary className='cursor-pointer font-mono text-xs'>{file.path}</summary>
-                <pre className='mt-2 max-h-96 overflow-auto whitespace-pre-wrap text-xs'>
+                <summary className='cursor-pointer font-mono text-xs'>
+                  {file.path}
+                </summary>
+                <pre className='mt-2 max-h-96 overflow-auto text-xs whitespace-pre-wrap'>
                   {file.content || t('No content')}
                 </pre>
               </details>
@@ -85,9 +97,14 @@ function InternalPromptsSection(props: {
   return (
     <div className='space-y-3'>
       {props.prompts.map((prompt) => (
-        <details key={prompt.path} className='border-border rounded-md border p-3'>
-          <summary className='cursor-pointer font-mono text-xs'>{prompt.path}</summary>
-          <pre className='bg-muted/30 mt-3 max-h-[32rem] overflow-auto rounded-md p-3 whitespace-pre-wrap text-xs'>
+        <details
+          key={prompt.path}
+          className='border-border rounded-md border p-3'
+        >
+          <summary className='cursor-pointer font-mono text-xs'>
+            {prompt.path}
+          </summary>
+          <pre className='bg-muted/30 mt-3 max-h-[32rem] overflow-auto rounded-md p-3 text-xs whitespace-pre-wrap'>
             {prompt.content}
           </pre>
         </details>
@@ -109,6 +126,16 @@ export function PrivateACUAdmin() {
   const memoryQuery = useQuery({
     queryKey: ['dashboard', 'private-acu-admin', 'memory'],
     queryFn: getPrivateACUMemory,
+  })
+  const usageQuery = useQuery({
+    queryKey: [
+      'dashboard',
+      'private-acu-admin',
+      'usage',
+      memoryQuery.data?.userId,
+    ],
+    queryFn: () => getPrivateACUUsage(memoryQuery.data?.userId ?? ''),
+    enabled: Boolean(memoryQuery.data?.userId),
   })
   useEffect(() => {
     if (promptsQuery.data) setDraft(promptsQuery.data)
@@ -141,6 +168,7 @@ export function PrivateACUAdmin() {
         observerPrompt: draft.observerPrompt,
         advisorPrompt: draft.advisorPrompt,
         learningPrompt: draft.learningPrompt,
+        enabled: draft.enabled,
       }
     : undefined
 
@@ -149,12 +177,28 @@ export function PrivateACUAdmin() {
       <section className='space-y-4'>
         <div className='flex flex-wrap items-center justify-between gap-3'>
           <div>
-            <h2 className='text-base font-semibold'>{t('Private ACU prompts')}</h2>
+            <h2 className='text-base font-semibold'>
+              {t('Private ACU prompts')}
+            </h2>
             <p className='text-muted-foreground text-xs'>
               {t('Version')}: {draft?.promptVersion ?? '-'} · {t('Source')}:{' '}
               {draft?.source ?? '-'}
             </p>
           </div>
+          {draft && (
+            <label className='flex items-center gap-2 text-sm'>
+              <Switch
+                checked={draft.enabled}
+                disabled={disabled || !canEdit}
+                onCheckedChange={(checked) =>
+                  setDraft((current) =>
+                    current ? { ...current, enabled: checked } : current
+                  )
+                }
+              />
+              {t('Private ACU enabled')}
+            </label>
+          )}
           <div className='flex gap-2'>
             {canEdit && (
               <>
@@ -218,12 +262,140 @@ export function PrivateACUAdmin() {
       </section>
       <section className='space-y-3'>
         <h2 className='text-base font-semibold'>{t('Acontext memory')}</h2>
-        <MemorySection memory={memoryQuery.data} loading={memoryQuery.isLoading} />
+        <MemorySection
+          memory={memoryQuery.data}
+          loading={memoryQuery.isLoading}
+        />
+      </section>
+      <section className='space-y-3'>
+        <h2 className='text-base font-semibold'>{t('Experiences')}</h2>
+        <ExperiencesSection
+          userId={memoryQuery.data?.userId}
+          enabled={Boolean(memoryQuery.data?.userId)}
+        />
+      </section>
+      <section className='space-y-3'>
+        <h2 className='text-base font-semibold'>
+          {t('Private ACU usage and billing')}
+        </h2>
+        {usageQuery.isLoading ? (
+          <div className='text-muted-foreground text-sm'>{t('Loading')}</div>
+        ) : usageQuery.data ? (
+          <>
+            <div className='grid gap-2 sm:grid-cols-3'>
+              {usageQuery.data.totals.map((total) => (
+                <div
+                  key={`${total.stage}-${total.status}`}
+                  className='border-border rounded-md border p-3 text-xs'
+                >
+                  <div className='font-medium'>
+                    {total.stage} · {total.status}
+                  </div>
+                  <div className='text-muted-foreground mt-1'>
+                    {total.calls} calls · {total.totalTokens.toLocaleString()}{' '}
+                    tokens
+                  </div>
+                  <div className='mt-1'>
+                    ¥{Number(total.actualCostCny).toFixed(8)} cost · ¥
+                    {Number(total.userChargeCny).toFixed(8)} charge
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className='border-border overflow-auto rounded-md border'>
+              <table className='w-full text-left text-xs'>
+                <thead className='bg-muted/40'>
+                  <tr>
+                    <th className='p-2'>{t('Stage')}</th>
+                    <th className='p-2'>{t('Model')}</th>
+                    <th className='p-2'>{t('Tokens')}</th>
+                    <th className='p-2'>{t('Cost')}</th>
+                    <th className='p-2'>{t('Billing')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {usageQuery.data.entries.map((entry) => (
+                    <tr key={entry.ledgerId} className='border-border border-t'>
+                      <td className='p-2'>{entry.stage}</td>
+                      <td className='p-2'>{entry.model || '-'}</td>
+                      <td className='p-2'>
+                        {entry.totalTokens.toLocaleString()}
+                      </td>
+                      <td className='p-2'>
+                        ¥{Number(entry.actualCostCny).toFixed(8)} → ¥
+                        {Number(entry.userChargeCny).toFixed(8)}
+                      </td>
+                      <td className='p-2'>{entry.billingStatus}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : null}
       </section>
       <section className='border-border space-y-2 rounded-md border p-4'>
-        <h2 className='text-base font-semibold'>{t('Acontext internal prompts')}</h2>
+        <h2 className='text-base font-semibold'>
+          {t('Acontext internal prompts')}
+        </h2>
         <InternalPromptsSection prompts={memoryQuery.data?.internalPrompts} />
       </section>
+    </div>
+  )
+}
+
+function ExperiencesSection(props: { userId?: string; enabled: boolean }) {
+  const { t } = useTranslation()
+  const query = useQuery({
+    queryKey: ['dashboard', 'private-acu-admin', 'experiences', props.userId],
+    queryFn: () => getPrivateACUExperiences(props.userId ?? ''),
+    enabled: props.enabled,
+  })
+  if (query.isLoading)
+    return <div className='text-muted-foreground text-sm'>{t('Loading')}</div>
+  if (query.isError)
+    return (
+      <div className='text-muted-foreground text-sm'>{t('Failed to load')}</div>
+    )
+  if (!query.data?.length)
+    return (
+      <div className='text-muted-foreground text-sm'>{t('No experiences')}</div>
+    )
+  return (
+    <div className='border-border overflow-auto rounded-md border'>
+      <table className='w-full text-left text-xs'>
+        <thead className='bg-muted/40'>
+          <tr>
+            <th className='p-2'>{t('Experience')}</th>
+            <th className='p-2'>{t('Time')}</th>
+            <th className='p-2'>{t('Learning')}</th>
+            <th className='p-2'>{t('Advisor')}</th>
+            <th className='p-2'>{t('Problem')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {query.data.map((experience) => (
+            <tr
+              key={experience.experienceId}
+              className='border-border border-t align-top'
+            >
+              <td className='p-2 font-mono'>{experience.experienceId}</td>
+              <td className='p-2 whitespace-nowrap'>
+                {new Date(experience.createdAt).toLocaleString()}
+              </td>
+              <td className='p-2'>
+                {experience.learningSuccesses}/{experience.learningCalls}
+              </td>
+              <td className='p-2'>
+                {experience.advisor?.needAdvisor
+                  ? experience.advisor.status
+                  : '-'}
+              </td>
+              <td className='p-2'>{experience.advisor?.problem || '-'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

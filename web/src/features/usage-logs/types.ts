@@ -311,6 +311,16 @@ export interface AcuCostBreakdown {
   end_to_end_latency_ms?: number
   judge_latency_ms?: number
   provider_latency_ms?: number
+  private_acu?: boolean
+  private_acu_stage?: 'observer' | 'advisor' | 'learning' | string
+  private_acu_model?: string
+  private_acu_provider?: string
+  private_acu_ledger_id?: string
+  private_acu_nominal_cost_usd?: number | string
+  billing_source?: string
+  billing_note?: string
+  usage_status?: string
+  usage_status_detail?: string
 }
 
 export interface LogOtherData {

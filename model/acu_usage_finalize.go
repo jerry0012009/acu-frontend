@@ -344,12 +344,18 @@ func FinalizeACUConsumeLog(record *ACUUsageFinalize) error {
 			other["acu_cost_breakdown"] = finalBreakdown
 		}
 	}
+	logContent := "ACU usage finalized"
+	if breakdown, ok := parseACUCostBreakdown(record.CostBreakdownJson); ok {
+		if stage, ok := breakdown["private_acu_stage"].(string); ok && stage != "" {
+			logContent = "Private ACU " + stage + " usage finalized"
+		}
+	}
 	updates := Log{
 		UserId:           record.UserId,
 		Username:         user.Username,
 		CreatedAt:        common.GetTimestamp(),
 		Type:             LogTypeConsume,
-		Content:          "ACU usage finalized",
+		Content:          logContent,
 		TokenName:        token.Name,
 		ModelName:        record.ActualModel,
 		Quota:            record.FinalQuota,
@@ -370,6 +376,14 @@ func FinalizeACUConsumeLog(record *ACUUsageFinalize) error {
 		"completion_tokens": updates.CompletionTokens,
 		"other":             updates.Other,
 	}).Error
+}
+
+func parseACUCostBreakdown(raw string) (map[string]interface{}, bool) {
+	breakdown := map[string]interface{}{}
+	if raw == "" || common.UnmarshalJsonStr(raw, &breakdown) != nil {
+		return nil, false
+	}
+	return breakdown, true
 }
 
 func RecordACUUnsettledUsage(input ACUUsageChargeInput) error {
@@ -427,6 +441,19 @@ var acuPublicRoutingTelemetryKeys = []string{
 	"official_judge_reference_cost_usd",
 	"channel_discount_multiplier",
 	"cache_creation_input_tokens",
+	"private_acu",
+	"private_acu_stage",
+	"private_acu_model",
+	"private_acu_provider",
+	"private_acu_ledger_id",
+	"private_acu_nominal_cost_usd",
+	"actual_total_cash_cost_cny",
+	"retail_markup_multiplier",
+	"billing_multiplier",
+	"billing_source",
+	"billing_note",
+	"usage_status",
+	"usage_status_detail",
 }
 
 func acuUsageLogOther(input ACUUsageChargeInput, pending bool, status, errorCode string) map[string]interface{} {
