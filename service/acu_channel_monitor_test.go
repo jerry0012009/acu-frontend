@@ -101,7 +101,7 @@ func TestExecutionProfileManagementForwardsOnlyTargetedRouterOperations(t *testi
 		path   string
 		body   []byte
 	}
-	requests := make(chan observedRequest, 5)
+	requests := make(chan observedRequest, 6)
 	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		body, _ := io.ReadAll(request.Body)
 		requests <- observedRequest{method: request.Method, path: request.URL.Path, body: body}
