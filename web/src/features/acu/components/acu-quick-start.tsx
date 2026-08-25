@@ -52,6 +52,7 @@ type AcuQuickStartMode = 'preview' | 'credentialed'
 export type AcuQuickStartTab = 'codex' | 'claude' | 'ccswitch' | 'api' | 'agent'
 type Platform = 'unix' | 'windows'
 type Agent = 'openclaw' | 'hermes'
+type ClientConnectionMode = 'install' | 'manual'
 
 type AcuQuickStartProps = {
   mode: AcuQuickStartMode
@@ -160,10 +161,11 @@ export function AcuQuickStart(props: AcuQuickStartProps) {
 
 function ClientQuickStart(props: { client: AcuClient; copyKey: string }) {
   const { t } = useTranslation()
+  const [connectionMode, setConnectionMode] =
+    useState<ClientConnectionMode>('install')
   const [platform, setPlatform] = useState<Platform>('unix')
   const [fallbackOpen, setFallbackOpen] = useState(false)
   const [otherInstallOpen, setOtherInstallOpen] = useState(false)
-  const [manualOpen, setManualOpen] = useState(false)
   const launchCommand = getLaunchCommand(props.client)
   const canonicalCommand =
     platform === 'unix'
@@ -184,84 +186,153 @@ function ClientQuickStart(props: { client: AcuClient; copyKey: string }) {
   const manualConfig = buildManualConfig(props.client, props.copyKey)
   return (
     <div className='p-4 sm:p-5'>
-      <SecondarySelector
-        value={platform}
-        onChange={(value) => setPlatform(value as Platform)}
-        items={[
-          { value: 'unix', label: 'macOS / Linux / WSL' },
-          { value: 'windows', label: 'Windows PowerShell' },
-        ]}
-      />
+      <div className='space-y-2'>
+        <div className='text-[10px] font-semibold tracking-[0.16em] text-slate-500 uppercase'>
+          {t('Connection method')}
+        </div>
+        <SecondarySelector
+          value={connectionMode}
+          onChange={(value) => setConnectionMode(value as ClientConnectionMode)}
+          items={[
+            { value: 'install', label: 'One-click install' },
+            { value: 'manual', label: 'Base URL / API Key' },
+          ]}
+        />
+      </div>
 
-      <div className='mt-5 space-y-4'>
-        <Step
-          number='01'
-          label={t(platform === 'windows' ? 'Windows PowerShell' : 'Install')}
-        >
-          <CodePanel
-            value={canonicalCommand}
-            displayValue={displayCanonicalCommand}
-            copyLabel={t(
-              props.copyKey === ACU_MASKED_API_KEY
-                ? 'Copy template'
-                : 'Copy install command'
-            )}
+      {connectionMode === 'install' ? (
+        <div className='mt-5 space-y-4'>
+          <SecondarySelector
+            value={platform}
+            onChange={(value) => setPlatform(value as Platform)}
+            items={[
+              { value: 'unix', label: 'macOS / Linux / WSL' },
+              { value: 'windows', label: 'Windows PowerShell' },
+            ]}
           />
-        </Step>
 
-        {platform === 'windows' ? (
-          <Disclosure
-            open={otherInstallOpen}
-            onOpenChange={setOtherInstallOpen}
-            label={t('Other installation methods')}
+          <Step
+            number='01'
+            label={t(platform === 'windows' ? 'Windows PowerShell' : 'Install')}
           >
-            <LabeledCode
-              label={t('Windows Command Prompt')}
-              value={buildWindowsCommandPromptInstall(canonicalCommand)}
+            <CodePanel
+              value={canonicalCommand}
+              displayValue={displayCanonicalCommand}
+              copyLabel={t(
+                props.copyKey === ACU_MASKED_API_KEY
+                  ? 'Copy template'
+                  : 'Copy install command'
+              )}
+            />
+          </Step>
+
+          {platform === 'windows' ? (
+            <Disclosure
+              open={otherInstallOpen}
+              onOpenChange={setOtherInstallOpen}
+              label={t('Other installation methods')}
+            >
+              <LabeledCode
+                label={t('Windows Command Prompt')}
+                value={buildWindowsCommandPromptInstall(canonicalCommand)}
+              />
+            </Disclosure>
+          ) : null}
+
+          <Disclosure
+            open={fallbackOpen}
+            onOpenChange={setFallbackOpen}
+            label={t('Installation trouble? Use a fallback command')}
+          >
+            <CodePanel
+              value={fallbackCommand}
+              displayValue={displayFallbackCommand}
+              compact
             />
           </Disclosure>
-        ) : null}
 
-        <Disclosure
-          open={fallbackOpen}
-          onOpenChange={setFallbackOpen}
-          label={t('Installation trouble? Use a fallback command')}
-        >
-          <CodePanel
-            value={fallbackCommand}
-            displayValue={displayFallbackCommand}
-            compact
-          />
-        </Disclosure>
+          <Step number='02' label={t('Launch')}>
+            <CodePanel value={launchCommand} />
+          </Step>
 
-        <Step number='02' label={t('Launch')}>
-          <CodePanel value={launchCommand} />
-        </Step>
-
-        <div className='flex items-center gap-2 border-t border-white/[0.06] pt-4 text-xs text-slate-400'>
-          <CircleCheck className='size-3.5 text-emerald-400' />
-          {props.client === 'codex'
-            ? t('Coexists with native Codex · Uses ACU Auto by default')
-            : t('Coexists with native Claude Code · Uses ACU Auto by default')}
+          <div className='flex items-center gap-2 border-t border-white/[0.06] pt-4 text-xs text-slate-400'>
+            <CircleCheck className='size-3.5 text-emerald-400' />
+            {props.client === 'codex'
+              ? t('Coexists with native Codex · Uses ACU Auto by default')
+              : t(
+                  'Coexists with native Claude Code · Uses ACU Auto by default'
+                )}
+          </div>
+          {props.client === 'codex' ? (
+            <p className='pl-5 text-[11px] text-slate-500'>
+              {t('Switch supported ACU models with /model.')}
+            </p>
+          ) : null}
         </div>
-        {props.client === 'codex' ? (
-          <p className='pl-5 text-[11px] text-slate-500'>
-            {t('Switch supported ACU models with /model.')}
-          </p>
-        ) : null}
+      ) : (
+        <ManualClientConfig
+          client={props.client}
+          copyKey={props.copyKey}
+          config={manualConfig}
+        />
+      )}
+    </div>
+  )
+}
 
-        <Disclosure
-          open={manualOpen}
-          onOpenChange={setManualOpen}
-          label={t('Manual configuration')}
-        >
-          <CodePanel
-            value={manualConfig}
-            displayValue={maskCredentialText(manualConfig, props.copyKey)}
-            compact
-          />
-        </Disclosure>
+function ManualClientConfig(props: {
+  client: AcuClient
+  copyKey: string
+  config: string
+}) {
+  const { t } = useTranslation()
+  const baseUrl =
+    props.client === 'codex' ? ACU_API_BASE_URL : CC_SWITCH_CLAUDE_API_BASE_URL
+
+  return (
+    <div className='mt-5 space-y-4'>
+      <div className='rounded-lg border border-sky-300/15 bg-sky-300/[0.06] px-3 py-2.5 text-[11px] leading-relaxed text-slate-300'>
+        {props.client === 'codex'
+          ? t(
+              'Keep your existing Codex CLI. Set the Base URL and API Key below in its provider configuration.'
+            )
+          : t(
+              'Keep your existing Claude Code. Set the Base URL and API Key below in its environment or settings.'
+            )}
       </div>
+
+      <div className='divide-y divide-white/[0.06] border-y border-white/[0.06]'>
+        <ConnectionRow label='Base URL' value={baseUrl} copyValue={baseUrl} />
+        <ConnectionRow
+          label='API Key'
+          value={ACU_MASKED_API_KEY}
+          copyValue={props.copyKey}
+        />
+        <ConnectionRow label='Model' value={ACU_DEFAULT_MODEL} />
+      </div>
+
+      <Step number='01' label={t('Copy the matching configuration')}>
+        <CodePanel
+          value={props.config}
+          displayValue={maskCredentialText(props.config, props.copyKey)}
+          copyLabel={t(
+            props.copyKey === ACU_MASKED_API_KEY
+              ? 'Copy template'
+              : 'Copy configuration'
+          )}
+          minHeight='min-h-[180px]'
+        />
+      </Step>
+
+      <p className='text-[11px] leading-relaxed text-slate-500'>
+        {props.client === 'codex'
+          ? t(
+              'Codex uses the Responses endpoint with /v1. Claude Code uses the Messages endpoint on the same host without /v1.'
+            )
+          : t(
+              'Claude Code uses the Messages endpoint on the same host without /v1. No separate claude-acu installation is required.'
+            )}
+      </p>
     </div>
   )
 }

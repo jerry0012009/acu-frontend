@@ -241,7 +241,7 @@ export function DataTableRowActions<TData>({
             const ok = await copyToClipboard(realKey)
             if (ok) {
               toast.success(t('Copied'))
-              setAcuSetupInitialTab('ccswitch')
+              setAcuSetupInitialTab('codex')
               setResolvedKey(realKey)
               setCurrentRow(apiKey)
               setOpen('acu-setup')

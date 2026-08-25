@@ -58,7 +58,7 @@ export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
     const ok = await copyToClipboard(realKey)
     if (ok) {
       markKeyCopied(apiKey.id)
-      setAcuSetupInitialTab('ccswitch')
+      setAcuSetupInitialTab('codex')
       setResolvedKey(realKey)
       setCurrentRow(apiKey)
       setOpen('acu-setup')

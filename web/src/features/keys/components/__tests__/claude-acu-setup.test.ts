@@ -255,7 +255,7 @@ test('CC Switch has a dedicated quick-start tab with model mapping guidance', ()
   assert.match(quickStartSource, /CC_SWITCH_MODEL_MAPPINGS/)
 })
 
-test('copying an API key opens the CC Switch setup guidance', () => {
+test('copying an API key opens the unified client setup guidance', () => {
   const rowActionsSource = readFileSync(
     new URL('../data-table-row-actions.tsx', import.meta.url),
     'utf8'
@@ -264,7 +264,7 @@ test('copying an API key opens the CC Switch setup guidance', () => {
     new URL('../api-keys-provider.tsx', import.meta.url),
     'utf8'
   )
-  assert.match(rowActionsSource, /setAcuSetupInitialTab\('ccswitch'\)/)
+  assert.match(rowActionsSource, /setAcuSetupInitialTab\('codex'\)/)
   assert.match(rowActionsSource, /setOpen\('acu-setup'\)/)
   assert.match(providerSource, /acuSetupInitialTab/)
 })
