@@ -1,5 +1,7 @@
 import { api } from '@/lib/api'
 
+import type { PrivateACUMemory } from './private-acu-admin-api'
+
 export type PrivateACUAdvisor = {
   advisorId: string
   newapiUserId: string
@@ -41,4 +43,11 @@ export async function updatePrivateACUAdvisorFeedback(
     `/api/user/self/acu-advisor/${encodeURIComponent(advisorId)}/feedback`,
     { feedback }
   )
+}
+
+export async function getPrivateACUMemory(): Promise<PrivateACUMemory> {
+  const response = await api.get<{ data: PrivateACUMemory }>(
+    '/api/user/self/acu-memory'
+  )
+  return response.data.data
 }

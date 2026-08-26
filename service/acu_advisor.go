@@ -35,6 +35,21 @@ func GetPrivateACUAdvisors(ctx context.Context, userID, limit int) (dto.ACUAdvis
 	return result, nil
 }
 
+func GetPrivateACUMemoryForUser(ctx context.Context, userID int) (dto.ACUPrivateMemory, error) {
+	memory, err := GetPrivateACUMemory(ctx, strconv.Itoa(userID))
+	if err != nil {
+		return dto.ACUPrivateMemory{}, err
+	}
+	memory.SpaceID = ""
+	memory.InternalPrompts = nil
+	for skillIndex := range memory.Skills {
+		for fileIndex := range memory.Skills[skillIndex].Files {
+			memory.Skills[skillIndex].Files[fileIndex].URL = ""
+		}
+	}
+	return memory, nil
+}
+
 func UpdatePrivateACUAdvisorFeedback(
 	ctx context.Context,
 	userID int,

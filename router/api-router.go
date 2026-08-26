@@ -93,6 +93,7 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.GET("/self/acu-routing-catalog", middleware.DisableCache(), controller.GetACURoutingCatalog)
 				selfRoute.GET("/self/acu-conversation-options", middleware.DisableCache(), controller.GetACUConversationOptions)
 				selfRoute.GET("/self/acu-advisor", middleware.DisableCache(), controller.GetPrivateACUAdvisors)
+				selfRoute.GET("/self/acu-memory", middleware.DisableCache(), controller.GetPrivateACUMemoryForUser)
 				selfRoute.POST("/self/acu-advisor/:advisor_id/feedback", middleware.DisableCache(), controller.UpdatePrivateACUAdvisorFeedback)
 				selfRoute.PUT("/self", middleware.CriticalRateLimit(), middleware.DisableCache(), controller.UpdateSelf)
 				selfRoute.DELETE("/self", controller.DeleteSelf)

@@ -5649,6 +5649,12 @@
     "Learning space": "Learning space",
     "Not created": "Not created",
     "No content": "No content",
-    "Acontext internal prompts are unavailable": "Acontext internal prompts are unavailable"
+    "Acontext internal prompts are unavailable": "Acontext internal prompts are unavailable",
+    "Account": "Account",
+    "Select a user": "Select a user",
+    "No users found": "No users found",
+    "Preferences and experience": "Preferences and experience",
+    "No preferences or experience yet": "No preferences or experience yet",
+    "Unable to load preferences and experience": "Unable to load preferences and experience"
   }
 }

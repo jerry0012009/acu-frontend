@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertTriangle,
   Check,
+  ChevronDown,
   CircleSlash,
   History,
   Lightbulb,
@@ -15,9 +16,11 @@ import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
 import {
+  getPrivateACUMemory,
   getPrivateACUAdvisors,
   updatePrivateACUAdvisorFeedback,
   type PrivateACUAdvisor,
@@ -169,7 +172,7 @@ function AdvisorCard(props: {
   )
 }
 
-export function PrivateACUAdvisor() {
+function AdvisorList() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [showAllHistory, setShowAllHistory] = useState(false)
@@ -260,5 +263,101 @@ export function PrivateACUAdvisor() {
         ))
       )}
     </div>
+  )
+}
+
+function PrivateACUMemory() {
+  const { t } = useTranslation()
+  const memoryQuery = useQuery({
+    queryKey: ['dashboard', 'private-acu-memory'],
+    queryFn: getPrivateACUMemory,
+  })
+
+  if (memoryQuery.isLoading) {
+    return (
+      <div className='space-y-3'>
+        <Skeleton className='h-24 w-full rounded-lg' />
+        <Skeleton className='h-24 w-full rounded-lg' />
+      </div>
+    )
+  }
+
+  if (memoryQuery.isError) {
+    return (
+      <div className='border-destructive/30 bg-destructive/5 flex flex-col items-start gap-3 rounded-lg border p-5'>
+        <p className='text-sm'>
+          {t('Unable to load preferences and experience')}
+        </p>
+        <Button
+          variant='outline'
+          size='sm'
+          onClick={() => void memoryQuery.refetch()}
+        >
+          <RefreshCw />
+          {t('Retry')}
+        </Button>
+      </div>
+    )
+  }
+
+  if (!memoryQuery.data?.enabled || memoryQuery.data.skills.length === 0) {
+    return (
+      <div className='text-muted-foreground border-border/70 rounded-lg border border-dashed p-8 text-center text-sm'>
+        {t('No preferences or experience yet')}
+      </div>
+    )
+  }
+
+  return (
+    <div className='space-y-3'>
+      {memoryQuery.data.skills.map((skill) => (
+        <details
+          key={skill.id}
+          className='border-border/70 bg-card rounded-lg border p-4'
+        >
+          <summary className='flex cursor-pointer list-none items-start gap-2 text-sm font-medium'>
+            <ChevronDown className='mt-0.5 size-4 shrink-0' />
+            <span className='min-w-0'>
+              <span className='block'>{skill.name}</span>
+              {skill.description && (
+                <span className='text-muted-foreground mt-1 block text-xs leading-5 font-normal'>
+                  {skill.description}
+                </span>
+              )}
+            </span>
+          </summary>
+          <div className='mt-3 space-y-3'>
+            {skill.files.map((file) => (
+              <pre
+                key={file.path}
+                className='bg-muted/30 max-h-96 overflow-auto rounded-md p-3 text-xs whitespace-pre-wrap'
+              >
+                {file.content || t('No content')}
+              </pre>
+            ))}
+          </div>
+        </details>
+      ))}
+    </div>
+  )
+}
+
+export function PrivateACUAdvisor() {
+  const { t } = useTranslation()
+  return (
+    <Tabs defaultValue='advisor'>
+      <TabsList>
+        <TabsTrigger value='advisor'>{t('Advisor')}</TabsTrigger>
+        <TabsTrigger value='memory'>
+          {t('Preferences and experience')}
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value='advisor'>
+        <AdvisorList />
+      </TabsContent>
+      <TabsContent value='memory'>
+        <PrivateACUMemory />
+      </TabsContent>
+    </Tabs>
   )
 }

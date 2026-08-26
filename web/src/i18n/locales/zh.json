@@ -5668,6 +5668,12 @@
     "Learning space": "Learning space",
     "Not created": "尚未创建",
     "No content": "暂无内容",
-    "Acontext internal prompts are unavailable": "Acontext 内部提示词暂不可用"
+    "Acontext internal prompts are unavailable": "Acontext 内部提示词暂不可用",
+    "Account": "账户",
+    "Select a user": "选择用户",
+    "No users found": "未找到用户",
+    "Preferences and experience": "偏好与经验",
+    "No preferences or experience yet": "暂未形成偏好或经验",
+    "Unable to load preferences and experience": "无法加载偏好与经验"
   }
 }

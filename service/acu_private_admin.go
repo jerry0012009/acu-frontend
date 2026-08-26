@@ -84,8 +84,16 @@ func ResetPrivateACUPrompts(ctx context.Context, updatedBy string) (dto.ACUPriva
 	return envelope.Prompts, nil
 }
 
-func GetPrivateACUMemory(ctx context.Context) (dto.ACUPrivateMemory, error) {
-	response, err := acuRouterAdminRequest(ctx, http.MethodGet, "/internal/admin/private-acu/memory", nil)
+func GetPrivateACUMemory(ctx context.Context, userID string) (dto.ACUPrivateMemory, error) {
+	query := url.Values{}
+	if strings.TrimSpace(userID) != "" {
+		query.Set("newapiUserId", strings.TrimSpace(userID))
+	}
+	path := "/internal/admin/private-acu/memory"
+	if len(query) > 0 {
+		path += "?" + query.Encode()
+	}
+	response, err := acuRouterAdminRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return dto.ACUPrivateMemory{}, err
 	}

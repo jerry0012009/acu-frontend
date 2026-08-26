@@ -43,7 +43,10 @@ func ResetPrivateACUPrompts(c *gin.Context) {
 }
 
 func GetPrivateACUMemory(c *gin.Context) {
-	result, err := service.GetPrivateACUMemory(c.Request.Context())
+	result, err := service.GetPrivateACUMemory(
+		c.Request.Context(),
+		c.Query("newapiUserId"),
+	)
 	if err != nil {
 		common.ApiError(c, err)
 		return

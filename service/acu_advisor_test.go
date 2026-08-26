@@ -35,6 +35,32 @@ func TestPrivateACUAdvisorProxyScopesListToAuthenticatedUser(t *testing.T) {
 	require.Equal(t, "Bearer test-advisor-token", forwarded.Header.Get("Authorization"))
 }
 
+func TestPrivateACUMemoryForUserScopesAndHidesInternalFields(t *testing.T) {
+	requests := make(chan *http.Request, 1)
+	router := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		requests <- request.Clone(request.Context())
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write([]byte(`{"memory":{"enabled":true,"userId":"42","spaceId":"space-42","skills":[{"id":"skill-1","name":"Preference","description":"Prefer small changes","files":[{"path":"SKILL.md","mime":"text/markdown","content":"details","url":"https://internal.example/file"}]}],"internalPrompts":[{"path":"task.py","mime":"text/plain","content":"internal"}]}}`))
+	}))
+	defer router.Close()
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-advisor-token")
+
+	result, err := GetPrivateACUMemoryForUser(context.Background(), 42)
+	require.NoError(t, err)
+	require.Equal(t, "42", result.UserID)
+	require.Empty(t, result.SpaceID)
+	require.Empty(t, result.InternalPrompts)
+	require.Len(t, result.Skills, 1)
+	require.Equal(t, "details", result.Skills[0].Files[0].Content)
+	require.Empty(t, result.Skills[0].Files[0].URL)
+
+	forwarded := <-requests
+	require.Equal(t, "/internal/admin/private-acu/memory", forwarded.URL.Path)
+	require.Equal(t, "42", forwarded.URL.Query().Get("newapiUserId"))
+	require.Equal(t, "Bearer test-advisor-token", forwarded.Header.Get("Authorization"))
+}
+
 func TestPrivateACUAdvisorProxyForwardsFeedback(t *testing.T) {
 	requests := make(chan struct {
 		method string

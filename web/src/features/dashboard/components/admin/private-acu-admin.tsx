@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, RotateCcw, Save, Search } from 'lucide-react'
+import { ChevronDown, RotateCcw, Save } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { Combobox } from '@/components/ui/combobox'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { getUsers } from '@/features/users/api'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -44,8 +46,9 @@ function PromptEditor(props: {
 
 function MemorySection(props: { memory?: PrivateACUMemory; loading: boolean }) {
   const { t } = useTranslation()
-  if (props.loading)
+  if (props.loading) {
     return <div className='text-muted-foreground text-sm'>{t('Loading')}</div>
+  }
   if (!props.memory?.enabled) {
     return (
       <div className='text-muted-foreground text-sm'>
@@ -121,33 +124,33 @@ export function PrivateACUAdmin() {
   const userRole = useAuthStore((state) => state.auth.user?.role)
   const canEdit = userRole === ROLE.SUPER_ADMIN
   const [draft, setDraft] = useState<PrivateACUPrompts>()
-  const [advisorUserId, setAdvisorUserId] = useState('')
+  const [selectedUserId, setSelectedUserId] = useState('')
+  const usersQuery = useQuery({
+    queryKey: ['dashboard', 'private-acu-admin', 'users'],
+    queryFn: () =>
+      getUsers({ page_size: 100, sort_by: 'id', sort_order: 'asc' }),
+  })
   const promptsQuery = useQuery({
     queryKey: ['dashboard', 'private-acu-admin', 'prompts'],
     queryFn: getPrivateACUPrompts,
   })
   const memoryQuery = useQuery({
-    queryKey: ['dashboard', 'private-acu-admin', 'memory'],
-    queryFn: getPrivateACUMemory,
+    queryKey: ['dashboard', 'private-acu-admin', 'memory', selectedUserId],
+    queryFn: () => getPrivateACUMemory(selectedUserId),
   })
   const usageQuery = useQuery({
-    queryKey: [
-      'dashboard',
-      'private-acu-admin',
-      'usage',
-      memoryQuery.data?.userId,
-    ],
-    queryFn: () => getPrivateACUUsage(memoryQuery.data?.userId ?? ''),
-    enabled: Boolean(memoryQuery.data?.userId),
+    queryKey: ['dashboard', 'private-acu-admin', 'usage', selectedUserId],
+    queryFn: () => getPrivateACUUsage(selectedUserId),
+    enabled: Boolean(selectedUserId),
   })
   useEffect(() => {
     if (promptsQuery.data) setDraft(promptsQuery.data)
   }, [promptsQuery.data])
   useEffect(() => {
-    if (memoryQuery.data?.userId && !advisorUserId) {
-      setAdvisorUserId(memoryQuery.data.userId)
+    if (memoryQuery.data?.userId && !selectedUserId) {
+      setSelectedUserId(memoryQuery.data.userId)
     }
-  }, [memoryQuery.data?.userId, advisorUserId])
+  }, [memoryQuery.data?.userId, selectedUserId])
   const saveMutation = useMutation({
     mutationFn: savePrivateACUPrompts,
     onSuccess: (data) => {
@@ -179,9 +182,83 @@ export function PrivateACUAdmin() {
         enabled: draft.enabled,
       }
     : undefined
+  const userOptions = (usersQuery.data?.data?.items ?? []).map((user) => ({
+    value: String(user.id),
+    label: `${user.username} · #${user.id}`,
+  }))
+  let usageContent = null
+  if (usageQuery.isLoading) {
+    usageContent = (
+      <div className='text-muted-foreground text-sm'>{t('Loading')}</div>
+    )
+  } else if (usageQuery.data) {
+    usageContent = (
+      <>
+        <div className='grid gap-2 sm:grid-cols-3'>
+          {usageQuery.data.totals.map((total) => (
+            <div
+              key={`${total.stage}-${total.status}`}
+              className='border-border rounded-md border p-3 text-xs'
+            >
+              <div className='font-medium'>
+                {total.stage} · {total.status}
+              </div>
+              <div className='text-muted-foreground mt-1'>
+                {total.calls} calls · {total.totalTokens.toLocaleString()}{' '}
+                tokens
+              </div>
+              <div className='mt-1'>
+                ¥{Number(total.actualCostCny).toFixed(8)} cost · ¥
+                {Number(total.userChargeCny).toFixed(8)} charge
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className='border-border overflow-auto rounded-md border'>
+          <table className='w-full text-left text-xs'>
+            <thead className='bg-muted/40'>
+              <tr>
+                <th className='p-2'>{t('Stage')}</th>
+                <th className='p-2'>{t('Model')}</th>
+                <th className='p-2'>{t('Tokens')}</th>
+                <th className='p-2'>{t('Cost')}</th>
+                <th className='p-2'>{t('Billing')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {usageQuery.data.entries.map((entry) => (
+                <tr key={entry.ledgerId} className='border-border border-t'>
+                  <td className='p-2'>{entry.stage}</td>
+                  <td className='p-2'>{entry.model || '-'}</td>
+                  <td className='p-2'>{entry.totalTokens.toLocaleString()}</td>
+                  <td className='p-2'>
+                    ¥{Number(entry.actualCostCny).toFixed(8)} → ¥
+                    {Number(entry.userChargeCny).toFixed(8)}
+                  </td>
+                  <td className='p-2'>{entry.billingStatus}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>
+    )
+  }
 
   return (
     <div className='space-y-6'>
+      <section className='space-y-2'>
+        <h2 className='text-base font-semibold'>{t('Account')}</h2>
+        <Combobox
+          options={userOptions}
+          value={selectedUserId}
+          onValueChange={(value) => setSelectedUserId(value ?? '')}
+          placeholder={t('Select a user')}
+          emptyText={t('No users found')}
+          allowCustomValue
+          className='max-w-md'
+        />
+      </section>
       <section className='space-y-4'>
         <div className='flex flex-wrap items-center justify-between gap-3'>
           <div>
@@ -277,77 +354,20 @@ export function PrivateACUAdmin() {
       </section>
       <section className='space-y-3'>
         <h2 className='text-base font-semibold'>{t('Advisor history')}</h2>
-        <AdvisorHistorySection
-          userId={advisorUserId}
-          onUserIdChange={setAdvisorUserId}
-        />
+        <AdvisorHistorySection userId={selectedUserId} />
       </section>
       <section className='space-y-3'>
         <h2 className='text-base font-semibold'>{t('Experiences')}</h2>
         <ExperiencesSection
-          userId={memoryQuery.data?.userId}
-          enabled={Boolean(memoryQuery.data?.userId)}
+          userId={selectedUserId}
+          enabled={Boolean(selectedUserId)}
         />
       </section>
       <section className='space-y-3'>
         <h2 className='text-base font-semibold'>
           {t('Private ACU usage and billing')}
         </h2>
-        {usageQuery.isLoading ? (
-          <div className='text-muted-foreground text-sm'>{t('Loading')}</div>
-        ) : usageQuery.data ? (
-          <>
-            <div className='grid gap-2 sm:grid-cols-3'>
-              {usageQuery.data.totals.map((total) => (
-                <div
-                  key={`${total.stage}-${total.status}`}
-                  className='border-border rounded-md border p-3 text-xs'
-                >
-                  <div className='font-medium'>
-                    {total.stage} · {total.status}
-                  </div>
-                  <div className='text-muted-foreground mt-1'>
-                    {total.calls} calls · {total.totalTokens.toLocaleString()}{' '}
-                    tokens
-                  </div>
-                  <div className='mt-1'>
-                    ¥{Number(total.actualCostCny).toFixed(8)} cost · ¥
-                    {Number(total.userChargeCny).toFixed(8)} charge
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className='border-border overflow-auto rounded-md border'>
-              <table className='w-full text-left text-xs'>
-                <thead className='bg-muted/40'>
-                  <tr>
-                    <th className='p-2'>{t('Stage')}</th>
-                    <th className='p-2'>{t('Model')}</th>
-                    <th className='p-2'>{t('Tokens')}</th>
-                    <th className='p-2'>{t('Cost')}</th>
-                    <th className='p-2'>{t('Billing')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {usageQuery.data.entries.map((entry) => (
-                    <tr key={entry.ledgerId} className='border-border border-t'>
-                      <td className='p-2'>{entry.stage}</td>
-                      <td className='p-2'>{entry.model || '-'}</td>
-                      <td className='p-2'>
-                        {entry.totalTokens.toLocaleString()}
-                      </td>
-                      <td className='p-2'>
-                        ¥{Number(entry.actualCostCny).toFixed(8)} → ¥
-                        {Number(entry.userChargeCny).toFixed(8)}
-                      </td>
-                      <td className='p-2'>{entry.billingStatus}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        ) : null}
+        {usageContent}
       </section>
       <section className='border-border space-y-2 rounded-md border p-4'>
         <h2 className='text-base font-semibold'>
@@ -382,184 +402,184 @@ function ExperiencesSection(props: { userId?: string; enabled: boolean }) {
       ),
     enabled: Boolean(props.userId && selectedExperienceId),
   })
-  if (query.isLoading)
+  useEffect(() => setSelectedExperienceId(undefined), [props.userId])
+  if (query.isLoading) {
     return <div className='text-muted-foreground text-sm'>{t('Loading')}</div>
-  if (query.isError)
+  }
+  if (query.isError) {
     return (
       <div className='text-muted-foreground text-sm'>{t('Failed to load')}</div>
     )
-  if (!query.data?.length)
+  }
+  if (!query.data?.length) {
     return (
       <div className='text-muted-foreground text-sm'>{t('No experiences')}</div>
     )
+  }
+  let detailContent = (
+    <div className='text-muted-foreground'>{t('No details')}</div>
+  )
+  if (detailQuery.isLoading) {
+    detailContent = <div className='text-muted-foreground'>{t('Loading')}</div>
+  } else if (detailQuery.isError) {
+    detailContent = (
+      <div className='text-destructive'>{t('Failed to load')}</div>
+    )
+  } else if (detailQuery.data) {
+    detailContent = (
+      <div className='space-y-2'>
+        <div className='font-medium'>
+          {t('Experience detail')}: {selectedExperienceId}
+        </div>
+        {detailQuery.data.advisor && (
+          <div className='space-y-1'>
+            <div>
+              {t('Advisor')}: {detailQuery.data.advisor.status}
+            </div>
+            <div>
+              {t('Problem')}: {detailQuery.data.advisor.problem || '-'}
+            </div>
+            <div>
+              {t('Advice')}: {detailQuery.data.advisor.advice || '-'}
+            </div>
+          </div>
+        )}
+        <div className='overflow-auto'>
+          <table className='w-full text-left'>
+            <thead className='bg-muted/40'>
+              <tr>
+                <th className='p-1'>{t('Stage')}</th>
+                <th className='p-1'>{t('Status')}</th>
+                <th className='p-1'>{t('Model')}</th>
+                <th className='p-1'>{t('Tokens')}</th>
+                <th className='p-1'>{t('Cost')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {detailQuery.data.ledger.map((entry) => (
+                <tr key={entry.ledgerId} className='border-border border-t'>
+                  <td className='p-1'>{entry.stage}</td>
+                  <td className='p-1'>{entry.status}</td>
+                  <td className='p-1'>{entry.model || '-'}</td>
+                  <td className='p-1'>{entry.totalTokens.toLocaleString()}</td>
+                  <td className='p-1'>
+                    ¥{Number(entry.actualCostCny).toFixed(8)} → ¥
+                    {Number(entry.userChargeCny).toFixed(8)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
+  }
   return (
-    <div className='border-border overflow-auto rounded-md border'>
-      <table className='w-full text-left text-xs'>
-        <thead className='bg-muted/40'>
-          <tr>
-            <th className='p-2'>{t('Experience')}</th>
-            <th className='p-2'>{t('Time')}</th>
-            <th className='p-2'>{t('Learning')}</th>
-            <th className='p-2'>{t('Advisor')}</th>
-            <th className='p-2'>{t('Problem')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {query.data.map((experience) => (
-            <tr
-              key={experience.experienceId}
-              className='border-border border-t align-top'
-            >
-              <td className='p-2 font-mono'>
-                <button
-                  type='button'
-                  className='text-primary underline-offset-2 hover:underline'
-                  onClick={() =>
-                    setSelectedExperienceId((current) =>
-                      current === experience.experienceId
-                        ? undefined
-                        : experience.experienceId
-                    )
-                  }
-                >
-                  {experience.experienceId}
-                </button>
-              </td>
-              <td className='p-2 whitespace-nowrap'>
-                {new Date(experience.createdAt).toLocaleString()}
-              </td>
-              <td className='p-2'>
-                {experience.learningSuccesses}/{experience.learningCalls}
-              </td>
-              <td className='p-2'>
-                {experience.advisor?.needAdvisor
-                  ? experience.advisor.status
-                  : '-'}
-              </td>
-              <td className='p-2'>{experience.advisor?.problem || '-'}</td>
+    <div className='border-border rounded-md border'>
+      <div className='overflow-auto'>
+        <table className='w-full text-left text-xs'>
+          <thead className='bg-muted/40'>
+            <tr>
+              <th className='p-2'>{t('Experience')}</th>
+              <th className='p-2'>{t('Time')}</th>
+              <th className='p-2'>{t('Learning')}</th>
+              <th className='p-2'>{t('Advisor')}</th>
+              <th className='p-2'>{t('Problem')}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {query.data.map((experience) => (
+              <tr
+                key={experience.experienceId}
+                className='border-border border-t align-top'
+              >
+                <td className='p-2 font-mono'>
+                  <button
+                    type='button'
+                    className='text-primary underline-offset-2 hover:underline'
+                    onClick={() =>
+                      setSelectedExperienceId((current) =>
+                        current === experience.experienceId
+                          ? undefined
+                          : experience.experienceId
+                      )
+                    }
+                  >
+                    {experience.experienceId}
+                  </button>
+                </td>
+                <td className='p-2 whitespace-nowrap'>
+                  {new Date(experience.createdAt).toLocaleString()}
+                </td>
+                <td className='p-2'>
+                  {experience.learningSuccesses}/{experience.learningCalls}
+                </td>
+                <td className='p-2'>
+                  {experience.advisor?.needAdvisor
+                    ? experience.advisor.status
+                    : '-'}
+                </td>
+                <td className='p-2'>{experience.advisor?.problem || '-'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       {selectedExperienceId && (
         <div className='border-border border-t p-3 text-xs'>
-          {detailQuery.isLoading ? (
-            <div className='text-muted-foreground'>{t('Loading')}</div>
-          ) : detailQuery.data ? (
-            <div className='space-y-2'>
-              <div className='font-medium'>
-                {t('Experience detail')}: {selectedExperienceId}
-              </div>
-              {detailQuery.data.advisor && (
-                <div className='space-y-1'>
-                  <div>
-                    {t('Advisor')}: {detailQuery.data.advisor.status}
-                  </div>
-                  <div>
-                    {t('Problem')}: {detailQuery.data.advisor.problem || '-'}
-                  </div>
-                  <div>
-                    {t('Advice')}: {detailQuery.data.advisor.advice || '-'}
-                  </div>
-                </div>
-              )}
-              <div className='overflow-auto'>
-                <table className='w-full text-left'>
-                  <thead className='bg-muted/40'>
-                    <tr>
-                      <th className='p-1'>{t('Stage')}</th>
-                      <th className='p-1'>{t('Status')}</th>
-                      <th className='p-1'>{t('Model')}</th>
-                      <th className='p-1'>{t('Tokens')}</th>
-                      <th className='p-1'>{t('Cost')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detailQuery.data.ledger.map((entry) => (
-                      <tr key={entry.ledgerId} className='border-border border-t'>
-                        <td className='p-1'>{entry.stage}</td>
-                        <td className='p-1'>{entry.status}</td>
-                        <td className='p-1'>{entry.model || '-'}</td>
-                        <td className='p-1'>{entry.totalTokens.toLocaleString()}</td>
-                        <td className='p-1'>
-                          ¥{Number(entry.actualCostCny).toFixed(8)} → ¥
-                          {Number(entry.userChargeCny).toFixed(8)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ) : (
-            <div className='text-muted-foreground'>{t('No details')}</div>
-          )}
+          {detailContent}
         </div>
       )}
     </div>
   )
 }
 
-function AdvisorHistorySection(props: {
-  userId: string
-  onUserIdChange: (value: string) => void
-}) {
+function AdvisorHistorySection(props: { userId: string }) {
   const { t } = useTranslation()
   const query = useQuery({
     queryKey: ['dashboard', 'private-acu-admin', 'advisors', props.userId],
     queryFn: () => getPrivateACUAdvisors(props.userId),
     enabled: Boolean(props.userId),
   })
-  return (
-    <div className='space-y-3'>
-      <div className='flex max-w-xl gap-2'>
-        <input
-          value={props.userId}
-          onChange={(event) => props.onUserIdChange(event.target.value)}
-          placeholder={t('New API user id')}
-          className='border-input bg-background h-9 min-w-0 flex-1 rounded-md border px-3 text-sm'
-        />
-        <Button
-          variant='outline'
-          size='sm'
-          type='button'
-          onClick={() => void query.refetch()}
-          disabled={!props.userId || query.isFetching}
-        >
-          <Search />
-          {t('Query')}
-        </Button>
-      </div>
-      {query.isLoading || query.isFetching ? (
-        <div className='text-muted-foreground text-sm'>{t('Loading')}</div>
-      ) : !query.data?.length ? (
-        <div className='text-muted-foreground text-sm'>{t('No advisors')}</div>
-      ) : (
-        <div className='border-border overflow-auto rounded-md border'>
-          <table className='w-full text-left text-xs'>
-            <thead className='bg-muted/40'>
-              <tr>
-                <th className='p-2'>{t('Time')}</th>
-                <th className='p-2'>{t('Status')}</th>
-                <th className='p-2'>{t('Problem')}</th>
-                <th className='p-2'>{t('Advice')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {query.data.map((advisor) => (
-                <tr key={advisor.advisorId} className='border-border border-t align-top'>
-                  <td className='p-2 whitespace-nowrap'>
-                    {new Date(advisor.createdAt).toLocaleString()}
-                  </td>
-                  <td className='p-2'>{advisor.needAdvisor ? advisor.status : '-'}</td>
-                  <td className='p-2'>{advisor.problem || '-'}</td>
-                  <td className='p-2'>{advisor.advice || '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+  let content = (
+    <div className='text-muted-foreground text-sm'>{t('No advisors')}</div>
   )
+  if (query.isLoading || query.isFetching) {
+    content = (
+      <div className='text-muted-foreground text-sm'>{t('Loading')}</div>
+    )
+  } else if (query.data?.length) {
+    content = (
+      <div className='border-border overflow-auto rounded-md border'>
+        <table className='w-full text-left text-xs'>
+          <thead className='bg-muted/40'>
+            <tr>
+              <th className='p-2'>{t('Time')}</th>
+              <th className='p-2'>{t('Status')}</th>
+              <th className='p-2'>{t('Problem')}</th>
+              <th className='p-2'>{t('Advice')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {query.data.map((advisor) => (
+              <tr
+                key={advisor.advisorId}
+                className='border-border border-t align-top'
+              >
+                <td className='p-2 whitespace-nowrap'>
+                  {new Date(advisor.createdAt).toLocaleString()}
+                </td>
+                <td className='p-2'>
+                  {advisor.needAdvisor ? advisor.status : '-'}
+                </td>
+                <td className='p-2'>{advisor.problem || '-'}</td>
+                <td className='p-2'>{advisor.advice || '-'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+  return <div className='space-y-3'>{content}</div>
 }

@@ -16,6 +16,7 @@ func TestPrivateACUAdminProxyReadsPromptsAndMemory(t *testing.T) {
 	requests := make(chan struct {
 		method string
 		path   string
+		query  string
 		body   []byte
 		auth   string
 	}, 3)
@@ -24,11 +25,13 @@ func TestPrivateACUAdminProxyReadsPromptsAndMemory(t *testing.T) {
 		requests <- struct {
 			method string
 			path   string
+			query  string
 			body   []byte
 			auth   string
 		}{
 			method: request.Method,
 			path:   request.URL.Path,
+			query:  request.URL.RawQuery,
 			body:   body,
 			auth:   request.Header.Get("Authorization"),
 		}
@@ -50,20 +53,22 @@ func TestPrivateACUAdminProxyReadsPromptsAndMemory(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(2), prompts.PromptVersion)
 
-	memory, err := GetPrivateACUMemory(context.Background())
+	memory, err := GetPrivateACUMemory(context.Background(), "3")
 	require.NoError(t, err)
 	require.Equal(t, "space-1", memory.SpaceID)
 
 	for _, expected := range []struct {
 		method string
 		path   string
+		query  string
 	}{
-		{http.MethodGet, "/internal/admin/private-acu/prompts"},
-		{http.MethodGet, "/internal/admin/private-acu/memory"},
+		{http.MethodGet, "/internal/admin/private-acu/prompts", ""},
+		{http.MethodGet, "/internal/admin/private-acu/memory", "newapiUserId=3"},
 	} {
 		request := <-requests
 		require.Equal(t, expected.method, request.method)
 		require.Equal(t, expected.path, request.path)
+		require.Equal(t, expected.query, request.query)
 		require.Equal(t, "Bearer test-private-acu-token", request.auth)
 	}
 }
@@ -96,4 +101,25 @@ func TestPrivateACUAdminProxySavesPrompts(t *testing.T) {
 		"enabled":        true,
 		"updatedBy":      "root",
 	}, payload)
+}
+
+func TestPrivateACUExperienceDetailProxyForwardsUserAndExperience(t *testing.T) {
+	requests := make(chan *http.Request, 1)
+	router := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		requests <- request.Clone(request.Context())
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write([]byte(`{"experience":{"experienceId":"req_1","ledger":[{"ledgerId":"ledger-1","logicalRequestId":"req_1","stage":"learning","inputTokens":10,"cachedInputTokens":0,"outputTokens":2,"totalTokens":12,"usageStatus":"reported","status":"success","nominalCostUsd":"0","actualCostCny":"0.01","userChargeCny":"0.0125","billingMarkupMultiplier":1.25,"billingStatus":"acknowledged","billingAttemptCount":1,"createdAt":"2026-08-26T00:00:00Z"}]}}`))
+	}))
+	defer router.Close()
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-private-acu-token")
+
+	result, err := GetPrivateACUExperienceDetail(context.Background(), "42", "req/1")
+	require.NoError(t, err)
+	require.Equal(t, "req_1", result.ExperienceID)
+	require.Len(t, result.Ledger, 1)
+
+	forwarded := <-requests
+	require.Equal(t, "/internal/admin/private-acu/experiences/req%2F1", forwarded.URL.EscapedPath())
+	require.Equal(t, "42", forwarded.URL.Query().Get("newapiUserId"))
 }

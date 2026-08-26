@@ -126,9 +126,10 @@ export async function resetPrivateACUPrompts() {
   return response.data.data
 }
 
-export async function getPrivateACUMemory() {
+export async function getPrivateACUMemory(userId = '') {
+  const query = userId ? `?newapiUserId=${encodeURIComponent(userId)}` : ''
   const response = await api.get<{ data: PrivateACUMemory }>(
-    '/api/admin/acu-private/memory'
+    `/api/admin/acu-private/memory${query}`
   )
   return response.data.data
 }
