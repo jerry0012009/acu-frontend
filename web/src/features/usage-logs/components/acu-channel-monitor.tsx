@@ -49,7 +49,10 @@ import { ACUChannelHealthCard } from './acu-channel-health-card'
 import { groupACUChannels, groupACUModels } from './acu-channel-health-model'
 import { ACUChannelHistory } from './acu-channel-history'
 import { ACUExecutionProfileManager } from './acu-execution-profile-manager'
-import { updateGlobalProfileRouting } from './acu-global-routing-policy'
+import {
+  availableGlobalRoutingProfileIds,
+  updateGlobalProfileRouting,
+} from './acu-global-routing-policy'
 import { ACUModelHealthCard } from './acu-model-health-card'
 import {
   filterProfilesByProtocol,
@@ -951,7 +954,14 @@ function RouterConfigurationTab(props: {
   })
   const beginEditing = () => {
     if (!savedPolicy || !savedUtilityConfig) return
-    setPolicyDraft(structuredClone(savedPolicy))
+    const availableProfileIds = new Set(
+      availableGlobalRoutingProfileIds(props.profiles)
+    )
+    const nextPolicy = structuredClone(savedPolicy)
+    nextPolicy.allowedProfileIds = nextPolicy.allowedProfileIds.filter((id) =>
+      availableProfileIds.has(id)
+    )
+    setPolicyDraft(nextPolicy)
     setUtilityDraft(structuredClone(savedUtilityConfig))
     setEditing(true)
   }
@@ -1009,10 +1019,7 @@ function RouterConfigurationTab(props: {
   const profileOptions = useMemo(() => {
     if (!editingPolicy) return []
     const allowedModelIds = new Set(editingPolicy.allowedModelIds)
-    return [
-      ...new Set([...editingPolicy.allowedProfileIds, ...availableProfileIds]),
-    ]
-      .sort()
+    return availableProfileIdList
       .map((id) => {
         const profile = profileById.get(id)
         const outsideModelAllowlist =
@@ -1021,7 +1028,7 @@ function RouterConfigurationTab(props: {
           !allowedModelIds.has(profile.canonicalModel)
         return {
           id,
-          unavailable: !availableProfileIds.has(id),
+          unavailable: false,
           disabled:
             outsideModelAllowlist &&
             !editingPolicy.allowedProfileIds.includes(id),
@@ -1030,7 +1037,7 @@ function RouterConfigurationTab(props: {
             : undefined,
         }
       })
-  }, [availableProfileIds, editingPolicy, profileById, t])
+  }, [availableProfileIdList, editingPolicy, profileById, t])
   const ids = (values: string[]) =>
     values.length ? values.join(', ') : t('None')
   const scopeSummary = (

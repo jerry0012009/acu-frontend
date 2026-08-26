@@ -1,7 +1,10 @@
 package service
 
 import (
+	"context"
 	"math"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -65,6 +68,60 @@ func TestNormalizeACURoutingScopeClearsInactiveAllowlists(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, scope.AllowedModelIDs)
 	require.Empty(t, scope.AllowedProfileIDs)
+}
+
+func TestSanitizeACUGlobalRoutingScopeRemovesProfilesMissingFromRouterPool(t *testing.T) {
+	previous := common.OptionMap
+	t.Cleanup(func() { common.OptionMap = previous })
+	common.OptionMap = map[string]string{}
+	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"range":"24h",
+			"supplyStrategy":"balanced",
+			"scenario":"standard",
+			"protocol":"all",
+			"profiles":[
+				{
+					"executionProfileId":"active-profile",
+					"canonicalModel":"gpt-5.6-luna",
+					"protocol":["responses"],
+					"enabled":true,
+					"administratorAllowed":true,
+					"autoRouteEnabled":true
+				},
+				{
+					"executionProfileId":"disabled-profile",
+					"canonicalModel":"gpt-5.6-luna",
+					"protocol":["responses"],
+					"enabled":false,
+					"administratorAllowed":true,
+					"autoRouteEnabled":true
+				}
+			],
+			"history":[],
+			"cooldownIntervals":[],
+			"probeHistory":[],
+			"supplyInventory":[],
+			"modelPool":[]
+		}`))
+	}))
+	t.Cleanup(router.Close)
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
+
+	scope := ACURoutingScope{
+		Policy:            ACURoutingPolicyAll,
+		ProfilePolicy:     ACURoutingPolicyCustom,
+		AllowedProfileIDs: []string{"active-profile", "disabled-profile", "stale-profile"},
+	}
+	sanitized, removed, err := SanitizeACUGlobalRoutingScopeAgainstPool(
+		context.Background(),
+		scope,
+	)
+	require.NoError(t, err)
+	require.Equal(t, []string{"active-profile"}, sanitized.AllowedProfileIDs)
+	require.Equal(t, []string{"disabled-profile", "stale-profile"}, removed)
 }
 
 func TestACUCanonicalAllowedModelIDsFiltersVirtualModels(t *testing.T) {

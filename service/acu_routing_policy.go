@@ -394,16 +394,20 @@ func GetACUGlobalRoutingScope() (ACURoutingScope, error) {
 	return globalACURoutingScope()
 }
 
-func ValidateACURoutingScopeAgainstPool(ctx context.Context, scope ACURoutingScope) error {
+func validateACURoutingScopeAgainstPool(
+	ctx context.Context,
+	scope ACURoutingScope,
+	removeUnavailableProfiles bool,
+) (ACURoutingScope, []string, error) {
 	if scope.Policy != ACURoutingPolicyCustom && scope.ProfilePolicy != ACURoutingPolicyCustom {
-		return nil
+		return scope, nil, nil
 	}
 	monitor, err := GetACUChannelMonitor(ctx, "24h", "balanced", "standard", "48h", "all")
 	if err != nil {
 		if strings.Contains(err.Error(), "not configured") {
-			return nil
+			return scope, nil, nil
 		}
-		return err
+		return scope, nil, err
 	}
 	models := make(map[string]struct{}, len(monitor.ModelPool))
 	for _, item := range monitor.ModelPool {
@@ -413,26 +417,35 @@ func ValidateACURoutingScopeAgainstPool(ctx context.Context, scope ACURoutingSco
 	}
 	profiles := make(map[string]string, len(monitor.Profiles))
 	for _, profile := range monitor.Profiles {
-		if profile.ExecutionProfileID != "" {
+		if profile.ExecutionProfileID != "" &&
+			profile.Enabled &&
+			profile.AdministratorAllowed &&
+			profile.AutoRouteEnabled {
 			profiles[profile.ExecutionProfileID] = profile.CanonicalModel
 		}
 	}
 	if scope.Policy == ACURoutingPolicyCustom {
 		for _, modelID := range scope.AllowedModelIDs {
 			if _, ok := models[modelID]; !ok {
-				return fmt.Errorf("ACU model %q is not present in the current Router model pool", modelID)
+				return scope, nil, fmt.Errorf("ACU model %q is not present in the current Router model pool", modelID)
 			}
 		}
 	}
+	removedProfileIDs := []string{}
 	if scope.ProfilePolicy == ACURoutingPolicyCustom {
+		availableProfileIDs := make([]string, 0, len(scope.AllowedProfileIDs))
 		for _, profileID := range scope.AllowedProfileIDs {
 			modelID, ok := profiles[profileID]
 			if !ok {
-				return fmt.Errorf("ACU Profile %q is not present in the current Router model pool", profileID)
+				if removeUnavailableProfiles {
+					removedProfileIDs = append(removedProfileIDs, profileID)
+					continue
+				}
+				return scope, nil, fmt.Errorf("ACU Profile %q is not present in the current Router model pool", profileID)
 			}
 			if scope.Policy == ACURoutingPolicyCustom {
 				if _, ok := models[modelID]; !ok {
-					return fmt.Errorf("ACU Profile %q references unknown model %q", profileID, modelID)
+					return scope, nil, fmt.Errorf("ACU Profile %q references unknown model %q", profileID, modelID)
 				}
 				allowed := false
 				for _, allowedModel := range scope.AllowedModelIDs {
@@ -442,12 +455,31 @@ func ValidateACURoutingScopeAgainstPool(ctx context.Context, scope ACURoutingSco
 					}
 				}
 				if !allowed {
-					return fmt.Errorf("ACU Profile %q belongs to model %q outside the model allowlist", profileID, modelID)
+					return scope, nil, fmt.Errorf("ACU Profile %q belongs to model %q outside the model allowlist", profileID, modelID)
 				}
 			}
+			availableProfileIDs = append(availableProfileIDs, profileID)
+		}
+		if removeUnavailableProfiles {
+			if len(availableProfileIDs) == 0 {
+				return scope, removedProfileIDs, fmt.Errorf("ACU custom profile allowlist has no profiles in the current Router model pool")
+			}
+			scope.AllowedProfileIDs = normalizeACUIDs(availableProfileIDs)
 		}
 	}
-	return nil
+	return scope, removedProfileIDs, nil
+}
+
+func ValidateACURoutingScopeAgainstPool(ctx context.Context, scope ACURoutingScope) error {
+	_, _, err := validateACURoutingScopeAgainstPool(ctx, scope, false)
+	return err
+}
+
+func SanitizeACUGlobalRoutingScopeAgainstPool(
+	ctx context.Context,
+	scope ACURoutingScope,
+) (ACURoutingScope, []string, error) {
+	return validateACURoutingScopeAgainstPool(ctx, scope, true)
 }
 
 func normalizeACUIDs(values []string) []string {
