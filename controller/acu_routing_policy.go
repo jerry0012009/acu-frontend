@@ -43,7 +43,9 @@ func UpdateACUGlobalRoutingPolicy(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	if err := model.UpdateOption("ACUGlobalRoutingPolicy", string(raw)); err != nil {
+	if err := model.UpdateOptionsBulk(map[string]string{
+		"ACUGlobalRoutingPolicy": string(raw),
+	}); err != nil {
 		common.ApiError(c, err)
 		return
 	}
@@ -88,7 +90,9 @@ func UpdateACURoutingUtilityConfig(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	if err := model.UpdateOption("ACURoutingUtilityConfig", string(raw)); err != nil {
+	if err := model.UpdateOptionsBulk(map[string]string{
+		"ACURoutingUtilityConfig": string(raw),
+	}); err != nil {
 		common.ApiError(c, err)
 		return
 	}
