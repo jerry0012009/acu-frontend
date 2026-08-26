@@ -142,20 +142,9 @@ function buildTypeDetailSegments(
   if (!other) return []
 
   if (other.acu_cost_breakdown?.private_acu === true) {
-    const actualCost = Number(other.acu_cost_breakdown.actual_total_cash_cost_cny ?? 0)
-    const markup = Number(
-      other.acu_cost_breakdown.retail_markup_multiplier ??
-        other.acu_cost_breakdown.billing_multiplier ??
-        1.25
-    )
-    const userCharge = Number(other.user_charge_cny ?? 0)
     return [
       {
         text: `${t('Private ACU')} · ${String(other.acu_cost_breakdown.private_acu_stage ?? '-')}`,
-      },
-      {
-        text: `${t('Cost')} ¥${actualCost.toFixed(8)} × ${markup} = ${t('Charge')} ¥${userCharge.toFixed(8)}`,
-        muted: true,
       },
     ]
   }
@@ -683,13 +672,6 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
 
         if (presentation.acuManaged) {
           if (acuBreakdown?.private_acu === true) {
-            const actualCost = Number(acuBreakdown.actual_total_cash_cost_cny ?? 0)
-            const markup = Number(
-              acuBreakdown.retail_markup_multiplier ??
-                acuBreakdown.billing_multiplier ??
-                1.25
-            )
-            const userCharge = Number(other?.user_charge_cny ?? 0)
             return (
               <div className='flex min-w-0 flex-col gap-0.5'>
                 <div className='flex min-w-0 items-center gap-1 text-xs font-medium'>
@@ -699,7 +681,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
                   </span>
                 </div>
                 <span className='text-muted-foreground truncate text-[11px]'>
-                  {log.model_name} · {t('Cost')} ¥{actualCost.toFixed(8)} × {markup} = {t('Charge')} ¥{userCharge.toFixed(8)}
+                  {log.model_name}
                 </span>
               </div>
             )

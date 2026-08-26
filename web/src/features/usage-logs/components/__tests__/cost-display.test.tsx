@@ -216,6 +216,36 @@ describe('log cost display', () => {
     await unmountCost(rendered)
   })
 
+  test('shows the same cost reference indicator for Private ACU without exposing internal billing', async () => {
+    const rendered = await renderCost({
+      quota: 0,
+      other: {
+        user_charge_cny: '0.0001627500',
+        acu_cost_breakdown: {
+          private_acu: true,
+          private_acu_stage: 'learning',
+          user_charge_cny: '0.0001627500',
+          actual_total_cash_cost_cny: 0.0001302,
+          retail_markup_multiplier: 1.25,
+        },
+      },
+    })
+
+    assert.ok(
+      rendered.container.querySelector('[data-cost-reference-indicator="true"]')
+    )
+    assert.equal(
+      rendered.container.textContent?.includes('0.00013020'),
+      false
+    )
+    assert.equal(
+      rendered.container.textContent?.includes('1.25'),
+      false
+    )
+
+    await unmountCost(rendered)
+  })
+
   test('formats channel discount multipliers with compact precision', () => {
     assert.equal(formatMultiplier(0.0104), '0.010x')
     assert.equal(formatMultiplier(0.0412), '0.041x')

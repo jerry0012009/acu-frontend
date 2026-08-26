@@ -115,9 +115,14 @@ function CostReferenceTooltip(props: {
   const multiplier = formatMultiplier(
     props.breakdown.channel_discount_multiplier
   )
-  if (!reference || !multiplier) return null
-
   const admin = props.adminBreakdown
+  const hasCostReference =
+    props.breakdown.user_charge_cny != null ||
+    Boolean(reference) ||
+    Boolean(multiplier) ||
+    Boolean(admin)
+  if (!hasCostReference) return null
+
   const rows = [
     ['Input', props.breakdown.official_input_price_per_million_usd],
     [
@@ -151,12 +156,24 @@ function CostReferenceTooltip(props: {
         <div className='flex flex-col gap-1.5'>
           <div className='font-semibold'>{t('Cost reference')}</div>
           <div className='grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5'>
-            <span>{t('Actual charge')}</span>
-            <span>{`¥${Number(props.breakdown.user_charge_cny ?? 0).toFixed(8)}`}</span>
-            <span>{t('Official reference')}</span>
-            <span>{reference}</span>
-            <span>{t('Channel discount')}</span>
-            <span>{`${multiplier} (${(Number(props.breakdown.channel_discount_multiplier) * 100).toFixed(1)}%)`}</span>
+            {props.breakdown.user_charge_cny != null && (
+              <>
+                <span>{t('Actual charge')}</span>
+                <span>{`¥${Number(props.breakdown.user_charge_cny).toFixed(8)}`}</span>
+              </>
+            )}
+            {reference && (
+              <>
+                <span>{t('Official reference')}</span>
+                <span>{reference}</span>
+              </>
+            )}
+            {multiplier && (
+              <>
+                <span>{t('Channel discount')}</span>
+                <span>{`${multiplier} (${(Number(props.breakdown.channel_discount_multiplier) * 100).toFixed(1)}%)`}</span>
+              </>
+            )}
           </div>
           {rows.length > 0 && (
             <div className='border-background/20 mt-1 border-t pt-1'>

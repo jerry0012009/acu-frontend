@@ -443,17 +443,6 @@ var acuPublicRoutingTelemetryKeys = []string{
 	"cache_creation_input_tokens",
 	"private_acu",
 	"private_acu_stage",
-	"private_acu_model",
-	"private_acu_provider",
-	"private_acu_ledger_id",
-	"private_acu_nominal_cost_usd",
-	"actual_total_cash_cost_cny",
-	"retail_markup_multiplier",
-	"billing_multiplier",
-	"billing_source",
-	"billing_note",
-	"usage_status",
-	"usage_status_detail",
 }
 
 func acuUsageLogOther(input ACUUsageChargeInput, pending bool, status, errorCode string) map[string]interface{} {
