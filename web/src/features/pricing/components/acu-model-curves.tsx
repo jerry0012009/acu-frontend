@@ -137,7 +137,7 @@ export function ACUModelCurves(props: {
           pricingProtocol === 'all' ? 'responses' : pricingProtocol
         ),
       staleTime: 60 * 1000,
-      retry: 1,
+      retry: false,
     })
   const executionPresetSeries = useMemo(() => {
     const presets = selectionCorridor?.executionPresetSeries ?? []
@@ -926,12 +926,7 @@ export function ACUModelCurves(props: {
         </div>
       </div>
 
-      {/* eslint-disable-next-line no-nested-ternary */}
-      {isPreviewLoading ? (
-        <div className='text-muted-foreground flex h-56 items-center justify-center text-sm'>
-          {t('Loading routing corridor')}
-        </div>
-      ) : selectedModels.length + selectedPresets.length === 0 ? (
+      {selectedModels.length + selectedPresets.length === 0 ? (
         <div className='text-muted-foreground flex h-56 items-center justify-center text-sm'>
           {t('Select at least one model')}
         </div>
@@ -944,6 +939,14 @@ export function ACUModelCurves(props: {
                 {t('Difficulty and estimated quality')}
               </div>
               <div className='flex flex-wrap items-center justify-end gap-1.5'>
+                {isPreviewLoading && (
+                  <span
+                    className='text-muted-foreground text-[11px]'
+                    role='status'
+                  >
+                    {t('Loading routing corridor')}
+                  </span>
+                )}
                 <div
                   className='bg-muted/40 inline-flex h-8 items-center rounded-md border p-0.5'
                   role='group'

@@ -157,30 +157,6 @@ export type ACUSelectionCandidate = {
   quality: number
   costCny: number
   valueUtility: number
-  baseValueUtility?: number
-  candidatePreferenceScore?: number
-  candidatePreferenceMultiplier?: number
-  adjustedValueUtility?: number
-  selected?: boolean
-  rawQualityUtility?: number
-  rawCostUtility?: number
-  qualitySatisfactionUtility?: number
-  qualitySatisfactionVersion?: string
-  normalizedQualityUtility?: number
-  normalizedCostUtility?: number
-  qualityContribution?: number
-  costContribution?: number
-  normalizationQualityRange?: number
-  normalizationCostRange?: number
-  normalizationQualityDenominator?: number
-  normalizationCostDenominator?: number
-  normalizationVersion?: string
-  qualityUtility?: number
-  costUtility?: number
-  qualityWeight?: number
-  costWeight?: number
-  rank?: number
-  formulaVersion?: string
 }
 
 export type ACUSelectionCorridorPoint = {
@@ -194,30 +170,6 @@ export type ACUSelectionCorridorPoint = {
   effectiveQualityBias?: number
   qualityWeight?: number
   costWeight?: number
-  selectedExecutionProfileId?: string
-  selectedProvider?: string
-  selectedProfileUtility?: number
-  profileCandidateUtilities?: Array<{
-    executionProfileId: string
-    profileCost: number
-    profileLatencyMs?: number
-    costUtility: number
-    speedUtility: number
-    reliabilityUtility: number
-    profileUtility: number
-    rawCostUtility?: number
-    rawSpeedUtility?: number
-    rawReliabilityUtility?: number
-    normalizedCostUtility?: number
-    normalizedSpeedUtility?: number
-    normalizedReliabilityUtility?: number
-    costContribution?: number
-    speedContribution?: number
-    reliabilityContribution?: number
-    normalizationVersion?: string
-    rank: number
-    selected: boolean
-  }>
   qualityLower: number
   qualityUpper: number
   candidates: ACUSelectionCandidate[]

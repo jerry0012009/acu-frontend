@@ -257,10 +257,10 @@ test('uses the selected Token preference and keeps global mode interactive', () 
   )
 })
 
-test('uses a three-column aligned desktop control grid', () => {
+test('uses a four-column aligned desktop control grid', () => {
   assert.match(
     PRICING_PREVIEW_CONTROL_GRID_CLASS,
-    /items-end.*xl:grid-cols-\[minmax\(240px,280px\)_112px_112px\]/
+    /items-end.*xl:grid-cols-\[minmax\(220px,260px\)_minmax\(180px,240px\)_112px_112px\]/
   )
 })
 

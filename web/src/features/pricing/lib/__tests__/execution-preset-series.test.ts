@@ -127,3 +127,17 @@ test('keeps smoothed chart data isolated from raw routing details', () => {
     /C raw|S raw|R raw|Profile utility|Conservative quality|Quality satisfaction|Relative cost utility|Base utility|Candidate preference|Adjusted utility/
   )
 })
+
+test('renders model curves while the routing corridor loads without retrying', () => {
+  const source = readFileSync(
+    new URL('../../components/acu-model-curves.tsx', import.meta.url),
+    'utf8'
+  )
+
+  assert.match(source, /retry: false/)
+  assert.doesNotMatch(source, /\{isPreviewLoading \? \(\s*<div/)
+  assert.match(
+    source,
+    /\{isPreviewLoading && \(\s*<span[\s\S]{0,240}Loading routing corridor/
+  )
+})
