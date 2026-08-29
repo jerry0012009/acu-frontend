@@ -23,7 +23,14 @@ func GetOwnedACUWorkTimelineAccurateTiming(userID int, from, to int64, allowAdmi
 	if err != nil {
 		return dto.ACUWorkTimeline{}, err
 	}
-	timeline := buildACUWorkTimeline(logs, from, to, allowAdminAttemptHydration)
+	finalJudgeDifficulties, _ := loadACUTimelineJudgeDifficulties(logs, userID)
+	timeline := buildACUWorkTimeline(
+		logs,
+		from,
+		to,
+		allowAdminAttemptHydration,
+		finalJudgeDifficulties,
+	)
 	applyACUWorkTimelineLatencySemantics(&timeline, logs)
 	return timeline, nil
 }

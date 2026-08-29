@@ -1,9 +1,13 @@
 package service
 
 import (
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"testing"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/stretchr/testify/assert"
@@ -110,6 +114,62 @@ func TestBuildACUWorkTimelineSplitsFreshJudgeAndExecutionWithoutSplittingBilling
 	assert.Equal(t, 0.015, result.Summary.PlatformRetryCostCNY)
 	assert.Equal(t, 1, result.Summary.ExecutionSteps)
 	assert.Equal(t, 1, result.Summary.JudgeEvaluations)
+}
+
+func TestBuildACUWorkTimelineUsesAuthoritativeJudgeDifficultyOnlyOnJudgePoint(t *testing.T) {
+	logs := []*model.Log{{
+		CreatedAt: 100,
+		Type:      model.LogTypeConsume,
+		Other:     `{"acu_logical_request_id":"req-authoritative-difficulty","acu_cost_breakdown":{"task_id":"task-1","segment_id":"seg-1","judge_calls":1,"judge_reused":false,"judge_protocol":"responses","difficulty":53.9,"judge_model":"gpt-5.6-luna","judge_attempts":[{"attempt_index":1,"model":"gpt-5.6-luna","provider":"wawazz","status":"success"}],"decision_summary":{"judge_result_source":"upstream_live"}}}`,
+	}}
+
+	result := buildACUWorkTimeline(logs, 0, 200, true, map[string]float64{"seg-1": 58.2})
+	require.Len(t, result.Items, 2)
+	assert.Equal(t, "judge", result.Items[0].PointType)
+	assert.Equal(t, 58.2, result.Items[0].Difficulty)
+	assert.True(t, result.Items[0].DifficultyRecorded)
+	assert.Equal(t, "execution", result.Items[1].PointType)
+	assert.Equal(t, 53.9, result.Items[1].Difficulty)
+	assert.True(t, result.Items[1].DifficultyRecorded)
+}
+
+func TestLoadACUTimelineJudgeDifficultiesBatchesUniqueSegments(t *testing.T) {
+	var body []byte
+	router := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		body, _ = io.ReadAll(request.Body)
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write([]byte(`{"items":{"seg-1":{"difficulty":58.2}}}`))
+	}))
+	defer router.Close()
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-timeline-token")
+
+	logs := []*model.Log{
+		{Other: `{"acu_cost_breakdown":{"segment_id":"seg-1","judge_calls":1}}`},
+		{Other: `{"acu_cost_breakdown":{"segment_id":"seg-1","judge_calls":1}}`},
+		{Other: `{"acu_cost_breakdown":{"segment_id":"seg-2","judge_reused":true}}`},
+	}
+	result, err := loadACUTimelineJudgeDifficulties(logs, 3)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]float64{"seg-1": 58.2}, result)
+
+	var payload map[string]interface{}
+	require.NoError(t, common.Unmarshal(body, &payload))
+	assert.Equal(t, "3", payload["newapiUserId"])
+	assert.Equal(t, []interface{}{"seg-1", "seg-2"}, payload["segmentIds"])
+}
+
+func TestBuildACUWorkTimelineFallsBackWhenAuthoritativeJudgeDifficultyIsUnavailable(t *testing.T) {
+	logs := []*model.Log{{
+		CreatedAt: 100,
+		Type:      model.LogTypeConsume,
+		Other:     `{"acu_logical_request_id":"req-fallback-difficulty","acu_cost_breakdown":{"task_id":"task-1","segment_id":"seg-1","judge_calls":1,"judge_protocol":"responses","difficulty":53.9,"judge_attempts":[{"model":"gpt-5.6-luna","status":"success"}],"decision_summary":{"judge_result_source":"upstream_live"}}}`,
+	}}
+
+	result := buildACUWorkTimeline(logs, 0, 200, true, nil)
+	require.Len(t, result.Items, 2)
+	assert.Equal(t, 53.9, result.Items[0].Difficulty)
+	assert.Equal(t, 53.9, result.Items[1].Difficulty)
 }
 
 func TestBuildACUWorkTimelineKeepsJudgeReuseOnExecutionPoint(t *testing.T) {

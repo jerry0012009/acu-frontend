@@ -1,10 +1,14 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
+	"net/http"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
@@ -19,7 +23,76 @@ func GetOwnedACUWorkTimeline(userID int, from, to int64, allowAdminAttemptHydrat
 	return buildACUWorkTimeline(logs, from, to, allowAdminAttemptHydration), nil
 }
 
-func buildACUWorkTimeline(logs []*model.Log, from, to int64, allowAdminAttemptHydration bool) dto.ACUWorkTimeline {
+func loadACUTimelineJudgeDifficulties(logs []*model.Log, userID int) (map[string]float64, error) {
+	segmentIDs := make([]string, 0)
+	seen := make(map[string]struct{})
+	for _, log := range logs {
+		if log == nil {
+			continue
+		}
+		var other map[string]interface{}
+		if common.Unmarshal([]byte(log.Other), &other) != nil {
+			continue
+		}
+		breakdown := mapValue(other, "acu_cost_breakdown")
+		segmentID := stringValue(breakdown, "segment_id")
+		if segmentID == "" || (numberValue(breakdown, "judge_calls") <= 0 && !boolValue(breakdown, "judge_reused")) {
+			continue
+		}
+		if _, exists := seen[segmentID]; !exists {
+			seen[segmentID] = struct{}{}
+			segmentIDs = append(segmentIDs, segmentID)
+		}
+	}
+	if len(segmentIDs) == 0 {
+		return nil, nil
+	}
+	body, err := common.Marshal(map[string]interface{}{
+		"newapiUserId": strconv.Itoa(userID),
+		"segmentIds":   segmentIDs,
+	})
+	if err != nil {
+		return nil, err
+	}
+	response, err := acuRouterAdminRequestWithTimeout(
+		context.Background(),
+		2*time.Second,
+		http.MethodPost,
+		"/internal/admin/judge-difficulties",
+		body,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("ACU Judge difficulty request returned HTTP %d", response.StatusCode)
+	}
+	var envelope struct {
+		Items map[string]struct {
+			Difficulty float64 `json:"difficulty"`
+		} `json:"items"`
+	}
+	if err := common.DecodeJson(response.Body, &envelope); err != nil {
+		return nil, fmt.Errorf("ACU Judge difficulty response is invalid: %w", err)
+	}
+	result := make(map[string]float64, len(envelope.Items))
+	for segmentID, item := range envelope.Items {
+		result[segmentID] = item.Difficulty
+	}
+	return result, nil
+}
+
+func buildACUWorkTimeline(
+	logs []*model.Log,
+	from, to int64,
+	allowAdminAttemptHydration bool,
+	finalJudgeDifficulties ...map[string]float64,
+) dto.ACUWorkTimeline {
+	var authoritativeJudgeDifficulties map[string]float64
+	if len(finalJudgeDifficulties) > 0 {
+		authoritativeJudgeDifficulties = finalJudgeDifficulties[0]
+	}
 	byRequest := map[string]dto.ACUWorkTimelineItem{}
 	for _, log := range logs {
 		var other map[string]interface{}
@@ -187,6 +260,10 @@ func buildACUWorkTimeline(logs []*model.Log, from, to int64, allowAdminAttemptHy
 			judge.UserChargeCNY = floatPointer(item.JudgeUserChargeCNY)
 			judge.ActualCashCostCNY = floatPointer(item.JudgeCostCNY)
 			judge.Status = judgePointStatus(item)
+			if difficulty, ok := authoritativeJudgeDifficulties[item.SegmentID]; ok {
+				judge.Difficulty = difficulty
+				judge.DifficultyRecorded = true
+			}
 			judge.EndToEndLatencyMs = item.JudgeLatencyMs
 			judge.ProviderLatencyMs = 0
 			judge.FirstModelEventLatencyMs = 0
