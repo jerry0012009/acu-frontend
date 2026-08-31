@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, RotateCcw, Save } from 'lucide-react'
+import { RotateCcw, Save } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Combobox } from '@/components/ui/combobox'
 import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { getUsers } from '@/features/users/api'
 import { ROLE } from '@/lib/roles'
@@ -24,6 +25,8 @@ import {
   getPrivateACUExperienceDetail,
   getPrivateACUAdvisors,
 } from '../../private-acu-admin-api'
+import { PrivateACUFilmPOC } from './private-acu-film-poc'
+import { PrivateACUSkillCatalog } from './private-acu-skill-catalog'
 
 function PromptEditor(props: {
   label: string
@@ -61,29 +64,7 @@ function MemorySection(props: { memory?: PrivateACUMemory; loading: boolean }) {
       <div className='text-muted-foreground text-xs'>
         {t('Learning space')}: {props.memory.spaceId || t('Not created')}
       </div>
-      {props.memory.skills.map((skill) => (
-        <details key={skill.id} className='border-border rounded-md border p-3'>
-          <summary className='flex cursor-pointer list-none items-center gap-2 text-sm font-medium'>
-            <ChevronDown className='size-4' />
-            {skill.name}
-            <span className='text-muted-foreground text-xs'>
-              {skill.description}
-            </span>
-          </summary>
-          <div className='mt-3 space-y-3'>
-            {skill.files.map((file) => (
-              <details key={file.path} className='bg-muted/30 rounded-md p-3'>
-                <summary className='cursor-pointer font-mono text-xs'>
-                  {file.path}
-                </summary>
-                <pre className='mt-2 max-h-96 overflow-auto text-xs whitespace-pre-wrap'>
-                  {file.content || t('No content')}
-                </pre>
-              </details>
-            ))}
-          </div>
-        </details>
-      ))}
+      <PrivateACUSkillCatalog skills={props.memory.skills} />
     </div>
   )
 }
@@ -245,7 +226,7 @@ export function PrivateACUAdmin() {
     )
   }
 
-  return (
+  const accountView = (
     <div className='space-y-6'>
       <section className='space-y-2'>
         <h2 className='text-base font-semibold'>{t('Account')}</h2>
@@ -376,6 +357,21 @@ export function PrivateACUAdmin() {
         <InternalPromptsSection prompts={memoryQuery.data?.internalPrompts} />
       </section>
     </div>
+  )
+
+  return (
+    <Tabs defaultValue='accounts' className='min-w-0 gap-5'>
+      <TabsList>
+        <TabsTrigger value='accounts'>{t('Account learning')}</TabsTrigger>
+        <TabsTrigger value='film'>{t('Film POC / GYZ')}</TabsTrigger>
+      </TabsList>
+      <TabsContent value='accounts' className='min-w-0'>
+        {accountView}
+      </TabsContent>
+      <TabsContent value='film' className='min-w-0'>
+        <PrivateACUFilmPOC />
+      </TabsContent>
+    </Tabs>
   )
 }
 

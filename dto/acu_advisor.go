@@ -66,6 +66,52 @@ type ACUPrivateMemory struct {
 	InternalPrompts []ACUPrivateMemoryPrompt `json:"internalPrompts,omitempty"`
 }
 
+type ACUPrivateFilmImagePolicy struct {
+	MaxImages          int    `json:"maxImages"`
+	MaxInputImageBytes int64  `json:"maxInputImageBytes"`
+	MaxInputTotalBytes int64  `json:"maxInputTotalBytes"`
+	MaxModelImageBytes int64  `json:"maxModelImageBytes"`
+	MaxModelTotalBytes int64  `json:"maxModelTotalBytes"`
+	MaxImageDimension  int    `json:"maxImageDimension"`
+	OutputMimeType     string `json:"outputMimeType"`
+	CompressionPolicy  string `json:"compressionPolicy"`
+}
+
+type ACUPrivateFilmLastSubmission struct {
+	ExperienceID       string                                 `json:"experienceId"`
+	SessionID          string                                 `json:"sessionId"`
+	SubmittedAt        string                                 `json:"submittedAt"`
+	ImageCount         int                                    `json:"imageCount"`
+	ReceivedImageBytes int64                                  `json:"receivedImageBytes"`
+	PreparedImageBytes int64                                  `json:"preparedImageBytes"`
+	Images             []ACUPrivateFilmImageProcessingSummary `json:"images"`
+}
+
+type ACUPrivateFilmImageProcessingSummary struct {
+	ImageIndex     int    `json:"imageIndex"`
+	Mode           string `json:"mode"`
+	InputBytes     int64  `json:"inputBytes"`
+	OutputBytes    int64  `json:"outputBytes"`
+	InputWidth     int    `json:"inputWidth"`
+	InputHeight    int    `json:"inputHeight"`
+	OutputWidth    int    `json:"outputWidth"`
+	OutputHeight   int    `json:"outputHeight"`
+	OutputMimeType string `json:"outputMimeType"`
+	Quality        *int   `json:"quality,omitempty"`
+}
+
+type ACUPrivateFilmStatus struct {
+	Enabled                bool                          `json:"enabled"`
+	TeamScope              string                        `json:"teamScope,omitempty"`
+	AcontextUser           string                        `json:"acontextUser,omitempty"`
+	SpaceID                string                        `json:"spaceId,omitempty"`
+	LearningModel          string                        `json:"learningModel,omitempty"`
+	IngressTokenConfigured bool                          `json:"ingressTokenConfigured"`
+	ImagePolicy            *ACUPrivateFilmImagePolicy    `json:"imagePolicy,omitempty"`
+	LastSubmission         *ACUPrivateFilmLastSubmission `json:"lastSubmission,omitempty"`
+	Skills                 []ACUPrivateMemorySkill       `json:"skills"`
+}
+
 type ACUPrivateMemoryPrompt struct {
 	Path    string `json:"path"`
 	Mime    string `json:"mime"`

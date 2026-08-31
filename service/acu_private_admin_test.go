@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPrivateACUAdminProxyReadsPromptsAndMemory(t *testing.T) {
+func TestPrivateACUAdminProxyReadsPromptsMemoryAndFilmStatus(t *testing.T) {
 	requests := make(chan struct {
 		method string
 		path   string
@@ -41,6 +41,8 @@ func TestPrivateACUAdminProxyReadsPromptsAndMemory(t *testing.T) {
 			_, _ = writer.Write([]byte(`{"prompts":{"observerPrompt":"observer","advisorPrompt":"advisor","learningPrompt":"learning","promptVersion":2,"source":"default"}}`))
 		case "/internal/admin/private-acu/memory":
 			_, _ = writer.Write([]byte(`{"memory":{"enabled":true,"userId":"3","spaceId":"space-1","skills":[]}}`))
+		case "/internal/admin/private-acu/film":
+			_, _ = writer.Write([]byte(`{"film":{"enabled":true,"teamScope":"GYZ","acontextUser":"private-acu-film:GYZ","spaceId":"film-space-1","learningModel":"gpt-5.6-sol","ingressTokenConfigured":true,"imagePolicy":{"maxImages":8,"maxInputImageBytes":16777216,"maxInputTotalBytes":67108864,"maxModelImageBytes":4194304,"maxModelTotalBytes":25165824,"maxImageDimension":2560,"outputMimeType":"image/webp","compressionPolicy":"visual-quality-first"},"skills":[]}}`))
 		default:
 			writer.WriteHeader(http.StatusNotFound)
 		}
@@ -57,6 +59,13 @@ func TestPrivateACUAdminProxyReadsPromptsAndMemory(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "space-1", memory.SpaceID)
 
+	film, err := GetPrivateACUFilmStatus(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "GYZ", film.TeamScope)
+	require.Equal(t, "gpt-5.6-sol", film.LearningModel)
+	require.NotNil(t, film.ImagePolicy)
+	require.Equal(t, 2560, film.ImagePolicy.MaxImageDimension)
+
 	for _, expected := range []struct {
 		method string
 		path   string
@@ -64,6 +73,7 @@ func TestPrivateACUAdminProxyReadsPromptsAndMemory(t *testing.T) {
 	}{
 		{http.MethodGet, "/internal/admin/private-acu/prompts", ""},
 		{http.MethodGet, "/internal/admin/private-acu/memory", "newapiUserId=3"},
+		{http.MethodGet, "/internal/admin/private-acu/film", ""},
 	} {
 		request := <-requests
 		require.Equal(t, expected.method, request.method)

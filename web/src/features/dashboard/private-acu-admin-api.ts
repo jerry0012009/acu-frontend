@@ -33,6 +33,46 @@ export type PrivateACUMemory = {
   internalPrompts?: PrivateACUMemoryPrompt[]
 }
 
+export type PrivateACUFilmStatus = {
+  enabled: boolean
+  teamScope?: string
+  acontextUser?: string
+  spaceId?: string
+  learningModel?: string
+  ingressTokenConfigured: boolean
+  imagePolicy?: {
+    maxImages: number
+    maxInputImageBytes: number
+    maxInputTotalBytes: number
+    maxModelImageBytes: number
+    maxModelTotalBytes: number
+    maxImageDimension: number
+    outputMimeType: string
+    compressionPolicy: 'visual-quality-first'
+  }
+  lastSubmission?: {
+    experienceId: string
+    sessionId: string
+    submittedAt: string
+    imageCount: number
+    receivedImageBytes: number
+    preparedImageBytes: number
+    images: Array<{
+      imageIndex: number
+      mode: 'unchanged' | 'compressed'
+      inputBytes: number
+      outputBytes: number
+      inputWidth: number
+      inputHeight: number
+      outputWidth: number
+      outputHeight: number
+      outputMimeType: string
+      quality?: number
+    }>
+  }
+  skills: PrivateACUMemorySkill[]
+}
+
 export type PrivateACUUsageEntry = {
   ledgerId: string
   logicalRequestId: string
@@ -130,6 +170,13 @@ export async function getPrivateACUMemory(userId = '') {
   const query = userId ? `?newapiUserId=${encodeURIComponent(userId)}` : ''
   const response = await api.get<{ data: PrivateACUMemory }>(
     `/api/admin/acu-private/memory${query}`
+  )
+  return response.data.data
+}
+
+export async function getPrivateACUFilmStatus() {
+  const response = await api.get<{ data: PrivateACUFilmStatus }>(
+    '/api/admin/acu-private/film'
   )
   return response.data.data
 }

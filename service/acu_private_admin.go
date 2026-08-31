@@ -110,6 +110,24 @@ func GetPrivateACUMemory(ctx context.Context, userID string) (dto.ACUPrivateMemo
 	return envelope.Memory, nil
 }
 
+func GetPrivateACUFilmStatus(ctx context.Context) (dto.ACUPrivateFilmStatus, error) {
+	response, err := acuRouterAdminRequest(ctx, http.MethodGet, "/internal/admin/private-acu/film", nil)
+	if err != nil {
+		return dto.ACUPrivateFilmStatus{}, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return dto.ACUPrivateFilmStatus{}, fmt.Errorf("Private ACU film status request returned HTTP %d", response.StatusCode)
+	}
+	var envelope struct {
+		Film dto.ACUPrivateFilmStatus `json:"film"`
+	}
+	if err := common.DecodeJson(response.Body, &envelope); err != nil {
+		return dto.ACUPrivateFilmStatus{}, err
+	}
+	return envelope.Film, nil
+}
+
 func GetPrivateACUUsage(ctx context.Context, userID string, limit int) (dto.ACUPrivateUsage, error) {
 	query := url.Values{}
 	query.Set("newapiUserId", strings.TrimSpace(userID))

@@ -54,6 +54,15 @@ func GetPrivateACUMemory(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
 }
 
+func GetPrivateACUFilmStatus(c *gin.Context) {
+	result, err := service.GetPrivateACUFilmStatus(c.Request.Context())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
 func GetPrivateACUUsage(c *gin.Context) {
 	userID := c.Query("newapiUserId")
 	if userID == "" {
