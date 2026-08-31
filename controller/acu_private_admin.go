@@ -118,6 +118,56 @@ func GetPrivateACUExperienceDetail(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
 }
 
+func GetPrivateACULearningRuns(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))
+	if limit <= 0 {
+		limit = 100
+	}
+	result, err := service.GetPrivateACULearningRuns(
+		c.Request.Context(),
+		limit,
+		c.Query("learningKind"),
+	)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
+func GetPrivateACULearningRunDetail(c *gin.Context) {
+	runID := c.Param("runId")
+	if runID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "runId is required"})
+		return
+	}
+	result, err := service.GetPrivateACULearningRunDetail(c.Request.Context(), runID)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
+func GetPrivateACULearningRunMedia(c *gin.Context) {
+	content, contentType, disposition, err := service.GetPrivateACULearningRunMedia(
+		c.Request.Context(),
+		c.Param("runId"),
+		c.Param("mediaId"),
+	)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if contentType != "" {
+		c.Header("Content-Type", contentType)
+	}
+	if disposition != "" {
+		c.Header("Content-Disposition", disposition)
+	}
+	c.Data(http.StatusOK, contentType, content)
+}
+
 func GetPrivateACUAdvisorsByUserID(c *gin.Context) {
 	userID := c.Query("newapiUserId")
 	if userID == "" {

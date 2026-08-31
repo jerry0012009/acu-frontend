@@ -139,6 +139,56 @@ export type PrivateACUMemoryPrompt = {
   content: string
 }
 
+export type PrivateACULearningRun = {
+  runId: string
+  learningKind: string
+  newapiUserId?: string
+  teamScope?: string
+  spaceId: string
+  sessionId: string
+  experienceId?: string
+  status: string
+  elementCount: number
+  skillChangeCount: number
+  receivedAt: string
+  completedAt?: string
+  error?: Record<string, unknown>
+}
+
+export type PrivateACULearningRuns = {
+  runs: PrivateACULearningRun[]
+}
+
+export type PrivateACULearningRunDetail = PrivateACULearningRun & {
+  taskId?: string
+  evidence: Record<string, unknown>
+  distillation: Record<string, unknown>
+  skillsBefore: PrivateACUMemorySkill[]
+  skillsAfter: PrivateACUMemorySkill[]
+  skillChanges: Array<{
+    skillId: string
+    name: string
+    descriptionBefore?: string
+    descriptionAfter?: string
+    changeType: string
+    files: Array<{
+      path: string
+      before: string
+      after: string
+      diff: string
+    }>
+  }>
+  timeline: Array<Record<string, unknown>>
+  media: Array<{
+    mediaId: string
+    imageIndex: number
+    mimeType: string
+    filename?: string
+    processing?: Record<string, unknown>
+    url: string
+  }>
+}
+
 export async function getPrivateACUPrompts() {
   const response = await api.get<{ data: PrivateACUPrompts }>(
     '/api/admin/acu-private/prompts'
@@ -212,4 +262,23 @@ export async function getPrivateACUAdvisors(userId: string, limit = 50) {
     `/api/admin/acu-private/advisors?newapiUserId=${encodeURIComponent(userId)}&limit=${limit}`
   )
   return response.data.advisors
+}
+
+export async function getPrivateACULearningRuns(
+  limit = 100,
+  learningKind = ''
+) {
+  const query = new URLSearchParams({ limit: String(limit) })
+  if (learningKind) query.set('learningKind', learningKind)
+  const response = await api.get<{ data: PrivateACULearningRuns }>(
+    `/api/admin/acu-private/learning-runs?${query.toString()}`
+  )
+  return response.data.data.runs
+}
+
+export async function getPrivateACULearningRunDetail(runId: string) {
+  const response = await api.get<{ data: PrivateACULearningRunDetail }>(
+    `/api/admin/acu-private/learning-runs/${encodeURIComponent(runId)}`
+  )
+  return response.data.data
 }

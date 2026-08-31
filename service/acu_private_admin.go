@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -193,6 +194,87 @@ func GetPrivateACUExperienceDetail(
 		return dto.ACUPrivateExperienceDetail{}, err
 	}
 	return envelope.Experience, nil
+}
+
+func GetPrivateACULearningRuns(
+	ctx context.Context,
+	limit int,
+	learningKind string,
+) (dto.ACUPrivateLearningRuns, error) {
+	query := url.Values{}
+	query.Set("limit", strconv.Itoa(limit))
+	if strings.TrimSpace(learningKind) != "" {
+		query.Set("learningKind", strings.TrimSpace(learningKind))
+	}
+	response, err := acuRouterAdminRequest(
+		ctx,
+		http.MethodGet,
+		"/internal/admin/private-acu/learning-runs?"+query.Encode(),
+		nil,
+	)
+	if err != nil {
+		return dto.ACUPrivateLearningRuns{}, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return dto.ACUPrivateLearningRuns{}, fmt.Errorf("Private ACU learning runs request returned HTTP %d", response.StatusCode)
+	}
+	var result dto.ACUPrivateLearningRuns
+	if err := common.DecodeJson(response.Body, &result); err != nil {
+		return dto.ACUPrivateLearningRuns{}, err
+	}
+	return result, nil
+}
+
+func GetPrivateACULearningRunDetail(
+	ctx context.Context,
+	runID string,
+) (dto.ACUPrivateLearningRunDetail, error) {
+	response, err := acuRouterAdminRequest(
+		ctx,
+		http.MethodGet,
+		"/internal/admin/private-acu/learning-runs/"+url.PathEscape(runID),
+		nil,
+	)
+	if err != nil {
+		return dto.ACUPrivateLearningRunDetail{}, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return dto.ACUPrivateLearningRunDetail{}, fmt.Errorf("Private ACU learning run detail request returned HTTP %d", response.StatusCode)
+	}
+	var envelope struct {
+		Run dto.ACUPrivateLearningRunDetail `json:"run"`
+	}
+	if err := common.DecodeJson(response.Body, &envelope); err != nil {
+		return dto.ACUPrivateLearningRunDetail{}, err
+	}
+	return envelope.Run, nil
+}
+
+func GetPrivateACULearningRunMedia(
+	ctx context.Context,
+	runID string,
+	mediaID string,
+) ([]byte, string, string, error) {
+	response, err := acuRouterAdminRequest(
+		ctx,
+		http.MethodGet,
+		"/internal/admin/private-acu/learning-runs/"+url.PathEscape(runID)+"/media/"+url.PathEscape(mediaID),
+		nil,
+	)
+	if err != nil {
+		return nil, "", "", err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return nil, "", "", fmt.Errorf("Private ACU learning run media request returned HTTP %d", response.StatusCode)
+	}
+	content, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, "", "", err
+	}
+	return content, response.Header.Get("Content-Type"), response.Header.Get("Content-Disposition"), nil
 }
 
 func GetPrivateACUAdvisorsByUserID(ctx context.Context, userID string, limit int) (dto.ACUAdvisorList, error) {

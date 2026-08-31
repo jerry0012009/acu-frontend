@@ -136,6 +136,47 @@ type ACUPrivateExperienceDetail struct {
 	Advisor      *ACUAdvisor            `json:"advisor,omitempty"`
 }
 
+type ACUPrivateLearningRun struct {
+	RunID            string                 `json:"runId"`
+	LearningKind     string                 `json:"learningKind"`
+	NewAPIUserID     string                 `json:"newapiUserId,omitempty"`
+	TeamScope        string                 `json:"teamScope,omitempty"`
+	SpaceID          string                 `json:"spaceId"`
+	SessionID        string                 `json:"sessionId"`
+	ExperienceID     string                 `json:"experienceId,omitempty"`
+	Status           string                 `json:"status"`
+	ElementCount     int64                  `json:"elementCount"`
+	SkillChangeCount int64                  `json:"skillChangeCount"`
+	ReceivedAt       string                 `json:"receivedAt"`
+	CompletedAt      string                 `json:"completedAt,omitempty"`
+	Error            map[string]interface{} `json:"error,omitempty"`
+}
+
+type ACUPrivateLearningRuns struct {
+	Runs []ACUPrivateLearningRun `json:"runs"`
+}
+
+type ACUPrivateLearningRunMedia struct {
+	MediaID    string                 `json:"mediaId"`
+	ImageIndex int                    `json:"imageIndex"`
+	MimeType   string                 `json:"mimeType"`
+	Filename   string                 `json:"filename,omitempty"`
+	Processing map[string]interface{} `json:"processing,omitempty"`
+	URL        string                 `json:"url"`
+}
+
+type ACUPrivateLearningRunDetail struct {
+	ACUPrivateLearningRun
+	TaskID       string                       `json:"taskId,omitempty"`
+	Evidence     map[string]interface{}       `json:"evidence"`
+	Distillation map[string]interface{}       `json:"distillation"`
+	SkillsBefore []ACUPrivateMemorySkill      `json:"skillsBefore"`
+	SkillsAfter  []ACUPrivateMemorySkill      `json:"skillsAfter"`
+	SkillChanges []map[string]interface{}     `json:"skillChanges"`
+	Timeline     []map[string]interface{}     `json:"timeline"`
+	Media        []ACUPrivateLearningRunMedia `json:"media"`
+}
+
 type ACUPrivateUsageEntry struct {
 	LedgerID                string  `json:"ledgerId"`
 	NewAPIUserID            string  `json:"newapiUserId"`

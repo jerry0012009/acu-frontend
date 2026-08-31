@@ -26,6 +26,7 @@ import {
   getPrivateACUAdvisors,
 } from '../../private-acu-admin-api'
 import { PrivateACUFilmPOC } from './private-acu-film-poc'
+import { PrivateACULearningRuns } from './private-acu-learning-runs'
 import { PrivateACUSkillCatalog } from './private-acu-skill-catalog'
 
 function PromptEditor(props: {
@@ -338,6 +339,10 @@ export function PrivateACUAdmin() {
         <AdvisorHistorySection userId={selectedUserId} />
       </section>
       <section className='space-y-3'>
+        <h2 className='text-base font-semibold'>{t('Learning runs')}</h2>
+        <PrivateACULearningRuns />
+      </section>
+      <section className='space-y-3'>
         <h2 className='text-base font-semibold'>{t('Experiences')}</h2>
         <ExperiencesSection
           userId={selectedUserId}
@@ -369,7 +374,13 @@ export function PrivateACUAdmin() {
         {accountView}
       </TabsContent>
       <TabsContent value='film' className='min-w-0'>
-        <PrivateACUFilmPOC />
+        <div className='space-y-6'>
+          <PrivateACUFilmPOC />
+          <section className='space-y-3'>
+            <h2 className='text-base font-semibold'>{t('Film learning runs')}</h2>
+            <PrivateACULearningRuns learningKind='film_preference_v1' />
+          </section>
+        </div>
       </TabsContent>
     </Tabs>
   )
