@@ -660,20 +660,20 @@ func migrateACUUsageFinalizeJudgeCostSourceToText() error {
 
 	var alterSQL string
 	if common.UsingMainDatabase(common.DatabaseTypePostgreSQL) {
-		var dataType string
-		query := DB.Raw(`SELECT data_type FROM information_schema.columns
-			WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?`,
-			tableName, columnName).Scan(&dataType)
-		if query.Error != nil {
-			return fmt.Errorf("failed to query metadata for %s.%s: %w", tableName, columnName, query.Error)
-		}
-		if dataType == "" {
-			return nil
-		}
-		if dataType == "text" {
-			return nil
-		}
-		alterSQL = fmt.Sprintf(`ALTER TABLE %s ALTER COLUMN %s TYPE text`, tableName, columnName)
+		alterSQL = fmt.Sprintf(`DO $migration$
+BEGIN
+	IF EXISTS (
+		SELECT 1
+		FROM information_schema.columns
+		WHERE table_schema = current_schema()
+			AND table_name = '%s'
+			AND column_name = '%s'
+			AND data_type <> 'text'
+	) THEN
+		ALTER TABLE %s ALTER COLUMN %s TYPE text;
+	END IF;
+END
+$migration$`, tableName, columnName, tableName, columnName)
 	} else if common.UsingMainDatabase(common.DatabaseTypeMySQL) {
 		var columnType string
 		query := DB.Raw(`SELECT COLUMN_TYPE FROM information_schema.columns
