@@ -73,6 +73,26 @@ export type PrivateACUFilmStatus = {
   skills: PrivateACUMemorySkill[]
 }
 
+export type PrivateACUPOCSpaceAccess = {
+  key: string
+  spaceId: string
+  memberUserIds: number[]
+  enabled: boolean
+}
+
+export type PrivateACUPOCAccess = {
+  spaces: PrivateACUPOCSpaceAccess[]
+}
+
+export type PrivateACUFilmMemberView = {
+  enabled: boolean
+  spaces: Array<{
+    key: string
+    teamScope?: string
+    skills: PrivateACUMemorySkill[]
+  }>
+}
+
 export type PrivateACUUsageEntry = {
   ledgerId: string
   logicalRequestId: string
@@ -227,6 +247,21 @@ export async function getPrivateACUMemory(userId = '') {
 export async function getPrivateACUFilmStatus() {
   const response = await api.get<{ data: PrivateACUFilmStatus }>(
     '/api/admin/acu-private/film'
+  )
+  return response.data.data
+}
+
+export async function getPrivateACUPOCAccess() {
+  const response = await api.get<{ data: PrivateACUPOCAccess }>(
+    '/api/admin/acu-private/access'
+  )
+  return response.data.data
+}
+
+export async function savePrivateACUPOCAccess(access: PrivateACUPOCAccess) {
+  const response = await api.put<{ data: PrivateACUPOCAccess }>(
+    '/api/admin/acu-private/access',
+    access
   )
   return response.data.data
 }

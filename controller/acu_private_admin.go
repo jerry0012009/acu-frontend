@@ -63,6 +63,28 @@ func GetPrivateACUFilmStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
 }
 
+func GetPrivateACUPOCAccess(c *gin.Context) {
+	result, err := service.GetPrivateACUPOCAccess()
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
+func SavePrivateACUPOCAccess(c *gin.Context) {
+	var input dto.ACUPrivatePOCAccess
+	if err := c.ShouldBindJSON(&input); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := service.SavePrivateACUPOCAccess(input); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": input})
+}
+
 func GetPrivateACUUsage(c *gin.Context) {
 	userID := c.Query("newapiUserId")
 	if userID == "" {

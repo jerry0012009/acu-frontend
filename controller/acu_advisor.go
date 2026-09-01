@@ -32,6 +32,22 @@ func GetPrivateACUMemoryForUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
 }
 
+func GetPrivateACUFilmForUser(c *gin.Context) {
+	result, err := service.GetPrivateACUFilmMemberView(c.Request.Context(), c.GetInt("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if len(result.Spaces) == 0 {
+		c.JSON(http.StatusForbidden, gin.H{
+			"success": false,
+			"message": "Private ACU film access is not configured for this user",
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
 func UpdatePrivateACUAdvisorFeedback(c *gin.Context) {
 	var input dto.ACUAdvisorFeedbackRequest
 	if err := c.ShouldBindJSON(&input); err != nil {

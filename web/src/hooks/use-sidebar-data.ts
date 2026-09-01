@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query'
 import {
   Activity,
   Box,
@@ -19,7 +20,9 @@ import {
 import { useTranslation } from 'react-i18next'
 
 import type { SidebarData } from '@/components/layout/types'
+import { getPrivateACUFilmForUser } from '@/features/dashboard/private-acu-user-api'
 import { ROLE } from '@/lib/roles'
+import { useAuthStore } from '@/stores/auth-store'
 
 /**
  * Root navigation groups for the application sidebar.
@@ -29,6 +32,16 @@ import { ROLE } from '@/lib/roles'
  */
 export function useSidebarData(): SidebarData {
   const { t } = useTranslation()
+  const userRole = useAuthStore((state) => state.auth.user?.role ?? ROLE.GUEST)
+  const memberFilmQuery = useQuery({
+    queryKey: ['private-acu', 'sidebar-access'],
+    queryFn: getPrivateACUFilmForUser,
+    enabled: userRole < ROLE.ADMIN,
+    retry: false,
+    staleTime: 60_000,
+  })
+  const canSeePrivateACU =
+    userRole >= ROLE.ADMIN || Boolean(memberFilmQuery.data?.spaces.length)
 
   return {
     navGroups: [
@@ -68,11 +81,6 @@ export function useSidebarData(): SidebarData {
             icon: FileText,
           },
           {
-            title: t('Route Timeline'),
-            url: '/usage-logs/timeline',
-            icon: Route,
-          },
-          {
             title: t('Supply Monitor'),
             url: '/usage-logs/channel-monitor',
             icon: Activity,
@@ -85,6 +93,26 @@ export function useSidebarData(): SidebarData {
             icon: ListTodo,
             requiredRole: ROLE.ADMIN,
           },
+        ],
+      },
+      {
+        id: 'acu',
+        title: t('ACU'),
+        items: [
+          {
+            title: t('Route Timeline'),
+            url: '/usage-logs/timeline',
+            icon: Route,
+          },
+          ...(canSeePrivateACU
+            ? [
+                {
+                  title: t('Private ACU'),
+                  url: '/private-acu/overview',
+                  icon: Settings,
+                },
+              ]
+            : []),
         ],
       },
       {

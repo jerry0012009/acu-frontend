@@ -49,10 +49,20 @@ export function useSidebarView(): ResolvedSidebarView {
   const view = resolveSidebarView(pathname)
 
   if (view) {
+    const role = userRole ?? ROLE.GUEST
+    const navGroups = view
+      .getNavGroups(t)
+      .map((group) => ({
+        ...group,
+        items: group.items.filter(
+          (item) => item.requiredRole === undefined || role >= item.requiredRole
+        ),
+      }))
+      .filter((group) => group.items.length > 0)
     return {
       key: view.id,
       view,
-      navGroups: view.getNavGroups(t),
+      navGroups,
     }
   }
 

@@ -8,6 +8,12 @@ import {
 
 export const Route = createFileRoute('/_authenticated/dashboard/$section')({
   beforeLoad: ({ params }) => {
+    if (params.section === 'acu-private-admin') {
+      throw redirect({
+        to: '/private-acu/$section',
+        params: { section: 'overview' },
+      })
+    }
     const validSections = DASHBOARD_SECTION_IDS as unknown as string[]
     if (!validSections.includes(params.section)) {
       throw redirect({

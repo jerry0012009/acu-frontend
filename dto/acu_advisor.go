@@ -112,6 +112,28 @@ type ACUPrivateFilmStatus struct {
 	Skills                 []ACUPrivateMemorySkill       `json:"skills"`
 }
 
+type ACUPrivatePOCSpaceAccess struct {
+	Key           string `json:"key"`
+	SpaceID       string `json:"spaceId"`
+	MemberUserIDs []int  `json:"memberUserIds"`
+	Enabled       bool   `json:"enabled"`
+}
+
+type ACUPrivatePOCAccess struct {
+	Spaces []ACUPrivatePOCSpaceAccess `json:"spaces"`
+}
+
+type ACUPrivateFilmMemberSpace struct {
+	Key       string                  `json:"key"`
+	TeamScope string                  `json:"teamScope,omitempty"`
+	Skills    []ACUPrivateMemorySkill `json:"skills"`
+}
+
+type ACUPrivateFilmMemberView struct {
+	Enabled bool                        `json:"enabled"`
+	Spaces  []ACUPrivateFilmMemberSpace `json:"spaces"`
+}
+
 type ACUPrivateMemoryPrompt struct {
 	Path    string `json:"path"`
 	Mime    string `json:"mime"`

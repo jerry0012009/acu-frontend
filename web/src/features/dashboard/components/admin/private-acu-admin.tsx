@@ -100,7 +100,9 @@ function InternalPromptsSection(props: {
   )
 }
 
-export function PrivateACUAdmin() {
+export function PrivateACUAdmin(
+  props: { view?: 'all' | 'account' | 'prompts' } = {}
+) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const userRole = useAuthStore((state) => state.auth.user?.role)
@@ -364,6 +366,104 @@ export function PrivateACUAdmin() {
     </div>
   )
 
+  const promptsView = (
+    <div className='space-y-4'>
+      <section className='space-y-4'>
+        <div className='flex flex-wrap items-center justify-between gap-3'>
+          <div>
+            <h2 className='text-base font-semibold'>
+              {t('Private ACU prompts')}
+            </h2>
+            <p className='text-muted-foreground text-xs'>
+              {t('Version')}: {draft?.promptVersion ?? '-'} · {t('Source')}:{' '}
+              {draft?.source ?? '-'}
+            </p>
+          </div>
+          {draft && (
+            <label className='flex items-center gap-2 text-sm'>
+              <Switch
+                checked={draft.enabled}
+                disabled={disabled || !canEdit}
+                onCheckedChange={(checked) =>
+                  setDraft((current) =>
+                    current ? { ...current, enabled: checked } : current
+                  )
+                }
+              />
+              {t('Private ACU enabled')}
+            </label>
+          )}
+          {canEdit && (
+            <div className='flex gap-2'>
+              <Button
+                variant='outline'
+                size='sm'
+                disabled={disabled}
+                onClick={() => resetMutation.mutate()}
+              >
+                <RotateCcw />
+                {t('Reset default')}
+              </Button>
+              <Button
+                size='sm'
+                disabled={disabled || !editable}
+                onClick={() => editable && saveMutation.mutate(editable)}
+              >
+                <Save />
+                {t('Save prompts')}
+              </Button>
+            </div>
+          )}
+        </div>
+        {editable ? (
+          <div className='grid gap-4'>
+            <PromptEditor
+              label={t('Observer prompt')}
+              value={editable.observerPrompt}
+              disabled={disabled || !canEdit}
+              onChange={(value) =>
+                setDraft((current) =>
+                  current ? { ...current, observerPrompt: value } : current
+                )
+              }
+            />
+            <PromptEditor
+              label={t('Advisor prompt')}
+              value={editable.advisorPrompt}
+              disabled={disabled || !canEdit}
+              onChange={(value) =>
+                setDraft((current) =>
+                  current ? { ...current, advisorPrompt: value } : current
+                )
+              }
+            />
+            <PromptEditor
+              label={t('Learning prompt')}
+              value={editable.learningPrompt}
+              disabled={disabled || !canEdit}
+              onChange={(value) =>
+                setDraft((current) =>
+                  current ? { ...current, learningPrompt: value } : current
+                )
+              }
+            />
+          </div>
+        ) : (
+          <div className='text-muted-foreground text-sm'>{t('Loading')}</div>
+        )}
+      </section>
+      <section className='border-border space-y-2 rounded-md border p-4'>
+        <h2 className='text-base font-semibold'>
+          {t('Acontext internal prompts')}
+        </h2>
+        <InternalPromptsSection prompts={memoryQuery.data?.internalPrompts} />
+      </section>
+    </div>
+  )
+
+  if (props.view === 'account') return accountView
+  if (props.view === 'prompts') return promptsView
+
   return (
     <Tabs defaultValue='accounts' className='min-w-0 gap-5'>
       <TabsList>
@@ -377,7 +477,9 @@ export function PrivateACUAdmin() {
         <div className='space-y-6'>
           <PrivateACUFilmPOC />
           <section className='space-y-3'>
-            <h2 className='text-base font-semibold'>{t('Film learning runs')}</h2>
+            <h2 className='text-base font-semibold'>
+              {t('Film learning runs')}
+            </h2>
             <PrivateACULearningRuns learningKind='film_preference_v1' />
           </section>
         </div>

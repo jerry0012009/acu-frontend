@@ -1,10 +1,19 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { RefreshCw } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { ROLE } from '@/lib/roles'
+import { useAuthStore } from '@/stores/auth-store'
 
-import { getPrivateACUFilmStatus } from '../../private-acu-admin-api'
+import {
+  getPrivateACUFilmStatus,
+  getPrivateACUPOCAccess,
+  savePrivateACUPOCAccess,
+} from '../../private-acu-admin-api'
 import { PrivateACUSkillCatalog } from './private-acu-skill-catalog'
 
 function formatBytes(bytes: number): string {
@@ -15,9 +24,30 @@ function formatBytes(bytes: number): string {
 
 export function PrivateACUFilmPOC() {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const userRole = useAuthStore((state) => state.auth.user?.role ?? ROLE.GUEST)
+  const canEditAccess = userRole === ROLE.SUPER_ADMIN
   const query = useQuery({
     queryKey: ['dashboard', 'private-acu-admin', 'film'],
     queryFn: getPrivateACUFilmStatus,
+  })
+  const accessQuery = useQuery({
+    queryKey: ['private-acu', 'film', 'access'],
+    queryFn: getPrivateACUPOCAccess,
+    enabled: !query.isLoading && !query.isError,
+  })
+  const [memberIDs, setMemberIDs] = useState('')
+  useEffect(() => {
+    const configured = accessQuery.data?.spaces[0]?.memberUserIds ?? []
+    setMemberIDs(configured.join(', '))
+  }, [accessQuery.data])
+  const saveAccessMutation = useMutation({
+    mutationFn: savePrivateACUPOCAccess,
+    onSuccess: (data) => {
+      queryClient.setQueryData(['private-acu', 'film', 'access'], data)
+      toast.success(t('POC member access saved'))
+    },
+    onError: () => toast.error(t('Failed to save POC member access')),
   })
 
   if (query.isLoading) {
@@ -207,6 +237,55 @@ export function PrivateACUFilmPOC() {
       <section className='space-y-3'>
         <h2 className='text-base font-semibold'>{t('Film quality skills')}</h2>
         <PrivateACUSkillCatalog skills={status.skills} />
+      </section>
+      <section className='border-border space-y-3 rounded-md border p-4'>
+        <div>
+          <h2 className='text-base font-semibold'>{t('POC member access')}</h2>
+          <p className='text-muted-foreground mt-1 text-xs'>
+            {t('Use New API user IDs separated by commas.')}
+          </p>
+        </div>
+        <div className='flex flex-col gap-2 sm:flex-row sm:items-center'>
+          <Input
+            value={memberIDs}
+            disabled={!canEditAccess || saveAccessMutation.isPending}
+            onChange={(event) => setMemberIDs(event.target.value)}
+            placeholder={t('Example: 12, 25, 31')}
+            aria-label={t('POC member user IDs')}
+          />
+          {canEditAccess && (
+            <Button
+              disabled={!status.spaceId || saveAccessMutation.isPending}
+              onClick={() => {
+                const memberUserIds = [
+                  ...new Set(
+                    memberIDs
+                      .split(',')
+                      .map((value) => Number.parseInt(value.trim(), 10))
+                      .filter((value) => Number.isInteger(value) && value > 0)
+                  ),
+                ]
+                saveAccessMutation.mutate({
+                  spaces: [
+                    {
+                      key: status.teamScope || 'GYZ',
+                      spaceId: status.spaceId || '',
+                      memberUserIds,
+                      enabled: true,
+                    },
+                  ],
+                })
+              }}
+            >
+              {t('Save access')}
+            </Button>
+          )}
+        </div>
+        {!canEditAccess && (
+          <p className='text-muted-foreground text-xs'>
+            {t('Only Root can change POC member access.')}
+          </p>
+        )}
       </section>
     </div>
   )

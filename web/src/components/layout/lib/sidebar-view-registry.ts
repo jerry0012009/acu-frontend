@@ -1,5 +1,6 @@
-import { type TFunction } from 'i18next'
+import type { TFunction } from 'i18next'
 
+import { PRIVATE_ACU_VIEW } from '../config/private-acu.config'
 import { SYSTEM_SETTINGS_VIEW } from '../config/system-settings.config'
 import type { NavGroup, SidebarView } from '../types'
 
@@ -12,7 +13,10 @@ import type { NavGroup, SidebarView } from '../types'
  *
  * Match priority is array order; the first matching `pathPattern` wins.
  */
-const SIDEBAR_VIEWS: readonly SidebarView[] = [SYSTEM_SETTINGS_VIEW]
+const SIDEBAR_VIEWS: readonly SidebarView[] = [
+  PRIVATE_ACU_VIEW,
+  SYSTEM_SETTINGS_VIEW,
+]
 
 /**
  * Resolve the active nested view for the given path.

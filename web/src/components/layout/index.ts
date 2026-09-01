@@ -24,6 +24,7 @@ export { MobileDrawer } from './components/mobile-drawer'
 
 // Configuration
 export { SYSTEM_SETTINGS_VIEW } from './config/system-settings.config'
+export { PRIVATE_ACU_VIEW } from './config/private-acu.config'
 export { defaultTopNavLinks } from './config/top-nav.config'
 
 // Constants

@@ -17,11 +17,11 @@ import { ROLE } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
+import { PrivateACUAdmin } from './components/admin/private-acu-admin'
+import { PrivateACUAdvisor } from './components/advisor/private-acu-advisor'
 import { ModelsChartPreferences } from './components/models/models-chart-preferences'
 import { ModelsFilter } from './components/models/models-filter-dialog'
 import { OverviewDashboard } from './components/overview/overview-dashboard'
-import { PrivateACUAdvisor } from './components/advisor/private-acu-advisor'
-import { PrivateACUAdmin } from './components/admin/private-acu-admin'
 import { DEFAULT_TIME_GRANULARITY } from './constants'
 import {
   buildDefaultDashboardFilters,
@@ -241,7 +241,7 @@ export function Dashboard() {
         (section) =>
           section !== 'overview' &&
           (section !== 'users' || isAdmin) &&
-          (section !== 'acu-private-admin' || isAdmin)
+          section !== 'acu-private-admin'
       ),
     [isAdmin]
   )
