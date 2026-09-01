@@ -5709,6 +5709,17 @@
     "Size": "大小",
     "Output": "输出",
     "Original retained": "保留原图",
-    "Compressed": "已压缩"
+    "Compressed": "已压缩",
+    "Allowed models": "允许模型",
+    "Global model access": "全局模型权限",
+    "Global Profile availability": "全局 Profile 可用性",
+    "Available Profiles": "可用 Profile",
+    "Profile is disabled": "Profile 已禁用",
+    "Model is disabled": "模型已禁用",
+    "Auto + explicit": "Auto + 外显",
+    "Explicit only": "仅外显",
+    "Disabled models are hidden from external model lists. Explicit-only models can be called by name but are excluded from ACU Auto.": "禁用模型不会出现在外部模型列表中。仅外显模型可按名称调用，但不会参与 ACU Auto。",
+    "no usable Profile": "没有可用 Profile",
+    "Model not externally exposed": "模型未对外显露"
   }
 }

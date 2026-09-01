@@ -7,8 +7,8 @@ import type {
 } from '../../api'
 import {
   availableGlobalRoutingProfileIds,
-  canEnableProfileForGlobalRouting,
   isProfileGloballyAllowed,
+  modelAccessFor,
   updateGlobalProfileRouting,
 } from '../acu-global-routing-policy.ts'
 
@@ -47,7 +47,43 @@ test('uses the Router configuration Profile gate as the global allowlist invento
       profile('profile-c', 'gpt-5.6-terra', { autoRouteEnabled: false }),
       profile('profile-d', 'gpt-5.6-luna', { enabled: false }),
     ]),
-    ['profile-a']
+    ['profile-a', 'profile-c']
+  )
+})
+
+test('treats absent legacy availability flags as enabled', () => {
+  assert.deepEqual(
+    availableGlobalRoutingProfileIds([
+      {
+        executionProfileId: 'legacy-profile',
+      } as ACUChannelMonitorProfile,
+    ]),
+    ['legacy-profile']
+  )
+})
+
+test('normalizes impossible saved model states to the available access level', () => {
+  assert.equal(
+    modelAccessFor(
+      policy({
+        modelAccess: { 'mimo-v2.5': 'auto' },
+      }),
+      'mimo-v2.5',
+      true,
+      false
+    ),
+    'explicit'
+  )
+  assert.equal(
+    modelAccessFor(
+      policy({
+        modelAccess: { 'mimo-v2.5': 'explicit' },
+      }),
+      'mimo-v2.5',
+      false,
+      false
+    ),
+    'disabled'
   )
 })
 
@@ -89,17 +125,20 @@ test('turns all-routing-eligible into a Profile allowlist before disabling one P
   assert.deepEqual(updated.allowedProfileIds, ['profile-b'])
 })
 
-test('does not permit an enable action outside the global model allowlist', () => {
+test('Profile enablement is governed independently from the Auto model allowlist', () => {
   const restricted = policy({
     modelPolicy: 'custom_allowlist',
     allowedModelIds: ['gpt-5.6-luna'],
   })
-  assert.equal(
-    canEnableProfileForGlobalRouting(restricted, 'gpt-5.6-luna'),
+  const updated = updateGlobalProfileRouting(
+    restricted,
+    [profile('explicit-only', 'mimo-v2.5', { autoRouteEnabled: false })],
+    'explicit-only',
     true
   )
-  assert.equal(
-    canEnableProfileForGlobalRouting(restricted, 'gpt-5.6-sol'),
-    false
-  )
+  assert.deepEqual(updated.allowedProfileIds, [
+    'profile-a',
+    'profile-b',
+    'explicit-only',
+  ])
 })

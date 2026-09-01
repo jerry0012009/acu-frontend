@@ -3,6 +3,7 @@ import { test } from 'node:test'
 
 import { apiKeySchema, type ApiKey } from '../../types.ts'
 import {
+  getApiKeyFormDefaultValues,
   getApiKeyFormSchema,
   transformApiKeyToFormDefaults,
   transformFormDataToPayload,
@@ -162,6 +163,24 @@ test('custom Profile mode persists exact execution Profile IDs', () => {
     'closeai:luna:responses',
     'lucen:luna:responses',
   ])
+})
+
+test('custom model scope preserves explicit Profile model access separately from Auto candidates', () => {
+  const payload = transformFormDataToPayload({
+    ...getApiKeyFormDefaultValues(false),
+    unlimited_quota: true,
+    acu_model_scope_custom: true,
+    model_limits: ['mimo-v2.5'],
+    acu_allowed_candidate_ids: ['gpt-5.6-sol'],
+    acu_profile_scope_custom: true,
+    acu_profile_limits: ['managed-opencode-go:mimo-v2.5:chat_completions'],
+  })
+  assert.deepEqual(new Set(payload.model_limits.split(',')), new Set([
+    'acu-auto',
+    'acu-high',
+    'gpt-5.6-sol',
+    'mimo-v2.5',
+  ]))
 })
 
 test('custom quality bias and supply strategy survive payload and clone defaults', () => {

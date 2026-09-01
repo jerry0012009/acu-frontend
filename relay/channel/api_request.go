@@ -235,6 +235,18 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	if err != nil {
 		return fmt.Errorf("marshal ACU execution Profile allowlist: %w", err)
 	}
+	modelAccessJSON, err := common2.Marshal(policy.ModelAccess)
+	if err != nil {
+		return fmt.Errorf("marshal ACU model access policy: %w", err)
+	}
+	tokenAllowedModelIDs := []string{}
+	if token.ModelLimitsEnabled {
+		tokenAllowedModelIDs = service.ACUCanonicalAllowedModelIDs(token.ModelLimits)
+	}
+	tokenAllowedModelIDsJSON, err := common2.Marshal(tokenAllowedModelIDs)
+	if err != nil {
+		return fmt.Errorf("marshal ACU token model allowlist: %w", err)
+	}
 	routingPolicyVersion := policy.RoutingPolicyVersion
 	supplyWeightsJSON, err := common2.Marshal(service.ACUSupplyWeights{Cost: policy.SupplyCostWeight, Speed: policy.SupplySpeedWeight, Reliability: policy.SupplyReliabilityWeight})
 	if err != nil {
@@ -271,13 +283,15 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	profileSpeedLogScale := strconv.FormatFloat(policy.ProfileSpeedLogScale, 'g', -1, 64)
 	payload := strings.Join([]string{
 		userID, tokenID, logID, requestID, clientVersion, routingPolicy,
-		string(allowedModelIDsJSON), string(allowedProfileIDsJSON), routingPolicyVersion, routingPreference,
+		string(allowedModelIDsJSON), string(allowedProfileIDsJSON), string(modelAccessJSON),
+		strconv.FormatBool(token.ModelLimitsEnabled), string(tokenAllowedModelIDsJSON),
+		routingPolicyVersion, routingPreference,
 		qualityBias, policy.SupplyStrategy, string(supplyWeightsJSON), highBiasOffset,
 		modelCostLogScale, profileCostLogScale, profileSpeedLogScale,
 		string(latencyPolicyJSON), string(reliabilityPolicyJSON), string(workPhaseBiasOffsetsJSON),
 		string(allowedCandidateIDsJSON), string(candidatePreferenceScoresJSON),
 		string(profilePreferenceScoresJSON),
-		policy.RoutingUtilityVersion, policy.FormulaMode, "v5", timestamp, bodySHA,
+		policy.RoutingUtilityVersion, policy.FormulaMode, "v6", timestamp, bodySHA,
 	}, "\n")
 	mac := hmac.New(sha256.New, []byte(secret))
 	_, _ = mac.Write([]byte(payload))
@@ -289,6 +303,9 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	req.Header.Set("X-ACU-Routing-Policy", routingPolicy)
 	req.Header.Set("X-ACU-Allowed-Model-Ids", string(allowedModelIDsJSON))
 	req.Header.Set("X-ACU-Allowed-Profile-Ids", string(allowedProfileIDsJSON))
+	req.Header.Set("X-ACU-Model-Access", string(modelAccessJSON))
+	req.Header.Set("X-ACU-Token-Model-Limit-Enabled", strconv.FormatBool(token.ModelLimitsEnabled))
+	req.Header.Set("X-ACU-Token-Allowed-Model-Ids", string(tokenAllowedModelIDsJSON))
 	req.Header.Set("X-ACU-Routing-Policy-Version", routingPolicyVersion)
 	req.Header.Set("X-ACU-Routing-Preference", routingPreference)
 	req.Header.Set("X-ACU-Quality-Bias", qualityBias)
@@ -306,7 +323,7 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	req.Header.Set("X-ACU-Profile-Preference-Scores", string(profilePreferenceScoresJSON))
 	req.Header.Set("X-ACU-Routing-Utility-Version", policy.RoutingUtilityVersion)
 	req.Header.Set("X-ACU-Formula-Mode", policy.FormulaMode)
-	req.Header.Set("X-ACU-Identity-Version", "v5")
+	req.Header.Set("X-ACU-Identity-Version", "v6")
 	req.Header.Set("X-ACU-Timestamp", timestamp)
 	req.Header.Set("X-ACU-Body-SHA256", bodySHA)
 	req.Header.Set("X-ACU-Signature", hex.EncodeToString(mac.Sum(nil)))

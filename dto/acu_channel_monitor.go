@@ -1,5 +1,7 @@
 package dto
 
+import "encoding/json"
+
 type ACUChannelMonitor struct {
 	Range                            string                     `json:"range"`
 	SupplyStrategy                   string                     `json:"supplyStrategy"`
@@ -50,6 +52,7 @@ type ACURoutingCatalogProfile struct {
 	ExecutionProfileID        string   `json:"executionProfileId"`
 	CanonicalModel            string   `json:"canonicalModel"`
 	Protocol                  []string `json:"protocol"`
+	AutoRouteEnabled          bool     `json:"autoRouteEnabled"`
 	SupportedReasoningEfforts []string `json:"supportedReasoningEfforts,omitempty"`
 }
 
@@ -124,6 +127,31 @@ type ACUChannelMonitorProfile struct {
 	ReliabilityContribution     *float64                 `json:"reliabilityContribution"`
 	MetricSource                *string                  `json:"metricSource"`
 	FormulaVersion              *string                  `json:"formulaVersion"`
+}
+
+// Keep Monitor compatible with Router versions that predate the explicit
+// availability flags. A present false value remains false.
+func (profile *ACUChannelMonitorProfile) UnmarshalJSON(data []byte) error {
+	type alias ACUChannelMonitorProfile
+	var decoded alias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+	if _, ok := fields["enabled"]; !ok {
+		decoded.Enabled = true
+	}
+	if _, ok := fields["administratorAllowed"]; !ok {
+		decoded.AdministratorAllowed = true
+	}
+	if _, ok := fields["autoRouteEnabled"]; !ok {
+		decoded.AutoRouteEnabled = true
+	}
+	*profile = ACUChannelMonitorProfile(decoded)
+	return nil
 }
 
 type ACUChannelPauseRequest struct {

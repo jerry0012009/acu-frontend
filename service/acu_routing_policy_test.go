@@ -19,7 +19,7 @@ func TestResolveACUEffectiveRoutingPolicyUsesTokenAndGlobalIntersection(t *testi
 	policy, err := ResolveACUEffectiveRoutingPolicy(&model.Token{ModelLimitsEnabled: true, ModelLimits: "b,c", ACUProfileLimitsEnabled: true, ACUProfileLimits: []string{"p2", "p3"}, ACURoutingPreference: "economy"})
 	require.NoError(t, err)
 	require.Equal(t, ACURoutingPolicyCustom, policy.RoutingPolicy)
-	require.Equal(t, []string{"b"}, policy.AllowedModelIDs)
+	require.Equal(t, []string{"a", "b"}, policy.AllowedModelIDs)
 	require.Equal(t, []string{"p2"}, policy.AllowedProfileIDs)
 	require.Equal(t, "economy", policy.RoutingPreference)
 }
@@ -46,7 +46,9 @@ func TestResolveACUEffectiveRoutingPolicyRejectsEmptyIntersection(t *testing.T) 
 	previous := common.OptionMap
 	t.Cleanup(func() { common.OptionMap = previous })
 	common.OptionMap = map[string]string{"ACUGlobalRoutingPolicy": `{"modelPolicy":"custom_allowlist","allowedModelIds":["a"]}`}
-	_, err := ResolveACUEffectiveRoutingPolicy(&model.Token{ModelLimitsEnabled: true, ModelLimits: "b"})
+	_, err := ResolveACUEffectiveRoutingPolicy(&model.Token{
+		ACUAllowedCandidateIDs: []string{"b"},
+	})
 	require.ErrorContains(t, err, "intersection is empty")
 }
 
@@ -68,6 +70,22 @@ func TestNormalizeACURoutingScopeClearsInactiveAllowlists(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, scope.AllowedModelIDs)
 	require.Empty(t, scope.AllowedProfileIDs)
+}
+
+func TestNormalizeACURoutingScopeDerivesAutoCandidatesFromModelAccess(t *testing.T) {
+	scope, err := NormalizeACURoutingScope(ACURoutingScope{
+		ModelAccess: map[string]string{
+			"mimo-v2.5":   ACUModelAccessExplicit,
+			"gpt-5.6-sol": ACUModelAccessAuto,
+			"kimi-k2.6":   ACUModelAccessDisabled,
+		},
+		ProfilePolicy: ACURoutingPolicyAll,
+	})
+	require.NoError(t, err)
+	require.Equal(t, ACURoutingPolicyCustom, scope.Policy)
+	require.Equal(t, []string{"gpt-5.6-sol"}, scope.AllowedModelIDs)
+	require.Equal(t, ACUModelAccessExplicit, scope.ModelAccess["mimo-v2.5"])
+	require.Equal(t, ACUModelAccessDisabled, scope.ModelAccess["kimi-k2.6"])
 }
 
 func TestSanitizeACUGlobalRoutingScopeRemovesProfilesMissingFromRouterPool(t *testing.T) {
@@ -124,8 +142,68 @@ func TestSanitizeACUGlobalRoutingScopeRemovesProfilesMissingFromRouterPool(t *te
 	require.Equal(t, []string{"disabled-profile", "stale-profile"}, removed)
 }
 
+func TestValidateACURoutingScopeAllowsExplicitProfileOutsideAutoModelAllowlist(t *testing.T) {
+	clearACUChannelMonitorCache()
+	t.Cleanup(clearACUChannelMonitorCache)
+	previous := common.OptionMap
+	t.Cleanup(func() { common.OptionMap = previous })
+	common.OptionMap = map[string]string{}
+	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"profiles":[{
+				"executionProfileId":"auto:gpt-5.6-sol:responses",
+				"canonicalModel":"gpt-5.6-sol","enabled":true,
+				"administratorAllowed":true,"autoRouteEnabled":true
+			},{
+				"executionProfileId":"explicit:mimo-v2.5:chat_completions",
+				"canonicalModel":"mimo-v2.5","enabled":true,
+				"administratorAllowed":true,"autoRouteEnabled":false
+			}],
+			"history":[],"cooldownIntervals":[],"probeHistory":[],
+			"supplyInventory":[],"modelPool":[{
+				"modelId":"gpt-5.6-sol","autoRouteEnabled":true
+			}]
+		}`))
+	}))
+	t.Cleanup(router.Close)
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
+
+	err := ValidateACURoutingScopeAgainstPool(context.Background(), ACURoutingScope{
+		Policy:            ACURoutingPolicyCustom,
+		AllowedModelIDs:   []string{"gpt-5.6-sol"},
+		ProfilePolicy:     ACURoutingPolicyCustom,
+		AllowedProfileIDs: []string{"explicit:mimo-v2.5:chat_completions"},
+	})
+	require.NoError(t, err)
+}
+
+func TestResolveACUEffectiveRoutingPolicyKeepsPublicModelLimitsOutOfAutoScope(t *testing.T) {
+	previous := common.OptionMap
+	t.Cleanup(func() { common.OptionMap = previous })
+	common.OptionMap = map[string]string{}
+
+	policy, err := ResolveACUEffectiveRoutingPolicy(&model.Token{
+		ModelLimitsEnabled:     true,
+		ModelLimits:            "acu-auto,mimo-v2.5",
+		ACUAllowedCandidateIDs: []string{"gpt-5.6-sol"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, []string{"gpt-5.6-sol"}, policy.AllowedModelIDs)
+	require.NotContains(t, policy.AllowedModelIDs, "mimo-v2.5")
+}
+
 func TestACUCanonicalAllowedModelIDsFiltersVirtualModels(t *testing.T) {
 	require.Equal(t, []string{"gpt-5.6-sol"}, ACUCanonicalAllowedModelIDs("acu-auto, acu-high, gpt-5.6-sol, gpt-5.6-sol"))
+}
+
+func TestACUCandidateModelIDs(t *testing.T) {
+	require.Equal(t, []string{"gpt-5.6-luna", "gpt-5.6-sol"}, ACUCandidateModelIDs([]string{
+		"gpt-5.6-sol@high",
+		"gpt-5.6-luna@max",
+		"gpt-5.6-sol",
+	}))
 }
 
 func TestResolveACUEffectiveRoutingPolicyTreatsOnlyVirtualLimitsAsAll(t *testing.T) {

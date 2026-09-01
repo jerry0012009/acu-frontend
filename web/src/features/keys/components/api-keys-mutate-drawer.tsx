@@ -184,22 +184,13 @@ export function ApiKeysMutateDrawer({
           profile.supportedReasoningEfforts?.includes(acuReasoningEffort)
         ))
   )
-  const routingProfileGroups = routingModels
-    .filter(
-      (model) =>
-        model.modelCategory === 'text_agent' &&
-        model.autoRouteEnabled &&
-        ['verified', 'verified_provisional'].includes(
-          model.verificationStatus
-        ) &&
-        (!selectedModelScopeCustom || selectedModelIds.includes(model.modelId))
-    )
-    .map((model) => ({
-      modelId: model.modelId,
-      profiles: (profilesByModel.get(model.modelId) ?? []).filter(
+  const routingProfileGroups = [...profilesByModel.entries()]
+    .map(([modelId, profiles]) => ({
+      modelId,
+      profiles: profiles.filter(
         (profile) =>
           (!acuProfileFilters.model ||
-            model.modelId === acuProfileFilters.model) &&
+            modelId === acuProfileFilters.model) &&
           (!acuProfileFilters.protocol ||
             profile.protocol.includes(acuProfileFilters.protocol)) &&
           (!acuReasoningEffort ||
@@ -235,33 +226,6 @@ export function ApiKeysMutateDrawer({
     selectedCandidateIds.length,
     selectedModelIds,
     selectedModelScopeCustom,
-  ])
-  useEffect(() => {
-    if (
-      !selectedModelScopeCustom ||
-      !form.getValues('acu_profile_scope_custom')
-    ) {
-      return
-    }
-    const allowed = new Set(selectedModelIds)
-    const next = selectedProfileIds.filter((profileId) => {
-      const profile = routingProfiles.find(
-        (item) => item.executionProfileId === profileId
-      )
-      return profile ? allowed.has(profile.canonicalModel) : false
-    })
-    if (next.length !== selectedProfileIds.length) {
-      form.setValue('acu_profile_limits', next, {
-        shouldDirty: true,
-        shouldValidate: true,
-      })
-    }
-  }, [
-    form,
-    routingProfiles,
-    selectedModelIds,
-    selectedModelScopeCustom,
-    selectedProfileIds,
   ])
   const selectedProfiles = routingProfiles
     .map((profile) => ({ ...profile, modelId: profile.canonicalModel }))
@@ -326,7 +290,17 @@ export function ApiKeysMutateDrawer({
   const onSubmit = async (data: ApiKeyFormValues) => {
     setIsSubmitting(true)
     try {
-      const basePayload = transformFormDataToPayload(data)
+      const profileModelIDs = data.acu_profile_scope_custom
+        ? routingProfiles
+            .filter((profile) =>
+              data.acu_profile_limits.includes(profile.executionProfileId)
+            )
+            .map((profile) => profile.canonicalModel)
+        : routingProfiles.map((profile) => profile.canonicalModel)
+      const basePayload = transformFormDataToPayload({
+        ...data,
+        model_limits: [...new Set([...data.model_limits, ...profileModelIDs])],
+      })
 
       if (isUpdate && currentRow) {
         const result = await updateApiKey({
@@ -1090,8 +1064,8 @@ export function ApiKeysMutateDrawer({
                     {form.watch('acu_profile_scope_custom') && (
                       <FormItem>
                         <FormLabel>
-                          {t('Available execution routes', {
-                            defaultValue: '可用执行线路',
+                          {t('Explicit model Profiles', {
+                            defaultValue: '显式模型 Profile',
                           })}
                         </FormLabel>
                         <div className='grid grid-cols-2 gap-2'>

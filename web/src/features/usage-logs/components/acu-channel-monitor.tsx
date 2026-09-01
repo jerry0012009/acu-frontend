@@ -50,8 +50,10 @@ import { groupACUChannels, groupACUModels } from './acu-channel-health-model'
 import { ACUChannelHistory } from './acu-channel-history'
 import { ACUExecutionProfileManager } from './acu-execution-profile-manager'
 import {
-  availableGlobalRoutingProfileIds,
+  modelAccessFor,
+  updateGlobalModelAccess,
   updateGlobalProfileRouting,
+  type ACUModelAccess,
 } from './acu-global-routing-policy'
 import { ACUModelHealthCard } from './acu-model-health-card'
 import {
@@ -73,6 +75,65 @@ type ProbeInspectorState = {
   protocol: 'responses' | 'messages' | 'chat_completions'
   result: ACUExecutionProfileProbeResult | null
   requestError?: string
+}
+
+type GlobalModelOption = {
+  id: string
+  hasConfiguredProfile: boolean
+  autoRouteEnabled: boolean
+}
+
+function isProfileGloballyUsable(
+  policy: ACUGlobalRoutingPolicy,
+  profile: ACUChannelMonitorProfile,
+  modelEntries: GlobalModelOption[]
+) {
+  if (
+    !profile.executionProfileId ||
+    profile.enabled === false ||
+    profile.administratorAllowed === false
+  ) {
+    return false
+  }
+  const model = modelEntries.find((entry) => entry.id === profile.canonicalModel)
+  return Boolean(
+    model &&
+      modelAccessFor(
+        policy,
+        model.id,
+        model.hasConfiguredProfile,
+        model.autoRouteEnabled
+      ) !== 'disabled'
+  )
+}
+
+function buildAvailableModelEntries(
+  modelPool: ACUModelPoolEntry[],
+  profiles: ACUChannelMonitorProfile[]
+): GlobalModelOption[] {
+  const ids = new Set([
+    ...modelPool.map((item) => item.modelId),
+    ...profiles.map((item) => item.canonicalModel),
+  ])
+  return [...ids]
+    .filter(Boolean)
+    .sort()
+    .map((id) => {
+      const modelProfiles = profiles.filter((item) => item.canonicalModel === id)
+      return {
+        id,
+        hasConfiguredProfile: modelProfiles.some(
+          (item) =>
+            item.enabled !== false && item.administratorAllowed !== false
+        ),
+        autoRouteEnabled: modelProfiles.some(
+          (item) =>
+            item.enabled !== false &&
+            item.administratorAllowed !== false &&
+            item.autoRouteEnabled !== false
+        ),
+      }
+    })
 }
 
 function ms(value?: number) {
@@ -954,10 +1015,26 @@ function RouterConfigurationTab(props: {
   })
   const beginEditing = () => {
     if (!savedPolicy || !savedUtilityConfig) return
-    const availableProfileIds = new Set(
-      availableGlobalRoutingProfileIds(props.profiles)
-    )
+    const modelEntries = buildAvailableModelEntries(props.modelPool, props.profiles)
     const nextPolicy = structuredClone(savedPolicy)
+    nextPolicy.modelAccess = Object.fromEntries(
+      modelEntries.map((entry) => [
+        entry.id,
+        modelAccessFor(
+          nextPolicy,
+          entry.id,
+          entry.hasConfiguredProfile,
+          entry.autoRouteEnabled,
+        ),
+      ]),
+    )
+    const availableProfileIds = new Set(
+      props.profiles
+        .filter((profile) =>
+          isProfileGloballyUsable(nextPolicy, profile, modelEntries)
+        )
+        .map((profile) => profile.executionProfileId)
+    )
     nextPolicy.allowedProfileIds = nextPolicy.allowedProfileIds.filter((id) =>
       availableProfileIds.has(id)
     )
@@ -970,74 +1047,80 @@ function RouterConfigurationTab(props: {
     setUtilityDraft(undefined)
     setEditing(false)
   }
-  const availableModelIds = useMemo(
-    () =>
-      new Set(
-        props.modelPool
-          .filter((item) => item.autoRouteEnabled)
-          .map((item) => item.modelId)
-      ),
-    [props.modelPool]
+  const availableModelEntries = useMemo(
+    () => buildAvailableModelEntries(props.modelPool, props.profiles),
+    [props.modelPool, props.profiles]
   )
+  const editingPolicy = policyDraft ?? savedPolicy
   const availableProfileIds = useMemo(
     () =>
       new Set(
         props.profiles
-          .filter(
-            (item) =>
-              item.enabled && item.administratorAllowed && item.autoRouteEnabled
+          .filter((item) =>
+            editingPolicy
+              ? isProfileGloballyUsable(
+                  editingPolicy,
+                  item,
+                  availableModelEntries
+                )
+              : false
           )
           .map((item) => item.executionProfileId)
       ),
-    [props.profiles]
-  )
-  const availableModelIdList = useMemo(
-    () => [...availableModelIds].sort(),
-    [availableModelIds]
+    [availableModelEntries, editingPolicy, props.profiles]
   )
   const availableProfileIdList = useMemo(
     () => [...availableProfileIds].sort(),
     [availableProfileIds]
   )
-  const profileById = useMemo(
-    () =>
-      new Map(
-        props.profiles.map((profile) => [profile.executionProfileId, profile])
-      ),
-    [props.profiles]
-  )
-  const editingPolicy = policyDraft ?? savedPolicy
   const modelOptions = useMemo(
-    () =>
-      editingPolicy
-        ? [...new Set([...editingPolicy.allowedModelIds, ...availableModelIds])]
-            .sort()
-            .map((id) => ({ id, unavailable: !availableModelIds.has(id) }))
-        : [],
-    [availableModelIds, editingPolicy]
+    () => {
+      if (!editingPolicy) return []
+      return availableModelEntries.map((entry) => ({
+        ...entry,
+        access: modelAccessFor(
+          editingPolicy,
+          entry.id,
+          entry.hasConfiguredProfile,
+          entry.autoRouteEnabled
+        ),
+      }))
+    },
+    [availableModelEntries, editingPolicy]
   )
   const profileOptions = useMemo(() => {
     if (!editingPolicy) return []
-    const allowedModelIds = new Set(editingPolicy.allowedModelIds)
-    return availableProfileIdList
-      .map((id) => {
-        const profile = profileById.get(id)
-        const outsideModelAllowlist =
-          editingPolicy.modelPolicy === 'custom_allowlist' &&
-          profile &&
-          !allowedModelIds.has(profile.canonicalModel)
+    return props.profiles
+      .filter((profile) => profile.executionProfileId)
+      .map((profile) => {
+        const model = availableModelEntries.find(
+          (entry) => entry.id === profile.canonicalModel
+        )
+        const modelAccess = model
+          ? modelAccessFor(
+              editingPolicy,
+              model.id,
+              model.hasConfiguredProfile,
+              model.autoRouteEnabled
+            )
+          : 'disabled'
+        let disabledReason: string | undefined
+        if (
+          profile.enabled === false ||
+          profile.administratorAllowed === false
+        ) {
+          disabledReason = 'Profile is disabled'
+        } else if (modelAccess === 'disabled') {
+          disabledReason = 'Model is disabled'
+        }
         return {
-          id,
-          unavailable: false,
-          disabled:
-            outsideModelAllowlist &&
-            !editingPolicy.allowedProfileIds.includes(id),
-          disabledReason: outsideModelAllowlist
-            ? t('outside current model allowlist')
-            : undefined,
+          id: profile.executionProfileId,
+          unavailable: Boolean(disabledReason),
+          disabled: Boolean(disabledReason),
+          disabledReason,
         }
       })
-  }, [availableProfileIdList, editingPolicy, profileById, t])
+  }, [availableModelEntries, editingPolicy, props.profiles])
   const ids = (values: string[]) =>
     values.length ? values.join(', ') : t('None')
   const scopeSummary = (
@@ -1058,38 +1141,11 @@ function RouterConfigurationTab(props: {
       : ''
     return `${noun} · ${values.length} · ${ids(values)}${excludedSummary}`
   }
-  const beginModelCustomPolicy = (custom: boolean) => {
-    if (!policyDraft) return
-    const allowedModelIds =
-      custom && policyDraft.allowedModelIds.length === 0
-        ? availableModelIdList
-        : policyDraft.allowedModelIds
-    const allowedModels = new Set(allowedModelIds)
-    const allowedProfileIds =
-      custom && policyDraft.profilePolicy === 'custom_allowlist'
-        ? policyDraft.allowedProfileIds.filter((profileId) => {
-            const modelId = profileById.get(profileId)?.canonicalModel
-            return !modelId || allowedModels.has(modelId)
-          })
-        : policyDraft.allowedProfileIds
-    setPolicyDraft({
-      ...policyDraft,
-      modelPolicy: custom ? 'custom_allowlist' : 'all_routing_eligible',
-      allowedModelIds,
-      allowedProfileIds,
-    })
-  }
   const beginProfileCustomPolicy = (custom: boolean) => {
     if (!policyDraft) return
-    const selectedModelIds = new Set(policyDraft.allowedModelIds)
-    const selectableProfileIds = availableProfileIdList.filter((profileId) => {
-      if (policyDraft.modelPolicy !== 'custom_allowlist') return true
-      const modelId = profileById.get(profileId)?.canonicalModel
-      return !modelId || selectedModelIds.has(modelId)
-    })
     const allowedProfileIds =
       custom && policyDraft.allowedProfileIds.length === 0
-        ? selectableProfileIds
+        ? availableProfileIdList
         : policyDraft.allowedProfileIds
     setPolicyDraft({
       ...policyDraft,
@@ -1097,22 +1153,50 @@ function RouterConfigurationTab(props: {
       allowedProfileIds,
     })
   }
-  const changeAllowedModels = (values: string[]) => {
+  const changeModelAccess = (
+    modelId: string,
+    access: 'disabled' | 'explicit' | 'auto'
+  ) => {
     if (!policyDraft) return
-    const allowedModels = new Set(values)
-    const allowedProfileIds =
-      policyDraft.profilePolicy === 'custom_allowlist'
-        ? policyDraft.allowedProfileIds.filter((profileId) => {
-            const modelId = profileById.get(profileId)?.canonicalModel
-            return !modelId || allowedModels.has(modelId)
-          })
-        : policyDraft.allowedProfileIds
-    setPolicyDraft({
-      ...policyDraft,
-      allowedModelIds: values,
-      allowedProfileIds,
-    })
+    setPolicyDraft(updateGlobalModelAccess(policyDraft, modelId, access))
   }
+  const modelAccessForSave = policyDraft
+    ? Object.fromEntries(
+        availableModelEntries.map((entry) => [
+          entry.id,
+          modelAccessFor(
+            policyDraft,
+            entry.id,
+            entry.hasConfiguredProfile,
+            entry.autoRouteEnabled
+          ),
+        ])
+      )
+    : {}
+  const autoModelIds = Object.entries(modelAccessForSave)
+    .filter(([, access]) => access === 'auto')
+    .map(([modelId]) => modelId)
+  const policyToSave: ACUGlobalRoutingPolicy | undefined = policyDraft
+    ? {
+        ...policyDraft,
+        modelAccess: modelAccessForSave,
+        modelPolicy: autoModelIds.length ? 'custom_allowlist' : 'explicit_only',
+        allowedModelIds: autoModelIds,
+        allowedProfileIds: policyDraft.allowedProfileIds.filter((profileId) => {
+          const profile = props.profiles.find(
+            (item) => item.executionProfileId === profileId
+          )
+          return (
+            profile !== undefined &&
+            isProfileGloballyUsable(
+              { ...policyDraft, modelAccess: modelAccessForSave },
+              profile,
+              availableModelEntries
+            )
+          )
+        }),
+      }
+    : undefined
   return (
     <div className='space-y-4'>
       <ACUExecutionProfileManager />
@@ -1153,27 +1237,37 @@ function RouterConfigurationTab(props: {
             </div>
             <div>
               <div className='text-muted-foreground'>
-                {t('Global model policy')}
+                  {t('Global model access')}
               </div>
               <div className='mt-1'>
-                {scopeSummary(
-                  savedPolicy.modelPolicy,
-                  savedPolicy.allowedModelIds,
-                  t('All routing-eligible models'),
-                  t('Custom allowlist'),
-                  availableModelIdList
-                )}
+                {availableModelEntries.map((entry) => (
+                  <div key={entry.id} className='flex justify-between gap-3'>
+                    <span className='truncate font-mono'>{entry.id}</span>
+                    <span>
+                      {t(
+                        modelAccessLabel(
+                          modelAccessFor(
+                            savedPolicy,
+                            entry.id,
+                            entry.hasConfiguredProfile,
+                            entry.autoRouteEnabled
+                          )
+                        )
+                      )}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
             <div>
               <div className='text-muted-foreground'>
-                {t('Global profile policy')}
+                {t('Global Profile availability')}
               </div>
               <div className='mt-1'>
                 {scopeSummary(
                   savedPolicy.profilePolicy,
                   savedPolicy.allowedProfileIds,
-                  t('All routing-eligible profiles'),
+                  t('All configured Profiles'),
                   t('Custom allowlist'),
                   availableProfileIdList
                 )}
@@ -1252,18 +1346,13 @@ function RouterConfigurationTab(props: {
           <h3 className='text-sm font-semibold'>
             {t('Edit global Router configuration')}
           </h3>
-          <PolicyScopeEditor
-            title={t('Allowed models')}
-            allLabel={t('All routing-eligible models')}
-            custom={policyDraft.modelPolicy === 'custom_allowlist'}
-            values={policyDraft.allowedModelIds}
+          <ModelAccessEditor
             options={modelOptions}
-            onCustom={beginModelCustomPolicy}
-            onChange={changeAllowedModels}
+            onChange={changeModelAccess}
           />
           <PolicyScopeEditor
-            title={t('Allowed profiles')}
-            allLabel={t('All routing-eligible profiles')}
+            title={t('Available Profiles')}
+            allLabel={t('All configured Profiles')}
             custom={policyDraft.profilePolicy === 'custom_allowlist'}
             values={policyDraft.allowedProfileIds}
             options={profileOptions}
@@ -1282,12 +1371,13 @@ function RouterConfigurationTab(props: {
             <Button
               size='sm'
               disabled={saveMutation.isPending}
-              onClick={() =>
+              onClick={() => {
+                if (!policyToSave) return
                 saveMutation.mutate({
-                  policy: policyDraft,
+                  policy: policyToSave,
                   utilityConfig: utilityDraft,
                 })
-              }
+              }}
             >
               {t('Save configuration')}
             </Button>
@@ -1806,7 +1896,7 @@ function PolicyScopeEditor(props: {
         <>
           <p className='text-muted-foreground text-xs'>
             {t(
-              'Custom mode starts with all currently routing-eligible entries selected. Uncheck entries to exclude them.'
+              'Custom mode starts with all currently configured entries selected. Uncheck entries to exclude them.'
             )}
           </p>
           <div className='max-h-64 space-y-1 overflow-y-auto'>
@@ -1847,6 +1937,65 @@ function PolicyScopeEditor(props: {
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+function modelAccessLabel(access: ACUModelAccess) {
+  if (access === 'auto') return 'Auto + explicit'
+  if (access === 'explicit') return 'Explicit only'
+  return 'Disabled'
+}
+
+function ModelAccessEditor(props: {
+  options: Array<GlobalModelOption & { access: ACUModelAccess }>
+  onChange: (modelId: string, access: ACUModelAccess) => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className='space-y-2 rounded border p-2'>
+      <div className='text-xs font-medium'>{t('Allowed models')}</div>
+      <p className='text-muted-foreground text-xs'>
+        {t(
+          'Disabled models are hidden from external model lists. Explicit-only models can be called by name but are excluded from ACU Auto.'
+        )}
+      </p>
+      <div className='max-h-64 space-y-1 overflow-y-auto'>
+        {props.options.map((option) => (
+          <label
+            key={option.id}
+            className='flex items-center justify-between gap-3 text-xs'
+          >
+            <span className='min-w-0 truncate font-mono'>
+              {option.id}
+              {!option.hasConfiguredProfile && (
+                <span className='text-muted-foreground'>
+                  {' '}
+                  · {t('no usable Profile')}
+                </span>
+              )}
+            </span>
+            <select
+              className='bg-background h-7 shrink-0 rounded border px-1.5'
+              aria-label={option.id}
+              value={option.access}
+              disabled={!option.hasConfiguredProfile}
+              onChange={(event) =>
+                props.onChange(
+                  option.id,
+                  event.target.value as ACUModelAccess
+                )
+              }
+            >
+              <option value='disabled'>{t('Disabled')}</option>
+              <option value='explicit'>{t('Explicit only')}</option>
+              <option value='auto' disabled={!option.autoRouteEnabled}>
+                {t('Auto + explicit')}
+              </option>
+            </select>
+          </label>
+        ))}
+      </div>
     </div>
   )
 }

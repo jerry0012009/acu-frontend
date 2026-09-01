@@ -22,8 +22,8 @@ import {
   type ACUModelOverview,
 } from './acu-channel-health-model'
 import {
-  canEnableProfileForGlobalRouting,
   isProfileGloballyAllowed,
+  modelAccessFor,
 } from './acu-global-routing-policy'
 import { StatusTimeline } from './acu-health-timeline'
 import {
@@ -176,8 +176,23 @@ function ModelProfile(props: {
   const policy = props.actions?.policy
   const globallyAllowed =
     policy && isProfileGloballyAllowed(policy, profile.executionProfileId)
-  const modelBlocked =
-    policy && !canEnableProfileForGlobalRouting(policy, profile.canonicalModel)
+  const modelAccess =
+    policy &&
+    modelAccessFor(
+      policy,
+      profile.canonicalModel,
+      true,
+      profile.autoRouteEnabled !== false
+    )
+  const modelExposed = modelAccess !== 'disabled'
+  let globalRoutingStatus = t('Loading...')
+  if (policy) {
+    if (!modelExposed) {
+      globalRoutingStatus = t('Model not externally exposed')
+    } else {
+      globalRoutingStatus = globallyAllowed ? t('allowed') : t('disabled')
+    }
+  }
   const firstProtocol = profile.protocol[0]
   const latency = profileLatencyDisplay(profile, t)
   const togglePending =
@@ -276,19 +291,12 @@ function ModelProfile(props: {
         <div className='mt-3 flex flex-wrap items-center gap-2 border-t pt-3'>
           <span className='text-muted-foreground'>
             {t('Global routing')}:{' '}
-            {globallyAllowed ? t('allowed') : t('disabled')}
+            {globalRoutingStatus}
           </span>
           <Button
             size='sm'
             variant='outline'
-            title={
-              modelBlocked
-                ? t('This model is not allowed by the Global model allowlist')
-                : undefined
-            }
-            disabled={
-              !policy || togglePending || (!globallyAllowed && modelBlocked)
-            }
+            disabled={!policy || togglePending || !modelExposed}
             onClick={() => {
               if (!policy) return
               if (

@@ -360,7 +360,6 @@ export function ACUExecutionProfileManager() {
                 [
                   ['enabled', 'enabled'],
                   ['administratorAllowed', 'administratorAllowed'],
-                  ['activeInAcuAuto', 'activeInAcuAuto'],
                   ['toolCallSupport', 'toolCallSupport'],
                   ['thinkingSupport', 'thinkingSupport'],
                   ['stripV1Path', 'stripV1Path'],

@@ -5690,6 +5690,17 @@
     "Size": "Size",
     "Output": "Output",
     "Original retained": "Original retained",
-    "Compressed": "Compressed"
+    "Compressed": "Compressed",
+    "Allowed models": "Allowed models",
+    "Global model access": "Global model access",
+    "Global Profile availability": "Global Profile availability",
+    "Available Profiles": "Available Profiles",
+    "Profile is disabled": "Profile is disabled",
+    "Model is disabled": "Model is disabled",
+    "Auto + explicit": "Auto + explicit",
+    "Explicit only": "Explicit only",
+    "Disabled models are hidden from external model lists. Explicit-only models can be called by name but are excluded from ACU Auto.": "Disabled models are hidden from external model lists. Explicit-only models can be called by name but are excluded from ACU Auto.",
+    "no usable Profile": "no usable Profile",
+    "Model not externally exposed": "Model not externally exposed"
   }
 }

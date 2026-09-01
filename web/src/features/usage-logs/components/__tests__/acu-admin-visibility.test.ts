@@ -22,6 +22,10 @@ const quickAddSource = readFileSync(
   new URL('../acu-provider-quick-add.tsx', import.meta.url),
   'utf8'
 )
+const probePanelSource = readFileSync(
+  new URL('../acu-probe-result-panel.tsx', import.meta.url),
+  'utf8'
+)
 const sidebarSource = readFileSync(
   new URL('../../../../hooks/use-sidebar-data.ts', import.meta.url),
   'utf8'
@@ -137,31 +141,24 @@ test('router configuration refetches saved state after success or partial failur
   )
 })
 
-test('custom routing scopes start from current inventory and keep profiles aligned to models', () => {
-  assert.match(monitorSource, /const availableModelIdList = useMemo/)
+test('global configuration keeps model access and Profile availability separate', () => {
+  assert.match(monitorSource, /function buildAvailableModelEntries/)
+  assert.match(monitorSource, /function isProfileGloballyUsable/)
+  assert.match(monitorSource, /const availableModelEntries = useMemo/)
   assert.match(monitorSource, /const availableProfileIdList = useMemo/)
+  assert.match(monitorSource, /const changeModelAccess = \(/)
   assert.match(
     monitorSource,
-    /const beginModelCustomPolicy = \(custom: boolean\) =>/
+    /modelPolicy: autoModelIds\.length \? 'custom_allowlist' : 'explicit_only'/
   )
+  assert.match(monitorSource, /disabledReason[\s\S]{0,220}'Profile is disabled'/)
+  assert.match(monitorSource, /disabledReason[\s\S]{0,220}'Model is disabled'/)
   assert.match(
     monitorSource,
-    /custom && policyDraft\.allowedModelIds\.length === 0[\s\S]{0,160}availableModelIdList/
-  )
-  assert.match(
-    monitorSource,
-    /const beginProfileCustomPolicy = \(custom: boolean\) =>/
-  )
-  assert.match(
-    monitorSource,
-    /const changeAllowedModels = \(values: string\[\]\) =>[\s\S]{0,420}allowedProfileIds/
-  )
-  assert.match(
-    monitorSource,
-    /Custom mode starts with all currently routing-eligible entries selected/
+    /Custom mode starts with all currently configured entries selected/
   )
   assert.match(monitorSource, /scopeSummary[\s\S]{0,520}Excluded/)
-  assert.match(monitorSource, /outside current model allowlist/)
+  assert.doesNotMatch(monitorSource, /outside current model allowlist/)
 })
 
 test('saved profile scope summary includes the current profile inventory', () => {
@@ -195,17 +192,17 @@ test('root execution profile manager exposes Quick Add without leaking advanced 
   assert.match(quickAddSource, /quickAddACUProviderProbe/)
   assert.match(quickAddSource, /quickAddACUProviderSave/)
   assert.match(quickAddSource, /models\.map/)
-  assert.match(quickAddSource, /Actual platform debit/)
+  assert.match(probePanelSource, /Actual platform debit/)
   assert.match(quickAddSource, /const defaultProtocols = PROTOCOLS\.filter/)
   assert.match(
     quickAddSource,
     /observedBillingMultiplier:\s*pair\.model\.observedBillingMultiplier/
   )
-  assert.match(quickAddSource, /Cache creation tokens/)
+  assert.match(probePanelSource, /Cache creation tokens/)
   assert.match(profileManagerSource, /inputTokenAccountingMode/)
-  assert.match(quickAddSource, /Input accounting/)
-  assert.match(quickAddSource, /Estimated platform debit/)
-  assert.match(quickAddSource, /estimatedPlatformDebit \/ props\.creditsPerCny/)
+  assert.match(probePanelSource, /Input accounting/)
+  assert.match(probePanelSource, /Estimated platform debit/)
+  assert.match(probePanelSource, /estimatedPlatformDebit \/ creditsPerCny/)
   assert.match(quickAddSource, /existingProviderEconomics/)
   assert.doesNotMatch(quickAddSource, /apiKeyEnv/)
   assert.doesNotMatch(quickAddSource, /recentSuccessRate/)

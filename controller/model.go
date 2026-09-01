@@ -331,6 +331,10 @@ func ListModels(c *gin.Context, modelType int) {
 			tokenModelLimit = map[string]bool{}
 		}
 		for allowModel, _ := range tokenModelLimit {
+			if hasPublicACURouterModel(ownerGroups, allowModel) &&
+				!service.IsACUGlobalModelExposed(allowModel) {
+				continue
+			}
 			if !acceptUnsetRatioModel {
 				if !helper.HasModelBillingConfig(allowModel) && !hasPublicACURouterChatModel(ownerGroups, allowModel) {
 					continue
@@ -341,6 +345,10 @@ func ListModels(c *gin.Context, modelType int) {
 	} else {
 		models := service.GetGroupsEnabledModels(ownerGroups)
 		for _, modelName := range models {
+			if hasPublicACURouterModel(ownerGroups, modelName) &&
+				!service.IsACUGlobalModelExposed(modelName) {
+				continue
+			}
 			if !acceptUnsetRatioModel {
 				if !helper.HasModelBillingConfig(modelName) && !hasPublicACURouterChatModel(ownerGroups, modelName) {
 					continue

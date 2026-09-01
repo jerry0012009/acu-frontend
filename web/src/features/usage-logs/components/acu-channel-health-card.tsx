@@ -19,8 +19,8 @@ import {
   type ACUChannelOverview,
 } from './acu-channel-health-model'
 import {
-  canEnableProfileForGlobalRouting,
   isProfileGloballyAllowed,
+  modelAccessFor,
 } from './acu-global-routing-policy'
 import { StatusTimeline } from './acu-health-timeline'
 import {
@@ -277,8 +277,15 @@ function ChannelProfile(props: {
   const policy = props.actions?.policy
   const globallyAllowed =
     policy && isProfileGloballyAllowed(policy, profile.executionProfileId)
-  const modelBlocked =
-    policy && !canEnableProfileForGlobalRouting(policy, profile.canonicalModel)
+  const modelAccess =
+    policy &&
+    modelAccessFor(
+      policy,
+      profile.canonicalModel,
+      true,
+      profile.autoRouteEnabled !== false
+    )
+  const modelExposed = modelAccess !== 'disabled'
   const firstProtocol = profile.protocol[0]
   const togglePending =
     props.actions?.isTogglePending(profile.executionProfileId) ?? false
@@ -297,7 +304,11 @@ function ChannelProfile(props: {
     tokenAllowed && tokenScope?.effectiveProfileIds.length === 1
   let globalRoutingStatus = t('Loading...')
   if (policy) {
-    globalRoutingStatus = globallyAllowed ? t('allowed') : t('disabled')
+    if (!modelExposed) {
+      globalRoutingStatus = t('Model not externally exposed')
+    } else {
+      globalRoutingStatus = globallyAllowed ? t('allowed') : t('disabled')
+    }
   }
   return (
     <details className='rounded border p-3 text-xs'>
@@ -364,14 +375,7 @@ function ChannelProfile(props: {
           <Button
             size='sm'
             variant='outline'
-            title={
-              modelBlocked
-                ? t('This model is not allowed by the Global model allowlist')
-                : undefined
-            }
-            disabled={
-              !policy || togglePending || (!globallyAllowed && modelBlocked)
-            }
+            disabled={!policy || togglePending || !modelExposed}
             onClick={() => {
               if (!policy) return
               if (globallyAllowed) {

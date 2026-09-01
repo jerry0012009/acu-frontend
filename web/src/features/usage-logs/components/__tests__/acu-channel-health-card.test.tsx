@@ -455,7 +455,7 @@ test('renders Root Profile actions and keeps globally disabled Profiles probeabl
   window.confirm = originalConfirm
 })
 
-test('disables unavailable enable and pending Profile actions without affecting Probe semantics', async () => {
+test('allows explicit-only Profile enablement independently of the Auto model allowlist', async () => {
   const container = document.createElement('div')
   document.body.append(container)
   const root = createRoot(container)
@@ -529,12 +529,8 @@ test('disables unavailable enable and pending Profile actions without affecting 
   ) as HTMLButtonElement | undefined
   assert.ok(enable)
   assert.ok(probe)
-  assert.equal(enable.disabled, true)
+  assert.equal(enable.disabled, false)
   assert.equal(probe.disabled, true)
-  assert.equal(
-    enable.title,
-    'This model is not allowed by the Global model allowlist'
-  )
   await act(async () => root.unmount())
   container.remove()
 })

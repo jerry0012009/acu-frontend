@@ -250,15 +250,11 @@ func AddToken(c *gin.Context) {
 	token.ACUAllowedCandidateIDs, token.ACUCandidatePreferenceScores, err = service.NormalizeACUCandidatePolicy(
 		token.ACUAllowedCandidateIDs,
 		token.ACUCandidatePreferenceScores,
-		service.ACUCanonicalAllowedModelIDs(token.ModelLimits),
-		token.ModelLimitsEnabled,
+		nil,
+		false,
 	)
 	if err != nil {
 		common.ApiError(c, err)
-		return
-	}
-	if token.ModelLimitsEnabled && len(token.ACUAllowedCandidateIDs) == 0 {
-		common.ApiError(c, fmt.Errorf("ACU custom routing scope requires at least one candidate"))
 		return
 	}
 	if err = service.ValidateACUCandidatePolicyAgainstPool(c.Request.Context(), token.ACUAllowedCandidateIDs, token.ACUCandidatePreferenceScores); err != nil {
@@ -274,11 +270,9 @@ func AddToken(c *gin.Context) {
 	}
 	if token.ModelLimitsEnabled || token.ACUProfileLimitsEnabled {
 		scope := service.ACURoutingScope{Policy: service.ACURoutingPolicyAll, ProfilePolicy: service.ACURoutingPolicyAll}
-		if token.ModelLimitsEnabled {
-			scope.AllowedModelIDs = service.ACUCanonicalAllowedModelIDs(token.ModelLimits)
-			if len(scope.AllowedModelIDs) > 0 {
-				scope.Policy = service.ACURoutingPolicyCustom
-			}
+		if candidateModelIDs := service.ACUCandidateModelIDs(token.ACUAllowedCandidateIDs); len(candidateModelIDs) > 0 {
+			scope.AllowedModelIDs = candidateModelIDs
+			scope.Policy = service.ACURoutingPolicyCustom
 		}
 		if token.ACUProfileLimitsEnabled {
 			scope.ProfilePolicy = service.ACURoutingPolicyCustom
@@ -403,15 +397,11 @@ func UpdateToken(c *gin.Context) {
 		token.ACUAllowedCandidateIDs, token.ACUCandidatePreferenceScores, err = service.NormalizeACUCandidatePolicy(
 			token.ACUAllowedCandidateIDs,
 			token.ACUCandidatePreferenceScores,
-			service.ACUCanonicalAllowedModelIDs(token.ModelLimits),
-			token.ModelLimitsEnabled,
+			nil,
+			false,
 		)
 		if err != nil {
 			common.ApiError(c, err)
-			return
-		}
-		if token.ModelLimitsEnabled && len(token.ACUAllowedCandidateIDs) == 0 {
-			common.ApiError(c, fmt.Errorf("ACU custom routing scope requires at least one candidate"))
 			return
 		}
 		if err = service.ValidateACUCandidatePolicyAgainstPool(c.Request.Context(), token.ACUAllowedCandidateIDs, token.ACUCandidatePreferenceScores); err != nil {
@@ -427,11 +417,9 @@ func UpdateToken(c *gin.Context) {
 		}
 		if token.ModelLimitsEnabled || token.ACUProfileLimitsEnabled {
 			scope := service.ACURoutingScope{Policy: service.ACURoutingPolicyAll, ProfilePolicy: service.ACURoutingPolicyAll}
-			if token.ModelLimitsEnabled {
-				scope.AllowedModelIDs = service.ACUCanonicalAllowedModelIDs(token.ModelLimits)
-				if len(scope.AllowedModelIDs) > 0 {
-					scope.Policy = service.ACURoutingPolicyCustom
-				}
+			if candidateModelIDs := service.ACUCandidateModelIDs(token.ACUAllowedCandidateIDs); len(candidateModelIDs) > 0 {
+				scope.AllowedModelIDs = candidateModelIDs
+				scope.Policy = service.ACURoutingPolicyCustom
 			}
 			if token.ACUProfileLimitsEnabled {
 				scope.ProfilePolicy = service.ACURoutingPolicyCustom

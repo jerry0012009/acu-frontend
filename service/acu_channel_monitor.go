@@ -224,11 +224,19 @@ func GetACURoutingCatalog(ctx context.Context) (dto.ACURoutingCatalog, error) {
 	if err != nil {
 		return dto.ACURoutingCatalog{}, err
 	}
+	configuredModels := make(map[string]struct{})
+	for _, profile := range monitor.Profiles {
+		if profile.Enabled && profile.AdministratorAllowed && profile.CanonicalModel != "" {
+			configuredModels[profile.CanonicalModel] = struct{}{}
+		}
+	}
 	models := make([]dto.ACURoutingCatalogModel, 0, len(monitor.ModelPool))
 	for _, value := range monitor.ModelPool {
 		if stringValue(value, "modelCategory") != "text_agent" ||
-			!boolValue(value, "autoRouteEnabled") ||
-			!isRoutingCatalogVerificationStatus(stringValue(value, "verificationStatus")) {
+			(!boolValue(value, "autoRouteEnabled") &&
+				!hasConfiguredModel(configuredModels, stringValue(value, "modelId"))) ||
+			(!isRoutingCatalogVerificationStatus(stringValue(value, "verificationStatus")) &&
+				!hasConfiguredModel(configuredModels, stringValue(value, "modelId"))) {
 			continue
 		}
 		models = append(models, dto.ACURoutingCatalogModel{
@@ -244,13 +252,14 @@ func GetACURoutingCatalog(ctx context.Context) (dto.ACURoutingCatalog, error) {
 	}
 	profiles := make([]dto.ACURoutingCatalogProfile, 0, len(monitor.Profiles))
 	for _, profile := range monitor.Profiles {
-		if !profile.Enabled || !profile.AdministratorAllowed || !profile.AutoRouteEnabled {
+		if !profile.Enabled || !profile.AdministratorAllowed {
 			continue
 		}
 		profiles = append(profiles, dto.ACURoutingCatalogProfile{
 			ExecutionProfileID:        profile.ExecutionProfileID,
 			CanonicalModel:            profile.CanonicalModel,
 			Protocol:                  append([]string(nil), profile.Protocol...),
+			AutoRouteEnabled:          profile.AutoRouteEnabled,
 			SupportedReasoningEfforts: append([]string(nil), profile.SupportedReasoningEfforts...),
 		})
 	}
@@ -259,6 +268,11 @@ func GetACURoutingCatalog(ctx context.Context) (dto.ACURoutingCatalog, error) {
 		Profiles:                         profiles,
 		DefaultCandidatePreferenceScores: monitor.DefaultCandidatePreferenceScores,
 	}, nil
+}
+
+func hasConfiguredModel(models map[string]struct{}, modelID string) bool {
+	_, ok := models[modelID]
+	return ok
 }
 
 func isRoutingCatalogVerificationStatus(value string) bool {

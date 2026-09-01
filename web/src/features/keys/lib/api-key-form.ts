@@ -138,6 +138,9 @@ export function getApiKeyFormDefaultValues(
 export function transformFormDataToPayload(
   data: ApiKeyFormValues
 ): ApiKeyFormData {
+  const candidateModelIDs = data.acu_allowed_candidate_ids.map(
+    (candidateId) => candidateId.split('@', 1)[0]
+  )
   return {
     name: data.name,
     remain_quota: data.unlimited_quota
@@ -151,9 +154,8 @@ export function transformFormDataToPayload(
     model_limits: data.acu_model_scope_custom
       ? [
           ...new Set([
-            ...data.acu_allowed_candidate_ids.map(
-              (candidateId) => candidateId.split('@', 1)[0]
-            ),
+            ...data.model_limits,
+            ...candidateModelIDs,
             'acu-auto',
             'acu-high',
           ]),
