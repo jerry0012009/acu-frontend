@@ -13,7 +13,6 @@ export type ACUMonitorProtocol =
   | 'chat_completions'
 export type ACUMonitorSort =
   | 'recommended'
-  | 'routing_score'
   | 'usage'
   | 'cost'
   | 'reliability'
@@ -155,13 +154,6 @@ export function sortMonitorProfiles(
 ): ACUChannelMonitorProfile[] {
   const rows = [...profiles]
   return rows.sort((left, right) => {
-    if (sort === 'routing_score') {
-      return (
-        profileRankValue(left) - profileRankValue(right) ||
-        profileUtilityValue(right) - profileUtilityValue(left) ||
-        left.executionProfileId.localeCompare(right.executionProfileId)
-      )
-    }
     if (sort === 'usage') {
       return (
         (right.requestCount ?? 0) - (left.requestCount ?? 0) ||
@@ -236,21 +228,6 @@ function profileCostValue(profile: ACUChannelMonitorProfile): number {
     : Number.POSITIVE_INFINITY
 }
 
-function profileRankValue(profile: ACUChannelMonitorProfile): number {
-  return profile.profileRank != null &&
-    Number.isFinite(profile.profileRank) &&
-    profile.profileRank > 0
-    ? profile.profileRank
-    : Number.POSITIVE_INFINITY
-}
-
-function profileUtilityValue(profile: ACUChannelMonitorProfile): number {
-  return profile.profileUtility != null &&
-    Number.isFinite(profile.profileUtility)
-    ? profile.profileUtility
-    : Number.NEGATIVE_INFINITY
-}
-
 function profileSpeedValue(profile: ACUChannelMonitorProfile): number {
   if (
     profile.profileLatencyMs != null &&
@@ -306,9 +283,6 @@ function compareOverview(
 ): number {
   if (sort === 'usage') {
     return right.requestCount - left.requestCount
-  }
-  if (sort === 'routing_score') {
-    return overviewRankValue(left.profiles) - overviewRankValue(right.profiles)
   }
   if (sort === 'cost') {
     return overviewCostValue(left.profiles) - overviewCostValue(right.profiles)
