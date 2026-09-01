@@ -667,7 +667,7 @@ func migrateACUUsageFinalizeJudgeCostSourceToText() error {
 		if query.Error != nil {
 			return fmt.Errorf("failed to query metadata for %s.%s: %w", tableName, columnName, query.Error)
 		}
-		if query.RowsAffected == 0 {
+		if dataType == "" {
 			return nil
 		}
 		if dataType == "text" {
@@ -682,7 +682,7 @@ func migrateACUUsageFinalizeJudgeCostSourceToText() error {
 		if query.Error != nil {
 			return fmt.Errorf("failed to query metadata for %s.%s: %w", tableName, columnName, query.Error)
 		}
-		if query.RowsAffected == 0 {
+		if columnType == "" {
 			return nil
 		}
 		if strings.EqualFold(columnType, "text") {
