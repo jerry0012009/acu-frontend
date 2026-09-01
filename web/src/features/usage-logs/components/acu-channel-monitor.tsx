@@ -558,7 +558,8 @@ export function ACUChannelMonitor() {
     : undefined
   const summary = summarizeMonitorProfiles(protocolProfiles)
   const sortLabel = {
-    recommended: t('Recommended'),
+    recommended: t('Availability first'),
+    routing_score: t('Current routing score'),
     usage: t('Usage high to low'),
     cost: t('Estimated cost low to high'),
     reliability: t('Reliability high to low'),
@@ -677,10 +678,10 @@ export function ACUChannelMonitor() {
               </label>
               <label className='min-w-0 space-y-1 text-xs'>
                 <span className='text-muted-foreground'>
-                  {t('Scoring strategy')}
+                  {t('Routing score strategy')}
                 </span>
                 <select
-                  aria-label={t('Scoring strategy')}
+                  aria-label={t('Routing score strategy')}
                   className='bg-background h-8 w-full rounded-md border px-2 text-xs'
                   value={supplyStrategy}
                   onChange={(event) =>
@@ -713,16 +714,21 @@ export function ACUChannelMonitor() {
                 </select>
               </label>
               <label className='min-w-0 space-y-1 text-xs'>
-                <span className='text-muted-foreground'>{t('Sort')}</span>
+                <span className='text-muted-foreground'>
+                  {t('Display order')}
+                </span>
                 <select
-                  aria-label={t('Sort')}
+                  aria-label={t('Display order')}
                   className='bg-background h-8 w-full rounded-md border px-2 text-xs'
                   value={sort}
                   onChange={(event) =>
                     setSort(event.target.value as ACUMonitorSort)
                   }
                 >
-                  <option value='recommended'>{t('Recommended')}</option>
+                  <option value='recommended'>{t('Availability first')}</option>
+                  <option value='routing_score'>
+                    {t('Current routing score')}
+                  </option>
                   <option value='usage'>{t('Usage high to low')}</option>
                   <option value='cost'>
                     {t('Estimated cost low to high')}
@@ -770,6 +776,11 @@ export function ACUChannelMonitor() {
       <div className='bg-muted/30 text-muted-foreground border-primary/40 flex items-start gap-2 rounded-md border-l-2 px-3 py-2 text-xs'>
         <ShieldCheck className='mt-0.5 size-3.5 shrink-0' aria-hidden='true' />
         <div>
+          <div>
+            {t(
+              'The routing score strategy changes scores and ranks; display order only changes how cards are shown.'
+            )}
+          </div>
           {t(
             'Route eligible means this Profile can currently take production requests. A fresh Probe only means a recent check ran; it does not mean the check passed.'
           )}
@@ -903,7 +914,7 @@ export function ACUChannelMonitor() {
               </div>
               {isAdmin ? (
                 <div className='text-muted-foreground flex items-center gap-2 text-xs'>
-                  <span>{t('Sort')}</span>
+                  <span>{t('Display order')}</span>
                   <Badge variant='outline' className='font-normal'>
                     {sortLabel}
                   </Badge>
@@ -956,7 +967,7 @@ export function ACUChannelMonitor() {
                 ) : null}
               </div>
               <div className='text-muted-foreground text-xs'>
-                {t('Sort')}:{' '}
+                {t('Display order')}:{' '}
                 <span className='text-foreground'>{sortLabel}</span>
               </div>
             </div>

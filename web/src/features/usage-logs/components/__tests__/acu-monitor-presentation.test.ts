@@ -98,6 +98,31 @@ test('sorts production usage and puts unknown prices last', () => {
   )
 })
 
+test('sorts Profiles by the current routing rank when requested', () => {
+  const second = profile({
+    executionProfileId: 'second',
+    profileRank: 2,
+    profileUtility: 0.8,
+  })
+  const first = profile({
+    executionProfileId: 'first',
+    profileRank: 1,
+    profileUtility: 0.6,
+  })
+  const unranked = profile({
+    executionProfileId: 'unranked',
+    profileRank: null,
+    profileUtility: null,
+  })
+
+  assert.deepEqual(
+    sortMonitorProfiles([unranked, second, first], 'routing_score').map(
+      (item) => item.executionProfileId
+    ),
+    ['first', 'second', 'unranked']
+  )
+})
+
 test('sorts Overview channel and model groups with the selected monitor order', () => {
   const lowUsage = profile({
     executionProfileId: 'low:gpt-5.6-luna:responses',
