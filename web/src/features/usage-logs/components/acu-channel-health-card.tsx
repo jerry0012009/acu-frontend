@@ -27,6 +27,7 @@ import {
   monitorReason,
   monitorStateLabel,
   protocolLabel,
+  protocolShortLabel,
 } from './acu-monitor-presentation'
 
 function milliseconds(value?: number | null) {
@@ -91,10 +92,10 @@ export function ACUChannelHealthCard(props: {
   const [expanded, setExpanded] = useState(false)
   const primary = props.channel.primaryProfile
   return (
-    <section className='bg-background min-w-0 rounded-md border [contain-intrinsic-size:auto_420px] [content-visibility:auto]'>
+    <section className='bg-background min-w-0 overflow-hidden rounded-lg border [contain-intrinsic-size:auto_420px] [content-visibility:auto]'>
       <button
         type='button'
-        className='flex w-full min-w-0 items-start justify-between gap-3 p-4 text-left'
+        className='flex w-full min-w-0 items-start justify-between gap-3 p-3 text-left sm:p-4'
         aria-expanded={expanded}
         onClick={() => setExpanded((current) => !current)}
       >
@@ -129,8 +130,12 @@ export function ACUChannelHealthCard(props: {
                 props.channel.profiles.flatMap((profile) => profile.protocol)
               ),
             ].map((value) => (
-              <Badge key={value} variant='outline'>
-                {protocolLabel(value, t)}
+              <Badge
+                key={value}
+                variant='outline'
+                title={protocolLabel(value, t)}
+              >
+                {protocolShortLabel(value, t)}
               </Badge>
             ))}
           </div>
@@ -200,7 +205,7 @@ export function ACUChannelHealthCard(props: {
         </div>
       </div>
 
-      <div className='space-y-3 p-4'>
+      <div className='bg-muted/10 space-y-3 p-3 sm:p-4'>
         <StatusTimeline
           label={t('Production')}
           buckets={props.channel.buckets.map((bucket) => ({
@@ -232,7 +237,7 @@ export function ACUChannelHealthCard(props: {
       </div>
 
       {expanded && (
-        <div className='space-y-2 border-t p-3'>
+        <div className='bg-muted/20 space-y-2 border-t p-3'>
           {props.channel.profiles.map((profile) => (
             <ChannelProfile
               key={profile.executionProfileId}
@@ -297,7 +302,8 @@ function ChannelProfile(props: {
   const globallyAvailableForToken =
     tokenScope?.globalProfileIds.includes(profile.executionProfileId) ?? false
   const tokenAllowed =
-    tokenScope?.effectiveProfileIds.includes(profile.executionProfileId) ?? false
+    tokenScope?.effectiveProfileIds.includes(profile.executionProfileId) ??
+    false
   const tokenTogglePending =
     props.tokenActions?.isPending(profile.executionProfileId) ?? false
   const isLastTokenProfile =
@@ -311,7 +317,7 @@ function ChannelProfile(props: {
     }
   }
   return (
-    <details className='rounded border p-3 text-xs'>
+    <details className='bg-background rounded-md border p-3 text-xs'>
       <summary className='cursor-pointer list-none'>
         <div className='flex min-w-0 flex-wrap items-center justify-between gap-2'>
           <div className='min-w-0'>
@@ -413,8 +419,7 @@ function ChannelProfile(props: {
             {globallyAvailableForToken ? t('Allowed') : t('Disabled')}
           </span>
           <span className='text-muted-foreground'>
-            {t('This API key')}:{' '}
-            {tokenAllowed ? t('Allowed') : t('Disabled')}
+            {t('This API key')}: {tokenAllowed ? t('Allowed') : t('Disabled')}
           </span>
           <Button
             size='sm'

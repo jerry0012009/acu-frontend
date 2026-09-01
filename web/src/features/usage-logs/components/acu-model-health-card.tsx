@@ -29,7 +29,7 @@ import { StatusTimeline } from './acu-health-timeline'
 import {
   monitorStateLabel,
   profileLatencyDisplay,
-  protocolLabel,
+  protocolShortLabel,
 } from './acu-monitor-presentation'
 
 const stateVariant = {
@@ -70,10 +70,10 @@ export function ACUModelHealthCard(props: {
   const [expanded, setExpanded] = useState(false)
   const probeRange = props.probeRange ?? '48h'
   return (
-    <section className='bg-background min-w-0 rounded-md border'>
+    <section className='bg-background min-w-0 overflow-hidden rounded-lg border'>
       <button
         type='button'
-        className='flex w-full min-w-0 items-start justify-between gap-3 p-4 text-left'
+        className='flex w-full min-w-0 items-start justify-between gap-3 p-3 text-left sm:p-4'
         aria-expanded={expanded}
         onClick={() => setExpanded((current) => !current)}
       >
@@ -97,7 +97,7 @@ export function ACUModelHealthCard(props: {
           </div>
         </div>
       </button>
-      <div className='space-y-3 border-t p-4'>
+      <div className='bg-muted/10 space-y-3 border-t p-3 sm:p-4'>
         {props.showDiagnostics ? (
           <StatusTimeline
             label={t('Production')}
@@ -125,7 +125,7 @@ export function ACUModelHealthCard(props: {
         ) : null}
       </div>
       {expanded && (
-        <div className='space-y-2 border-t p-3'>
+        <div className='bg-muted/20 space-y-2 border-t p-3'>
           {props.model.profiles.map((profile, index) => (
             <ModelProfile
               key={profile.executionProfileId}
@@ -203,7 +203,8 @@ function ModelProfile(props: {
   const globallyAvailableForToken =
     tokenScope?.globalProfileIds.includes(profile.executionProfileId) ?? false
   const tokenAllowed =
-    tokenScope?.effectiveProfileIds.includes(profile.executionProfileId) ?? false
+    tokenScope?.effectiveProfileIds.includes(profile.executionProfileId) ??
+    false
   const tokenTogglePending =
     props.tokenActions?.isPending(profile.executionProfileId) ?? false
   const isLastTokenProfile =
@@ -211,7 +212,7 @@ function ModelProfile(props: {
   const notePending =
     props.noteActions?.isPending(profile.executionProfileId) ?? false
   return (
-    <div className='rounded border p-3 text-xs'>
+    <div className='bg-background rounded-md border p-3 text-xs'>
       <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
         <div className='min-w-0'>
           <div className='font-medium'>
@@ -290,8 +291,7 @@ function ModelProfile(props: {
       {props.actions ? (
         <div className='mt-3 flex flex-wrap items-center gap-2 border-t pt-3'>
           <span className='text-muted-foreground'>
-            {t('Global routing')}:{' '}
-            {globalRoutingStatus}
+            {t('Global routing')}: {globalRoutingStatus}
           </span>
           <Button
             size='sm'
@@ -329,8 +329,7 @@ function ModelProfile(props: {
             {globallyAvailableForToken ? t('Allowed') : t('Disabled')}
           </span>
           <span className='text-muted-foreground'>
-            {t('This API key')}:{' '}
-            {tokenAllowed ? t('Allowed') : t('Disabled')}
+            {t('This API key')}: {tokenAllowed ? t('Allowed') : t('Disabled')}
           </span>
           <Button
             size='sm'
@@ -386,7 +385,9 @@ function ModelProfile(props: {
           : profile.probeStatus || t('never')}
       </div>
       <div className='text-muted-foreground mt-2'>
-        {profile.protocol.map((value) => protocolLabel(value, t)).join(', ')}
+        {profile.protocol
+          .map((value) => protocolShortLabel(value, t))
+          .join(', ')}
       </div>
     </div>
   )

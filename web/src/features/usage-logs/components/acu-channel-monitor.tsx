@@ -5,8 +5,10 @@ import {
   Clock3,
   HeartPulse,
   Network,
+  Search,
   ShieldCheck,
   Table2,
+  X,
   RefreshCw,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -61,6 +63,8 @@ import {
   monitorReason,
   monitorStateLabel,
   protocolLabel,
+  sortMonitorChannels,
+  sortMonitorModels,
   sortMonitorProfiles,
   summarizeMonitorProfiles,
   type ACUMonitorProtocol,
@@ -83,6 +87,20 @@ type GlobalModelOption = {
   autoRouteEnabled: boolean
 }
 
+type ProfileFilters = {
+  model: string
+  provider: string
+  protocol: string
+  state: string
+}
+
+const EMPTY_PROFILE_FILTERS: ProfileFilters = {
+  model: '',
+  provider: '',
+  protocol: '',
+  state: '',
+}
+
 function isProfileGloballyUsable(
   policy: ACUGlobalRoutingPolicy,
   profile: ACUChannelMonitorProfile,
@@ -95,15 +113,17 @@ function isProfileGloballyUsable(
   ) {
     return false
   }
-  const model = modelEntries.find((entry) => entry.id === profile.canonicalModel)
+  const model = modelEntries.find(
+    (entry) => entry.id === profile.canonicalModel
+  )
   return Boolean(
     model &&
-      modelAccessFor(
-        policy,
-        model.id,
-        model.hasConfiguredProfile,
-        model.autoRouteEnabled
-      ) !== 'disabled'
+    modelAccessFor(
+      policy,
+      model.id,
+      model.hasConfiguredProfile,
+      model.autoRouteEnabled
+    ) !== 'disabled'
   )
 }
 
@@ -119,7 +139,9 @@ function buildAvailableModelEntries(
     .filter(Boolean)
     .sort()
     .map((id) => {
-      const modelProfiles = profiles.filter((item) => item.canonicalModel === id)
+      const modelProfiles = profiles.filter(
+        (item) => item.canonicalModel === id
+      )
       return {
         id,
         hasConfiguredProfile: modelProfiles.some(
@@ -181,12 +203,10 @@ export function ACUChannelMonitor() {
   const [scenario, setScenario] = useState<ACUMonitorScenario>('standard')
   const [protocol, setProtocol] = useState<ACUMonitorProtocol>('responses')
   const [sort, setSort] = useState<ACUMonitorSort>('recommended')
-  const [filters, setFilters] = useState({
-    model: '',
-    provider: '',
-    protocol: '',
-    state: '',
-  })
+  const [filters, setFilters] = useState<ProfileFilters>(EMPTY_PROFILE_FILTERS)
+  const [appliedFilters, setAppliedFilters] = useState<ProfileFilters>(
+    EMPTY_PROFILE_FILTERS
+  )
   const [probeInspector, setProbeInspector] =
     useState<ProbeInspectorState | null>(null)
   const [calibrationMessage, setCalibrationMessage] = useState('')
@@ -271,10 +291,8 @@ export function ACUChannelMonitor() {
       ),
   })
   const profileNoteMutation = useMutation({
-    mutationFn: (input: {
-      executionProfileId: string
-      note: string
-    }) => updateACUProfilePublicNote(input.executionProfileId, input.note),
+    mutationFn: (input: { executionProfileId: string; note: string }) =>
+      updateACUProfilePublicNote(input.executionProfileId, input.note),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: ['acu-channel-monitor'],
@@ -283,9 +301,7 @@ export function ACUChannelMonitor() {
     },
     onError: (error) =>
       toast.error(
-        error instanceof Error
-          ? error.message
-          : t('Profile note update failed')
+        error instanceof Error ? error.message : t('Profile note update failed')
       ),
   })
   const pause = useMutation({
@@ -402,22 +418,28 @@ export function ACUChannelMonitor() {
     return sortMonitorProfiles(
       protocolProfiles.filter(
         (profile) =>
-          (!filters.model || profile.canonicalModel === filters.model) &&
-          (!filters.provider || profile.provider === filters.provider) &&
-          (!filters.protocol || profile.protocol.includes(filters.protocol)) &&
-          (!filters.state || profile.state === filters.state)
+          (!appliedFilters.model ||
+            profile.canonicalModel === appliedFilters.model) &&
+          (!appliedFilters.provider ||
+            profile.provider === appliedFilters.provider) &&
+          (!appliedFilters.protocol ||
+            profile.protocol.includes(appliedFilters.protocol)) &&
+          (!appliedFilters.state || profile.state === appliedFilters.state)
       ),
       sort
     )
-  }, [activeTab, filters, protocolProfiles, sort])
+  }, [activeTab, appliedFilters, protocolProfiles, sort])
   const channelGroups = useMemo(() => {
     if (activeTab !== 'overview') return []
-    return groupACUChannels(
-      protocolProfiles,
-      query.data?.data?.history ?? [],
-      range,
-      query.data?.data?.generatedAt,
-      query.data?.data?.probeHistory ?? []
+    return sortMonitorChannels(
+      groupACUChannels(
+        protocolProfiles,
+        query.data?.data?.history ?? [],
+        range,
+        query.data?.data?.generatedAt,
+        query.data?.data?.probeHistory ?? []
+      ),
+      sort
     )
   }, [
     activeTab,
@@ -426,18 +448,22 @@ export function ACUChannelMonitor() {
     query.data?.data?.history,
     query.data?.data?.probeHistory,
     range,
+    sort,
   ])
   const modelGroups = useMemo(() => {
     if (activeTab !== 'overview' || (isAdmin && overviewLayout !== 'model')) {
       return []
     }
-    return groupACUModels(
-      protocolProfiles,
-      query.data?.data?.history ?? [],
-      range,
-      query.data?.data?.generatedAt,
-      query.data?.data?.probeHistory ?? [],
-      probeRange
+    return sortMonitorModels(
+      groupACUModels(
+        protocolProfiles,
+        query.data?.data?.history ?? [],
+        range,
+        query.data?.data?.generatedAt,
+        query.data?.data?.probeHistory ?? [],
+        probeRange
+      ),
+      sort
     )
   }, [
     activeTab,
@@ -449,6 +475,7 @@ export function ACUChannelMonitor() {
     query.data?.data?.probeHistory,
     probeRange,
     range,
+    sort,
   ])
   const profileActions = isRoot
     ? {
@@ -502,10 +529,7 @@ export function ACUChannelMonitor() {
             tokenProfileRoutingMutation.isPending &&
             tokenProfileRoutingMutation.variables?.executionProfileId ===
               profileId,
-          onToggle: (
-            profile: ACUChannelMonitorProfile,
-            enabled: boolean
-          ) => {
+          onToggle: (profile: ACUChannelMonitorProfile, enabled: boolean) => {
             tokenProfileRoutingMutation.mutate({
               tokenId: selectedTokenId,
               executionProfileId: profile.executionProfileId,
@@ -533,6 +557,19 @@ export function ACUChannelMonitor() {
       }
     : undefined
   const summary = summarizeMonitorProfiles(protocolProfiles)
+  const sortLabel = {
+    recommended: t('Recommended'),
+    usage: t('Usage high to low'),
+    cost: t('Estimated cost low to high'),
+    reliability: t('Reliability high to low'),
+    speed: t('Response speed fast to slow'),
+    recent_issue: t('Most recent issue'),
+  }[sort]
+  const filtersDirty =
+    filters.model !== appliedFilters.model ||
+    filters.provider !== appliedFilters.provider ||
+    filters.protocol !== appliedFilters.protocol ||
+    filters.state !== appliedFilters.state
   const statItems = [
     [t('Configured'), summary.configured, Activity],
     [t('Currently available'), summary.eligible, HeartPulse],
@@ -563,160 +600,189 @@ export function ACUChannelMonitor() {
           <RefreshCw className='size-4' />
         </Button>
       </div>
-      <div className='flex flex-wrap items-end gap-3 rounded border p-3'>
-        <label className='min-w-56 space-y-1 text-xs'>
-          <span className='text-muted-foreground'>{t('API key')}</span>
-          <select
-            aria-label={t('API key')}
-            className='bg-background h-8 w-full rounded border px-2'
-            value={selectedTokenId ?? ''}
-            disabled={apiKeysQuery.isLoading || apiKeys.length === 0}
-            onChange={(event) =>
-              setSelectedTokenId(
-                event.target.value ? Number(event.target.value) : null
-              )
-            }
-          >
-            {apiKeys.length === 0 ? (
-              <option value=''>{t('No API keys')}</option>
-            ) : null}
-            {apiKeys.map((token) => (
-              <option key={token.id} value={token.id}>
-                {token.name} · {token.key}
-              </option>
-            ))}
-          </select>
-        </label>
-        {selectedToken ? (
-          <div className='text-muted-foreground text-xs'>
-            <div>
-              {t('Profile scope')}:{' '}
-              {tokenProfileRoutingQuery.data?.data?.custom
-                ? t('Custom')
-                : t('Following global routing')}
+      <div className='bg-card/50 rounded-lg border p-3 sm:p-4'>
+        <div className='grid gap-3 lg:grid-cols-[minmax(18rem,1.35fr)_minmax(16rem,1fr)]'>
+          <label className='min-w-0 space-y-1 text-xs'>
+            <span className='text-muted-foreground'>{t('API key')}</span>
+            <select
+              aria-label={t('API key')}
+              className='bg-background h-9 w-full min-w-0 rounded-md border px-2.5 text-sm'
+              value={selectedTokenId ?? ''}
+              disabled={apiKeysQuery.isLoading || apiKeys.length === 0}
+              onChange={(event) =>
+                setSelectedTokenId(
+                  event.target.value ? Number(event.target.value) : null
+                )
+              }
+            >
+              {apiKeys.length === 0 ? (
+                <option value=''>{t('No API keys')}</option>
+              ) : null}
+              {apiKeys.map((token) => (
+                <option key={token.id} value={token.id}>
+                  {token.name} · {token.key}
+                </option>
+              ))}
+            </select>
+          </label>
+          {selectedToken ? (
+            <div className='bg-muted/35 flex min-w-0 flex-wrap content-center gap-x-5 gap-y-2 rounded-md px-3 py-2 text-xs'>
+              <div className='min-w-0'>
+                <div className='text-muted-foreground'>
+                  {t('Profile scope')}
+                </div>
+                <div className='mt-0.5 truncate font-medium'>
+                  {tokenProfileRoutingQuery.data?.data?.custom
+                    ? t('Custom')
+                    : t('Following global routing')}
+                </div>
+              </div>
+              <div className='min-w-0'>
+                <div className='text-muted-foreground'>{t('Scope')}</div>
+                <div className='mt-0.5 font-medium tabular-nums'>
+                  {t(
+                    '{{enabled}} of {{total}} globally allowed Profiles enabled',
+                    {
+                      enabled:
+                        tokenProfileRoutingQuery.data?.data?.effectiveProfileIds
+                          .length ?? 0,
+                      total:
+                        tokenProfileRoutingQuery.data?.data?.globalProfileIds
+                          .length ?? 0,
+                    }
+                  )}
+                </div>
+              </div>
             </div>
-            <div>
-              {t('{{enabled}} of {{total}} globally allowed Profiles enabled', {
-                enabled:
-                  tokenProfileRoutingQuery.data?.data?.effectiveProfileIds
-                    .length ?? 0,
-                total:
-                  tokenProfileRoutingQuery.data?.data?.globalProfileIds
-                    .length ?? 0,
-              })}
+          ) : null}
+        </div>
+        <div className='mt-3 grid gap-2 border-t pt-3 sm:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))_minmax(14rem,1.35fr)]'>
+          {isAdmin && (
+            <>
+              <label className='min-w-0 space-y-1 text-xs'>
+                <span className='text-muted-foreground'>{t('Time range')}</span>
+                <select
+                  aria-label={t('Time range')}
+                  className='bg-background h-8 w-full rounded-md border px-2 text-xs'
+                  value={range}
+                  onChange={(event) =>
+                    setRange(event.target.value as ACUMonitorRange)
+                  }
+                >
+                  <option value='1h'>1h</option>
+                  <option value='6h'>6h</option>
+                  <option value='24h'>24h</option>
+                  <option value='7d'>7d</option>
+                </select>
+              </label>
+              <label className='min-w-0 space-y-1 text-xs'>
+                <span className='text-muted-foreground'>
+                  {t('Scoring strategy')}
+                </span>
+                <select
+                  aria-label={t('Scoring strategy')}
+                  className='bg-background h-8 w-full rounded-md border px-2 text-xs'
+                  value={supplyStrategy}
+                  onChange={(event) =>
+                    setSupplyStrategy(event.target.value as ACUSupplyStrategy)
+                  }
+                >
+                  <option value='balanced'>{t('Balanced')}</option>
+                  <option value='lowest_cost'>{t('Lowest cost')}</option>
+                  <option value='low_latency'>{t('Low latency')}</option>
+                  <option value='high_reliability'>
+                    {t('High reliability')}
+                  </option>
+                </select>
+              </label>
+              <label className='min-w-0 space-y-1 text-xs'>
+                <span className='text-muted-foreground'>
+                  {t('Request size')}
+                </span>
+                <select
+                  aria-label={t('Request size')}
+                  className='bg-background h-8 w-full rounded-md border px-2 text-xs'
+                  value={scenario}
+                  onChange={(event) =>
+                    setScenario(event.target.value as ACUMonitorScenario)
+                  }
+                >
+                  <option value='small'>{t('Small 2k/500')}</option>
+                  <option value='standard'>{t('Standard 20k/2k')}</option>
+                  <option value='long'>{t('Long context 100k/4k')}</option>
+                </select>
+              </label>
+              <label className='min-w-0 space-y-1 text-xs'>
+                <span className='text-muted-foreground'>{t('Sort')}</span>
+                <select
+                  aria-label={t('Sort')}
+                  className='bg-background h-8 w-full rounded-md border px-2 text-xs'
+                  value={sort}
+                  onChange={(event) =>
+                    setSort(event.target.value as ACUMonitorSort)
+                  }
+                >
+                  <option value='recommended'>{t('Recommended')}</option>
+                  <option value='usage'>{t('Usage high to low')}</option>
+                  <option value='cost'>
+                    {t('Estimated cost low to high')}
+                  </option>
+                  <option value='reliability'>
+                    {t('Reliability high to low')}
+                  </option>
+                  <option value='speed'>
+                    {t('Response speed fast to slow')}
+                  </option>
+                  <option value='recent_issue'>{t('Most recent issue')}</option>
+                </select>
+              </label>
+            </>
+          )}
+          <div className='min-w-0 space-y-1 text-xs sm:col-span-2 xl:col-span-1'>
+            <span className='text-muted-foreground'>{t('Protocol')}</span>
+            <div
+              className='bg-muted flex h-8 max-w-full min-w-0 rounded-md p-0.5'
+              aria-label={t('Protocol')}
+            >
+              {(
+                [
+                  ['responses', t('Responses')],
+                  ['messages', t('Messages')],
+                  ['chat_completions', t('Chat')],
+                ] as const
+              ).map(([value, label]) => (
+                <Button
+                  key={value}
+                  type='button'
+                  size='sm'
+                  variant={protocol === value ? 'default' : 'ghost'}
+                  className='h-7 min-w-0 flex-1 px-2 text-xs'
+                  aria-pressed={protocol === value}
+                  onClick={() => setProtocol(value)}
+                >
+                  <span className='truncate'>{label}</span>
+                </Button>
+              ))}
             </div>
           </div>
-        ) : null}
-      </div>
-      {isAdmin && (
-        <div className='grid gap-2 sm:grid-cols-2 xl:grid-cols-5'>
-          <label className='space-y-1 text-xs'>
-            <span className='text-muted-foreground'>{t('Time range')}</span>
-            <select
-              aria-label={t('Time range')}
-              className='bg-background h-8 w-full rounded border px-2'
-              value={range}
-              onChange={(event) =>
-                setRange(event.target.value as ACUMonitorRange)
-              }
-            >
-              <option value='1h'>1h</option>
-              <option value='6h'>6h</option>
-              <option value='24h'>24h</option>
-              <option value='7d'>7d</option>
-            </select>
-          </label>
-          <label className='space-y-1 text-xs'>
-            <span className='text-muted-foreground'>
-              {t('Scoring strategy')}
-            </span>
-            <select
-              aria-label={t('Scoring strategy')}
-              className='bg-background h-8 w-full rounded border px-2'
-              value={supplyStrategy}
-              onChange={(event) =>
-                setSupplyStrategy(event.target.value as ACUSupplyStrategy)
-              }
-            >
-              <option value='balanced'>{t('Balanced')}</option>
-              <option value='lowest_cost'>{t('Lowest cost')}</option>
-              <option value='low_latency'>{t('Low latency')}</option>
-              <option value='high_reliability'>{t('High reliability')}</option>
-            </select>
-          </label>
-          <label className='space-y-1 text-xs'>
-            <span className='text-muted-foreground'>{t('Request size')}</span>
-            <select
-              aria-label={t('Request size')}
-              className='bg-background h-8 w-full rounded border px-2'
-              value={scenario}
-              onChange={(event) =>
-                setScenario(event.target.value as ACUMonitorScenario)
-              }
-            >
-              <option value='small'>{t('Small 2k/500')}</option>
-              <option value='standard'>{t('Standard 20k/2k')}</option>
-              <option value='long'>{t('Long context 100k/4k')}</option>
-            </select>
-          </label>
-          <label className='space-y-1 text-xs'>
-            <span className='text-muted-foreground'>{t('Sort')}</span>
-            <select
-              aria-label={t('Sort')}
-              className='bg-background h-8 w-full rounded border px-2'
-              value={sort}
-              onChange={(event) =>
-                setSort(event.target.value as ACUMonitorSort)
-              }
-            >
-              <option value='recommended'>{t('Recommended')}</option>
-              <option value='usage'>{t('Usage high to low')}</option>
-              <option value='cost'>{t('Estimated cost low to high')}</option>
-              <option value='reliability'>
-                {t('Reliability high to low')}
-              </option>
-              <option value='speed'>{t('Response speed fast to slow')}</option>
-              <option value='recent_issue'>{t('Most recent issue')}</option>
-            </select>
-          </label>
-        </div>
-      )}
-      <div className='flex flex-wrap items-center gap-2'>
-        <span className='text-muted-foreground text-xs'>{t('Protocol')}</span>
-        <div className='flex flex-wrap gap-1' aria-label={t('Protocol')}>
-          {(
-            [
-              ['responses', t('Responses')],
-              ['messages', t('Messages')],
-              ['chat_completions', t('Chat')],
-            ] as const
-          ).map(([value, label]) => (
-            <Button
-              key={value}
-              type='button'
-              size='sm'
-              variant={protocol === value ? 'default' : 'outline'}
-              className='h-8 px-2'
-              onClick={() => setProtocol(value)}
-            >
-              {label}
-            </Button>
-          ))}
         </div>
       </div>
-      <div className='bg-muted/40 text-muted-foreground rounded border px-3 py-2 text-xs'>
-        {t(
-          'Route eligible means this Profile can currently take production requests. A fresh Probe only means a recent check ran; it does not mean the check passed.'
-        )}
-        {protocol === 'messages' &&
-        summary.channels === 1 &&
-        summary.eligible > 0 ? (
-          <div className='text-foreground mt-1 font-medium'>
-            {t(
-              'Currently available Anthropic Messages supply is concentrated in one independent channel.'
-            )}
-          </div>
-        ) : null}
+      <div className='bg-muted/30 text-muted-foreground border-primary/40 flex items-start gap-2 rounded-md border-l-2 px-3 py-2 text-xs'>
+        <ShieldCheck className='mt-0.5 size-3.5 shrink-0' aria-hidden='true' />
+        <div>
+          {t(
+            'Route eligible means this Profile can currently take production requests. A fresh Probe only means a recent check ran; it does not mean the check passed.'
+          )}
+          {protocol === 'messages' &&
+          summary.channels === 1 &&
+          summary.eligible > 0 ? (
+            <div className='text-foreground mt-1 font-medium'>
+              {t(
+                'Currently available Anthropic Messages supply is concentrated in one independent channel.'
+              )}
+            </div>
+          ) : null}
+        </div>
       </div>
       {query.isError && (
         <div className='text-destructive border-destructive/30 bg-destructive/5 flex items-start gap-2 rounded border p-3 text-xs'>
@@ -738,71 +804,111 @@ export function ACUChannelMonitor() {
           {t('Loading channel inventory...')}
         </div>
       )}
-      <div className='bg-border grid grid-cols-2 gap-px overflow-hidden rounded border lg:grid-cols-6'>
+      <div className='bg-border grid grid-cols-2 gap-px overflow-hidden rounded-md border md:grid-cols-3 xl:grid-cols-6'>
         {statItems.map(([label, value, Icon]) => (
-          <div key={label} className='bg-background min-w-0 p-3'>
-            <div className='text-muted-foreground flex items-center gap-1.5 text-[11px]'>
+          <div key={label} className='bg-background min-w-0 p-2.5 sm:p-3'>
+            <div className='text-muted-foreground flex items-start gap-1.5 text-[11px] leading-4'>
               <Icon className='size-3.5' />
               {label}
             </div>
-            <div className='mt-1 text-sm font-semibold'>{value}</div>
+            <div className='mt-1 text-base font-semibold tabular-nums'>
+              {value}
+            </div>
           </div>
         ))}
       </div>
       <Tabs value={activeTab} onValueChange={setActiveTab} className='min-w-0'>
-        <TabsList>
-          <TabsTrigger value='overview'>{t('Overview')}</TabsTrigger>
-          {isAdmin && (
-            <>
-              <TabsTrigger value='current'>{t('Profiles')}</TabsTrigger>
-              <TabsTrigger value='probes'>{t('Probe history')}</TabsTrigger>
-              <TabsTrigger value='history'>{t('History')}</TabsTrigger>
-              <TabsTrigger value='inventory'>
-                {t('Supply inventory')}
-              </TabsTrigger>
-              <TabsTrigger value='models'>{t('Model pool')}</TabsTrigger>
-              {isRoot && (
-                <TabsTrigger value='routing'>
-                  {t('Router configuration')}
+        <div className='max-w-full overflow-x-auto pb-1'>
+          <TabsList className='min-w-max'>
+            <TabsTrigger value='overview'>{t('Overview')}</TabsTrigger>
+            {isAdmin && (
+              <>
+                <TabsTrigger value='current'>{t('Profiles')}</TabsTrigger>
+                <TabsTrigger value='probes'>{t('Probe history')}</TabsTrigger>
+                <TabsTrigger value='history'>{t('History')}</TabsTrigger>
+                <TabsTrigger value='inventory'>
+                  {t('Supply inventory')}
                 </TabsTrigger>
-              )}
-            </>
-          )}
-        </TabsList>
+                <TabsTrigger value='models'>{t('Model pool')}</TabsTrigger>
+                {isRoot && (
+                  <TabsTrigger value='routing'>
+                    {t('Router configuration')}
+                  </TabsTrigger>
+                )}
+              </>
+            )}
+          </TabsList>
+        </div>
         <TabsContent value='overview' className='min-w-0 space-y-3'>
-          {isAdmin && (
-            <div className='flex gap-2'>
-              <Button
-                size='sm'
-                variant={overviewLayout === 'channel' ? 'default' : 'outline'}
-                onClick={() => setOverviewLayout('channel')}
-              >
-                {t('By channel')}
-              </Button>
-              <Button
-                size='sm'
-                variant={overviewLayout === 'model' ? 'default' : 'outline'}
-                onClick={() => setOverviewLayout('model')}
-              >
-                {t('By model')}
-              </Button>
-            </div>
-          )}
-          {overviewLayout === 'model' && (
-            <div className='flex flex-wrap items-center gap-2'>
-              <span className='text-muted-foreground text-xs'>
-                {t('Probe history')}
-              </span>
-              {(['24h', '48h', '7d'] as const).map((value) => (
-                <Button
-                  key={value}
-                  size='sm'
-                  variant={probeRange === value ? 'default' : 'outline'}
-                  onClick={() => setProbeRange(value)}
-                >
-                  {value}
-                </Button>
-              ))}
+          {(isAdmin || overviewLayout === 'model') && (
+            <div className='flex flex-wrap items-center justify-between gap-3 border-b pb-2'>
+              <div className='flex min-w-0 flex-wrap items-center gap-2'>
+                {isAdmin && (
+                  <>
+                    <span className='text-muted-foreground text-xs font-medium'>
+                      {t('Layout')}
+                    </span>
+                    <div
+                      className='bg-muted inline-flex rounded-md p-0.5'
+                      aria-label={t('Layout')}
+                    >
+                      <Button
+                        size='sm'
+                        variant={
+                          overviewLayout === 'channel' ? 'default' : 'ghost'
+                        }
+                        className='h-7 px-2.5 text-xs'
+                        aria-pressed={overviewLayout === 'channel'}
+                        onClick={() => setOverviewLayout('channel')}
+                      >
+                        <Network className='size-3.5' />
+                        {t('By channel')}
+                      </Button>
+                      <Button
+                        size='sm'
+                        variant={
+                          overviewLayout === 'model' ? 'default' : 'ghost'
+                        }
+                        className='h-7 px-2.5 text-xs'
+                        aria-pressed={overviewLayout === 'model'}
+                        onClick={() => setOverviewLayout('model')}
+                      >
+                        <Table2 className='size-3.5' />
+                        {t('By model')}
+                      </Button>
+                    </div>
+                  </>
+                )}
+                {overviewLayout === 'model' && (
+                  <>
+                    <span className='text-muted-foreground ml-1 text-xs font-medium'>
+                      {t('Probe history')}
+                    </span>
+                    <div className='bg-muted inline-flex rounded-md p-0.5'>
+                      {(['24h', '48h', '7d'] as const).map((value) => (
+                        <Button
+                          key={value}
+                          size='sm'
+                          variant={probeRange === value ? 'default' : 'ghost'}
+                          className='h-7 px-2.5 text-xs'
+                          aria-pressed={probeRange === value}
+                          onClick={() => setProbeRange(value)}
+                        >
+                          {value}
+                        </Button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+              {isAdmin ? (
+                <div className='text-muted-foreground flex items-center gap-2 text-xs'>
+                  <span>{t('Sort')}</span>
+                  <Badge variant='outline' className='font-normal'>
+                    {sortLabel}
+                  </Badge>
+                </div>
+              ) : null}
             </div>
           )}
           <div className='grid min-w-0 gap-3 xl:grid-cols-2'>
@@ -836,42 +942,85 @@ export function ACUChannelMonitor() {
                 {t('No model profiles')}
               </div>
             )}
-          <div className='text-muted-foreground text-xs'>
-            {t(
-              'Route eligible means the profile is configured, trusted, enabled and not in channel/profile cooldown. Probe status is independent and shows the latest recorded probe.'
-            )}
-          </div>
         </TabsContent>
         <TabsContent value='current' className='min-w-0 space-y-3'>
-          <div className='flex flex-wrap gap-2'>
-            {(['model', 'protocol', 'provider', 'state'] as const).map(
-              (key) => (
-                <select
-                  key={key}
-                  aria-label={key}
-                  className='bg-background h-8 rounded border px-2 text-xs'
-                  value={filters[key]}
-                  onChange={(event) =>
-                    setFilters((current) => ({
-                      ...current,
-                      [key]: event.target.value,
-                    }))
-                  }
+          <div className='bg-card/50 rounded-lg border p-2.5 sm:p-3'>
+            <div className='flex flex-wrap items-center justify-between gap-2'>
+              <div className='flex items-center gap-2'>
+                <span className='text-sm font-semibold'>{t('Profiles')}</span>
+                <Badge variant='outline' className='font-normal tabular-nums'>
+                  {profiles.length} / {protocolProfiles.length}
+                </Badge>
+                {filtersDirty ? (
+                  <Badge variant='warning'>{t('Pending')}</Badge>
+                ) : null}
+              </div>
+              <div className='text-muted-foreground text-xs'>
+                {t('Sort')}:{' '}
+                <span className='text-foreground'>{sortLabel}</span>
+              </div>
+            </div>
+            <div className='mt-3 grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))_auto]'>
+              {(
+                [
+                  ['model', t('Model')],
+                  ['protocol', t('Protocol')],
+                  ['provider', t('Provider')],
+                  ['state', t('State')],
+                ] as const
+              ).map(([key, label]) => (
+                <label key={key} className='min-w-0 space-y-1 text-xs'>
+                  <span className='text-muted-foreground'>{label}</span>
+                  <select
+                    aria-label={label}
+                    className='bg-background h-8 w-full min-w-0 rounded-md border px-2 text-xs'
+                    value={filters[key]}
+                    onChange={(event) =>
+                      setFilters((current) => ({
+                        ...current,
+                        [key]: event.target.value,
+                      }))
+                    }
+                  >
+                    <option value=''>{t('All')}</option>
+                    {[...new Set(profileFilterValues(protocolProfiles, key))]
+                      .filter(Boolean)
+                      .sort()
+                      .map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              ))}
+              <div className='flex items-end gap-2'>
+                <Button
+                  size='sm'
+                  className='h-8'
+                  onClick={() => setAppliedFilters(filters)}
                 >
-                  <option value=''>
-                    {t('All')} {key}
-                  </option>
-                  {[...new Set(profileFilterValues(protocolProfiles, key))]
-                    .filter(Boolean)
-                    .sort()
-                    .map((value) => (
-                      <option key={value} value={value}>
-                        {value}
-                      </option>
-                    ))}
-                </select>
-              )
-            )}
+                  <Search className='size-3.5' />
+                  {t('Search')}
+                </Button>
+                <Button
+                  size='sm'
+                  variant='outline'
+                  className='h-8'
+                  disabled={
+                    Object.values(filters).every((value) => value === '') &&
+                    Object.values(appliedFilters).every((value) => value === '')
+                  }
+                  onClick={() => {
+                    setFilters(EMPTY_PROFILE_FILTERS)
+                    setAppliedFilters(EMPTY_PROFILE_FILTERS)
+                  }}
+                >
+                  <X className='size-3.5' />
+                  {t('Clear filters')}
+                </Button>
+              </div>
+            </div>
           </div>
           <MonitorTable
             profiles={profiles}
@@ -1015,7 +1164,10 @@ function RouterConfigurationTab(props: {
   })
   const beginEditing = () => {
     if (!savedPolicy || !savedUtilityConfig) return
-    const modelEntries = buildAvailableModelEntries(props.modelPool, props.profiles)
+    const modelEntries = buildAvailableModelEntries(
+      props.modelPool,
+      props.profiles
+    )
     const nextPolicy = structuredClone(savedPolicy)
     nextPolicy.modelAccess = Object.fromEntries(
       modelEntries.map((entry) => [
@@ -1024,9 +1176,9 @@ function RouterConfigurationTab(props: {
           nextPolicy,
           entry.id,
           entry.hasConfiguredProfile,
-          entry.autoRouteEnabled,
+          entry.autoRouteEnabled
         ),
-      ]),
+      ])
     )
     const availableProfileIds = new Set(
       props.profiles
@@ -1073,21 +1225,18 @@ function RouterConfigurationTab(props: {
     () => [...availableProfileIds].sort(),
     [availableProfileIds]
   )
-  const modelOptions = useMemo(
-    () => {
-      if (!editingPolicy) return []
-      return availableModelEntries.map((entry) => ({
-        ...entry,
-        access: modelAccessFor(
-          editingPolicy,
-          entry.id,
-          entry.hasConfiguredProfile,
-          entry.autoRouteEnabled
-        ),
-      }))
-    },
-    [availableModelEntries, editingPolicy]
-  )
+  const modelOptions = useMemo(() => {
+    if (!editingPolicy) return []
+    return availableModelEntries.map((entry) => ({
+      ...entry,
+      access: modelAccessFor(
+        editingPolicy,
+        entry.id,
+        entry.hasConfiguredProfile,
+        entry.autoRouteEnabled
+      ),
+    }))
+  }, [availableModelEntries, editingPolicy])
   const profileOptions = useMemo(() => {
     if (!editingPolicy) return []
     return props.profiles
@@ -1237,7 +1386,7 @@ function RouterConfigurationTab(props: {
             </div>
             <div>
               <div className='text-muted-foreground'>
-                  {t('Global model access')}
+                {t('Global model access')}
               </div>
               <div className='mt-1'>
                 {availableModelEntries.map((entry) => (
@@ -1981,10 +2130,7 @@ function ModelAccessEditor(props: {
               value={option.access}
               disabled={!option.hasConfiguredProfile}
               onChange={(event) =>
-                props.onChange(
-                  option.id,
-                  event.target.value as ACUModelAccess
-                )
+                props.onChange(option.id, event.target.value as ACUModelAccess)
               }
             >
               <option value='disabled'>{t('Disabled')}</option>

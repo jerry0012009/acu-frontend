@@ -1,6 +1,10 @@
 import type { TFunction } from 'i18next'
 
 import type { ACUChannelMonitorProfile } from '../api'
+import type {
+  ACUChannelOverview,
+  ACUModelOverview,
+} from './acu-channel-health-model'
 
 export type ACUMonitorProtocol =
   | 'all'
@@ -19,6 +23,13 @@ export function protocolLabel(protocol: string, t: TFunction): string {
   if (protocol === 'responses') return t('OpenAI Responses (Codex)')
   if (protocol === 'messages') return t('Anthropic Messages (Claude protocol)')
   if (protocol === 'chat_completions') return t('OpenAI Chat Completions')
+  return protocol
+}
+
+export function protocolShortLabel(protocol: string, t: TFunction): string {
+  if (protocol === 'responses') return t('Responses')
+  if (protocol === 'messages') return t('Messages')
+  if (protocol === 'chat_completions') return t('Chat')
   return protocol
 }
 
@@ -144,24 +155,44 @@ export function sortMonitorProfiles(
   const rows = [...profiles]
   return rows.sort((left, right) => {
     if (sort === 'usage') {
-      return (right.requestCount ?? 0) - (left.requestCount ?? 0)
+      return (
+        (right.requestCount ?? 0) - (left.requestCount ?? 0) ||
+        (left.profileRank ?? Number.POSITIVE_INFINITY) -
+          (right.profileRank ?? Number.POSITIVE_INFINITY) ||
+        left.executionProfileId.localeCompare(right.executionProfileId)
+      )
     }
     if (sort === 'cost') {
       return (
         (left.profileCost ?? Number.POSITIVE_INFINITY) -
-        (right.profileCost ?? Number.POSITIVE_INFINITY)
+          (right.profileCost ?? Number.POSITIVE_INFINITY) ||
+        (left.profileRank ?? Number.POSITIVE_INFINITY) -
+          (right.profileRank ?? Number.POSITIVE_INFINITY) ||
+        left.executionProfileId.localeCompare(right.executionProfileId)
       )
     }
     if (sort === 'reliability') {
-      return (right.recentSuccessRate ?? -1) - (left.recentSuccessRate ?? -1)
+      return (
+        (right.recentSuccessRate ?? -1) - (left.recentSuccessRate ?? -1) ||
+        (left.profileRank ?? Number.POSITIVE_INFINITY) -
+          (right.profileRank ?? Number.POSITIVE_INFINITY) ||
+        left.executionProfileId.localeCompare(right.executionProfileId)
+      )
     }
     if (sort === 'speed') {
       return (
-        (left.p50FirstModelEventLatencyMs || Number.POSITIVE_INFINITY) -
-        (right.p50FirstModelEventLatencyMs || Number.POSITIVE_INFINITY)
+        profileSpeedValue(left) - profileSpeedValue(right) ||
+        (left.profileRank ?? Number.POSITIVE_INFINITY) -
+          (right.profileRank ?? Number.POSITIVE_INFINITY) ||
+        left.executionProfileId.localeCompare(right.executionProfileId)
       )
     }
-    if (sort === 'recent_issue') return issueTime(right) - issueTime(left)
+    if (sort === 'recent_issue') {
+      return (
+        issueTime(right) - issueTime(left) ||
+        left.executionProfileId.localeCompare(right.executionProfileId)
+      )
+    }
     return (
       Number(right.routingEligible) - Number(left.routingEligible) ||
       Number(left.state !== 'healthy') - Number(right.state !== 'healthy') ||
@@ -169,9 +200,161 @@ export function sortMonitorProfiles(
         Number((left.requestCount ?? 0) > 0) ||
       (right.recentSuccessRate ?? -1) - (left.recentSuccessRate ?? -1) ||
       new Date(right.lastSuccessAt || 0).getTime() -
-        new Date(left.lastSuccessAt || 0).getTime()
+        new Date(left.lastSuccessAt || 0).getTime() ||
+      left.executionProfileId.localeCompare(right.executionProfileId)
     )
   })
+}
+
+type MonitorHealthEvent = ACUChannelMonitorProfile['healthEvents'][number]
+
+function latestHealthEventTime(
+  events: Array<MonitorHealthEvent | null | undefined>
+): number {
+  let latest = 0
+  for (const event of events) {
+    if (!event) continue
+    const timestamp = new Date(event.at).getTime()
+    if (Number.isFinite(timestamp)) latest = Math.max(latest, timestamp)
+  }
+  return latest
+}
+
+function profileCostValue(profile: ACUChannelMonitorProfile): number {
+  return profile.profileCost != null &&
+    Number.isFinite(profile.profileCost) &&
+    profile.profileCost >= 0
+    ? profile.profileCost
+    : Number.POSITIVE_INFINITY
+}
+
+function profileSpeedValue(profile: ACUChannelMonitorProfile): number {
+  if (
+    profile.profileLatencyMs != null &&
+    Number.isFinite(profile.profileLatencyMs) &&
+    profile.profileLatencyMs > 0
+  ) {
+    return profile.profileLatencyMs
+  }
+  if (profile.p50FirstModelEventLatencyMs > 0) {
+    return profile.p50FirstModelEventLatencyMs
+  }
+  return Number.POSITIVE_INFINITY
+}
+
+function overviewCostValue(profiles: ACUChannelMonitorProfile[]): number {
+  return Math.min(...profiles.map(profileCostValue), Number.POSITIVE_INFINITY)
+}
+
+function overviewSpeedValue(profiles: ACUChannelMonitorProfile[]): number {
+  return Math.min(
+    ...profiles
+      .filter((profile) => profile.routingEligible)
+      .map(profileSpeedValue),
+    Number.POSITIVE_INFINITY
+  )
+}
+
+function overviewRankValue(profiles: ACUChannelMonitorProfile[]): number {
+  return Math.min(
+    ...profiles
+      .filter((profile) => profile.routingEligible)
+      .map((profile) => profile.profileRank ?? Number.POSITIVE_INFINITY),
+    Number.POSITIVE_INFINITY
+  )
+}
+
+function compareOverview(
+  left: {
+    requestCount: number
+    availability: number | null
+    profiles: ACUChannelMonitorProfile[]
+    healthEvents?: Array<MonitorHealthEvent | null | undefined>
+    eligibleCount: number
+  },
+  right: {
+    requestCount: number
+    availability: number | null
+    profiles: ACUChannelMonitorProfile[]
+    healthEvents?: Array<MonitorHealthEvent | null | undefined>
+    eligibleCount: number
+  },
+  sort: ACUMonitorSort
+): number {
+  if (sort === 'usage') {
+    return right.requestCount - left.requestCount
+  }
+  if (sort === 'cost') {
+    return overviewCostValue(left.profiles) - overviewCostValue(right.profiles)
+  }
+  if (sort === 'reliability') {
+    return (right.availability ?? -1) - (left.availability ?? -1)
+  }
+  if (sort === 'speed') {
+    return (
+      overviewSpeedValue(left.profiles) - overviewSpeedValue(right.profiles)
+    )
+  }
+  if (sort === 'recent_issue') {
+    return (
+      latestHealthEventTime(right.healthEvents ?? []) -
+      latestHealthEventTime(left.healthEvents ?? [])
+    )
+  }
+  return (
+    Number(right.eligibleCount > 0) - Number(left.eligibleCount > 0) ||
+    Number(right.availability != null) - Number(left.availability != null) ||
+    (right.availability ?? -1) - (left.availability ?? -1) ||
+    overviewRankValue(left.profiles) - overviewRankValue(right.profiles)
+  )
+}
+
+export function sortMonitorChannels(
+  channels: ACUChannelOverview[],
+  sort: ACUMonitorSort
+): ACUChannelOverview[] {
+  return [...channels].sort(
+    (left, right) =>
+      compareOverview(
+        {
+          ...left,
+          eligibleCount: left.eligibleProfileCount,
+          healthEvents: left.latestHealthEvent ? [left.latestHealthEvent] : [],
+        },
+        {
+          ...right,
+          eligibleCount: right.eligibleProfileCount,
+          healthEvents: right.latestHealthEvent
+            ? [right.latestHealthEvent]
+            : [],
+        },
+        sort
+      ) || left.channel.localeCompare(right.channel)
+  )
+}
+
+export function sortMonitorModels(
+  models: ACUModelOverview[],
+  sort: ACUMonitorSort
+): ACUModelOverview[] {
+  return [...models].sort(
+    (left, right) =>
+      compareOverview(
+        {
+          ...left,
+          healthEvents: left.profiles.flatMap(
+            (profile) => profile.healthEvents ?? []
+          ),
+        },
+        {
+          ...right,
+          healthEvents: right.profiles.flatMap(
+            (profile) => profile.healthEvents ?? []
+          ),
+        },
+        sort
+      ) || left.modelId.localeCompare(right.modelId)
+  )
 }
 
 const LATENCY_SOURCE_KEYS: Record<string, string> = {

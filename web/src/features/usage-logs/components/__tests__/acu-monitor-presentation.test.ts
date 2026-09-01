@@ -11,6 +11,9 @@ import {
   monitorReason,
   monitorStateLabel,
   profileLatencyDisplay,
+  protocolShortLabel,
+  sortMonitorChannels,
+  sortMonitorModels,
   sortMonitorProfiles,
   summarizeMonitorProfiles,
 } from '../acu-monitor-presentation.ts'
@@ -95,6 +98,98 @@ test('sorts production usage and puts unknown prices last', () => {
   )
 })
 
+test('sorts Overview channel and model groups with the selected monitor order', () => {
+  const lowUsage = profile({
+    executionProfileId: 'low:gpt-5.6-luna:responses',
+    requestCount: 2,
+    profileRank: 2,
+  })
+  const highUsage = profile({
+    executionProfileId: 'high:gpt-5.6-luna:responses',
+    requestCount: 40,
+    profileRank: 1,
+  })
+  const channels = [
+    {
+      channel: 'channel-low',
+      providers: ['provider-a'],
+      profiles: [lowUsage],
+      enabledProfileCount: 1,
+      eligibleProfileCount: 1,
+      modelCount: 1,
+      state: 'healthy',
+      primaryProfile: lowUsage,
+      requestCount: 2,
+      successCount: 2,
+      availability: 1,
+      buckets: [],
+      probeBuckets: [],
+      probeCount: 0,
+      probedProfileCount: 0,
+      latestFullPoolProbeAt: null,
+      latestTargetedProbeAt: null,
+      targetedProbeCount: 0,
+      targetedProbeSuccessCount: 0,
+      latestHealthEvent: null,
+    },
+    {
+      channel: 'channel-high',
+      providers: ['provider-a'],
+      profiles: [highUsage],
+      enabledProfileCount: 1,
+      eligibleProfileCount: 1,
+      modelCount: 1,
+      state: 'healthy',
+      primaryProfile: highUsage,
+      requestCount: 40,
+      successCount: 40,
+      availability: 1,
+      buckets: [],
+      probeBuckets: [],
+      probeCount: 0,
+      probedProfileCount: 0,
+      latestFullPoolProbeAt: null,
+      latestTargetedProbeAt: null,
+      targetedProbeCount: 0,
+      targetedProbeSuccessCount: 0,
+      latestHealthEvent: null,
+    },
+  ] as never
+  const models = [
+    {
+      modelId: 'gpt-5.6-luna-low',
+      profiles: [lowUsage],
+      buckets: [],
+      probeBuckets: [],
+      requestCount: 2,
+      successCount: 2,
+      availability: 1,
+      eligibleCount: 1,
+      totalCount: 1,
+    },
+    {
+      modelId: 'gpt-5.6-luna-high',
+      profiles: [highUsage],
+      buckets: [],
+      probeBuckets: [],
+      requestCount: 40,
+      successCount: 40,
+      availability: 1,
+      eligibleCount: 1,
+      totalCount: 1,
+    },
+  ] as never
+
+  assert.deepEqual(
+    sortMonitorChannels(channels, 'usage').map((item) => item.channel),
+    ['channel-high', 'channel-low']
+  )
+  assert.deepEqual(
+    sortMonitorModels(models, 'usage').map((item) => item.modelId),
+    ['gpt-5.6-luna-high', 'gpt-5.6-luna-low']
+  )
+})
+
 test('localizes states and human-readable failure evidence', async () => {
   const tZh = await translator('zh')
   const tEn = await translator('en')
@@ -110,6 +205,8 @@ test('localizes states and human-readable failure evidence', async () => {
   )
   assert.equal(tZh('Model Supply Monitor'), '模型供给监控')
   assert.equal(tEn('Model Supply Monitor'), 'Model Supply Monitor')
+  assert.equal(protocolShortLabel('responses', tEn), 'Responses')
+  assert.equal(protocolShortLabel('messages', tZh), 'Messages')
 })
 
 test('formats Router latency evidence without confusing Probe with Production', async () => {
