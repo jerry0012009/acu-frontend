@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
+import { z } from 'zod'
 
 import {
   PrivateACUWorkspace,
@@ -15,7 +16,12 @@ const sections = [
   'prompts',
 ] as const
 
+const privateACUSearchSchema = z.object({
+  learningKind: z.string().optional(),
+})
+
 export const Route = createFileRoute('/_authenticated/private-acu/$section')({
+  validateSearch: privateACUSearchSchema,
   beforeLoad: ({ params }) => {
     if (!sections.includes(params.section as PrivateACUSection)) {
       throw redirect({
@@ -35,9 +41,11 @@ export const Route = createFileRoute('/_authenticated/private-acu/$section')({
 })
 
 function PrivateACUSectionRoute() {
+  const search = Route.useSearch()
   return (
     <PrivateACUWorkspace
       section={Route.useParams().section as PrivateACUSection}
+      learningKind={search.learningKind}
     />
   )
 }

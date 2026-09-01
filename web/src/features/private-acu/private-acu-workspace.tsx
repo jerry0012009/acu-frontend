@@ -168,7 +168,10 @@ function MemberFilmPage() {
   )
 }
 
-export function PrivateACUWorkspace(props: { section: PrivateACUSection }) {
+export function PrivateACUWorkspace(props: {
+  section: PrivateACUSection
+  learningKind?: string
+}) {
   const { t } = useTranslation()
   const role = useAuthStore((state) => state.auth.user?.role ?? ROLE.GUEST)
   const isAdmin = role >= ROLE.ADMIN
@@ -188,7 +191,11 @@ export function PrivateACUWorkspace(props: { section: PrivateACUSection }) {
   } else if (props.section === 'film') {
     content = isAdmin ? <PrivateACUFilmPOC /> : <MemberFilmPage />
   } else if (props.section === 'learning-runs') {
-    content = isAdmin ? <PrivateACULearningRuns /> : <MemberFilmPage />
+    content = isAdmin ? (
+      <PrivateACULearningRuns learningKind={props.learningKind} />
+    ) : (
+      <MemberFilmPage />
+    )
   } else {
     content = isAdmin ? <PrivateACUAdmin view='prompts' /> : <MemberFilmPage />
   }
