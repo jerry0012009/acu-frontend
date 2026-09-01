@@ -267,11 +267,6 @@ func migrateDB() error {
 	if err := migrateTokenModelLimitsToText(); err != nil {
 		return err
 	}
-	// Migrate judge_cost_source to text because the business contract allows up to 256 characters.
-	if err := migrateACUUsageFinalizeJudgeCostSourceToText(); err != nil {
-		return err
-	}
-
 	err := DB.AutoMigrate(
 		&Channel{},
 		&Token{},
@@ -311,6 +306,11 @@ func migrateDB() error {
 	if err != nil {
 		return err
 	}
+	// Run after AutoMigrate because older schemas may otherwise be narrowed back
+	// to varchar(128) before this compatibility migration gets a chance to run.
+	if err := migrateACUUsageFinalizeJudgeCostSourceToText(); err != nil {
+		return err
+	}
 	if err := InitializeUserAuthVersions(); err != nil {
 		return err
 	}
@@ -330,11 +330,6 @@ func migrateDB() error {
 }
 
 func migrateDBFast() error {
-
-	if err := migrateACUUsageFinalizeJudgeCostSourceToText(); err != nil {
-		return err
-	}
-
 	var wg sync.WaitGroup
 
 	migrations := []struct {
@@ -396,6 +391,10 @@ func migrateDBFast() error {
 		if err != nil {
 			return err
 		}
+	}
+	// Run after AutoMigrate for the same compatibility reason as migrateDB.
+	if err := migrateACUUsageFinalizeJudgeCostSourceToText(); err != nil {
+		return err
 	}
 	if err := InitializeUserAuthVersions(); err != nil {
 		return err
