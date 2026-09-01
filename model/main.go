@@ -267,6 +267,10 @@ func migrateDB() error {
 	if err := migrateTokenModelLimitsToText(); err != nil {
 		return err
 	}
+	// Migrate judge_cost_source to text because the business contract allows up to 256 characters.
+	if err := migrateACUUsageFinalizeJudgeCostSourceToText(); err != nil {
+		return err
+	}
 
 	err := DB.AutoMigrate(
 		&Channel{},
@@ -326,6 +330,10 @@ func migrateDB() error {
 }
 
 func migrateDBFast() error {
+
+	if err := migrateACUUsageFinalizeJudgeCostSourceToText(); err != nil {
+		return err
+	}
 
 	var wg sync.WaitGroup
 
@@ -638,6 +646,53 @@ func migrateTokenModelLimitsToText() error {
 		}
 		common.SysLog(fmt.Sprintf("Successfully migrated %s.%s to text", tableName, columnName))
 	}
+	return nil
+}
+
+// migrateACUUsageFinalizeJudgeCostSourceToText migrates judge_cost_source from
+// varchar(128) to text for existing ACU finalize tables.
+func migrateACUUsageFinalizeJudgeCostSourceToText() error {
+	if common.UsingMainDatabase(common.DatabaseTypeSQLite) {
+		return nil
+	}
+
+	tableName := "acu_usage_finalizes"
+	columnName := "judge_cost_source"
+	if !DB.Migrator().HasTable(tableName) || !DB.Migrator().HasColumn(&ACUUsageFinalize{}, columnName) {
+		return nil
+	}
+
+	var alterSQL string
+	if common.UsingMainDatabase(common.DatabaseTypePostgreSQL) {
+		var dataType string
+		if err := DB.Raw(`SELECT data_type FROM information_schema.columns
+			WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?`,
+			tableName, columnName).Scan(&dataType).Error; err != nil {
+			return fmt.Errorf("failed to query metadata for %s.%s: %w", tableName, columnName, err)
+		}
+		if dataType == "text" {
+			return nil
+		}
+		alterSQL = fmt.Sprintf(`ALTER TABLE %s ALTER COLUMN %s TYPE text`, tableName, columnName)
+	} else if common.UsingMainDatabase(common.DatabaseTypeMySQL) {
+		var columnType string
+		if err := DB.Raw(`SELECT COLUMN_TYPE FROM information_schema.columns
+				WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?`,
+			tableName, columnName).Scan(&columnType).Error; err != nil {
+			return fmt.Errorf("failed to query metadata for %s.%s: %w", tableName, columnName, err)
+		}
+		if strings.EqualFold(columnType, "text") {
+			return nil
+		}
+		alterSQL = fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN %s text", tableName, columnName)
+	} else {
+		return nil
+	}
+
+	if err := DB.Exec(alterSQL).Error; err != nil {
+		return fmt.Errorf("failed to migrate %s.%s to text: %w", tableName, columnName, err)
+	}
+	common.SysLog(fmt.Sprintf("Successfully migrated %s.%s to text", tableName, columnName))
 	return nil
 }
 

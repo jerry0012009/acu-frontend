@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -123,6 +124,29 @@ func TestFinalizeACUUsageAcceptsRoundedProviderCreditsConversion(t *testing.T) {
 	require.True(t, decimal.RequireFromString("0.0003627670").Equal(
 		decimal.RequireFromString(finalized.EffectiveProviderCashCostCny),
 	))
+}
+
+func TestFinalizeACUUsageAcceptsJudgeCostSourceUpToBusinessLimit(t *testing.T) {
+	setupACUFinalizeTestDB(t)
+	user := model.User{Username: "acu-long-source-user", Password: "test-only-password", Status: common.UserStatusEnabled, Quota: 10_000}
+	require.NoError(t, model.DB.Create(&user).Error)
+	token := model.Token{UserId: user.Id, Key: "test-only-long-source-token", Name: "acu-long-source", Status: common.TokenStatusEnabled, RemainQuota: 10_000}
+	require.NoError(t, model.DB.Create(&token).Error)
+
+	request := dto.ACUUsageFinalizeRequest{
+		ReportIdempotencyKey: "report_long_source_1", NewAPIUserID: fmt.Sprint(user.Id), NewAPITokenID: fmt.Sprint(token.Id),
+		NewAPILogID: "req_long_source_1", LogicalRequestID: "logical_long_source_1", ActualModel: "gpt-5.6-luna",
+		Provider: "lucen", Channel: "cx006", JudgeCostUSD: "0.001", ProviderCostUSD: "0.001",
+		FailedBilledCostUSD: "0", FinalUserCostUSD: "0.002",
+		JudgeCostSource: strings.Repeat("source-component+", 15),
+	}
+
+	_, err := FinalizeACUUsage(request, strings.Repeat("a", 64))
+	require.NoError(t, err)
+
+	var finalized model.ACUUsageFinalize
+	require.NoError(t, model.DB.First(&finalized).Error)
+	require.Equal(t, request.JudgeCostSource, finalized.JudgeCostSource)
 }
 
 func TestFinalizeACUUsageChargesAndUpdatesLogExactlyOnce(t *testing.T) {

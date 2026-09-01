@@ -51,7 +51,7 @@ type ACUUsageFinalize struct {
 	JudgeOfficialPaygEquivalentCost     string `json:"judge_official_payg_equivalent_cost" gorm:"type:decimal(20,10);not null;default:0"`
 	JudgeCostCurrency                   string `json:"judge_cost_currency" gorm:"type:varchar(16);not null;default:'CNY'"`
 	JudgeCostStatus                     string `json:"judge_cost_status" gorm:"type:varchar(32);not null;default:'not_applicable'"`
-	JudgeCostSource                     string `json:"judge_cost_source" gorm:"type:varchar(128);not null;default:'not_applicable'"`
+	JudgeCostSource                     string `json:"judge_cost_source" gorm:"type:text;not null;default:'not_applicable'"`
 	JudgeProvider                       string `json:"judge_provider" gorm:"type:varchar(128)"`
 	JudgeModel                          string `json:"judge_model" gorm:"type:varchar(128)"`
 	FailedAttemptCashCostCny            string `json:"failed_attempt_cash_cost_cny" gorm:"type:decimal(20,10);not null;default:0"`
