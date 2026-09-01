@@ -611,6 +611,10 @@ func currentGlobalACUProfileIDs(ctx context.Context) ([]string, error) {
 	return normalizeACUIDs(profileIDs), nil
 }
 
+func CurrentGlobalACUProfileIDs(ctx context.Context) ([]string, error) {
+	return currentGlobalACUProfileIDs(ctx)
+}
+
 func GetACUTokenProfileRoutingScope(
 	ctx context.Context,
 	userID int,

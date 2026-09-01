@@ -179,6 +179,62 @@ func TestValidateACURoutingScopeAllowsExplicitProfileOutsideAutoModelAllowlist(t
 	require.NoError(t, err)
 }
 
+func TestCurrentGlobalACUProfileIDsIncludesExplicitModelsAndAppliesProfilePolicy(t *testing.T) {
+	clearACUChannelMonitorCache()
+	t.Cleanup(clearACUChannelMonitorCache)
+	previous := common.OptionMap
+	t.Cleanup(func() { common.OptionMap = previous })
+	common.OptionMap = map[string]string{
+		"ACUGlobalRoutingPolicy": `{
+			"modelAccess":{
+				"gpt-5.6-sol":"auto",
+				"mimo-v2.5":"explicit",
+				"kimi-k2.6":"disabled"
+			},
+			"profilePolicy":"custom_allowlist",
+			"allowedProfileIds":[
+				"auto:gpt-5.6-sol:responses",
+				"explicit:mimo-v2.5:chat_completions",
+				"disabled:kimi-k2.6:messages"
+			]
+		}`,
+	}
+	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"profiles":[{
+				"executionProfileId":"auto:gpt-5.6-sol:responses",
+				"canonicalModel":"gpt-5.6-sol","enabled":true,
+				"administratorAllowed":true,"autoRouteEnabled":true
+			},{
+				"executionProfileId":"explicit:mimo-v2.5:chat_completions",
+				"canonicalModel":"mimo-v2.5","enabled":true,
+				"administratorAllowed":true,"autoRouteEnabled":false
+			},{
+				"executionProfileId":"disabled:kimi-k2.6:messages",
+				"canonicalModel":"kimi-k2.6","enabled":true,
+				"administratorAllowed":true,"autoRouteEnabled":false
+			},{
+				"executionProfileId":"not-allowed:mimo-v2.5:responses",
+				"canonicalModel":"mimo-v2.5","enabled":true,
+				"administratorAllowed":true,"autoRouteEnabled":false
+			}],
+			"history":[],"cooldownIntervals":[],"probeHistory":[],
+			"supplyInventory":[],"modelPool":[]
+		}`))
+	}))
+	t.Cleanup(router.Close)
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
+
+	profileIDs, err := CurrentGlobalACUProfileIDs(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []string{
+		"auto:gpt-5.6-sol:responses",
+		"explicit:mimo-v2.5:chat_completions",
+	}, profileIDs)
+}
+
 func TestResolveACUEffectiveRoutingPolicyKeepsPublicModelLimitsOutOfAutoScope(t *testing.T) {
 	previous := common.OptionMap
 	t.Cleanup(func() { common.OptionMap = previous })
