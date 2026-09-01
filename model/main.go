@@ -658,19 +658,28 @@ func migrateACUUsageFinalizeJudgeCostSourceToText() error {
 	tableName := "acu_usage_finalizes"
 	columnName := "judge_cost_source"
 
+	if !DB.Migrator().HasTable(tableName) || !DB.Migrator().HasColumn(&ACUUsageFinalize{}, columnName) {
+		return nil
+	}
+
 	var alterSQL string
 	if common.UsingMainDatabase(common.DatabaseTypePostgreSQL) {
+		var dataType string
+		if err := DB.Raw(`SELECT data_type FROM information_schema.columns
+			WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?`,
+			tableName, columnName).Scan(&dataType).Error; err != nil {
+			return fmt.Errorf("failed to query metadata for %s.%s: %w", tableName, columnName, err)
+		}
+		if dataType == "text" {
+			return nil
+		}
 		alterSQL = fmt.Sprintf(`ALTER TABLE %s ALTER COLUMN %s TYPE text`, tableName, columnName)
 	} else if common.UsingMainDatabase(common.DatabaseTypeMySQL) {
 		var columnType string
-		query := DB.Raw(`SELECT COLUMN_TYPE FROM information_schema.columns
+		if err := DB.Raw(`SELECT COLUMN_TYPE FROM information_schema.columns
 				WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?`,
-			tableName, columnName).Scan(&columnType)
-		if query.Error != nil {
-			return fmt.Errorf("failed to query metadata for %s.%s: %w", tableName, columnName, query.Error)
-		}
-		if columnType == "" {
-			return nil
+			tableName, columnName).Scan(&columnType).Error; err != nil {
+			return fmt.Errorf("failed to query metadata for %s.%s: %w", tableName, columnName, err)
 		}
 		if strings.EqualFold(columnType, "text") {
 			return nil
