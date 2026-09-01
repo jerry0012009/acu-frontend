@@ -108,6 +108,24 @@ func TestApplyACUTrustedIdentitySignsCustomUserAllowlist(t *testing.T) {
 	require.Contains(t, req.Header.Get("X-ACU-Routing-Policy-Version"), "acu-user-policy-v2-")
 }
 
+func TestApplyACUTrustedIdentityTreatsVirtualOnlyLimitsAsNoCanonicalRestriction(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Setenv("ACU_TRUSTED_IDENTITY_SECRET", "test-only-shared-secret")
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	ctx.Set("token_model_limit_enabled", true)
+	ctx.Set("token_model_limit", map[string]bool{
+		"acu-auto": true,
+		"acu-high": true,
+	})
+	req := httptest.NewRequest(http.MethodPost, "http://acu-router/v1/responses", nil)
+	info := &relaycommon.RelayInfo{IsACUChannel: true, UserId: 17, TokenId: 29, RequestId: "req_virtual_only"}
+
+	require.NoError(t, applyACUTrustedIdentity(req, ctx, info, []byte(`{"model":"acu-auto"}`)))
+	require.Equal(t, "false", req.Header.Get("X-ACU-Token-Model-Limit-Enabled"))
+	require.Equal(t, "[]", req.Header.Get("X-ACU-Token-Allowed-Model-Ids"))
+}
+
 func TestACUProfileAllowlistChangesRoutingPolicyVersion(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	t.Setenv("ACU_TRUSTED_IDENTITY_SECRET", "test-only-shared-secret")

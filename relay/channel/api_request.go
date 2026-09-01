@@ -243,6 +243,7 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	if token.ModelLimitsEnabled {
 		tokenAllowedModelIDs = service.ACUCanonicalAllowedModelIDs(token.ModelLimits)
 	}
+	tokenModelLimitEnabled := token.ModelLimitsEnabled && len(tokenAllowedModelIDs) > 0
 	tokenAllowedModelIDsJSON, err := common2.Marshal(tokenAllowedModelIDs)
 	if err != nil {
 		return fmt.Errorf("marshal ACU token model allowlist: %w", err)
@@ -284,7 +285,7 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	payload := strings.Join([]string{
 		userID, tokenID, logID, requestID, clientVersion, routingPolicy,
 		string(allowedModelIDsJSON), string(allowedProfileIDsJSON), string(modelAccessJSON),
-		strconv.FormatBool(token.ModelLimitsEnabled), string(tokenAllowedModelIDsJSON),
+		strconv.FormatBool(tokenModelLimitEnabled), string(tokenAllowedModelIDsJSON),
 		routingPolicyVersion, routingPreference,
 		qualityBias, policy.SupplyStrategy, string(supplyWeightsJSON), highBiasOffset,
 		modelCostLogScale, profileCostLogScale, profileSpeedLogScale,
@@ -304,7 +305,7 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 	req.Header.Set("X-ACU-Allowed-Model-Ids", string(allowedModelIDsJSON))
 	req.Header.Set("X-ACU-Allowed-Profile-Ids", string(allowedProfileIDsJSON))
 	req.Header.Set("X-ACU-Model-Access", string(modelAccessJSON))
-	req.Header.Set("X-ACU-Token-Model-Limit-Enabled", strconv.FormatBool(token.ModelLimitsEnabled))
+	req.Header.Set("X-ACU-Token-Model-Limit-Enabled", strconv.FormatBool(tokenModelLimitEnabled))
 	req.Header.Set("X-ACU-Token-Allowed-Model-Ids", string(tokenAllowedModelIDsJSON))
 	req.Header.Set("X-ACU-Routing-Policy-Version", routingPolicyVersion)
 	req.Header.Set("X-ACU-Routing-Preference", routingPreference)
