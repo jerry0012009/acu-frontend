@@ -660,20 +660,7 @@ func migrateACUUsageFinalizeJudgeCostSourceToText() error {
 
 	var alterSQL string
 	if common.UsingMainDatabase(common.DatabaseTypePostgreSQL) {
-		alterSQL = fmt.Sprintf(`DO $migration$
-BEGIN
-	IF EXISTS (
-		SELECT 1
-		FROM information_schema.columns
-		WHERE table_schema = current_schema()
-			AND table_name = '%s'
-			AND column_name = '%s'
-			AND data_type <> 'text'
-	) THEN
-		ALTER TABLE %s ALTER COLUMN %s TYPE text;
-	END IF;
-END
-$migration$`, tableName, columnName, tableName, columnName)
+		alterSQL = fmt.Sprintf(`ALTER TABLE %s ALTER COLUMN %s TYPE text`, tableName, columnName)
 	} else if common.UsingMainDatabase(common.DatabaseTypeMySQL) {
 		var columnType string
 		query := DB.Raw(`SELECT COLUMN_TYPE FROM information_schema.columns
