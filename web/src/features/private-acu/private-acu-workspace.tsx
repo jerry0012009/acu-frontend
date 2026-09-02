@@ -5,6 +5,7 @@ import {
   ArrowRight,
   BookOpen,
   BrainCircuit,
+  FileCode2,
   Film,
   Gauge,
   Image,
@@ -23,7 +24,12 @@ import { PrivateACUAdmin } from '@/features/dashboard/components/admin/private-a
 import { PrivateACUFilmPOC } from '@/features/dashboard/components/admin/private-acu-film-poc'
 import { PrivateACULearningRuns } from '@/features/dashboard/components/admin/private-acu-learning-runs'
 import { PrivateACUSkillCatalog } from '@/features/dashboard/components/admin/private-acu-skill-catalog'
-import { getPrivateACUFilmStatus } from '@/features/dashboard/private-acu-admin-api'
+import {
+  getPrivateACUFilmStatus,
+  getPrivateACUMemory,
+  getPrivateACUPrompts,
+  type PrivateACUPromptCard,
+} from '@/features/dashboard/private-acu-admin-api'
 import { getPrivateACUFilmForUser } from '@/features/dashboard/private-acu-user-api'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
@@ -40,6 +46,125 @@ type LearningFlowStep = {
   title: string
   description: string
   icon: LucideIcon
+  prompt: LearningFlowPromptState
+}
+
+type LearningFlowPromptItem = Pick<
+  PrivateACUPromptCard,
+  | 'id'
+  | 'title'
+  | 'description'
+  | 'content'
+  | 'language'
+  | 'source'
+  | 'execution'
+>
+
+type LearningFlowPromptState = {
+  status:
+    | 'available'
+    | 'loading'
+    | 'unavailable'
+    | 'not-applicable'
+    | 'restricted'
+  items?: LearningFlowPromptItem[]
+}
+
+function promptItems(cards?: PrivateACUPromptCard[]): LearningFlowPromptItem[] {
+  return (cards ?? []).map((card) => ({
+    id: card.id,
+    title: card.title,
+    description: card.description,
+    content: card.content,
+    language: card.language,
+    source: card.source,
+    execution: card.execution,
+  }))
+}
+
+function promptLanguage(content: string): 'zh-CN' | 'mixed' | 'en' {
+  const hasChinese = /[\u3400-\u9fff]/u.test(content)
+  const hasLatin = /[A-Za-z]{3,}/u.test(content)
+  if (hasChinese && hasLatin) return 'mixed'
+  if (hasChinese) return 'zh-CN'
+  return 'en'
+}
+
+function promptStateForCards(
+  isAdmin: boolean,
+  isLoading: boolean,
+  isError: boolean,
+  cards?: PrivateACUPromptCard[]
+): LearningFlowPromptState {
+  if (!isAdmin) return { status: 'restricted' }
+  if (isLoading) return { status: 'loading' }
+  if (cards?.length) {
+    return {
+      status: 'available',
+      items: promptItems(cards),
+    }
+  }
+  if (isError) return { status: 'unavailable' }
+  return { status: 'not-applicable' }
+}
+
+function StepPrompt(props: { prompt: LearningFlowPromptState }) {
+  const { t } = useTranslation()
+  const statusText: Record<LearningFlowPromptState['status'], string> = {
+    available: t('Prompt available'),
+    loading: t('Loading prompt'),
+    unavailable: t('Prompt unavailable'),
+    'not-applicable': t('No independent LLM prompt'),
+    restricted: t('Prompt details are available to administrators'),
+  }
+
+  return (
+    <div className='border-border mt-3 border-t pt-3'>
+      <div className='flex items-center gap-2'>
+        <FileCode2
+          className='text-muted-foreground size-4'
+          aria-hidden='true'
+        />
+        <span className='text-muted-foreground text-xs font-medium'>
+          {t('Step prompt')}
+        </span>
+        <Badge variant='outline' className='ml-auto text-[10px]'>
+          {statusText[props.prompt.status]}
+        </Badge>
+      </div>
+      {props.prompt.items?.length ? (
+        <div className='mt-2 space-y-2'>
+          {props.prompt.items.map((item) => (
+            <details
+              key={item.id}
+              className='border-border border-t pt-2 first:border-t-0 first:pt-0'
+            >
+              <summary className='cursor-pointer list-none text-xs font-medium'>
+                {item.title}
+              </summary>
+              <div className='space-y-2 pt-2'>
+                <p className='text-muted-foreground text-xs leading-5'>
+                  {item.description}
+                </p>
+                <div className='text-muted-foreground flex flex-wrap gap-x-3 gap-y-1 font-mono text-[10px]'>
+                  <span>{item.source}</span>
+                  <span>{item.language}</span>
+                  {item.execution === 'bypassed_for_explicit_learning' && (
+                    <span>
+                      {t('Configured but bypassed for explicit learning')}
+                    </span>
+                  )}
+                </div>
+                <pre className='bg-muted/30 max-h-80 overflow-auto rounded-md p-3 text-xs leading-5 whitespace-pre-wrap'>
+                  {item.content}
+                </pre>
+              </div>
+            </details>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
 function WorkspaceCard(props: {
@@ -134,6 +259,7 @@ function LearningFlowLane(props: {
               <p className='text-muted-foreground mt-1 text-sm leading-5'>
                 {step.description}
               </p>
+              <StepPrompt prompt={step.prompt} />
             </div>
             {index < props.steps.length - 1 && (
               <ArrowDown
@@ -193,12 +319,60 @@ function OverviewPage(props: { isAdmin: boolean }) {
     enabled: !props.isAdmin,
     retry: false,
   })
+  const accountPromptsQuery = useQuery({
+    queryKey: ['private-acu', 'overview', 'account-prompts'],
+    queryFn: getPrivateACUPrompts,
+    enabled: props.isAdmin,
+  })
+  const accountMemoryQuery = useQuery({
+    queryKey: ['private-acu', 'overview', 'account-memory'],
+    queryFn: () => getPrivateACUMemory(),
+    enabled: props.isAdmin,
+    retry: false,
+  })
   const filmSkills = props.isAdmin
     ? (adminFilmQuery.data?.skills ?? [])
     : (memberFilmQuery.data?.spaces.flatMap((space) => space.skills) ?? [])
   const filmIsError = props.isAdmin
     ? adminFilmQuery.isError
     : memberFilmQuery.isError
+  let accountJudgePrompt: LearningFlowPromptState
+  if (!props.isAdmin) {
+    accountJudgePrompt = { status: 'restricted' }
+  } else if (accountPromptsQuery.isLoading) {
+    accountJudgePrompt = { status: 'loading' }
+  } else if (accountPromptsQuery.data) {
+    accountJudgePrompt = {
+      status: 'available',
+      items: [
+        {
+          id: 'private-acu-learning-judge',
+          title: t('Private ACU Learning Judge prompt'),
+          description: t(
+            'Classifies whether the latest human message indicates dissatisfaction with the previous result.'
+          ),
+          content: accountPromptsQuery.data.learningPrompt,
+          language: promptLanguage(accountPromptsQuery.data.learningPrompt),
+          source: t('Private ACU prompt configuration'),
+          execution: 'used',
+        },
+      ],
+    }
+  } else {
+    accountJudgePrompt = { status: 'unavailable' }
+  }
+  const accountLearningPrompt = promptStateForCards(
+    props.isAdmin,
+    accountMemoryQuery.isLoading,
+    accountMemoryQuery.isError,
+    accountMemoryQuery.data?.promptCards
+  )
+  const filmLearningPrompt = promptStateForCards(
+    props.isAdmin,
+    adminFilmQuery.isLoading,
+    adminFilmQuery.isError,
+    adminFilmQuery.data?.promptCards
+  )
   const accountFlow: LearningFlowStep[] = [
     {
       label: t('Input'),
@@ -207,6 +381,7 @@ function OverviewPage(props: { isAdmin: boolean }) {
         'A new Agent request and the latest human User Message enter Private ACU.'
       ),
       icon: MessageSquareText,
+      prompt: { status: 'not-applicable' },
     },
     {
       label: t('Evidence'),
@@ -215,6 +390,7 @@ function OverviewPage(props: { isAdmin: boolean }) {
         'Learning Judge identifies whether the user is dissatisfied with the prior result.'
       ),
       icon: BrainCircuit,
+      prompt: accountJudgePrompt,
     },
     {
       label: t('Experience'),
@@ -223,6 +399,7 @@ function OverviewPage(props: { isAdmin: boolean }) {
         'The relevant Agent Context is recorded as an account-scoped learning experience.'
       ),
       icon: Workflow,
+      prompt: { status: 'not-applicable' },
     },
     {
       label: t('Learning'),
@@ -231,6 +408,7 @@ function OverviewPage(props: { isAdmin: boolean }) {
         'Acontext asynchronously extracts or updates reusable preference knowledge.'
       ),
       icon: Sparkles,
+      prompt: accountLearningPrompt,
     },
     {
       label: t('Quality Skill'),
@@ -239,6 +417,7 @@ function OverviewPage(props: { isAdmin: boolean }) {
         'The resulting Skill becomes part of the account memory for later work.'
       ),
       icon: BookOpen,
+      prompt: { status: 'not-applicable' },
     },
   ]
   const filmFlow: LearningFlowStep[] = [
@@ -249,6 +428,7 @@ function OverviewPage(props: { isAdmin: boolean }) {
         'The team submits one visual sample with its scene context and analysis.'
       ),
       icon: Image,
+      prompt: { status: 'not-applicable' },
     },
     {
       label: t('Evidence'),
@@ -257,6 +437,7 @@ function OverviewPage(props: { isAdmin: boolean }) {
         'The team marks what works, what is missing, and the reason for acceptance or rejection.'
       ),
       icon: Film,
+      prompt: { status: 'not-applicable' },
     },
     {
       label: t('Experience'),
@@ -265,6 +446,7 @@ function OverviewPage(props: { isAdmin: boolean }) {
         'The image, text, context, structured analysis, and judgment form one learning unit.'
       ),
       icon: Workflow,
+      prompt: { status: 'not-applicable' },
     },
     {
       label: t('Learning'),
@@ -273,6 +455,7 @@ function OverviewPage(props: { isAdmin: boolean }) {
         'The adapter sends the experience to the shared Acontext learning service.'
       ),
       icon: Sparkles,
+      prompt: filmLearningPrompt,
     },
     {
       label: t('Quality Skill'),
@@ -281,6 +464,7 @@ function OverviewPage(props: { isAdmin: boolean }) {
         'Acontext produces a conditional Quality Skill for future image-generation work.'
       ),
       icon: Film,
+      prompt: { status: 'not-applicable' },
     },
   ]
 

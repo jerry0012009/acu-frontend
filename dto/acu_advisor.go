@@ -64,6 +64,7 @@ type ACUPrivateMemory struct {
 	SpaceID         string                   `json:"spaceId,omitempty"`
 	Skills          []ACUPrivateMemorySkill  `json:"skills"`
 	InternalPrompts []ACUPrivateMemoryPrompt `json:"internalPrompts,omitempty"`
+	PromptCards     []ACUPrivatePromptCard   `json:"promptCards,omitempty"`
 }
 
 type ACUPrivateFilmImagePolicy struct {
@@ -110,6 +111,7 @@ type ACUPrivateFilmStatus struct {
 	ImagePolicy            *ACUPrivateFilmImagePolicy    `json:"imagePolicy,omitempty"`
 	LastSubmission         *ACUPrivateFilmLastSubmission `json:"lastSubmission,omitempty"`
 	Skills                 []ACUPrivateMemorySkill       `json:"skills"`
+	PromptCards            []ACUPrivatePromptCard        `json:"promptCards,omitempty"`
 }
 
 type ACUPrivatePOCSpaceAccess struct {
@@ -138,6 +140,17 @@ type ACUPrivateMemoryPrompt struct {
 	Path    string `json:"path"`
 	Mime    string `json:"mime"`
 	Content string `json:"content"`
+}
+
+type ACUPrivatePromptCard struct {
+	ID          string `json:"id"`
+	Stage       string `json:"stage"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Content     string `json:"content"`
+	Language    string `json:"language"`
+	Source      string `json:"source"`
+	Execution   string `json:"execution"`
 }
 
 type ACUPrivateExperience struct {

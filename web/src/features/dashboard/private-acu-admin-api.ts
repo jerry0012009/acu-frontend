@@ -31,6 +31,7 @@ export type PrivateACUMemory = {
   spaceId?: string
   skills: PrivateACUMemorySkill[]
   internalPrompts?: PrivateACUMemoryPrompt[]
+  promptCards?: PrivateACUPromptCard[]
 }
 
 export type PrivateACUFilmStatus = {
@@ -71,6 +72,18 @@ export type PrivateACUFilmStatus = {
     }>
   }
   skills: PrivateACUMemorySkill[]
+  promptCards?: PrivateACUPromptCard[]
+}
+
+export type PrivateACUPromptCard = {
+  id: string
+  stage: 'task' | 'distillation' | 'skill_learner'
+  title: string
+  description: string
+  content: string
+  language: 'zh-CN' | 'mixed' | 'en'
+  source: string
+  execution: 'used' | 'bypassed_for_explicit_learning'
 }
 
 export type PrivateACUPOCSpaceAccess = {

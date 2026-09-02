@@ -10,8 +10,12 @@ const overviewSource = readFileSync(
 test('Private ACU overview presents the shared backbone and both learning paths', () => {
   assert.match(overviewSource, /function SharedLearningBackbone\(\)/)
   assert.match(overviewSource, /function LearningFlowLane\(/)
+  assert.match(overviewSource, /function StepPrompt\(/)
+  assert.match(overviewSource, /function promptStateForCards\(/)
   assert.match(overviewSource, /title=\{t\('LLM call learning'\)\}/)
   assert.match(overviewSource, /title=\{t\('Film POC learning'\)\}/)
+  assert.match(overviewSource, /getPrivateACUPrompts/)
+  assert.match(overviewSource, /Prompt available/)
 
   for (const stage of [
     'Input',

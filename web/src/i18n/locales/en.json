@@ -5737,6 +5737,16 @@
     "Improve account-level preferences from real Agent interactions.": "Improve account-level preferences from real Agent interactions.",
     "Build the GYZ visual-language standard from team-selected material.": "Build the GYZ visual-language standard from team-selected material.",
     "Private ACU workspace": "Private ACU workspace",
-    "Inspect inputs, learning runs, Skills, and prompt configuration.": "Inspect inputs, learning runs, Skills, and prompt configuration."
+    "Inspect inputs, learning runs, Skills, and prompt configuration.": "Inspect inputs, learning runs, Skills, and prompt configuration.",
+    "Step prompt": "Step prompt",
+    "Prompt available": "Prompt available",
+    "Loading prompt": "Loading prompt",
+    "Prompt unavailable": "Prompt unavailable",
+    "No independent LLM prompt": "No independent LLM prompt",
+    "Prompt details are available to administrators": "Prompt details are available to administrators",
+    "Configured but bypassed for explicit learning": "Configured but bypassed for explicit learning",
+    "Private ACU Learning Judge prompt": "Private ACU Learning Judge prompt",
+    "Classifies whether the latest human message indicates dissatisfaction with the previous result.": "Classifies whether the latest human message indicates dissatisfaction with the previous result.",
+    "Private ACU prompt configuration": "Private ACU prompt configuration"
   }
 }

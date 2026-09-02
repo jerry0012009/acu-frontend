@@ -5756,6 +5756,16 @@
     "Improve account-level preferences from real Agent interactions.": "从真实 Agent 交互中完善账户级偏好。",
     "Build the GYZ visual-language standard from team-selected material.": "从团队筛选的影视资料中形成 GYZ 视听语言标准。",
     "Private ACU workspace": "Private ACU 工作区",
-    "Inspect inputs, learning runs, Skills, and prompt configuration.": "查看输入、Learning Runs、Skills 和提示词配置。"
+    "Inspect inputs, learning runs, Skills, and prompt configuration.": "查看输入、Learning Runs、Skills 和提示词配置。",
+    "Step prompt": "步骤提示词",
+    "Prompt available": "提示词可用",
+    "Loading prompt": "正在加载提示词",
+    "Prompt unavailable": "提示词不可用",
+    "No independent LLM prompt": "没有独立 LLM 提示词",
+    "Prompt details are available to administrators": "提示词详情仅管理员可查看",
+    "Configured but bypassed for explicit learning": "已配置，但显式学习会跳过此步骤",
+    "Private ACU Learning Judge prompt": "Private ACU Learning Judge 提示词",
+    "Classifies whether the latest human message indicates dissatisfaction with the previous result.": "判断最新人工消息是否表示用户对之前的结果不满意。",
+    "Private ACU prompt configuration": "Private ACU 提示词配置"
   }
 }
