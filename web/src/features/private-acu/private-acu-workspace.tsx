@@ -108,6 +108,95 @@ function parseDistilledClaimPreviews(value: unknown): DistilledClaimPreview[] {
     .filter((claim) => claim.topic || claim.appliesWhen || claim.prefer)
 }
 
+type AgentContextMessage = {
+  role?: string
+  content?: unknown
+}
+
+function parseAgentContext(value: unknown): {
+  input?: AgentContextMessage[]
+} | null {
+  if (typeof value !== 'string') return null
+  try {
+    const parsed: unknown = JSON.parse(value)
+    if (!parsed || typeof parsed !== 'object') return null
+    const input = (parsed as { input?: unknown }).input
+    if (!Array.isArray(input)) return null
+    return {
+      input: input.filter(
+        (item): item is AgentContextMessage =>
+          Boolean(item) && typeof item === 'object'
+      ),
+    }
+  } catch {
+    return null
+  }
+}
+
+function messageText(content: unknown): string {
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return ''
+  return content
+    .map((part) => {
+      if (!part || typeof part !== 'object') return ''
+      const text = (part as { text?: unknown }).text
+      return typeof text === 'string' ? text : ''
+    })
+    .filter(Boolean)
+    .join('\n')
+}
+
+function accountRunExamples(
+  detail: PrivateACULearningRunDetail | undefined,
+  step: 'input' | 'experience'
+): PrivateACUPromptExample[] | undefined {
+  if (!detail) return undefined
+  const context = parseAgentContext(detail.evidence.agentContext)
+  const messages = context?.input ?? []
+  const latestUserMessage = [...messages]
+    .reverse()
+    .find((message) => message.role === 'user')
+  const latestText = messageText(latestUserMessage?.content)
+  if (!latestText) return undefined
+
+  const firstUserMessage = messages.find((message) => message.role === 'user')
+  const firstText = messageText(firstUserMessage?.content)
+  const artifact =
+    step === 'input'
+      ? {
+          experience_id: detail.experienceId,
+          learning_trigger: detail.learningKind,
+          latest_user_message: latestText,
+          context_message_count: messages.length,
+        }
+      : {
+          experience_id: detail.experienceId,
+          source: '完整 Agent Context',
+          latest_user_message: latestText,
+          preceding_user_context: firstText || undefined,
+          learning_trigger: detail.learningKind,
+        }
+
+  return [
+    {
+      id: `${detail.runId}-${step}`,
+      title: step === 'input' ? '真实账户学习输入' : '真实账户学习 Experience',
+      origin: 'captured_run',
+      material: {
+        text:
+          step === 'input'
+            ? `最新人工消息：\n${latestText}`
+            : `完整上下文中的最新人工消息：\n${latestText}`,
+      },
+      artifact: {
+        format: 'json',
+        content: artifact,
+      },
+      sourceRunId: detail.runId,
+    },
+  ]
+}
+
 function diffAddedLines(diff: string): string[] {
   return diff
     .split('\n')
@@ -189,7 +278,7 @@ function filmStepExamples(
   ]
 }
 
-function FilmLearningRunSummary(props: {
+function LearningRunSummary(props: {
   detail?: PrivateACULearningRunDetail
   loading?: boolean
 }) {
@@ -266,9 +355,9 @@ function FilmLearningRunSummary(props: {
             {t('Distillation highlights')}
           </h6>
           <div className='space-y-2'>
-            {claimPreviews.map((claim, index) => (
+            {claimPreviews.map((claim) => (
               <article
-                key={`${claim.topic}-${index}`}
+                key={`${claim.topic}-${claim.appliesWhen}-${claim.prefer}`}
                 className='rounded-md border-l-2 border-amber-500/40 bg-amber-500/5 p-3'
               >
                 <div className='flex flex-wrap items-center gap-2'>
@@ -296,11 +385,21 @@ function FilmLearningRunSummary(props: {
           </div>
         </div>
       ) : null}
+      <details className='border-border rounded-md border p-3'>
+        <summary className='cursor-pointer text-xs font-semibold'>
+          {t('Distillation output')}
+        </summary>
+        <pre className='bg-muted/30 mt-3 max-h-72 overflow-auto rounded-md p-3 text-xs leading-5 whitespace-pre-wrap'>
+          {typeof detail.distillation.distilled_context === 'string'
+            ? detail.distillation.distilled_context
+            : JSON.stringify(detail.distillation, null, 2)}
+        </pre>
+      </details>
     </section>
   )
 }
 
-function FilmSkillChangeExamples(props: {
+function SkillChangeExamples(props: {
   detail?: PrivateACULearningRunDetail
   loading?: boolean
 }) {
@@ -326,7 +425,7 @@ function FilmSkillChangeExamples(props: {
         <div>
           <h5 className='text-sm font-semibold'>{t('Real Skill changes')}</h5>
           <p className='text-muted-foreground mt-1 text-xs'>
-            {t('One Experience produced claims and these Skill updates.')}
+            {t('This Experience produced the following Skill updates.')}
           </p>
         </div>
         <Badge variant='secondary'>
@@ -372,9 +471,9 @@ function FilmSkillChangeExamples(props: {
                       <div className='text-muted-foreground text-[11px] font-semibold tracking-wide uppercase'>
                         {t('New learning rules')}
                       </div>
-                      {addedLines.slice(0, 4).map((line, index) => (
+                      {addedLines.slice(0, 4).map((line) => (
                         <p
-                          key={`${line}-${index}`}
+                          key={line}
                           className='text-foreground rounded bg-emerald-500/10 px-2 py-1 text-xs leading-5 font-medium'
                         >
                           {line}
@@ -411,21 +510,23 @@ function FilmSkillChangeExamples(props: {
                     </div>
                     <div className='bg-muted/30 max-h-64 overflow-auto rounded-md p-2 text-xs leading-5'>
                       {firstFile.diff ? (
-                        firstFile.diff.split('\n').map((line, index) => {
+                        firstFile.diff.split('\n').map((line) => {
                           const added =
                             line.startsWith('+') && !line.startsWith('+++')
                           const removed =
                             line.startsWith('-') && !line.startsWith('---')
+                          let lineClass = 'text-muted-foreground'
+                          if (added) {
+                            lineClass =
+                              'bg-emerald-500/10 text-emerald-800 dark:text-emerald-200'
+                          } else if (removed) {
+                            lineClass =
+                              'bg-red-500/10 text-red-800 dark:text-red-200'
+                          }
                           return (
                             <div
-                              key={`${index}-${line}`}
-                              className={`break-words whitespace-pre-wrap ${
-                                added
-                                  ? 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-200'
-                                  : removed
-                                    ? 'bg-red-500/10 text-red-800 dark:text-red-200'
-                                    : 'text-muted-foreground'
-                              }`}
+                              key={line || 'blank'}
+                              className={`break-words whitespace-pre-wrap ${lineClass}`}
                             >
                               {line || ' '}
                             </div>
@@ -549,13 +650,13 @@ function StepPrompt(props: {
         />
       ) : null}
       {props.prompt.runView === 'summary' ? (
-        <FilmLearningRunSummary
+        <LearningRunSummary
           detail={props.prompt.runDetail}
           loading={props.prompt.runLoading}
         />
       ) : null}
       {props.prompt.runView === 'skill-changes' ? (
-        <FilmSkillChangeExamples
+        <SkillChangeExamples
           detail={props.prompt.runDetail}
           loading={props.prompt.runLoading}
         />
@@ -740,6 +841,27 @@ function OverviewPage(props: { isAdmin: boolean }) {
     enabled: props.isAdmin,
     retry: false,
   })
+  const accountRunsQuery = useQuery({
+    queryKey: ['private-acu', 'overview', 'account-learning-runs'],
+    queryFn: () => getPrivateACULearningRuns(10, 'user_dissatisfaction'),
+    enabled: props.isAdmin,
+    retry: false,
+  })
+  const latestCompletedAccountRun = accountRunsQuery.data?.find(
+    (run) => run.status.toLowerCase() === 'completed'
+  )
+  const accountRunDetailQuery = useQuery({
+    queryKey: [
+      'private-acu',
+      'overview',
+      'account-learning-run',
+      latestCompletedAccountRun?.runId,
+    ],
+    queryFn: () =>
+      getPrivateACULearningRunDetail(latestCompletedAccountRun?.runId || ''),
+    enabled: props.isAdmin && Boolean(latestCompletedAccountRun?.runId),
+    retry: false,
+  })
   const latestCompletedFilmRun = filmRunsQuery.data?.find(
     (run) => run.status.toLowerCase() === 'completed'
   )
@@ -793,6 +915,14 @@ function OverviewPage(props: { isAdmin: boolean }) {
     accountMemoryQuery.isError,
     accountMemoryQuery.data?.promptCards
   )
+  const accountInputExamples = accountRunExamples(
+    accountRunDetailQuery.data,
+    'input'
+  )
+  const accountExperienceExamples = accountRunExamples(
+    accountRunDetailQuery.data,
+    'experience'
+  )
   const filmLearningPrompt = promptStateForCards(
     props.isAdmin,
     adminFilmQuery.isLoading,
@@ -815,7 +945,20 @@ function OverviewPage(props: { isAdmin: boolean }) {
         'A new Agent request and the latest human User Message enter Private ACU.'
       ),
       icon: MessageSquareText,
-      prompt: { status: 'not-applicable' },
+      prompt: {
+        status: 'not-applicable',
+        examples: accountInputExamples,
+        examplesOptions: {
+          materialLabel: t('Actual request input'),
+          materialHint: t(
+            'This is the latest captured human message that entered the account learning flow.'
+          ),
+          artifactLabel: t('Input boundary'),
+          artifactHint: t(
+            'The artifact identifies the learning trigger and the captured context boundary.'
+          ),
+        },
+      },
     },
     {
       label: t('Evidence'),
@@ -833,7 +976,20 @@ function OverviewPage(props: { isAdmin: boolean }) {
         'The relevant Agent Context is recorded as an account-scoped learning experience.'
       ),
       icon: Workflow,
-      prompt: { status: 'not-applicable' },
+      prompt: {
+        status: 'not-applicable',
+        examples: accountExperienceExamples,
+        examplesOptions: {
+          materialLabel: t('Captured Agent Context'),
+          materialHint: t(
+            'The learning unit keeps the latest user correction together with its surrounding context.'
+          ),
+          artifactLabel: t('Account learning Experience'),
+          artifactHint: t(
+            'This records the Experience ID, trigger, and message boundary sent to Acontext.'
+          ),
+        },
+      },
     },
     {
       label: t('Learning'),
@@ -842,7 +998,15 @@ function OverviewPage(props: { isAdmin: boolean }) {
         'Acontext asynchronously extracts or updates reusable preference knowledge.'
       ),
       icon: Sparkles,
-      prompt: accountLearningPrompt,
+      prompt: {
+        ...accountLearningPrompt,
+        runDetail: accountRunDetailQuery.data,
+        runLoading:
+          accountRunsQuery.isLoading ||
+          (Boolean(latestCompletedAccountRun) &&
+            accountRunDetailQuery.isLoading),
+        runView: 'summary',
+      },
     },
     {
       label: t('Quality Skill'),
@@ -851,7 +1015,15 @@ function OverviewPage(props: { isAdmin: boolean }) {
         'The resulting Skill becomes part of the account memory for later work.'
       ),
       icon: BookOpen,
-      prompt: { status: 'not-applicable' },
+      prompt: {
+        status: 'not-applicable',
+        runDetail: accountRunDetailQuery.data,
+        runLoading:
+          accountRunsQuery.isLoading ||
+          (Boolean(latestCompletedAccountRun) &&
+            accountRunDetailQuery.isLoading),
+        runView: 'skill-changes',
+      },
     },
   ]
   const filmFlow: LearningFlowStep[] = [

@@ -5826,6 +5826,16 @@
     "Before": "修改前",
     "After": "修改后",
     "No real Skill changes": "暂无真实 Skill 修改",
-    "No diff available": "暂无 diff"
+    "No diff available": "暂无 diff",
+    "Actual request input": "实际请求输入",
+    "This is the latest captured human message that entered the account learning flow.": "这是最近一次进入账户学习流程的人工消息。",
+    "Input boundary": "输入边界",
+    "The artifact identifies the learning trigger and the captured context boundary.": "产物标明学习触发器和本次捕获的上下文边界。",
+    "Captured Agent Context": "捕获的 Agent Context",
+    "The learning unit keeps the latest user correction together with its surrounding context.": "学习单元将最新用户纠正与其周围的上下文保存在一起。",
+    "Account learning Experience": "账户学习 Experience",
+    "This records the Experience ID, trigger, and message boundary sent to Acontext.": "这里记录发送给 Acontext 的 Experience ID、触发器和消息边界。",
+    "Distillation output": "蒸馏产物",
+    "This Experience produced the following Skill updates.": "这条 Experience 产生了以下 Skill 修改。"
   }
 }

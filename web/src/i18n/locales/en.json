@@ -5807,6 +5807,16 @@
     "Before": "Before",
     "After": "After",
     "No real Skill changes": "No real Skill changes",
-    "No diff available": "No diff available"
+    "No diff available": "No diff available",
+    "Actual request input": "Actual request input",
+    "This is the latest captured human message that entered the account learning flow.": "This is the latest captured human message that entered the account learning flow.",
+    "Input boundary": "Input boundary",
+    "The artifact identifies the learning trigger and the captured context boundary.": "The artifact identifies the learning trigger and the captured context boundary.",
+    "Captured Agent Context": "Captured Agent Context",
+    "The learning unit keeps the latest user correction together with its surrounding context.": "The learning unit keeps the latest user correction together with its surrounding context.",
+    "Account learning Experience": "Account learning Experience",
+    "This records the Experience ID, trigger, and message boundary sent to Acontext.": "This records the Experience ID, trigger, and message boundary sent to Acontext.",
+    "Distillation output": "Distillation output",
+    "This Experience produced the following Skill updates.": "This Experience produced the following Skill updates."
   }
 }

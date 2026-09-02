@@ -32,8 +32,8 @@ test('Private ACU overview presents the shared backbone and both learning paths'
   assert.match(overviewSource, /getPrivateACUPrompts/)
   assert.match(overviewSource, /getPrivateACULearningRuns/)
   assert.match(overviewSource, /getPrivateACULearningRunDetail/)
-  assert.match(overviewSource, /function FilmLearningRunSummary\(/)
-  assert.match(overviewSource, /function FilmSkillChangeExamples\(/)
+  assert.match(overviewSource, /function LearningRunSummary\(/)
+  assert.match(overviewSource, /function SkillChangeExamples\(/)
   assert.match(overviewSource, /parseDistilledClaimPreviews/)
   assert.match(overviewSource, /diffAddedLines/)
   assert.match(overviewSource, /Change spotlight/)
@@ -54,6 +54,15 @@ test('Private ACU overview presents the shared backbone and both learning paths'
   assert.match(overviewSource, /Prompt available/)
   assert.match(overviewSource, /PromptExamples/)
   assert.match(overviewSource, /learningExamples/)
+  assert.match(overviewSource, /account-learning-runs/)
+  assert.match(overviewSource, /accountRunExamples/)
+  assert.match(overviewSource, /Actual request input/)
+  assert.match(overviewSource, /Captured Agent Context/)
+  assert.match(overviewSource, /Distillation output/)
+  assert.match(
+    overviewSource,
+    /This Experience produced the following Skill updates/
+  )
 
   for (const stage of [
     'Input',
