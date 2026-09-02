@@ -94,3 +94,18 @@ test('Prompt example details present both material and artifact views', () => {
   assert.match(examplesSource, /materialLabel/)
   assert.match(examplesSource, /artifactLabel/)
 })
+
+test('account run examples read the production messages context shape', () => {
+  assert.match(overviewSource, /input\?: unknown; messages\?: unknown/)
+  assert.match(
+    overviewSource,
+    /\(parsed as \{ messages\?: unknown \}\)\.messages/
+  )
+})
+
+test('overview prompt cards only show prompts that actually execute', () => {
+  assert.match(
+    overviewSource,
+    /card\.execution === 'used' && card\.stage !== 'task'/
+  )
+})

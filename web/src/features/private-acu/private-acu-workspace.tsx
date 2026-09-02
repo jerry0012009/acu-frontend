@@ -120,7 +120,9 @@ function parseAgentContext(value: unknown): {
   try {
     const parsed: unknown = JSON.parse(value)
     if (!parsed || typeof parsed !== 'object') return null
-    const input = (parsed as { input?: unknown }).input
+    const input =
+      (parsed as { input?: unknown; messages?: unknown }).input ??
+      (parsed as { messages?: unknown }).messages
     if (!Array.isArray(input)) return null
     return {
       input: input.filter(
@@ -234,10 +236,13 @@ function promptStateForCards(
 ): LearningFlowPromptState {
   if (!isAdmin) return { status: 'restricted' }
   if (isLoading) return { status: 'loading' }
-  if (cards?.length) {
+  const effectiveCards = cards?.filter(
+    (card) => card.execution === 'used' && card.stage !== 'task'
+  )
+  if (effectiveCards?.length) {
     return {
       status: 'available',
-      items: promptItems(cards),
+      items: promptItems(effectiveCards),
     }
   }
   if (isError) return { status: 'unavailable' }
