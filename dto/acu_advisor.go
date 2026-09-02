@@ -142,15 +142,43 @@ type ACUPrivateMemoryPrompt struct {
 	Content string `json:"content"`
 }
 
+type ACUPrivatePromptExampleImage struct {
+	URL      string `json:"url"`
+	MimeType string `json:"mimeType,omitempty"`
+	Alt      string `json:"alt,omitempty"`
+}
+
+type ACUPrivatePromptExampleMaterial struct {
+	Text   string                         `json:"text,omitempty"`
+	JSON   interface{}                    `json:"json,omitempty"`
+	Images []ACUPrivatePromptExampleImage `json:"images,omitempty"`
+}
+
+type ACUPrivatePromptExampleArtifact struct {
+	Format  string      `json:"format"`
+	Content interface{} `json:"content"`
+}
+
+type ACUPrivatePromptExample struct {
+	ID          string                          `json:"id"`
+	Title       string                          `json:"title"`
+	Origin      string                          `json:"origin"`
+	Material    ACUPrivatePromptExampleMaterial `json:"material"`
+	Artifact    ACUPrivatePromptExampleArtifact `json:"artifact"`
+	SourceURL   string                          `json:"sourceUrl,omitempty"`
+	SourceRunID string                          `json:"sourceRunId,omitempty"`
+}
+
 type ACUPrivatePromptCard struct {
-	ID          string `json:"id"`
-	Stage       string `json:"stage"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	Content     string `json:"content"`
-	Language    string `json:"language"`
-	Source      string `json:"source"`
-	Execution   string `json:"execution"`
+	ID          string                    `json:"id"`
+	Stage       string                    `json:"stage"`
+	Title       string                    `json:"title"`
+	Description string                    `json:"description"`
+	Content     string                    `json:"content"`
+	Language    string                    `json:"language"`
+	Source      string                    `json:"source"`
+	Execution   string                    `json:"execution"`
+	Examples    []ACUPrivatePromptExample `json:"examples,omitempty"`
 }
 
 type ACUPrivateExperience struct {

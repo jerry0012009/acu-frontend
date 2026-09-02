@@ -40,9 +40,9 @@ func TestPrivateACUAdminProxyReadsPromptsMemoryAndFilmStatus(t *testing.T) {
 		case "/internal/admin/private-acu/prompts":
 			_, _ = writer.Write([]byte(`{"prompts":{"observerPrompt":"observer","advisorPrompt":"advisor","learningPrompt":"learning","promptVersion":2,"source":"default"}}`))
 		case "/internal/admin/private-acu/memory":
-			_, _ = writer.Write([]byte(`{"memory":{"enabled":true,"userId":"3","spaceId":"space-1","skills":[]}}`))
+			_, _ = writer.Write([]byte(`{"memory":{"enabled":true,"userId":"3","spaceId":"space-1","skills":[],"promptCards":[{"id":"account-learning","stage":"distillation","title":"账户学习","description":"账户学习示例","content":"请输出 JSON","language":"zh-CN","source":"fixture","execution":"used","examples":[{"id":"account-example","title":"账户示例","origin":"reference_fixture","material":{"text":"输入文本"},"artifact":{"format":"json","content":{"ok":true}}}]}]}}`))
 		case "/internal/admin/private-acu/film":
-			_, _ = writer.Write([]byte(`{"film":{"enabled":true,"teamScope":"GYZ","acontextUser":"private-acu-film:GYZ","spaceId":"film-space-1","learningModel":"gpt-5.6-sol","ingressTokenConfigured":true,"imagePolicy":{"maxImages":8,"maxInputImageBytes":16777216,"maxInputTotalBytes":67108864,"maxModelImageBytes":4194304,"maxModelTotalBytes":25165824,"maxImageDimension":2560,"outputMimeType":"image/webp","compressionPolicy":"visual-quality-first"},"skills":[]}}`))
+			_, _ = writer.Write([]byte(`{"film":{"enabled":true,"teamScope":"GYZ","acontextUser":"private-acu-film:GYZ","spaceId":"film-space-1","learningModel":"gpt-5.6-sol","ingressTokenConfigured":true,"imagePolicy":{"maxImages":8,"maxInputImageBytes":16777216,"maxInputTotalBytes":67108864,"maxModelImageBytes":4194304,"maxModelTotalBytes":25165824,"maxImageDimension":2560,"outputMimeType":"image/webp","compressionPolicy":"visual-quality-first"},"skills":[],"promptCards":[{"id":"film-distillation","stage":"distillation","title":"影视蒸馏","description":"影视示例","content":"请提取影视语言","language":"zh-CN","source":"fixture","execution":"used","examples":[{"id":"film-example","title":"影视图文示例","origin":"reference_fixture","material":{"text":"夜间室内","json":{"lighting":"side"}},"artifact":{"format":"json","content":{"claims":[]}},"sourceUrl":"https://example.com/reference"}]}]}}`))
 		default:
 			writer.WriteHeader(http.StatusNotFound)
 		}
@@ -58,6 +58,8 @@ func TestPrivateACUAdminProxyReadsPromptsMemoryAndFilmStatus(t *testing.T) {
 	memory, err := GetPrivateACUMemory(context.Background(), "3")
 	require.NoError(t, err)
 	require.Equal(t, "space-1", memory.SpaceID)
+	require.Len(t, memory.PromptCards, 1)
+	require.Len(t, memory.PromptCards[0].Examples, 1)
 
 	film, err := GetPrivateACUFilmStatus(context.Background())
 	require.NoError(t, err)
@@ -65,6 +67,8 @@ func TestPrivateACUAdminProxyReadsPromptsMemoryAndFilmStatus(t *testing.T) {
 	require.Equal(t, "gpt-5.6-sol", film.LearningModel)
 	require.NotNil(t, film.ImagePolicy)
 	require.Equal(t, 2560, film.ImagePolicy.MaxImageDimension)
+	require.Len(t, film.PromptCards, 1)
+	require.Equal(t, "影视图文示例", film.PromptCards[0].Examples[0].Title)
 
 	for _, expected := range []struct {
 		method string
