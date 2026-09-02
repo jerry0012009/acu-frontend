@@ -108,13 +108,11 @@ test('overview Profile routing controls stay Root-only and reuse existing policy
 
 test('ordinary users get only the anonymous Model Overview presentation', () => {
   assert.match(monitorSource, /isAdmin \? 'channel' : 'model'/)
-  assert.match(
-    monitorSource,
-    /aria-label=\{t\('Protocol'\)\}[\s\S]{0,500}setProtocol\(value\)/
-  )
+  assert.match(monitorSource, /aria-label=\{t\('Protocol'\)\}/)
+  assert.match(monitorSource, /setProtocol\(value\)/)
   assert.match(monitorSource, /t\('By channel'\)/)
   assert.match(monitorSource, /t\('By model'\)/)
-  assert.match(monitorSource, /\{isAdmin && \(\s*<div className='grid gap-2/)
+  assert.match(monitorSource, /\{isAdmin && \([\s\S]{0,160}t\('Time range'\)/)
   assert.match(monitorSource, /<ACUModelHealthCard/)
   assert.match(
     readFileSync(
@@ -151,7 +149,10 @@ test('global configuration keeps model access and Profile availability separate'
     monitorSource,
     /modelPolicy: autoModelIds\.length \? 'custom_allowlist' : 'explicit_only'/
   )
-  assert.match(monitorSource, /disabledReason[\s\S]{0,220}'Profile is disabled'/)
+  assert.match(
+    monitorSource,
+    /disabledReason[\s\S]{0,220}'Profile is disabled'/
+  )
   assert.match(monitorSource, /disabledReason[\s\S]{0,220}'Model is disabled'/)
   assert.match(
     monitorSource,

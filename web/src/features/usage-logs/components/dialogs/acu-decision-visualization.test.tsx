@@ -122,16 +122,22 @@ before(() => {
     unobserve() {}
     disconnect() {}
   }
-  Object.assign(globalThis, {
-    window,
-    document: window.document,
-    HTMLElement: window.HTMLElement,
-    SVGElement: window.SVGElement,
-    React,
-    ResizeObserver: resizeObserver,
-    requestAnimationFrame: window.requestAnimationFrame.bind(window),
-    cancelAnimationFrame: window.cancelAnimationFrame.bind(window),
-    IS_REACT_ACT_ENVIRONMENT: true,
+  Object.defineProperties(globalThis, {
+    window: { configurable: true, value: window },
+    document: { configurable: true, value: window.document },
+    HTMLElement: { configurable: true, value: window.HTMLElement },
+    SVGElement: { configurable: true, value: window.SVGElement },
+    React: { configurable: true, value: React },
+    ResizeObserver: { configurable: true, value: resizeObserver },
+    requestAnimationFrame: {
+      configurable: true,
+      value: window.requestAnimationFrame.bind(window),
+    },
+    cancelAnimationFrame: {
+      configurable: true,
+      value: window.cancelAnimationFrame.bind(window),
+    },
+    IS_REACT_ACT_ENVIRONMENT: { configurable: true, value: true },
   })
   Object.assign(window, { ResizeObserver: resizeObserver })
   Object.defineProperty(window.HTMLElement.prototype, 'getBoundingClientRect', {
