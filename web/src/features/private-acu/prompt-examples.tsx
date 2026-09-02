@@ -92,6 +92,7 @@ function ExampleMaterial(props: {
 
 function ExampleArtifact(props: {
   artifact: PrivateACUPromptExample['artifact']
+  label?: string
 }) {
   const { t } = useTranslation()
   return (
@@ -102,13 +103,19 @@ function ExampleArtifact(props: {
           {t('Example output')}
         </span>
       </div>
-      <ExampleValue label={t('Artifact')} value={props.artifact.content} />
+      <ExampleValue
+        label={props.label || t('Artifact')}
+        value={props.artifact.content}
+      />
     </div>
   )
 }
 
 export function PromptExamples(props: {
   examples?: PrivateACUPromptExample[]
+  materialLabel?: string
+  artifactLabel?: string
+  hideArtifact?: boolean
 }) {
   const { t } = useTranslation()
   if (!props.examples?.length) return null
@@ -158,19 +165,28 @@ export function PromptExamples(props: {
                 </div>
               </div>
             </header>
-            <div className='grid gap-4 lg:grid-cols-2'>
+            <div
+              className={`grid gap-4 ${
+                props.hideArtifact ? '' : 'lg:grid-cols-2'
+              }`}
+            >
               <div className='space-y-2'>
                 <h6 className='text-muted-foreground text-[11px] font-semibold tracking-wide uppercase'>
-                  {t('Material example')}
+                  {props.materialLabel || t('Material example')}
                 </h6>
                 <ExampleMaterial material={example.material} />
               </div>
-              <div className='space-y-2'>
-                <h6 className='text-muted-foreground text-[11px] font-semibold tracking-wide uppercase'>
-                  {t('Artifact example')}
-                </h6>
-                <ExampleArtifact artifact={example.artifact} />
-              </div>
+              {!props.hideArtifact && (
+                <div className='space-y-2'>
+                  <h6 className='text-muted-foreground text-[11px] font-semibold tracking-wide uppercase'>
+                    {props.artifactLabel || t('Artifact example')}
+                  </h6>
+                  <ExampleArtifact
+                    artifact={example.artifact}
+                    label={props.artifactLabel}
+                  />
+                </div>
+              )}
             </div>
           </article>
         ))}

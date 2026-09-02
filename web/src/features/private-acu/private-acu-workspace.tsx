@@ -27,8 +27,11 @@ import { PrivateACULearningRuns } from '@/features/dashboard/components/admin/pr
 import { PrivateACUSkillCatalog } from '@/features/dashboard/components/admin/private-acu-skill-catalog'
 import {
   getPrivateACUFilmStatus,
+  getPrivateACULearningRunDetail,
+  getPrivateACULearningRuns,
   getPrivateACUMemory,
   getPrivateACUPrompts,
+  type PrivateACULearningRunDetail,
   type PrivateACUPromptExample,
   type PrivateACUPromptCard,
 } from '@/features/dashboard/private-acu-admin-api'
@@ -73,6 +76,14 @@ type LearningFlowPromptState = {
     | 'restricted'
   items?: LearningFlowPromptItem[]
   examples?: PrivateACUPromptExample[]
+  examplesOptions?: {
+    materialLabel?: string
+    artifactLabel?: string
+    hideArtifact?: boolean
+  }
+  runDetail?: PrivateACULearningRunDetail
+  runLoading?: boolean
+  runView?: 'summary' | 'skill-changes'
 }
 
 function promptItems(cards?: PrivateACUPromptCard[]): LearningFlowPromptItem[] {
@@ -138,14 +149,6 @@ function filmStepExamples(
           text: source.material.text,
           images: source.material.images,
         },
-        artifact: {
-          format: 'json',
-          content: {
-            image_count: source.material.images?.length ?? 0,
-            text_submitted: Boolean(source.material.text),
-            input_scope: '一张图片绑定一段场景语境与分析文字',
-          },
-        },
       },
     ]
   }
@@ -158,12 +161,7 @@ function filmStepExamples(
         title: '团队补充的视听语言判断',
         artifact: {
           format: 'json',
-          content: {
-            good_points: sourceJson?.good_points ?? [],
-            missing_points: sourceJson?.missing_points ?? [],
-            rejection_reason: sourceJson?.rejection_reason ?? null,
-            team_decision: sourceJson?.team_decision ?? 'reference',
-          },
+          content: sourceJson ?? source.artifact.content,
         },
       },
     ]
@@ -182,6 +180,164 @@ function filmStepExamples(
   ]
 }
 
+function FilmLearningRunSummary(props: {
+  detail?: PrivateACULearningRunDetail
+  loading?: boolean
+}) {
+  const { t } = useTranslation()
+  if (props.loading) {
+    return (
+      <p className='text-muted-foreground text-xs'>
+        {t('Loading captured run')}
+      </p>
+    )
+  }
+  if (!props.detail) {
+    return (
+      <p className='text-muted-foreground text-xs'>{t('No captured run')}</p>
+    )
+  }
+  const detail = props.detail
+  return (
+    <section className='border-border space-y-3 border-t pt-4'>
+      <div className='flex flex-wrap items-center justify-between gap-2'>
+        <h5 className='text-sm font-semibold'>{t('Captured learning run')}</h5>
+        <Badge variant='secondary'>{detail.status}</Badge>
+      </div>
+      <div className='grid gap-2 sm:grid-cols-3'>
+        <div className='bg-muted/30 rounded-md p-3'>
+          <div className='text-muted-foreground text-[11px]'>
+            {t('Experience')}
+          </div>
+          <div className='mt-1 text-xs font-medium break-all'>
+            {detail.experienceId || '-'}
+          </div>
+        </div>
+        <div className='bg-muted/30 rounded-md p-3'>
+          <div className='text-muted-foreground text-[11px]'>
+            {t('Learning claims')}
+          </div>
+          <div className='mt-1 text-lg font-semibold'>
+            {detail.elementCount}
+          </div>
+        </div>
+        <div className='bg-muted/30 rounded-md p-3'>
+          <div className='text-muted-foreground text-[11px]'>
+            {t('Skill updates')}
+          </div>
+          <div className='mt-1 text-lg font-semibold'>
+            {detail.skillChangeCount}
+          </div>
+        </div>
+      </div>
+      <div className='flex flex-wrap items-center justify-between gap-2 text-xs'>
+        <span className='text-muted-foreground break-all'>
+          {t('Run')} · {detail.runId}
+        </span>
+        <Button
+          variant='outline'
+          size='sm'
+          render={
+            <Link
+              to='/private-acu/$section'
+              params={{ section: 'learning-runs' }}
+            />
+          }
+        >
+          {t('Open learning runs')}
+          <ArrowRight />
+        </Button>
+      </div>
+    </section>
+  )
+}
+
+function FilmSkillChangeExamples(props: {
+  detail?: PrivateACULearningRunDetail
+  loading?: boolean
+}) {
+  const { t } = useTranslation()
+  if (props.loading) {
+    return (
+      <p className='text-muted-foreground text-xs'>
+        {t('Loading captured run')}
+      </p>
+    )
+  }
+  if (!props.detail?.skillChanges.length) {
+    return (
+      <p className='text-muted-foreground text-xs'>
+        {t('No real Skill changes')}
+      </p>
+    )
+  }
+  const changes = props.detail.skillChanges.slice(0, 3)
+  return (
+    <section className='border-border space-y-3 border-t pt-4'>
+      <div className='flex flex-wrap items-center justify-between gap-2'>
+        <div>
+          <h5 className='text-sm font-semibold'>{t('Real Skill changes')}</h5>
+          <p className='text-muted-foreground mt-1 text-xs'>
+            {t('One Experience produced claims and these Skill updates.')}
+          </p>
+        </div>
+        <Badge variant='secondary'>
+          {props.detail.skillChangeCount} {t('Skills')}
+        </Badge>
+      </div>
+      <div className='space-y-2'>
+        {changes.map((change) => {
+          const firstFile = change.files[0]
+          return (
+            <details
+              key={`${change.skillId}-${change.changeType}`}
+              className='border-border rounded-md border p-3'
+              open
+            >
+              <summary className='flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 text-sm font-medium'>
+                <span className='min-w-0 break-all'>{change.name}</span>
+                <Badge variant='outline' className='shrink-0 text-[10px]'>
+                  {change.changeType}
+                </Badge>
+              </summary>
+              <div className='mt-3 space-y-3'>
+                <div className='grid gap-3 lg:grid-cols-2'>
+                  <div className='min-w-0'>
+                    <h6 className='text-muted-foreground text-[11px] font-semibold tracking-wide uppercase'>
+                      {t('Before')}
+                    </h6>
+                    <p className='bg-muted/30 mt-1 max-h-32 overflow-auto rounded-md p-2 text-xs leading-5 whitespace-pre-wrap'>
+                      {change.descriptionBefore || '-'}
+                    </p>
+                  </div>
+                  <div className='min-w-0'>
+                    <h6 className='text-muted-foreground text-[11px] font-semibold tracking-wide uppercase'>
+                      {t('After')}
+                    </h6>
+                    <p className='bg-muted/30 mt-1 max-h-32 overflow-auto rounded-md p-2 text-xs leading-5 whitespace-pre-wrap'>
+                      {change.descriptionAfter || '-'}
+                    </p>
+                  </div>
+                </div>
+                {firstFile ? (
+                  <div>
+                    <div className='text-muted-foreground mb-1 font-mono text-[11px]'>
+                      {firstFile.path}
+                    </div>
+                    <pre className='bg-muted/30 max-h-56 overflow-auto rounded-md p-2 text-xs leading-5 whitespace-pre-wrap'>
+                      {firstFile.diff || t('No diff available')}
+                    </pre>
+                  </div>
+                ) : null}
+              </div>
+            </details>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 function StepPrompt(props: {
   stepTitle: string
   prompt: LearningFlowPromptState
@@ -198,6 +354,7 @@ function StepPrompt(props: {
     execution === 'used'
       ? t('Executed')
       : t('Configured but bypassed for explicit learning')
+  const showStatus = props.prompt.status !== 'not-applicable'
 
   return (
     <Dialog
@@ -219,12 +376,14 @@ function StepPrompt(props: {
       contentClassName='sm:max-w-2xl'
       bodyClassName='space-y-4'
     >
-      <div className='flex flex-wrap items-center gap-2'>
-        <span className='text-muted-foreground text-xs'>
-          {t('Prompt status')}
-        </span>
-        <Badge variant='outline'>{statusText[props.prompt.status]}</Badge>
-      </div>
+      {showStatus ? (
+        <div className='flex flex-wrap items-center gap-2'>
+          <span className='text-muted-foreground text-xs'>
+            {t('Prompt status')}
+          </span>
+          <Badge variant='outline'>{statusText[props.prompt.status]}</Badge>
+        </div>
+      ) : null}
       {props.prompt.items?.length ? (
         <div className='space-y-3'>
           {props.prompt.items.map((item) => (
@@ -262,14 +421,34 @@ function StepPrompt(props: {
         </div>
       ) : (
         <div className='space-y-4'>
-          <p className='text-muted-foreground text-sm'>
-            {statusText[props.prompt.status]}
-          </p>
-          <PromptExamples examples={props.prompt.examples} />
+          {showStatus ? (
+            <p className='text-muted-foreground text-sm'>
+              {statusText[props.prompt.status]}
+            </p>
+          ) : null}
+          <PromptExamples
+            examples={props.prompt.examples}
+            {...props.prompt.examplesOptions}
+          />
         </div>
       )}
       {props.prompt.items?.length ? (
-        <PromptExamples examples={props.prompt.examples} />
+        <PromptExamples
+          examples={props.prompt.examples}
+          {...props.prompt.examplesOptions}
+        />
+      ) : null}
+      {props.prompt.runView === 'summary' ? (
+        <FilmLearningRunSummary
+          detail={props.prompt.runDetail}
+          loading={props.prompt.runLoading}
+        />
+      ) : null}
+      {props.prompt.runView === 'skill-changes' ? (
+        <FilmSkillChangeExamples
+          detail={props.prompt.runDetail}
+          loading={props.prompt.runLoading}
+        />
       ) : null}
     </Dialog>
   )
@@ -442,6 +621,27 @@ function OverviewPage(props: { isAdmin: boolean }) {
     enabled: props.isAdmin,
     retry: false,
   })
+  const filmRunsQuery = useQuery({
+    queryKey: ['private-acu', 'overview', 'film-learning-runs'],
+    queryFn: () => getPrivateACULearningRuns(10, 'film_preference_v1'),
+    enabled: props.isAdmin,
+    retry: false,
+  })
+  const latestCompletedFilmRun = filmRunsQuery.data?.find(
+    (run) => run.status.toLowerCase() === 'completed'
+  )
+  const filmRunDetailQuery = useQuery({
+    queryKey: [
+      'private-acu',
+      'overview',
+      'film-learning-run',
+      latestCompletedFilmRun?.runId,
+    ],
+    queryFn: () =>
+      getPrivateACULearningRunDetail(latestCompletedFilmRun?.runId || ''),
+    enabled: props.isAdmin && Boolean(latestCompletedFilmRun?.runId),
+    retry: false,
+  })
   const filmSkills = props.isAdmin
     ? (adminFilmQuery.data?.skills ?? [])
     : (memberFilmQuery.data?.spaces.flatMap((space) => space.skills) ?? [])
@@ -553,7 +753,14 @@ function OverviewPage(props: { isAdmin: boolean }) {
         'The team submits one visual sample with its scene context and analysis.'
       ),
       icon: Image,
-      prompt: { status: 'not-applicable', examples: filmInputExamples },
+      prompt: {
+        status: 'not-applicable',
+        examples: filmInputExamples,
+        examplesOptions: {
+          materialLabel: t('Team submission'),
+          hideArtifact: true,
+        },
+      },
     },
     {
       label: t('Evidence'),
@@ -562,7 +769,14 @@ function OverviewPage(props: { isAdmin: boolean }) {
         'The team marks what works, what is missing, and the reason for acceptance or rejection.'
       ),
       icon: Film,
-      prompt: { status: 'not-applicable', examples: filmEvidenceExamples },
+      prompt: {
+        status: 'not-applicable',
+        examples: filmEvidenceExamples,
+        examplesOptions: {
+          materialLabel: t('Submitted image and context'),
+          artifactLabel: t('Team-confirmed evidence'),
+        },
+      },
     },
     {
       label: t('Experience'),
@@ -571,7 +785,14 @@ function OverviewPage(props: { isAdmin: boolean }) {
         'The image, text, context, structured analysis, and judgment form one learning unit.'
       ),
       icon: Workflow,
-      prompt: { status: 'not-applicable', examples: filmExperienceExamples },
+      prompt: {
+        status: 'not-applicable',
+        examples: filmExperienceExamples,
+        examplesOptions: {
+          materialLabel: t('Bound image and text'),
+          artifactLabel: t('Learning unit'),
+        },
+      },
     },
     {
       label: t('Learning'),
@@ -580,7 +801,14 @@ function OverviewPage(props: { isAdmin: boolean }) {
         'The adapter sends the experience to the shared Acontext learning service.'
       ),
       icon: Sparkles,
-      prompt: filmLearningPrompt,
+      prompt: {
+        ...filmLearningPrompt,
+        runDetail: filmRunDetailQuery.data,
+        runLoading:
+          filmRunsQuery.isLoading ||
+          (Boolean(latestCompletedFilmRun) && filmRunDetailQuery.isLoading),
+        runView: 'summary',
+      },
     },
     {
       label: t('Quality Skill'),
@@ -589,7 +817,14 @@ function OverviewPage(props: { isAdmin: boolean }) {
         'Acontext produces a conditional Quality Skill for future image-generation work.'
       ),
       icon: Film,
-      prompt: { status: 'not-applicable' },
+      prompt: {
+        status: 'not-applicable',
+        runDetail: filmRunDetailQuery.data,
+        runLoading:
+          filmRunsQuery.isLoading ||
+          (Boolean(latestCompletedFilmRun) && filmRunDetailQuery.isLoading),
+        runView: 'skill-changes',
+      },
     },
   ]
 

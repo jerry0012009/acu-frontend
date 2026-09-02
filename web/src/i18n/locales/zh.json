@@ -5789,6 +5789,24 @@
     "Prompt example image": "提示词样例图片",
     "Sample image unavailable": "样例图片暂不可用",
     "No material example": "暂无素材样例",
-    "Text": "文字"
+    "Text": "文字",
+    "Team submission": "团队提交的图文样本",
+    "Submitted image and context": "团队提交的图片与语境",
+    "Team-confirmed evidence": "团队确认的证据",
+    "Bound image and text": "绑定的图片与文字",
+    "Learning unit": "SelectionExperience 学习单元",
+    "Captured learning run": "真实 Learning Run",
+    "Loading captured run": "正在加载真实运行",
+    "No captured run": "暂无已完成的真实运行",
+    "Learning claims": "Learning Claim",
+    "Skill updates": "Skill 更新",
+    "Skills": "个 Skill",
+    "Open learning runs": "查看 Learning Runs",
+    "Real Skill changes": "真实 Skill 修改",
+    "One Experience produced claims and these Skill updates.": "一条 Experience 产生的 Claim 与 Skill 修改。",
+    "Before": "修改前",
+    "After": "修改后",
+    "No real Skill changes": "暂无真实 Skill 修改",
+    "No diff available": "暂无 diff"
   }
 }

@@ -5770,6 +5770,24 @@
     "Prompt example image": "Prompt example image",
     "Sample image unavailable": "Sample image unavailable",
     "No material example": "No material example",
-    "Text": "Text"
+    "Text": "Text",
+    "Team submission": "Team submission",
+    "Submitted image and context": "Submitted image and context",
+    "Team-confirmed evidence": "Team-confirmed evidence",
+    "Bound image and text": "Bound image and text",
+    "Learning unit": "SelectionExperience learning unit",
+    "Captured learning run": "Captured Learning Run",
+    "Loading captured run": "Loading captured run",
+    "No captured run": "No completed captured run",
+    "Learning claims": "Learning Claims",
+    "Skill updates": "Skill updates",
+    "Skills": "Skills",
+    "Open learning runs": "Open learning runs",
+    "Real Skill changes": "Real Skill changes",
+    "One Experience produced claims and these Skill updates.": "One Experience produced these Claims and Skill updates.",
+    "Before": "Before",
+    "After": "After",
+    "No real Skill changes": "No real Skill changes",
+    "No diff available": "No diff available"
   }
 }
