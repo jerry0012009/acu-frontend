@@ -122,6 +122,7 @@ function RuntimePromptCardsSection(props: {
   loading: boolean
   error: boolean
   emptyText: string
+  collapsePrompt?: boolean
 }) {
   const { t } = useTranslation()
   if (props.loading) {
@@ -188,12 +189,25 @@ function RuntimePromptCardsSection(props: {
             </div>
           </dl>
           <div className='border-border border-t pt-3'>
-            <div className='mb-2 text-xs font-medium'>
-              {t('Full runtime prompt')}
-            </div>
-            <pre className='bg-muted/30 max-h-96 overflow-auto rounded-md p-3 text-xs leading-5 whitespace-pre-wrap'>
-              {card.content}
-            </pre>
+            {props.collapsePrompt ? (
+              <details>
+                <summary className='cursor-pointer text-xs font-medium'>
+                  {t('View full prompt')}
+                </summary>
+                <pre className='bg-muted/30 mt-3 max-h-96 overflow-auto rounded-md p-3 text-xs leading-5 whitespace-pre-wrap'>
+                  {card.content}
+                </pre>
+              </details>
+            ) : (
+              <>
+                <div className='mb-2 text-xs font-medium'>
+                  {t('Full runtime prompt')}
+                </div>
+                <pre className='bg-muted/30 max-h-96 overflow-auto rounded-md p-3 text-xs leading-5 whitespace-pre-wrap'>
+                  {card.content}
+                </pre>
+              </>
+            )}
           </div>
           <PromptExamples examples={card.examples} />
         </article>
@@ -427,6 +441,7 @@ export function PrivateACUAdmin(
           loading={promptsQuery.isLoading || memoryQuery.isLoading}
           error={promptsQuery.isError || memoryQuery.isError}
           emptyText={t('No account learning prompts')}
+          collapsePrompt
         />
       </section>
       <section className='space-y-3'>
