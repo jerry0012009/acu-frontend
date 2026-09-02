@@ -75,12 +75,21 @@ test('Private ACU overview presents the shared backbone and both learning paths'
   }
 })
 
-test('Private ACU prompts view includes the resolved film prompt cards', () => {
+test('Private ACU prompts view presents runtime prompts by learning path', () => {
   assert.match(adminSource, /getPrivateACUFilmStatus/)
-  assert.match(adminSource, /function FilmPromptCardsSection\(/)
+  assert.match(adminSource, /function RuntimePromptCardsSection\(/)
+  assert.match(adminSource, /accountRuntimeCards/)
+  assert.match(adminSource, /account-learning-judge/)
+  assert.match(adminSource, /Effective account learning prompts/)
+  assert.match(adminSource, /Full runtime prompt/)
+  assert.match(adminSource, /Account learning runtime prompts/)
   assert.match(adminSource, /t\('Film POC prompts'\)/)
-  assert.match(adminSource, /t\('View full prompt'\)/)
   assert.match(adminSource, /cards=\{filmPromptsQuery\.data\?\.promptCards\}/)
+  assert.match(
+    adminSource,
+    /Acontext implementation source \(developer reference\)/
+  )
+  assert.doesNotMatch(adminSource, /t\('Acontext internal prompts'\)/)
   assert.match(adminSource, /PromptExamples/)
 })
 

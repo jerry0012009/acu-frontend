@@ -78,7 +78,7 @@ export type PrivateACUFilmStatus = {
 
 export type PrivateACUPromptCard = {
   id: string
-  stage: 'task' | 'distillation' | 'skill_learner'
+  stage: 'judge' | 'task' | 'distillation' | 'skill_learner'
   title: string
   description: string
   content: string

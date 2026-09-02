@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { RotateCcw, Save } from 'lucide-react'
+import { Braces, RotateCcw, Save } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -74,29 +74,29 @@ function MemorySection(props: { memory?: PrivateACUMemory; loading: boolean }) {
   )
 }
 
-function InternalPromptsSection(props: {
-  prompts?: PrivateACUMemory['internalPrompts']
+function AcontextSourceFiles(props: {
+  files?: PrivateACUMemory['internalPrompts']
 }) {
   const { t } = useTranslation()
-  if (!props.prompts) {
+  if (!props.files) {
     return (
       <p className='text-muted-foreground text-sm'>
-        {t('Acontext internal prompts are unavailable')}
+        {t('Acontext implementation source is unavailable')}
       </p>
     )
   }
   return (
     <div className='space-y-3'>
-      {props.prompts.map((prompt) => (
+      {props.files.map((file) => (
         <details
-          key={prompt.path}
+          key={file.path}
           className='border-border rounded-md border p-3'
         >
           <summary className='cursor-pointer font-mono text-xs'>
-            {prompt.path}
+            {file.path}
           </summary>
           <pre className='bg-muted/30 mt-3 max-h-[32rem] overflow-auto rounded-md p-3 text-xs whitespace-pre-wrap'>
-            {prompt.content}
+            {file.content}
           </pre>
         </details>
       ))}
@@ -104,10 +104,24 @@ function InternalPromptsSection(props: {
   )
 }
 
-function FilmPromptCardsSection(props: {
+function promptStageLabel(
+  stage: PrivateACUPromptCard['stage'],
+  t: ReturnType<typeof useTranslation>['t']
+) {
+  const labels: Record<PrivateACUPromptCard['stage'], string> = {
+    judge: t('Signal judgment'),
+    task: t('Task organization'),
+    distillation: t('Preference distillation'),
+    skill_learner: t('Skill update'),
+  }
+  return labels[stage]
+}
+
+function RuntimePromptCardsSection(props: {
   cards?: PrivateACUPromptCard[]
   loading: boolean
   error: boolean
+  emptyText: string
 }) {
   const { t } = useTranslation()
   if (props.loading) {
@@ -116,53 +130,71 @@ function FilmPromptCardsSection(props: {
   if (props.error) {
     return (
       <p className='text-muted-foreground text-sm'>
-        {t('Film POC prompts are unavailable')}
+        {t('Runtime prompts are unavailable')}
       </p>
     )
   }
   if (!props.cards?.length) {
-    return (
-      <p className='text-muted-foreground text-sm'>{t('No film prompts')}</p>
-    )
+    return <p className='text-muted-foreground text-sm'>{props.emptyText}</p>
   }
   return (
-    <div className='grid gap-3 lg:grid-cols-3'>
-      {props.cards.map((card) => (
+    <div className='grid gap-3'>
+      {props.cards.map((card, index) => (
         <article
           key={card.id}
-          className='border-border bg-card flex min-w-0 flex-col gap-3 rounded-md border p-4'
+          className='border-border bg-card flex min-w-0 flex-col gap-4 rounded-md border p-4'
         >
           <div className='flex items-start justify-between gap-3'>
-            <h3 className='min-w-0 text-sm font-semibold'>{card.title}</h3>
-            <Badge variant='secondary' className='shrink-0 text-[10px]'>
-              {card.language}
-            </Badge>
+            <div className='flex min-w-0 items-start gap-3'>
+              <span className='bg-foreground text-background flex size-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold'>
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              <div className='min-w-0'>
+                <h3 className='text-sm font-semibold'>{card.title}</h3>
+                <p className='text-muted-foreground mt-1 text-xs'>
+                  {promptStageLabel(card.stage, t)}
+                </p>
+              </div>
+            </div>
+            <div className='flex shrink-0 gap-1.5'>
+              <Badge
+                variant={card.execution === 'used' ? 'default' : 'outline'}
+                className='text-[10px]'
+              >
+                {card.execution === 'used'
+                  ? t('Executed')
+                  : t('Not executed in this flow')}
+              </Badge>
+              <Badge variant='secondary' className='text-[10px]'>
+                {card.language}
+              </Badge>
+            </div>
           </div>
           <p className='text-muted-foreground text-xs leading-5'>
             {card.description}
           </p>
-          <dl className='grid gap-2 text-xs'>
+          <dl className='grid gap-2 text-xs sm:grid-cols-2'>
             <div>
               <dt className='text-muted-foreground'>{t('Source')}</dt>
               <dd className='mt-1 break-all'>{card.source}</dd>
             </div>
             <div>
-              <dt className='text-muted-foreground'>{t('Execution status')}</dt>
+              <dt className='text-muted-foreground'>{t('Runtime status')}</dt>
               <dd className='mt-1'>
                 {card.execution === 'used'
-                  ? t('Executed')
-                  : t('Configured but bypassed for explicit learning')}
+                  ? t('This prompt is used by the current learning path.')
+                  : t('This prompt is configured but skipped by this path.')}
               </dd>
             </div>
           </dl>
-          <details className='border-border border-t pt-3'>
-            <summary className='cursor-pointer text-xs font-medium'>
-              {t('View full prompt')}
-            </summary>
-            <pre className='bg-muted/30 mt-3 max-h-80 overflow-auto rounded-md p-3 text-xs leading-5 whitespace-pre-wrap'>
+          <div className='border-border border-t pt-3'>
+            <div className='mb-2 text-xs font-medium'>
+              {t('Full runtime prompt')}
+            </div>
+            <pre className='bg-muted/30 max-h-96 overflow-auto rounded-md p-3 text-xs leading-5 whitespace-pre-wrap'>
               {card.content}
             </pre>
-          </details>
+          </div>
           <PromptExamples examples={card.examples} />
         </article>
       ))}
@@ -245,6 +277,34 @@ export function PrivateACUAdmin(
     value: String(user.id),
     label: `${user.username} · #${user.id}`,
   }))
+  const accountJudgeCard: PrivateACUPromptCard | undefined = promptsQuery.data
+    ? {
+        id: 'account-learning-judge',
+        stage: 'judge',
+        title: t('User dissatisfaction Learning Judge'),
+        description: t(
+          'Evaluates the latest human message and decides whether the account learning path should start.'
+        ),
+        content: promptsQuery.data.learningPrompt,
+        language: /[\u3400-\u9fff]/u.test(promptsQuery.data.learningPrompt)
+          ? 'zh-CN'
+          : 'en',
+        source: `${t('ACU Router prompt configuration')} · v${promptsQuery.data.promptVersion}`,
+        execution: 'used',
+        examples: promptsQuery.data.learningExamples,
+      }
+    : undefined
+  const accountAcontextCards =
+    memoryQuery.data?.promptCards?.filter(
+      (card) => card.execution === 'used' && card.stage !== 'task'
+    ) ?? []
+  const accountRuntimeCards = accountJudgeCard
+    ? [accountJudgeCard, ...accountAcontextCards]
+    : accountAcontextCards
+  const bypassedAccountCards =
+    memoryQuery.data?.promptCards?.filter(
+      (card) => card.execution !== 'used' || card.stage === 'task'
+    ) ?? []
   let usageContent = null
   if (usageQuery.isLoading) {
     usageContent = (
@@ -306,8 +366,15 @@ export function PrivateACUAdmin(
 
   const accountView = (
     <div className='space-y-6'>
-      <section className='space-y-2'>
-        <h2 className='text-base font-semibold'>{t('Account')}</h2>
+      <section className='space-y-3'>
+        <div>
+          <h2 className='text-base font-semibold'>{t('Account learning')}</h2>
+          <p className='text-muted-foreground mt-1 text-sm'>
+            {t(
+              'Inspect one account from captured evidence through reusable preference Skills.'
+            )}
+          </p>
+        </div>
         <Combobox
           options={userOptions}
           value={selectedUserId}
@@ -317,103 +384,50 @@ export function PrivateACUAdmin(
           allowCustomValue
           className='max-w-md'
         />
-      </section>
-      <section className='space-y-4'>
-        <div className='flex flex-wrap items-center justify-between gap-3'>
-          <div>
-            <h2 className='text-base font-semibold'>
-              {t('Private ACU prompts')}
-            </h2>
-            <p className='text-muted-foreground text-xs'>
-              {t('Version')}: {draft?.promptVersion ?? '-'} · {t('Source')}:{' '}
-              {draft?.source ?? '-'}
-            </p>
+        <div className='grid gap-3 sm:grid-cols-3'>
+          <div className='border-border rounded-md border p-3'>
+            <div className='text-muted-foreground text-xs'>
+              {t('Learning space')}
+            </div>
+            <div className='mt-1 text-sm font-medium break-all'>
+              {memoryQuery.data?.spaceId || t('Not created')}
+            </div>
           </div>
-          {draft && (
-            <label className='flex items-center gap-2 text-sm'>
-              <Switch
-                checked={draft.enabled}
-                disabled={disabled || !canEdit}
-                onCheckedChange={(checked) =>
-                  setDraft((current) =>
-                    current ? { ...current, enabled: checked } : current
-                  )
-                }
-              />
-              {t('Private ACU enabled')}
-            </label>
-          )}
-          <div className='flex gap-2'>
-            {canEdit && (
-              <>
-                <Button
-                  variant='outline'
-                  size='sm'
-                  disabled={disabled}
-                  onClick={() => resetMutation.mutate()}
-                >
-                  <RotateCcw />
-                  {t('Reset default')}
-                </Button>
-                <Button
-                  size='sm'
-                  disabled={disabled || !editable}
-                  onClick={() => editable && saveMutation.mutate(editable)}
-                >
-                  <Save />
-                  {t('Save prompts')}
-                </Button>
-              </>
-            )}
+          <div className='border-border rounded-md border p-3'>
+            <div className='text-muted-foreground text-xs'>
+              {t('Current Skills')}
+            </div>
+            <div className='mt-1 text-sm font-medium'>
+              {memoryQuery.data?.skills.length ?? 0}
+            </div>
+          </div>
+          <div className='border-border rounded-md border p-3'>
+            <div className='text-muted-foreground text-xs'>
+              {t('Active learning prompts')}
+            </div>
+            <div className='mt-1 text-sm font-medium'>
+              {accountRuntimeCards.length}
+            </div>
           </div>
         </div>
-        {editable ? (
-          <div className='grid gap-4'>
-            <PromptEditor
-              label={t('Observer prompt')}
-              value={editable.observerPrompt}
-              disabled={disabled || !canEdit}
-              onChange={(value) =>
-                setDraft((current) =>
-                  current ? { ...current, observerPrompt: value } : current
-                )
-              }
-            />
-            <PromptEditor
-              label={t('Advisor prompt')}
-              value={editable.advisorPrompt}
-              disabled={disabled || !canEdit}
-              onChange={(value) =>
-                setDraft((current) =>
-                  current ? { ...current, advisorPrompt: value } : current
-                )
-              }
-            />
-            <PromptEditor
-              label={t('Learning prompt')}
-              value={editable.learningPrompt}
-              disabled={disabled || !canEdit}
-              onChange={(value) =>
-                setDraft((current) =>
-                  current ? { ...current, learningPrompt: value } : current
-                )
-              }
-            />
-          </div>
-        ) : (
-          <div className='text-muted-foreground text-sm'>{t('Loading')}</div>
-        )}
       </section>
       <section className='space-y-3'>
-        <h2 className='text-base font-semibold'>{t('Acontext memory')}</h2>
-        <MemorySection
-          memory={memoryQuery.data}
-          loading={memoryQuery.isLoading}
+        <div>
+          <h2 className='text-base font-semibold'>
+            {t('Effective account learning prompts')}
+          </h2>
+          <p className='text-muted-foreground mt-1 text-xs'>
+            {t(
+              'This read-only snapshot is resolved for the selected account Learning Space.'
+            )}
+          </p>
+        </div>
+        <RuntimePromptCardsSection
+          cards={accountRuntimeCards}
+          loading={promptsQuery.isLoading || memoryQuery.isLoading}
+          error={promptsQuery.isError || memoryQuery.isError}
+          emptyText={t('No account learning prompts')}
         />
-      </section>
-      <section className='space-y-3'>
-        <h2 className='text-base font-semibold'>{t('Advisor history')}</h2>
-        <AdvisorHistorySection userId={selectedUserId} />
       </section>
       <section className='space-y-3'>
         <h2 className='text-base font-semibold'>{t('Learning runs')}</h2>
@@ -427,29 +441,39 @@ export function PrivateACUAdmin(
         />
       </section>
       <section className='space-y-3'>
+        <h2 className='text-base font-semibold'>{t('Acontext memory')}</h2>
+        <MemorySection
+          memory={memoryQuery.data}
+          loading={memoryQuery.isLoading}
+        />
+      </section>
+      <section className='space-y-3'>
+        <h2 className='text-base font-semibold'>{t('Advisor history')}</h2>
+        <AdvisorHistorySection userId={selectedUserId} />
+      </section>
+      <section className='space-y-3'>
         <h2 className='text-base font-semibold'>
           {t('Private ACU usage and billing')}
         </h2>
         {usageContent}
       </section>
-      <section className='border-border space-y-2 rounded-md border p-4'>
-        <h2 className='text-base font-semibold'>
-          {t('Acontext internal prompts')}
-        </h2>
-        <InternalPromptsSection prompts={memoryQuery.data?.internalPrompts} />
-      </section>
     </div>
   )
 
   const promptsView = (
-    <div className='space-y-4'>
-      <section className='space-y-4'>
+    <div className='space-y-5'>
+      <section className='space-y-3'>
         <div className='flex flex-wrap items-center justify-between gap-3'>
           <div>
             <h2 className='text-base font-semibold'>
-              {t('Private ACU prompts')}
+              {t('Prompt maintenance')}
             </h2>
-            <p className='text-muted-foreground text-xs'>
+            <p className='text-muted-foreground mt-1 text-sm'>
+              {t(
+                'Review the exact runtime prompts selected for each Learning Space and maintain editable Router prompts.'
+              )}
+            </p>
+            <p className='text-muted-foreground mt-1 text-xs'>
               {t('Version')}: {draft?.promptVersion ?? '-'} · {t('Source')}:{' '}
               {draft?.source ?? '-'}
             </p>
@@ -490,62 +514,148 @@ export function PrivateACUAdmin(
             </div>
           )}
         </div>
-        {editable ? (
-          <div className='grid gap-4'>
-            <PromptEditor
-              label={t('Observer prompt')}
-              value={editable.observerPrompt}
-              disabled={disabled || !canEdit}
-              onChange={(value) =>
-                setDraft((current) =>
-                  current ? { ...current, observerPrompt: value } : current
-                )
-              }
-            />
-            <PromptEditor
-              label={t('Advisor prompt')}
-              value={editable.advisorPrompt}
-              disabled={disabled || !canEdit}
-              onChange={(value) =>
-                setDraft((current) =>
-                  current ? { ...current, advisorPrompt: value } : current
-                )
-              }
-            />
-            <PromptEditor
-              label={t('Learning prompt')}
-              value={editable.learningPrompt}
-              disabled={disabled || !canEdit}
-              onChange={(value) =>
-                setDraft((current) =>
-                  current ? { ...current, learningPrompt: value } : current
-                )
-              }
-            />
+      </section>
+      <Tabs defaultValue='account' className='min-w-0 gap-4'>
+        <TabsList>
+          <TabsTrigger value='account'>{t('Account learning')}</TabsTrigger>
+          <TabsTrigger value='film'>{t('Film POC / GYZ')}</TabsTrigger>
+          <TabsTrigger value='supervision'>
+            {t('Process supervision')}
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value='account' className='space-y-4'>
+          <div>
+            <h3 className='text-sm font-semibold'>
+              {t('Account learning runtime prompts')}
+            </h3>
+            <p className='text-muted-foreground mt-1 text-xs'>
+              {t(
+                'The current path executes Learning Judge, dissatisfaction distillation, and Skill Learner in this order.'
+              )}
+            </p>
           </div>
-        ) : (
-          <div className='text-muted-foreground text-sm'>{t('Loading')}</div>
-        )}
-      </section>
-      <section className='space-y-3'>
-        <div>
-          <h2 className='text-base font-semibold'>{t('Film POC prompts')}</h2>
-          <p className='text-muted-foreground text-xs'>
-            {t('Read-only prompts used by the GYZ film learning path.')}
+          <RuntimePromptCardsSection
+            cards={accountRuntimeCards}
+            loading={promptsQuery.isLoading || memoryQuery.isLoading}
+            error={promptsQuery.isError || memoryQuery.isError}
+            emptyText={t('No account learning prompts')}
+          />
+          {canEdit && editable ? (
+            <details className='border-border rounded-md border p-4'>
+              <summary className='cursor-pointer text-sm font-medium'>
+                {t('Edit Learning Judge configuration')}
+              </summary>
+              <p className='text-muted-foreground mt-2 text-xs'>
+                {t(
+                  'Edits remain a draft until Save prompts succeeds. Runtime cards above always show the saved prompt.'
+                )}
+              </p>
+              <div className='mt-4'>
+                <PromptEditor
+                  label={t('Learning prompt draft')}
+                  value={editable.learningPrompt}
+                  disabled={disabled}
+                  onChange={(value) =>
+                    setDraft((current) =>
+                      current ? { ...current, learningPrompt: value } : current
+                    )
+                  }
+                />
+              </div>
+            </details>
+          ) : null}
+          {bypassedAccountCards.length ? (
+            <details className='border-border rounded-md border p-4'>
+              <summary className='cursor-pointer text-sm font-medium'>
+                {t('Configured Acontext steps not executed by active learning')}
+              </summary>
+              <p className='text-muted-foreground mt-2 text-xs'>
+                {t(
+                  'These prompts remain part of Acontext, but the explicit Private ACU learning adapter bypasses them.'
+                )}
+              </p>
+              <div className='mt-4'>
+                <RuntimePromptCardsSection
+                  cards={bypassedAccountCards}
+                  loading={false}
+                  error={false}
+                  emptyText={t('No bypassed prompts')}
+                />
+              </div>
+            </details>
+          ) : null}
+        </TabsContent>
+        <TabsContent value='film' className='space-y-4'>
+          <div>
+            <h3 className='text-sm font-semibold'>{t('Film POC prompts')}</h3>
+            <p className='text-muted-foreground mt-1 text-xs'>
+              {t(
+                'Read-only runtime prompts resolved from the GYZ Learning Space.'
+              )}
+            </p>
+          </div>
+          <RuntimePromptCardsSection
+            cards={filmPromptsQuery.data?.promptCards}
+            loading={filmPromptsQuery.isLoading}
+            error={filmPromptsQuery.isError}
+            emptyText={t('No film prompts')}
+          />
+        </TabsContent>
+        <TabsContent value='supervision' className='space-y-4'>
+          <div>
+            <h3 className='text-sm font-semibold'>
+              {t('Observer and Advisor prompts')}
+            </h3>
+            <p className='text-muted-foreground mt-1 text-xs'>
+              {t(
+                'These Router prompts supervise the process independently from account and film learning.'
+              )}
+            </p>
+          </div>
+          {editable ? (
+            <div className='grid gap-4 lg:grid-cols-2'>
+              <PromptEditor
+                label={t('Observer prompt')}
+                value={editable.observerPrompt}
+                disabled={disabled || !canEdit}
+                onChange={(value) =>
+                  setDraft((current) =>
+                    current ? { ...current, observerPrompt: value } : current
+                  )
+                }
+              />
+              <PromptEditor
+                label={t('Advisor prompt')}
+                value={editable.advisorPrompt}
+                disabled={disabled || !canEdit}
+                onChange={(value) =>
+                  setDraft((current) =>
+                    current ? { ...current, advisorPrompt: value } : current
+                  )
+                }
+              />
+            </div>
+          ) : (
+            <div className='text-muted-foreground text-sm'>{t('Loading')}</div>
+          )}
+        </TabsContent>
+      </Tabs>
+      {canEdit ? (
+        <details className='border-border rounded-md border p-4'>
+          <summary className='flex cursor-pointer items-center gap-2 text-sm font-medium'>
+            <Braces className='size-4' aria-hidden='true' />
+            {t('Acontext implementation source (developer reference)')}
+          </summary>
+          <p className='text-muted-foreground mt-2 text-xs'>
+            {t(
+              'These Python files implement prompt selection. They are source reference, not the final runtime prompt shown above.'
+            )}
           </p>
-        </div>
-        <FilmPromptCardsSection
-          cards={filmPromptsQuery.data?.promptCards}
-          loading={filmPromptsQuery.isLoading}
-          error={filmPromptsQuery.isError}
-        />
-      </section>
-      <section className='border-border space-y-2 rounded-md border p-4'>
-        <h2 className='text-base font-semibold'>
-          {t('Acontext internal prompts')}
-        </h2>
-        <InternalPromptsSection prompts={memoryQuery.data?.internalPrompts} />
-      </section>
+          <div className='mt-4'>
+            <AcontextSourceFiles files={memoryQuery.data?.internalPrompts} />
+          </div>
+        </details>
+      ) : null}
     </div>
   )
 
