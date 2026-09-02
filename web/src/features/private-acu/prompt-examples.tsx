@@ -93,6 +93,7 @@ function ExampleMaterial(props: {
 function ExampleArtifact(props: {
   artifact: PrivateACUPromptExample['artifact']
   label?: string
+  captured?: boolean
 }) {
   const { t } = useTranslation()
   return (
@@ -100,7 +101,7 @@ function ExampleArtifact(props: {
       <div className='flex items-center gap-2'>
         <Badge variant='outline'>{props.artifact.format}</Badge>
         <span className='text-muted-foreground text-xs'>
-          {t('Example output')}
+          {t(props.captured ? 'Captured output' : 'Example output')}
         </span>
       </div>
       <ExampleValue
@@ -121,6 +122,9 @@ export function PromptExamples(props: {
 }) {
   const { t } = useTranslation()
   if (!props.examples?.length) return null
+  const capturedOnly = props.examples.every(
+    (example) => example.origin === 'captured_run'
+  )
   return (
     <section className='border-border space-y-3 border-t pt-4'>
       <div className='flex flex-wrap items-center justify-between gap-2'>
@@ -129,7 +133,9 @@ export function PromptExamples(props: {
             className='text-muted-foreground size-4'
             aria-hidden='true'
           />
-          <h5 className='text-sm font-semibold'>{t('Step examples')}</h5>
+          <h5 className='text-sm font-semibold'>
+            {t(capturedOnly ? 'Captured case' : 'Step examples')}
+          </h5>
         </div>
         <Badge variant='secondary' className='text-[10px]'>
           {props.examples.length}
@@ -174,7 +180,12 @@ export function PromptExamples(props: {
             >
               <div className='space-y-2'>
                 <h6 className='text-muted-foreground text-[11px] font-semibold tracking-wide uppercase'>
-                  {props.materialLabel || t('Material example')}
+                  {props.materialLabel ||
+                    t(
+                      example.origin === 'captured_run'
+                        ? 'Captured input'
+                        : 'Material example'
+                    )}
                 </h6>
                 {props.materialHint ? (
                   <p className='border-primary/40 bg-primary/5 rounded-md border-l-2 px-3 py-2 text-xs leading-5'>
@@ -187,7 +198,12 @@ export function PromptExamples(props: {
               {!props.hideArtifact && (
                 <div className='space-y-2'>
                   <h6 className='text-muted-foreground text-[11px] font-semibold tracking-wide uppercase'>
-                    {props.artifactLabel || t('Artifact example')}
+                    {props.artifactLabel ||
+                      t(
+                        example.origin === 'captured_run'
+                          ? 'Captured output'
+                          : 'Artifact example'
+                      )}
                   </h6>
                   {props.artifactHint ? (
                     <p className='border-primary/40 bg-primary/5 rounded-md border-l-2 px-3 py-2 text-xs leading-5'>
@@ -198,6 +214,7 @@ export function PromptExamples(props: {
                   <ExampleArtifact
                     artifact={example.artifact}
                     label={props.artifactLabel}
+                    captured={example.origin === 'captured_run'}
                   />
                 </div>
               )}

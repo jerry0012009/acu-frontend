@@ -294,8 +294,6 @@ function promptItems(cards?: PrivateACUPromptCard[]): LearningFlowPromptItem[] {
 
 function promptLanguage(content: string): 'zh-CN' | 'mixed' | 'en' {
   const hasChinese = /[\u3400-\u9fff]/u.test(content)
-  const hasLatin = /[A-Za-z]{3,}/u.test(content)
-  if (hasChinese && hasLatin) return 'mixed'
   if (hasChinese) return 'zh-CN'
   return 'en'
 }
@@ -404,7 +402,7 @@ function LearningRunSummary(props: {
         </div>
         <div className='bg-muted/30 rounded-md p-3'>
           <div className='text-muted-foreground text-[11px]'>
-            {t('Learning claims')}
+            {t(isFilmLearning ? 'Learning claims' : 'Preference rules')}
           </div>
           <div className='mt-1 text-lg font-semibold'>
             {detail.elementCount}
@@ -453,7 +451,7 @@ function LearningRunSummary(props: {
                     {claim.topic}
                   </Badge>
                   <span className='text-muted-foreground text-[11px]'>
-                    {t('Learning Claim')}
+                    {t(isFilmLearning ? 'Learning Claim' : 'Preference rule')}
                   </span>
                 </div>
                 {claim.appliesWhen ? (

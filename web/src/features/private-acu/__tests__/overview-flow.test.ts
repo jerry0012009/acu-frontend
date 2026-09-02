@@ -93,6 +93,9 @@ test('Prompt example details present both material and artifact views', () => {
   assert.match(examplesSource, /hideArtifact/)
   assert.match(examplesSource, /materialLabel/)
   assert.match(examplesSource, /artifactLabel/)
+  assert.match(examplesSource, /Captured case/)
+  assert.match(examplesSource, /Captured input/)
+  assert.match(examplesSource, /Captured output/)
 })
 
 test('account run examples read the production messages context shape', () => {
@@ -128,6 +131,8 @@ test('account distillation renders reusable rules from Task Analysis output', ()
   assert.match(overviewSource, /field\('Applies When'\)/)
   assert.match(overviewSource, /field\('Prevention Principle'\)/)
   assert.match(overviewSource, /Reusable rule/)
+  assert.match(overviewSource, /Preference rules/)
+  assert.match(overviewSource, /Preference rule/)
 })
 
 test('the featured account case is reused across input evidence and skill output', () => {
