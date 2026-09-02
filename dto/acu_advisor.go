@@ -27,14 +27,15 @@ type ACUAdvisorFeedbackRequest struct {
 }
 
 type ACUPrivatePrompts struct {
-	ObserverPrompt string `json:"observerPrompt"`
-	AdvisorPrompt  string `json:"advisorPrompt"`
-	LearningPrompt string `json:"learningPrompt"`
-	Enabled        bool   `json:"enabled"`
-	PromptVersion  int64  `json:"promptVersion"`
-	Source         string `json:"source"`
-	UpdatedAt      string `json:"updatedAt,omitempty"`
-	UpdatedBy      string `json:"updatedBy,omitempty"`
+	ObserverPrompt   string                    `json:"observerPrompt"`
+	AdvisorPrompt    string                    `json:"advisorPrompt"`
+	LearningPrompt   string                    `json:"learningPrompt"`
+	LearningExamples []ACUPrivatePromptExample `json:"learningExamples,omitempty"`
+	Enabled          bool                      `json:"enabled"`
+	PromptVersion    int64                     `json:"promptVersion"`
+	Source           string                    `json:"source"`
+	UpdatedAt        string                    `json:"updatedAt,omitempty"`
+	UpdatedBy        string                    `json:"updatedBy,omitempty"`
 }
 
 type ACUPrivatePromptsRequest struct {

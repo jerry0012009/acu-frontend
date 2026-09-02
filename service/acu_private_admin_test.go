@@ -38,7 +38,7 @@ func TestPrivateACUAdminProxyReadsPromptsMemoryAndFilmStatus(t *testing.T) {
 		writer.Header().Set("Content-Type", "application/json")
 		switch request.URL.Path {
 		case "/internal/admin/private-acu/prompts":
-			_, _ = writer.Write([]byte(`{"prompts":{"observerPrompt":"observer","advisorPrompt":"advisor","learningPrompt":"learning","promptVersion":2,"source":"default"}}`))
+			_, _ = writer.Write([]byte(`{"prompts":{"observerPrompt":"observer","advisorPrompt":"advisor","learningPrompt":"learning","learningExamples":[{"id":"learning-example","title":"判断示例","origin":"reference_fixture","material":{"text":"用户要求返工"},"artifact":{"format":"json","content":{"dissatisfied_with_previous_work":true}}}],"promptVersion":2,"source":"default"}}`))
 		case "/internal/admin/private-acu/memory":
 			_, _ = writer.Write([]byte(`{"memory":{"enabled":true,"userId":"3","spaceId":"space-1","skills":[],"promptCards":[{"id":"account-learning","stage":"distillation","title":"账户学习","description":"账户学习示例","content":"请输出 JSON","language":"zh-CN","source":"fixture","execution":"used","examples":[{"id":"account-example","title":"账户示例","origin":"reference_fixture","material":{"text":"输入文本"},"artifact":{"format":"json","content":{"ok":true}}}]}]}}`))
 		case "/internal/admin/private-acu/film":
@@ -54,6 +54,8 @@ func TestPrivateACUAdminProxyReadsPromptsMemoryAndFilmStatus(t *testing.T) {
 	prompts, err := GetPrivateACUPrompts(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, int64(2), prompts.PromptVersion)
+	require.Len(t, prompts.LearningExamples, 1)
+	require.Equal(t, "判断示例", prompts.LearningExamples[0].Title)
 
 	memory, err := GetPrivateACUMemory(context.Background(), "3")
 	require.NoError(t, err)
