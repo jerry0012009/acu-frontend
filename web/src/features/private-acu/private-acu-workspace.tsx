@@ -29,6 +29,7 @@ import {
   getPrivateACUFilmStatus,
   getPrivateACUMemory,
   getPrivateACUPrompts,
+  type PrivateACUPromptExample,
   type PrivateACUPromptCard,
 } from '@/features/dashboard/private-acu-admin-api'
 import { getPrivateACUFilmForUser } from '@/features/dashboard/private-acu-user-api'
@@ -71,6 +72,7 @@ type LearningFlowPromptState = {
     | 'not-applicable'
     | 'restricted'
   items?: LearningFlowPromptItem[]
+  examples?: PrivateACUPromptExample[]
 }
 
 function promptItems(cards?: PrivateACUPromptCard[]): LearningFlowPromptItem[] {
@@ -112,6 +114,74 @@ function promptStateForCards(
   return { status: 'not-applicable' }
 }
 
+function filmStepExamples(
+  cards: PrivateACUPromptCard[] | undefined,
+  step: 'input' | 'evidence' | 'experience'
+): PrivateACUPromptExample[] | undefined {
+  const source = cards?.flatMap((card) => card.examples ?? [])[0]
+  if (!source) return undefined
+
+  const sourceJson =
+    source.material.json &&
+    typeof source.material.json === 'object' &&
+    !Array.isArray(source.material.json)
+      ? (source.material.json as Record<string, unknown>)
+      : undefined
+
+  if (step === 'input') {
+    return [
+      {
+        ...source,
+        id: `${source.id}-input`,
+        title: '团队提交的图文样本',
+        material: {
+          text: source.material.text,
+          images: source.material.images,
+        },
+        artifact: {
+          format: 'json',
+          content: {
+            image_count: source.material.images?.length ?? 0,
+            text_submitted: Boolean(source.material.text),
+            input_scope: '一张图片绑定一段场景语境与分析文字',
+          },
+        },
+      },
+    ]
+  }
+
+  if (step === 'evidence') {
+    return [
+      {
+        ...source,
+        id: `${source.id}-evidence`,
+        title: '团队补充的视听语言判断',
+        artifact: {
+          format: 'json',
+          content: {
+            good_points: sourceJson?.good_points ?? [],
+            missing_points: sourceJson?.missing_points ?? [],
+            rejection_reason: sourceJson?.rejection_reason ?? null,
+            team_decision: sourceJson?.team_decision ?? 'reference',
+          },
+        },
+      },
+    ]
+  }
+
+  return [
+    {
+      ...source,
+      id: `${source.id}-experience`,
+      title: '影视 SelectionExperience 学习单元',
+      artifact: {
+        format: 'json',
+        content: source.material.json ?? source.artifact.content,
+      },
+    },
+  ]
+}
+
 function StepPrompt(props: {
   stepTitle: string
   prompt: LearningFlowPromptState
@@ -131,16 +201,16 @@ function StepPrompt(props: {
 
   return (
     <Dialog
-      title={`${props.stepTitle} · ${t('Step prompt')}`}
+      title={`${props.stepTitle} · ${t('Step details')}`}
       description={t(
-        'Inspect the prompt status and full configuration for this learning step.'
+        'Inspect the input, evidence, Experience, prompt, or output associated with this learning step.'
       )}
       trigger={
         <Button
           variant='ghost'
           size='icon-xs'
-          aria-label={t('View prompt details')}
-          title={t('View prompt details')}
+          aria-label={t('View step details')}
+          title={t('View step details')}
           data-testid='step-prompt-details'
         >
           <FileCode2 aria-hidden='true' />
@@ -191,10 +261,16 @@ function StepPrompt(props: {
           ))}
         </div>
       ) : (
-        <p className='text-muted-foreground text-sm'>
-          {statusText[props.prompt.status]}
-        </p>
+        <div className='space-y-4'>
+          <p className='text-muted-foreground text-sm'>
+            {statusText[props.prompt.status]}
+          </p>
+          <PromptExamples examples={props.prompt.examples} />
+        </div>
       )}
+      {props.prompt.items?.length ? (
+        <PromptExamples examples={props.prompt.examples} />
+      ) : null}
     </Dialog>
   )
 }
@@ -410,6 +486,18 @@ function OverviewPage(props: { isAdmin: boolean }) {
     adminFilmQuery.isError,
     adminFilmQuery.data?.promptCards
   )
+  const filmInputExamples = filmStepExamples(
+    adminFilmQuery.data?.promptCards,
+    'input'
+  )
+  const filmEvidenceExamples = filmStepExamples(
+    adminFilmQuery.data?.promptCards,
+    'evidence'
+  )
+  const filmExperienceExamples = filmStepExamples(
+    adminFilmQuery.data?.promptCards,
+    'experience'
+  )
   const accountFlow: LearningFlowStep[] = [
     {
       label: t('Input'),
@@ -465,7 +553,7 @@ function OverviewPage(props: { isAdmin: boolean }) {
         'The team submits one visual sample with its scene context and analysis.'
       ),
       icon: Image,
-      prompt: { status: 'not-applicable' },
+      prompt: { status: 'not-applicable', examples: filmInputExamples },
     },
     {
       label: t('Evidence'),
@@ -474,7 +562,7 @@ function OverviewPage(props: { isAdmin: boolean }) {
         'The team marks what works, what is missing, and the reason for acceptance or rejection.'
       ),
       icon: Film,
-      prompt: { status: 'not-applicable' },
+      prompt: { status: 'not-applicable', examples: filmEvidenceExamples },
     },
     {
       label: t('Experience'),
@@ -483,7 +571,7 @@ function OverviewPage(props: { isAdmin: boolean }) {
         'The image, text, context, structured analysis, and judgment form one learning unit.'
       ),
       icon: Workflow,
-      prompt: { status: 'not-applicable' },
+      prompt: { status: 'not-applicable', examples: filmExperienceExamples },
     },
     {
       label: t('Learning'),

@@ -25,7 +25,7 @@ test('Private ACU overview presents the shared backbone and both learning paths'
   assert.match(overviewSource, /function promptStateForCards\(/)
   assert.match(overviewSource, /<Dialog/)
   assert.match(overviewSource, /data-testid='step-prompt-details'/)
-  assert.match(overviewSource, /View prompt details/)
+  assert.match(overviewSource, /View step details/)
   assert.match(overviewSource, /StepPrompt stepTitle=\{step.title\}/)
   assert.match(overviewSource, /title=\{t\('LLM call learning'\)\}/)
   assert.match(overviewSource, /title=\{t\('Film POC learning'\)\}/)
