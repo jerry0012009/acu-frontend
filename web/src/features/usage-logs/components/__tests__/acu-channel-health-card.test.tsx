@@ -138,6 +138,7 @@ test('shows separate Production and Probe evidence and expands all Profile evide
                 profileUtility: 0.812,
                 profileRank: 1,
                 profileCandidateCount: 3,
+                multiplier: 0.03,
                 successCount: 11,
                 requestCount: 12,
                 judgeSuccessCount: 4,
@@ -192,6 +193,7 @@ test('shows separate Production and Probe evidence and expands all Profile evide
     button.dispatchEvent(new MouseEvent('click', { bubbles: true }))
   )
   assert.match(container.textContent ?? '', /0\.812/)
+  assert.match(container.textContent ?? '', /0\.030x/)
   assert.match(container.textContent ?? '', /11\/12/)
   assert.match(container.textContent ?? '', /4\/5/)
   assert.match(container.textContent ?? '', /2\/2/)

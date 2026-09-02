@@ -241,10 +241,13 @@ describe('log cost display', () => {
   })
 
   test('formats channel discount multipliers with compact precision', () => {
+    assert.equal(formatMultiplier(0.03), '0.030x')
+    assert.equal(formatMultiplier(0.003), '0.0030x')
     assert.equal(formatMultiplier(0.0104), '0.010x')
     assert.equal(formatMultiplier(0.0412), '0.041x')
     assert.equal(formatMultiplier(0.8), '0.80x')
     assert.equal(formatMultiplier(1), '1.00x')
     assert.equal(formatMultiplier(1.2), '1.20x')
+    assert.equal(formatMultiplier(0.03, '×'), '0.030×')
   })
 })

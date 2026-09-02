@@ -20,6 +20,31 @@ export function formatNumber(
   )
 }
 
+/**
+ * Format a multiplier with at least two significant digits.
+ * Small multipliers need additional decimal places so values such as 0.03
+ * remain distinguishable from a single-significant-digit display.
+ */
+export function formatMultiplier(
+  value: number | string | null | undefined,
+  suffix = 'x'
+): string | undefined {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return undefined
+
+  const absoluteValue = Math.abs(number)
+  const decimalPlaces =
+    absoluteValue === 0
+      ? 3
+      : Math.max(2, 1 - Math.floor(Math.log10(absoluteValue)))
+
+  if (decimalPlaces > 100) {
+    return `${number.toPrecision(2)}${suffix}`
+  }
+
+  return `${number.toFixed(decimalPlaces)}${suffix}`
+}
+
 export function formatCompactNumber(
   value: number | null | undefined,
   locales?: Intl.LocalesArgument

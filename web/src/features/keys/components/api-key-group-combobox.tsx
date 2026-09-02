@@ -17,6 +17,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { formatMultiplier } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 export type ApiKeyGroupOption = {
@@ -39,7 +40,7 @@ function formatGroupRatio(
   ratioLabel: string
 ) {
   if (ratio === undefined || ratio === null || ratio === '') return null
-  return `${ratio}x ${ratioLabel}`
+  return `${formatMultiplier(ratio) ?? `${ratio}x`} ${ratioLabel}`
 }
 
 function getRatioBadgeClassName(ratio: ApiKeyGroupOption['ratio']) {

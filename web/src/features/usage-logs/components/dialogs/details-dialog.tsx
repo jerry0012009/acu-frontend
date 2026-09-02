@@ -41,7 +41,12 @@ import { DynamicPricingBreakdown } from '@/features/pricing/components/dynamic-p
 import { usePricingData } from '@/features/pricing/hooks/use-pricing-data'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
-import { formatLogQuota, formatTokens, formatUseTime } from '@/lib/format'
+import {
+  formatLogQuota,
+  formatMultiplier,
+  formatTokens,
+  formatUseTime,
+} from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import type { UsageLog } from '../../data/schema'
@@ -516,7 +521,9 @@ function AcuPricingDetails(props: {
           {props.breakdown.billing_multiplier != null && (
             <DetailRow
               label={t('Supplier billing multiplier')}
-              value={String(props.breakdown.billing_multiplier)}
+              value={
+                formatMultiplier(props.breakdown.billing_multiplier) ?? '—'
+              }
               mono
             />
           )}
@@ -541,7 +548,12 @@ function AcuPricingDetails(props: {
           {props.breakdown.retail_markup_multiplier != null && (
             <DetailRow
               label={t('Retail markup')}
-              value={`${props.breakdown.retail_markup_multiplier}×`}
+              value={
+                formatMultiplier(
+                  props.breakdown.retail_markup_multiplier,
+                  '×'
+                ) ?? '—'
+              }
               mono
             />
           )}
@@ -2056,7 +2068,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
             {props.isAdmin && acuRoute?.billing_multiplier != null && (
               <DetailRow
                 label={t('Supplier billing multiplier')}
-                value={String(acuRoute.billing_multiplier)}
+                value={formatMultiplier(acuRoute.billing_multiplier) ?? '—'}
                 mono
               />
             )}

@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { StatusBadge } from '@/components/status-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { formatMultiplier } from '@/lib/format'
 
 import type {
   ACUChannelMonitorProfile,
@@ -200,7 +201,9 @@ export function ACUChannelHealthCard(props: {
           <div className='text-muted-foreground text-xs'>
             {primary?.profileRank == null
               ? t('Not scored')
-              : `#${primary.profileRank} / ${primary.profileCandidateCount} · ${primary.multiplier ?? 0}x`}
+              : `#${primary.profileRank} / ${primary.profileCandidateCount} · ${
+                  formatMultiplier(primary.multiplier) ?? t('n/a')
+                }`}
           </div>
         </div>
       </div>
@@ -472,7 +475,7 @@ function ChannelProfile(props: {
         />
         <ProfileField
           label={t('Multiplier')}
-          value={String(profile.multiplier || 'n/a')}
+          value={formatMultiplier(profile.multiplier) ?? 'n/a'}
         />
         <ProfileField
           label={t('Production Attempts')}

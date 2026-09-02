@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { StatusBadge } from '@/components/status-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { formatMultiplier } from '@/lib/format'
 
 import type {
   ACUChannelMonitorProfile,
@@ -269,7 +270,8 @@ function ModelProfile(props: {
           value={
             profile.effectivePriceMultiplier == null
               ? t('No price data')
-              : `${profile.effectivePriceMultiplier.toFixed(2)}×`
+              : (formatMultiplier(profile.effectivePriceMultiplier, '×') ??
+                t('No price data'))
           }
         />
         <ProfileMetric

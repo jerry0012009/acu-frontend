@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { getApiKeys } from '@/features/keys/api'
 import type { ApiKey } from '@/features/keys/types'
 import { useIsAdmin } from '@/hooks/use-admin'
+import { formatMultiplier } from '@/lib/format'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -2306,7 +2307,7 @@ function ModelPoolTable({ rows }: { rows: ACUModelPoolEntry[] }) {
                 </div>
               </td>
               <td className='px-3 py-2.5'>
-                {model.currentMultiplier ?? 'n/a'}
+                {formatMultiplier(model.currentMultiplier) ?? 'n/a'}
               </td>
               <td className='px-3 py-2.5'>
                 {model.autoRouteEnabled ? t('Enabled') : t('Disabled')}
@@ -2401,7 +2402,8 @@ function MonitorTable(props: {
                         : `${profile.profileUtility.toFixed(3)} · #${profile.profileRank}/${profile.profileCandidateCount}`}
                     </div>
                     <div>
-                      {t('Multiplier')}: {profile.multiplier || t('n/a')}x
+                      {t('Multiplier')}:{' '}
+                      {formatMultiplier(profile.multiplier) ?? t('n/a')}
                     </div>
                     <div>
                       {t('Last error')}:{' '}

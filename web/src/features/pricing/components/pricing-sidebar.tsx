@@ -9,6 +9,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
+import { formatMultiplier } from '@/lib/format'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
 
@@ -67,10 +68,8 @@ function countBy(
 
 function formatGroupRatio(ratio: number | undefined): string | undefined {
   if (ratio == null) return undefined
-  const formatted = Number.isInteger(ratio)
-    ? ratio.toString()
-    : ratio.toFixed(3).replace(/0+$/, '').replace(/\.$/, '')
-  return `x${formatted}`
+  const formatted = formatMultiplier(ratio, '')
+  return formatted ? `x${formatted}` : undefined
 }
 
 function FilterChip(props: {

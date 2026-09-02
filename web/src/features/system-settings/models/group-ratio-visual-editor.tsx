@@ -49,6 +49,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { formatMultiplier } from '@/lib/format'
 
 import { safeJsonParse } from '../utils/json-parser'
 
@@ -877,12 +878,17 @@ function GroupOverrideRules({
                                   )
                                   return (
                                     <span className='inline-flex items-center gap-1.5'>
-                                      {override.ratio}
+                                      {formatMultiplier(override.ratio, '') ??
+                                        String(override.ratio)}
                                       {baseRatio !== undefined &&
                                         baseRatio !== override.ratio && (
                                           <span className='text-muted-foreground text-xs'>
                                             {t('(instead of {{ratio}})', {
-                                              ratio: baseRatio,
+                                              ratio:
+                                                formatMultiplier(
+                                                  baseRatio,
+                                                  ''
+                                                ) ?? String(baseRatio),
                                             })}
                                           </span>
                                         )}
@@ -1077,11 +1083,17 @@ function GroupOverrideDialog({
                 setRatio(val)
               }
             }}
-            placeholder={baseRatio === undefined ? '0.9' : String(baseRatio)}
+            placeholder={
+              baseRatio === undefined
+                ? '0.9'
+                : (formatMultiplier(baseRatio, '') ?? String(baseRatio))
+            }
           />
           <p className='text-muted-foreground text-xs'>
             {baseRatio !== undefined
-              ? t('(instead of {{ratio}})', { ratio: baseRatio })
+              ? t('(instead of {{ratio}})', {
+                  ratio: formatMultiplier(baseRatio, '') ?? String(baseRatio),
+                })
               : t(
                   'Multiplier applied when {{userGroup}} uses {{targetGroup}}',
                   {

@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 
+import { formatMultiplier } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { StatusBadge, type StatusBadgeProps } from './status-badge'
@@ -84,7 +85,7 @@ export function GroupBadge(props: GroupBadgeProps) {
           getGroupRatioClassName(ratio)
         )}
       >
-        <span>{ratio}x</span>
+        <span>{formatMultiplier(ratio) ?? 'n/a'}</span>
       </span>
     </span>
   )

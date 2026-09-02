@@ -10,14 +10,7 @@ import type { UsageLog } from '../data/schema'
 import type { AcuCostBreakdown, LogOtherData } from '../types'
 
 export { normalizeTierLabel }
-
-export function formatMultiplier(
-  value: number | string | null | undefined
-): string | undefined {
-  const number = Number(value)
-  if (!Number.isFinite(number)) return undefined
-  return `${number.toFixed(Math.abs(number) < 0.1 ? 3 : 2)}x`
-}
+export { formatMultiplier } from '@/lib/format'
 
 const PARAM_OVERRIDE_ACTION_MAP: Record<string, string> = {
   set: 'Set',
