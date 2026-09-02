@@ -36,12 +36,18 @@ function SkillSnapshot(props: {
       <h3 className='font-medium'>{props.title}</h3>
       {props.skills.length ? (
         props.skills.map((skill) => (
-          <details key={`${props.title}-${skill.id}`} className='border-border rounded-md border p-3'>
+          <details
+            key={`${props.title}-${skill.id}`}
+            className='border-border rounded-md border p-3'
+          >
             <summary className='cursor-pointer text-sm'>
               {skill.name} · {skill.description}
             </summary>
             {skill.files.map((file) => (
-              <pre key={file.path} className='bg-muted/30 mt-2 overflow-auto p-2 text-xs whitespace-pre-wrap'>
+              <pre
+                key={file.path}
+                className='bg-muted/30 mt-2 overflow-auto p-2 text-xs whitespace-pre-wrap'
+              >
                 {file.path}
                 {'\n\n'}
                 {file.content || ''}
@@ -61,7 +67,12 @@ function LearningRunMediaPreview(props: {
 }) {
   const { t } = useTranslation()
   const mediaQuery = useQuery({
-    queryKey: ['dashboard', 'private-acu-admin', 'learning-run-media', props.media.mediaId],
+    queryKey: [
+      'dashboard',
+      'private-acu-admin',
+      'learning-run-media',
+      props.media.mediaId,
+    ],
     queryFn: async () => {
       const response = await api.get<Blob>(props.media.url, {
         responseType: 'blob',
@@ -105,10 +116,17 @@ function LearningRunMediaPreview(props: {
   )
 }
 
-function RunDetail(props: { detail?: PrivateACULearningRunDetail; loading: boolean }) {
+function RunDetail(props: {
+  detail?: PrivateACULearningRunDetail
+  loading: boolean
+}) {
   const { t } = useTranslation()
-  if (props.loading) return <div className='text-muted-foreground'>{t('Loading')}</div>
-  if (!props.detail) return <div className='text-muted-foreground'>{t('No details')}</div>
+  if (props.loading) {
+    return <div className='text-muted-foreground'>{t('Loading')}</div>
+  }
+  if (!props.detail) {
+    return <div className='text-muted-foreground'>{t('No details')}</div>
+  }
   const detail = props.detail
   return (
     <div className='space-y-5 overflow-y-auto px-4 pb-6'>
@@ -139,14 +157,22 @@ function RunDetail(props: { detail?: PrivateACULearningRunDetail; loading: boole
         <h3 className='font-medium'>{t('Skill changes')}</h3>
         {detail.skillChanges.length ? (
           detail.skillChanges.map((change) => (
-            <details key={`${change.skillId}-${change.changeType}`} className='border-border rounded-md border p-3' open>
+            <details
+              key={`${change.skillId}-${change.changeType}`}
+              className='border-border rounded-md border p-3'
+              open
+            >
               <summary className='cursor-pointer text-sm'>
                 {change.name} · {change.changeType}
               </summary>
               {change.files.map((file) => (
                 <div key={file.path} className='mt-3 space-y-2'>
-                  <div className='text-muted-foreground font-mono text-xs'>{file.path}</div>
-                  <pre className='bg-muted/30 overflow-auto p-2 text-xs whitespace-pre-wrap'>{file.diff}</pre>
+                  <div className='text-muted-foreground font-mono text-xs'>
+                    {file.path}
+                  </div>
+                  <pre className='bg-muted/30 overflow-auto p-2 text-xs whitespace-pre-wrap'>
+                    {file.diff}
+                  </pre>
                 </div>
               ))}
             </details>
@@ -156,7 +182,10 @@ function RunDetail(props: { detail?: PrivateACULearningRunDetail; loading: boole
         )}
       </section>
       <div className='grid gap-5 lg:grid-cols-2'>
-        <SkillSnapshot title={t('Skills before')} skills={detail.skillsBefore} />
+        <SkillSnapshot
+          title={t('Skills before')}
+          skills={detail.skillsBefore}
+        />
         <SkillSnapshot title={t('Skills after')} skills={detail.skillsAfter} />
       </div>
       <section className='space-y-2'>
@@ -177,7 +206,12 @@ export function PrivateACULearningRuns(props: { learningKind?: string }) {
   const { t } = useTranslation()
   const [selectedRunId, setSelectedRunId] = useState<string>()
   const query = useQuery({
-    queryKey: ['dashboard', 'private-acu-admin', 'learning-runs', props.learningKind],
+    queryKey: [
+      'dashboard',
+      'private-acu-admin',
+      'learning-runs',
+      props.learningKind,
+    ],
     queryFn: () => getPrivateACULearningRuns(100, props.learningKind),
   })
   const detailQuery = useQuery({
@@ -186,9 +220,19 @@ export function PrivateACULearningRuns(props: { learningKind?: string }) {
     enabled: Boolean(selectedRunId),
   })
   useEffect(() => setSelectedRunId(undefined), [props.learningKind])
-  if (query.isLoading) return <div className='text-muted-foreground text-sm'>{t('Loading')}</div>
-  if (query.isError) return <div className='text-destructive text-sm'>{t('Failed to load')}</div>
-  if (!query.data?.length) return <div className='text-muted-foreground text-sm'>{t('No learning runs')}</div>
+  if (query.isLoading) {
+    return <div className='text-muted-foreground text-sm'>{t('Loading')}</div>
+  }
+  if (query.isError) {
+    return <div className='text-destructive text-sm'>{t('Failed to load')}</div>
+  }
+  if (!query.data?.length) {
+    return (
+      <div className='text-muted-foreground text-sm'>
+        {t('No learning runs')}
+      </div>
+    )
+  }
   return (
     <>
       <div className='border-border overflow-auto rounded-md border'>
@@ -205,25 +249,40 @@ export function PrivateACULearningRuns(props: { learningKind?: string }) {
           </thead>
           <tbody>
             {query.data.map((run) => (
-              <tr key={run.runId} className='border-border hover:bg-muted/30 cursor-pointer border-t' onClick={() => setSelectedRunId(run.runId)}>
+              <tr
+                key={run.runId}
+                className='border-border hover:bg-muted/30 cursor-pointer border-t'
+                onClick={() => setSelectedRunId(run.runId)}
+              >
                 <td className='p-2 font-mono'>{run.runId}</td>
                 <td className='p-2'>{run.learningKind}</td>
-                <td className='p-2'><Badge variant='outline'>{run.status}</Badge></td>
+                <td className='p-2'>
+                  <Badge variant='outline'>{run.status}</Badge>
+                </td>
                 <td className='p-2'>{run.elementCount}</td>
                 <td className='p-2'>{run.skillChangeCount}</td>
-                <td className='p-2 whitespace-nowrap'>{new Date(run.receivedAt).toLocaleString()} <ChevronRight className='inline size-3' /></td>
+                <td className='p-2 whitespace-nowrap'>
+                  {new Date(run.receivedAt).toLocaleString()}{' '}
+                  <ChevronRight className='inline size-3' />
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <Sheet open={Boolean(selectedRunId)} onOpenChange={(open) => !open && setSelectedRunId(undefined)}>
+      <Sheet
+        open={Boolean(selectedRunId)}
+        onOpenChange={(open) => !open && setSelectedRunId(undefined)}
+      >
         <SheetContent side='right' className='w-full sm:max-w-3xl'>
           <SheetHeader>
             <SheetTitle>{t('Learning run detail')}</SheetTitle>
             <SheetDescription>{selectedRunId || '-'}</SheetDescription>
           </SheetHeader>
-          <RunDetail detail={detailQuery.data} loading={detailQuery.isLoading} />
+          <RunDetail
+            detail={detailQuery.data}
+            loading={detailQuery.isLoading}
+          />
         </SheetContent>
       </Sheet>
     </>

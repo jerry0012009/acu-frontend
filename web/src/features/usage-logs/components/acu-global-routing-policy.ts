@@ -10,7 +10,9 @@ export function modelAccessFor(
 ): ACUModelAccess {
   const configured = policy.modelAccess?.[modelId]
   if (configured === 'disabled') return 'disabled'
-  if (configured === 'explicit') return hasConfiguredProfile ? 'explicit' : 'disabled'
+  if (configured === 'explicit') {
+    return hasConfiguredProfile ? 'explicit' : 'disabled'
+  }
   if (configured === 'auto') {
     if (!hasConfiguredProfile) return 'disabled'
     return autoRouteEnabled ? 'auto' : 'explicit'
@@ -45,8 +47,7 @@ export function availableGlobalRoutingProfileIds(
       profiles
         .filter(
           (profile) =>
-            profile.enabled !== false &&
-            profile.administratorAllowed !== false
+            profile.enabled !== false && profile.administratorAllowed !== false
         )
         .map((profile) => profile.executionProfileId)
     ),

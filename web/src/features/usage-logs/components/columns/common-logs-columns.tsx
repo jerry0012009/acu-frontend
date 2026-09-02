@@ -675,9 +675,13 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
             return (
               <div className='flex min-w-0 flex-col gap-0.5'>
                 <div className='flex min-w-0 items-center gap-1 text-xs font-medium'>
-                  <Sparkles className='size-3.5 shrink-0 text-cyan-700' aria-hidden='true' />
+                  <Sparkles
+                    className='size-3.5 shrink-0 text-cyan-700'
+                    aria-hidden='true'
+                  />
                   <span className='truncate'>
-                    {t('Private ACU')} · {String(acuBreakdown.private_acu_stage ?? '-')}
+                    {t('Private ACU')} ·{' '}
+                    {String(acuBreakdown.private_acu_stage ?? '-')}
                   </span>
                 </div>
                 <span className='text-muted-foreground truncate text-[11px]'>

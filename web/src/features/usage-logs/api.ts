@@ -396,10 +396,10 @@ export type ACURoutingCatalog = {
   }>
   profiles: Array<{
     executionProfileId: string
-  canonicalModel: string
-  protocol: string[]
-  autoRouteEnabled: boolean
-  supportedReasoningEfforts?: string[]
+    canonicalModel: string
+    protocol: string[]
+    autoRouteEnabled: boolean
+    supportedReasoningEfforts?: string[]
   }>
   defaultCandidatePreferenceScores: Record<string, number>
 }
@@ -641,10 +641,7 @@ export type ACUQuickAddDiscovery = {
 }
 
 export type ACUGlobalRoutingPolicy = {
-  modelPolicy:
-    | 'all_routing_eligible'
-    | 'custom_allowlist'
-    | 'explicit_only'
+  modelPolicy: 'all_routing_eligible' | 'custom_allowlist' | 'explicit_only'
   allowedModelIds: string[]
   modelAccess?: Record<string, 'disabled' | 'explicit' | 'auto'>
   profilePolicy: 'all_routing_eligible' | 'custom_allowlist'

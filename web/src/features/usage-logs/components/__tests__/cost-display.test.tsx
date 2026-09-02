@@ -234,14 +234,8 @@ describe('log cost display', () => {
     assert.ok(
       rendered.container.querySelector('[data-cost-reference-indicator="true"]')
     )
-    assert.equal(
-      rendered.container.textContent?.includes('0.00013020'),
-      false
-    )
-    assert.equal(
-      rendered.container.textContent?.includes('1.25'),
-      false
-    )
+    assert.equal(rendered.container.textContent?.includes('0.00013020'), false)
+    assert.equal(rendered.container.textContent?.includes('1.25'), false)
 
     await unmountCost(rendered)
   })

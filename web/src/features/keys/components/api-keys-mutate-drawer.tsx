@@ -189,8 +189,7 @@ export function ApiKeysMutateDrawer({
       modelId,
       profiles: profiles.filter(
         (profile) =>
-          (!acuProfileFilters.model ||
-            modelId === acuProfileFilters.model) &&
+          (!acuProfileFilters.model || modelId === acuProfileFilters.model) &&
           (!acuProfileFilters.protocol ||
             profile.protocol.includes(acuProfileFilters.protocol)) &&
           (!acuReasoningEffort ||

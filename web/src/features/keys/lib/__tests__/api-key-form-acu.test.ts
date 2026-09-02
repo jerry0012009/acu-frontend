@@ -175,12 +175,10 @@ test('custom model scope preserves explicit Profile model access separately from
     acu_profile_scope_custom: true,
     acu_profile_limits: ['managed-opencode-go:mimo-v2.5:chat_completions'],
   })
-  assert.deepEqual(new Set(payload.model_limits.split(',')), new Set([
-    'acu-auto',
-    'acu-high',
-    'gpt-5.6-sol',
-    'mimo-v2.5',
-  ]))
+  assert.deepEqual(
+    new Set(payload.model_limits.split(',')),
+    new Set(['acu-auto', 'acu-high', 'gpt-5.6-sol', 'mimo-v2.5'])
+  )
 })
 
 test('custom quality bias and supply strategy survive payload and clone defaults', () => {

@@ -13,8 +13,8 @@ import type {
   ACUChannelMonitorProfile,
   ACUExecutionProfileProbeResult,
 } from '../api'
-import { ACUProbeResultPanel } from './acu-probe-result-panel'
 import { buildProbeCalibrationInput } from './acu-probe-reconciliation'
+import { ACUProbeResultPanel } from './acu-probe-result-panel'
 
 export function ACUProfileProbeInspector(props: {
   open: boolean
