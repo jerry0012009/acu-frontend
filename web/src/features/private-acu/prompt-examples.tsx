@@ -115,6 +115,8 @@ export function PromptExamples(props: {
   examples?: PrivateACUPromptExample[]
   materialLabel?: string
   artifactLabel?: string
+  materialHint?: string
+  artifactHint?: string
   hideArtifact?: boolean
 }) {
   const { t } = useTranslation()
@@ -174,6 +176,12 @@ export function PromptExamples(props: {
                 <h6 className='text-muted-foreground text-[11px] font-semibold tracking-wide uppercase'>
                   {props.materialLabel || t('Material example')}
                 </h6>
+                {props.materialHint ? (
+                  <p className='border-primary/40 bg-primary/5 rounded-md border-l-2 px-3 py-2 text-xs leading-5'>
+                    <strong>{t('Focus')}：</strong>
+                    {props.materialHint}
+                  </p>
+                ) : null}
                 <ExampleMaterial material={example.material} />
               </div>
               {!props.hideArtifact && (
@@ -181,6 +189,12 @@ export function PromptExamples(props: {
                   <h6 className='text-muted-foreground text-[11px] font-semibold tracking-wide uppercase'>
                     {props.artifactLabel || t('Artifact example')}
                   </h6>
+                  {props.artifactHint ? (
+                    <p className='border-primary/40 bg-primary/5 rounded-md border-l-2 px-3 py-2 text-xs leading-5'>
+                      <strong>{t('Focus')}：</strong>
+                      {props.artifactHint}
+                    </p>
+                  ) : null}
                   <ExampleArtifact
                     artifact={example.artifact}
                     label={props.artifactLabel}

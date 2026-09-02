@@ -79,11 +79,41 @@ type LearningFlowPromptState = {
   examplesOptions?: {
     materialLabel?: string
     artifactLabel?: string
+    materialHint?: string
+    artifactHint?: string
     hideArtifact?: boolean
   }
   runDetail?: PrivateACULearningRunDetail
   runLoading?: boolean
   runView?: 'summary' | 'skill-changes'
+}
+
+type DistilledClaimPreview = {
+  topic: string
+  appliesWhen: string
+  prefer: string
+}
+
+function parseDistilledClaimPreviews(value: unknown): DistilledClaimPreview[] {
+  if (typeof value !== 'string') return []
+  return value
+    .split(/### Claim \d+/u)
+    .slice(1)
+    .map((claim) => ({
+      topic: claim.match(/\*\*Topic:\*\*\s*(.+)/u)?.[1]?.trim() ?? '',
+      appliesWhen:
+        claim.match(/\*\*Applies When:\*\*\s*(.+)/u)?.[1]?.trim() ?? '',
+      prefer: claim.match(/\*\*Prefer:\*\*\s*(.+)/u)?.[1]?.trim() ?? '',
+    }))
+    .filter((claim) => claim.topic || claim.appliesWhen || claim.prefer)
+}
+
+function diffAddedLines(diff: string): string[] {
+  return diff
+    .split('\n')
+    .filter((line) => line.startsWith('+') && !line.startsWith('+++'))
+    .map((line) => line.slice(1).trim())
+    .filter(Boolean)
 }
 
 function promptItems(cards?: PrivateACUPromptCard[]): LearningFlowPromptItem[] {
@@ -127,17 +157,10 @@ function promptStateForCards(
 
 function filmStepExamples(
   cards: PrivateACUPromptCard[] | undefined,
-  step: 'input' | 'evidence' | 'experience'
+  step: 'input' | 'experience'
 ): PrivateACUPromptExample[] | undefined {
   const source = cards?.flatMap((card) => card.examples ?? [])[0]
   if (!source) return undefined
-
-  const sourceJson =
-    source.material.json &&
-    typeof source.material.json === 'object' &&
-    !Array.isArray(source.material.json)
-      ? (source.material.json as Record<string, unknown>)
-      : undefined
 
   if (step === 'input') {
     return [
@@ -153,25 +176,11 @@ function filmStepExamples(
     ]
   }
 
-  if (step === 'evidence') {
-    return [
-      {
-        ...source,
-        id: `${source.id}-evidence`,
-        title: '团队补充的视听语言判断',
-        artifact: {
-          format: 'json',
-          content: sourceJson ?? source.artifact.content,
-        },
-      },
-    ]
-  }
-
   return [
     {
       ...source,
       id: `${source.id}-experience`,
-      title: '影视 SelectionExperience 学习单元',
+      title: 'SelectionExperience：素材、语境与团队判断',
       artifact: {
         format: 'json',
         content: source.material.json ?? source.artifact.content,
@@ -198,6 +207,9 @@ function FilmLearningRunSummary(props: {
     )
   }
   const detail = props.detail
+  const claimPreviews = parseDistilledClaimPreviews(
+    detail.distillation.distilled_context
+  ).slice(0, 3)
   return (
     <section className='border-border space-y-3 border-t pt-4'>
       <div className='flex flex-wrap items-center justify-between gap-2'>
@@ -248,6 +260,42 @@ function FilmLearningRunSummary(props: {
           <ArrowRight />
         </Button>
       </div>
+      {claimPreviews.length ? (
+        <div className='space-y-2'>
+          <h6 className='text-muted-foreground text-[11px] font-semibold tracking-wide uppercase'>
+            {t('Distillation highlights')}
+          </h6>
+          <div className='space-y-2'>
+            {claimPreviews.map((claim, index) => (
+              <article
+                key={`${claim.topic}-${index}`}
+                className='rounded-md border-l-2 border-amber-500/40 bg-amber-500/5 p-3'
+              >
+                <div className='flex flex-wrap items-center gap-2'>
+                  <Badge variant='outline' className='text-[10px]'>
+                    {claim.topic}
+                  </Badge>
+                  <span className='text-muted-foreground text-[11px]'>
+                    {t('Learning Claim')}
+                  </span>
+                </div>
+                {claim.appliesWhen ? (
+                  <p className='mt-2 text-xs leading-5'>
+                    <strong>{t('Expression goal')}：</strong>
+                    {claim.appliesWhen}
+                  </p>
+                ) : null}
+                {claim.prefer ? (
+                  <p className='mt-1 text-xs leading-5'>
+                    <strong>{t('Visual implementation')}：</strong>
+                    {claim.prefer}
+                  </p>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }
@@ -288,6 +336,11 @@ function FilmSkillChangeExamples(props: {
       <div className='space-y-2'>
         {changes.map((change) => {
           const firstFile = change.files[0]
+          const descriptionUnchanged =
+            change.descriptionBefore === change.descriptionAfter
+          const addedLines = firstFile ? diffAddedLines(firstFile.diff) : []
+          const beforeBody = firstFile?.before || ''
+          const afterBody = firstFile?.after || ''
           return (
             <details
               key={`${change.skillId}-${change.changeType}`}
@@ -301,32 +354,89 @@ function FilmSkillChangeExamples(props: {
                 </Badge>
               </summary>
               <div className='mt-3 space-y-3'>
+                <div className='rounded-md border-l-2 border-amber-500/40 bg-amber-500/5 p-3'>
+                  <h6 className='text-sm font-semibold'>
+                    {t('Change spotlight')}
+                  </h6>
+                  <p className='text-muted-foreground mt-1 text-xs leading-5'>
+                    {descriptionUnchanged
+                      ? t(
+                          'Skill description unchanged; the learning result is in the document body.'
+                        )
+                      : t(
+                          'Skill description and document body were both updated.'
+                        )}
+                  </p>
+                  {addedLines.length ? (
+                    <div className='mt-2 space-y-1'>
+                      <div className='text-muted-foreground text-[11px] font-semibold tracking-wide uppercase'>
+                        {t('New learning rules')}
+                      </div>
+                      {addedLines.slice(0, 4).map((line, index) => (
+                        <p
+                          key={`${line}-${index}`}
+                          className='text-foreground rounded bg-emerald-500/10 px-2 py-1 text-xs leading-5 font-medium'
+                        >
+                          {line}
+                        </p>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
                 <div className='grid gap-3 lg:grid-cols-2'>
-                  <div className='min-w-0'>
-                    <h6 className='text-muted-foreground text-[11px] font-semibold tracking-wide uppercase'>
+                  <details className='min-w-0'>
+                    <summary className='text-muted-foreground cursor-pointer text-[11px] font-semibold tracking-wide uppercase'>
                       {t('Before')}
-                    </h6>
-                    <p className='bg-muted/30 mt-1 max-h-32 overflow-auto rounded-md p-2 text-xs leading-5 whitespace-pre-wrap'>
-                      {change.descriptionBefore || '-'}
-                    </p>
-                  </div>
-                  <div className='min-w-0'>
-                    <h6 className='text-muted-foreground text-[11px] font-semibold tracking-wide uppercase'>
+                      {descriptionUnchanged
+                        ? ` · ${t('Description unchanged')}`
+                        : ''}
+                    </summary>
+                    <pre className='bg-muted/30 mt-1 max-h-48 overflow-auto rounded-md p-2 text-xs leading-5 whitespace-pre-wrap'>
+                      {beforeBody || change.descriptionBefore || '-'}
+                    </pre>
+                  </details>
+                  <details className='min-w-0' open>
+                    <summary className='text-muted-foreground cursor-pointer text-[11px] font-semibold tracking-wide uppercase'>
                       {t('After')}
-                    </h6>
-                    <p className='bg-muted/30 mt-1 max-h-32 overflow-auto rounded-md p-2 text-xs leading-5 whitespace-pre-wrap'>
-                      {change.descriptionAfter || '-'}
-                    </p>
-                  </div>
+                    </summary>
+                    <pre className='mt-1 max-h-48 overflow-auto rounded-md border border-emerald-500/30 bg-emerald-500/5 p-2 text-xs leading-5 whitespace-pre-wrap'>
+                      {afterBody || change.descriptionAfter || '-'}
+                    </pre>
+                  </details>
                 </div>
                 {firstFile ? (
                   <div>
                     <div className='text-muted-foreground mb-1 font-mono text-[11px]'>
                       {firstFile.path}
                     </div>
-                    <pre className='bg-muted/30 max-h-56 overflow-auto rounded-md p-2 text-xs leading-5 whitespace-pre-wrap'>
-                      {firstFile.diff || t('No diff available')}
-                    </pre>
+                    <div className='bg-muted/30 max-h-64 overflow-auto rounded-md p-2 text-xs leading-5'>
+                      {firstFile.diff ? (
+                        firstFile.diff.split('\n').map((line, index) => {
+                          const added =
+                            line.startsWith('+') && !line.startsWith('+++')
+                          const removed =
+                            line.startsWith('-') && !line.startsWith('---')
+                          return (
+                            <div
+                              key={`${index}-${line}`}
+                              className={`break-words whitespace-pre-wrap ${
+                                added
+                                  ? 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-200'
+                                  : removed
+                                    ? 'bg-red-500/10 text-red-800 dark:text-red-200'
+                                    : 'text-muted-foreground'
+                              }`}
+                            >
+                              {line || ' '}
+                            </div>
+                          )
+                        })
+                      ) : (
+                        <span className='text-muted-foreground'>
+                          {t('No diff available')}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ) : null}
               </div>
@@ -576,7 +686,7 @@ function SharedLearningBackbone() {
   ]
 
   return (
-    <div className='overflow-x-auto'>
+    <div className='space-y-2 overflow-x-auto'>
       <div className='grid min-w-[760px] grid-cols-5 gap-2'>
         {stages.map(([label, number], index) => (
           <div key={label} className='flex items-center gap-2'>
@@ -593,6 +703,9 @@ function SharedLearningBackbone() {
           </div>
         ))}
       </div>
+      <p className='text-muted-foreground min-w-[760px] text-xs'>
+        {t('Film POC records evidence inside SelectionExperience.')}
+      </p>
     </div>
   )
 }
@@ -690,10 +803,6 @@ function OverviewPage(props: { isAdmin: boolean }) {
     adminFilmQuery.data?.promptCards,
     'input'
   )
-  const filmEvidenceExamples = filmStepExamples(
-    adminFilmQuery.data?.promptCards,
-    'evidence'
-  )
   const filmExperienceExamples = filmStepExamples(
     adminFilmQuery.data?.promptCards,
     'experience'
@@ -758,39 +867,32 @@ function OverviewPage(props: { isAdmin: boolean }) {
         examples: filmInputExamples,
         examplesOptions: {
           materialLabel: t('Team submission'),
+          materialHint: t(
+            'The image is visual evidence; the text supplies the scene context and expression goal.'
+          ),
           hideArtifact: true,
         },
       },
     },
     {
-      label: t('Evidence'),
-      title: t('Visual-language judgment'),
-      description: t(
-        'The team marks what works, what is missing, and the reason for acceptance or rejection.'
-      ),
-      icon: Film,
-      prompt: {
-        status: 'not-applicable',
-        examples: filmEvidenceExamples,
-        examplesOptions: {
-          materialLabel: t('Submitted image and context'),
-          artifactLabel: t('Team-confirmed evidence'),
-        },
-      },
-    },
-    {
       label: t('Experience'),
-      title: t('Film selection experience'),
+      title: t('SelectionExperience with team judgment'),
       description: t(
-        'The image, text, context, structured analysis, and judgment form one learning unit.'
+        'One learning unit binds the image, scene context, visual-language analysis, and the team decision.'
       ),
       icon: Workflow,
       prompt: {
         status: 'not-applicable',
         examples: filmExperienceExamples,
         examplesOptions: {
-          materialLabel: t('Bound image and text'),
-          artifactLabel: t('Learning unit'),
+          materialLabel: t('Material and scene context'),
+          materialHint: t(
+            'The selected source: one image bound to the scene context and expression goal.'
+          ),
+          artifactLabel: t('Team judgment and learning unit'),
+          artifactHint: t(
+            'This includes the structured analysis, effective points, missing points, and team decision.'
+          ),
         },
       },
     },
@@ -864,7 +966,7 @@ function OverviewPage(props: { isAdmin: boolean }) {
             </h3>
             <p className='text-muted-foreground mt-1 text-sm'>
               {t(
-                'Both paths follow the same sequence while keeping their evidence sources distinct.'
+                'Both paths share the same learning backbone; Film POC records team judgment inside SelectionExperience.'
               )}
             </p>
           </div>

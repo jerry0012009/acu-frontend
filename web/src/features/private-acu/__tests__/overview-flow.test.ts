@@ -34,9 +34,22 @@ test('Private ACU overview presents the shared backbone and both learning paths'
   assert.match(overviewSource, /getPrivateACULearningRunDetail/)
   assert.match(overviewSource, /function FilmLearningRunSummary\(/)
   assert.match(overviewSource, /function FilmSkillChangeExamples\(/)
+  assert.match(overviewSource, /parseDistilledClaimPreviews/)
+  assert.match(overviewSource, /diffAddedLines/)
+  assert.match(overviewSource, /Change spotlight/)
+  assert.match(overviewSource, /New learning rules/)
+  assert.match(overviewSource, /Distillation highlights/)
   assert.match(overviewSource, /skillChangeCount/)
   assert.match(overviewSource, /descriptionBefore/)
   assert.match(overviewSource, /descriptionAfter/)
+  assert.match(overviewSource, /SelectionExperience with team judgment/)
+  assert.match(
+    overviewSource,
+    /Film POC records evidence inside SelectionExperience/
+  )
+  assert.doesNotMatch(overviewSource, /filmEvidenceExamples/)
+  assert.match(overviewSource, /materialHint/)
+  assert.match(overviewSource, /artifactHint/)
   assert.match(overviewSource, /hideArtifact: true/)
   assert.match(overviewSource, /Prompt available/)
   assert.match(overviewSource, /PromptExamples/)
