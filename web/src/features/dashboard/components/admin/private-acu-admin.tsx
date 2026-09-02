@@ -10,6 +10,7 @@ import { Combobox } from '@/components/ui/combobox'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { PromptExamples } from '@/features/private-acu/prompt-examples'
 import { getUsers } from '@/features/users/api'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
@@ -162,6 +163,7 @@ function FilmPromptCardsSection(props: {
               {card.content}
             </pre>
           </details>
+          <PromptExamples examples={card.examples} />
         </article>
       ))}
     </div>

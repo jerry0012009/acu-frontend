@@ -5757,6 +5757,17 @@
     "View full prompt": "View full prompt",
     "Private ACU Learning Judge prompt": "Private ACU Learning Judge prompt",
     "Classifies whether the latest human message indicates dissatisfaction with the previous result.": "Classifies whether the latest human message indicates dissatisfaction with the previous result.",
-    "Private ACU prompt configuration": "Private ACU prompt configuration"
+    "Private ACU prompt configuration": "Private ACU prompt configuration",
+    "Step examples": "Step examples",
+    "Reference fixture": "Reference fixture",
+    "Captured run": "Captured run",
+    "Material example": "Material example",
+    "Artifact example": "Artifact example",
+    "Example output": "Example output",
+    "Artifact": "Artifact",
+    "Prompt example image": "Prompt example image",
+    "Sample image unavailable": "Sample image unavailable",
+    "No material example": "No material example",
+    "Text": "Text"
   }
 }

@@ -32,6 +32,7 @@ import {
   type PrivateACUPromptCard,
 } from '@/features/dashboard/private-acu-admin-api'
 import { getPrivateACUFilmForUser } from '@/features/dashboard/private-acu-user-api'
+import { PromptExamples } from '@/features/private-acu/prompt-examples'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -59,6 +60,7 @@ type LearningFlowPromptItem = Pick<
   | 'language'
   | 'source'
   | 'execution'
+  | 'examples'
 >
 
 type LearningFlowPromptState = {
@@ -80,6 +82,7 @@ function promptItems(cards?: PrivateACUPromptCard[]): LearningFlowPromptItem[] {
     language: card.language,
     source: card.source,
     execution: card.execution,
+    examples: card.examples,
   }))
 }
 
@@ -183,6 +186,7 @@ function StepPrompt(props: {
               <pre className='bg-muted/30 max-h-80 overflow-auto rounded-md p-3 text-xs leading-5 whitespace-pre-wrap'>
                 {item.content}
               </pre>
+              <PromptExamples examples={item.examples} />
             </article>
           ))}
         </div>
@@ -387,6 +391,7 @@ function OverviewPage(props: { isAdmin: boolean }) {
           language: promptLanguage(accountPromptsQuery.data.learningPrompt),
           source: t('Private ACU prompt configuration'),
           execution: 'used',
+          examples: accountPromptsQuery.data.learningExamples,
         },
       ],
     }

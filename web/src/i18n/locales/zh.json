@@ -5776,6 +5776,17 @@
     "View full prompt": "查看完整提示词",
     "Private ACU Learning Judge prompt": "Private ACU Learning Judge 提示词",
     "Classifies whether the latest human message indicates dissatisfaction with the previous result.": "判断最新人工消息是否表示用户对之前的结果不满意。",
-    "Private ACU prompt configuration": "Private ACU 提示词配置"
+    "Private ACU prompt configuration": "Private ACU 提示词配置",
+    "Step examples": "本步骤样例",
+    "Reference fixture": "参考样例",
+    "Captured run": "真实运行",
+    "Material example": "素材样例",
+    "Artifact example": "产物样例",
+    "Example output": "示例输出",
+    "Artifact": "产物",
+    "Prompt example image": "提示词样例图片",
+    "Sample image unavailable": "样例图片暂不可用",
+    "No material example": "暂无素材样例",
+    "Text": "文字"
   }
 }

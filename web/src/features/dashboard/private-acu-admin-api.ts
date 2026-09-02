@@ -4,6 +4,7 @@ export type PrivateACUPrompts = {
   observerPrompt: string
   advisorPrompt: string
   learningPrompt: string
+  learningExamples?: PrivateACUPromptExample[]
   enabled: boolean
   promptVersion: number
   source: 'default' | 'database'
@@ -84,6 +85,28 @@ export type PrivateACUPromptCard = {
   language: 'zh-CN' | 'mixed' | 'en'
   source: string
   execution: 'used' | 'bypassed_for_explicit_learning'
+  examples?: PrivateACUPromptExample[]
+}
+
+export type PrivateACUPromptExample = {
+  id: string
+  title: string
+  origin: 'reference_fixture' | 'captured_run'
+  material: {
+    text?: string
+    json?: unknown
+    images?: Array<{
+      url: string
+      mimeType?: string
+      alt?: string
+    }>
+  }
+  artifact: {
+    format: 'text' | 'json' | 'markdown' | 'diff'
+    content: string | unknown
+  }
+  sourceUrl?: string
+  sourceRunId?: string
 }
 
 export type PrivateACUPOCSpaceAccess = {
