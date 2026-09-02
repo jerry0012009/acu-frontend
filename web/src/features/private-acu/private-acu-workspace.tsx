@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { Dialog } from '@/components/dialog'
 import { SectionPageLayout } from '@/components/layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -108,7 +109,10 @@ function promptStateForCards(
   return { status: 'not-applicable' }
 }
 
-function StepPrompt(props: { prompt: LearningFlowPromptState }) {
+function StepPrompt(props: {
+  stepTitle: string
+  prompt: LearningFlowPromptState
+}) {
   const { t } = useTranslation()
   const statusText: Record<LearningFlowPromptState['status'], string> = {
     available: t('Prompt available'),
@@ -117,53 +121,77 @@ function StepPrompt(props: { prompt: LearningFlowPromptState }) {
     'not-applicable': t('No independent LLM prompt'),
     restricted: t('Prompt details are available to administrators'),
   }
+  const executionText = (execution: LearningFlowPromptItem['execution']) =>
+    execution === 'used'
+      ? t('Executed')
+      : t('Configured but bypassed for explicit learning')
 
   return (
-    <div className='border-border mt-3 border-t pt-3'>
-      <div className='flex items-center gap-2'>
-        <FileCode2
-          className='text-muted-foreground size-4'
-          aria-hidden='true'
-        />
-        <span className='text-muted-foreground text-xs font-medium'>
-          {t('Step prompt')}
+    <Dialog
+      title={`${props.stepTitle} · ${t('Step prompt')}`}
+      description={t(
+        'Inspect the prompt status and full configuration for this learning step.'
+      )}
+      trigger={
+        <Button
+          variant='ghost'
+          size='icon-xs'
+          aria-label={t('View prompt details')}
+          title={t('View prompt details')}
+          data-testid='step-prompt-details'
+        >
+          <FileCode2 aria-hidden='true' />
+        </Button>
+      }
+      contentClassName='sm:max-w-2xl'
+      bodyClassName='space-y-4'
+    >
+      <div className='flex flex-wrap items-center gap-2'>
+        <span className='text-muted-foreground text-xs'>
+          {t('Prompt status')}
         </span>
-        <Badge variant='outline' className='ml-auto text-[10px]'>
-          {statusText[props.prompt.status]}
-        </Badge>
+        <Badge variant='outline'>{statusText[props.prompt.status]}</Badge>
       </div>
       {props.prompt.items?.length ? (
-        <div className='mt-2 space-y-2'>
+        <div className='space-y-3'>
           {props.prompt.items.map((item) => (
-            <details
+            <article
               key={item.id}
-              className='border-border border-t pt-2 first:border-t-0 first:pt-0'
+              className='border-border space-y-3 rounded-md border p-3'
             >
-              <summary className='cursor-pointer list-none text-xs font-medium'>
-                {item.title}
-              </summary>
-              <div className='space-y-2 pt-2'>
-                <p className='text-muted-foreground text-xs leading-5'>
-                  {item.description}
-                </p>
-                <div className='text-muted-foreground flex flex-wrap gap-x-3 gap-y-1 font-mono text-[10px]'>
-                  <span>{item.source}</span>
-                  <span>{item.language}</span>
-                  {item.execution === 'bypassed_for_explicit_learning' && (
-                    <span>
-                      {t('Configured but bypassed for explicit learning')}
-                    </span>
-                  )}
-                </div>
-                <pre className='bg-muted/30 max-h-80 overflow-auto rounded-md p-3 text-xs leading-5 whitespace-pre-wrap'>
-                  {item.content}
-                </pre>
+              <div className='flex items-start justify-between gap-3'>
+                <h4 className='min-w-0 text-sm font-semibold'>{item.title}</h4>
+                <Badge variant='secondary' className='shrink-0 text-[10px]'>
+                  {item.language}
+                </Badge>
               </div>
-            </details>
+              <p className='text-muted-foreground text-xs leading-5'>
+                {item.description}
+              </p>
+              <dl className='grid gap-2 text-xs sm:grid-cols-2'>
+                <div>
+                  <dt className='text-muted-foreground'>{t('Source')}</dt>
+                  <dd className='mt-1 break-all'>{item.source}</dd>
+                </div>
+                <div>
+                  <dt className='text-muted-foreground'>
+                    {t('Execution status')}
+                  </dt>
+                  <dd className='mt-1'>{executionText(item.execution)}</dd>
+                </div>
+              </dl>
+              <pre className='bg-muted/30 max-h-80 overflow-auto rounded-md p-3 text-xs leading-5 whitespace-pre-wrap'>
+                {item.content}
+              </pre>
+            </article>
           ))}
         </div>
-      ) : null}
-    </div>
+      ) : (
+        <p className='text-muted-foreground text-sm'>
+          {statusText[props.prompt.status]}
+        </p>
+      )}
+    </Dialog>
   )
 }
 
@@ -255,11 +283,15 @@ function LearningFlowLane(props: {
                   {step.label}
                 </span>
               </div>
-              <h5 className='mt-1 text-sm font-semibold'>{step.title}</h5>
+              <div className='mt-1 flex items-center gap-1'>
+                <h5 className='min-w-0 flex-1 text-sm font-semibold'>
+                  {step.title}
+                </h5>
+                <StepPrompt stepTitle={step.title} prompt={step.prompt} />
+              </div>
               <p className='text-muted-foreground mt-1 text-sm leading-5'>
                 {step.description}
               </p>
-              <StepPrompt prompt={step.prompt} />
             </div>
             {index < props.steps.length - 1 && (
               <ArrowDown

@@ -6,12 +6,23 @@ const overviewSource = readFileSync(
   new URL('../private-acu-workspace.tsx', import.meta.url),
   'utf8'
 )
+const adminSource = readFileSync(
+  new URL(
+    '../../dashboard/components/admin/private-acu-admin.tsx',
+    import.meta.url
+  ),
+  'utf8'
+)
 
 test('Private ACU overview presents the shared backbone and both learning paths', () => {
   assert.match(overviewSource, /function SharedLearningBackbone\(\)/)
   assert.match(overviewSource, /function LearningFlowLane\(/)
   assert.match(overviewSource, /function StepPrompt\(/)
   assert.match(overviewSource, /function promptStateForCards\(/)
+  assert.match(overviewSource, /<Dialog/)
+  assert.match(overviewSource, /data-testid='step-prompt-details'/)
+  assert.match(overviewSource, /View prompt details/)
+  assert.match(overviewSource, /StepPrompt stepTitle=\{step.title\}/)
   assert.match(overviewSource, /title=\{t\('LLM call learning'\)\}/)
   assert.match(overviewSource, /title=\{t\('Film POC learning'\)\}/)
   assert.match(overviewSource, /getPrivateACUPrompts/)
@@ -26,4 +37,12 @@ test('Private ACU overview presents the shared backbone and both learning paths'
   ]) {
     assert.match(overviewSource, new RegExp(`t\\('${stage}'\\)`))
   }
+})
+
+test('Private ACU prompts view includes the resolved film prompt cards', () => {
+  assert.match(adminSource, /getPrivateACUFilmStatus/)
+  assert.match(adminSource, /function FilmPromptCardsSection\(/)
+  assert.match(adminSource, /t\('Film POC prompts'\)/)
+  assert.match(adminSource, /t\('View full prompt'\)/)
+  assert.match(adminSource, /cards=\{filmPromptsQuery\.data\?\.promptCards\}/)
 })

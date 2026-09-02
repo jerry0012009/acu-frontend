@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Combobox } from '@/components/ui/combobox'
 import { Switch } from '@/components/ui/switch'
@@ -15,10 +16,12 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import {
   getPrivateACUMemory,
+  getPrivateACUFilmStatus,
   getPrivateACUPrompts,
   resetPrivateACUPrompts,
   savePrivateACUPrompts,
   type PrivateACUMemory,
+  type PrivateACUPromptCard,
   type PrivateACUPrompts,
   getPrivateACUUsage,
   getPrivateACUExperiences,
@@ -100,6 +103,71 @@ function InternalPromptsSection(props: {
   )
 }
 
+function FilmPromptCardsSection(props: {
+  cards?: PrivateACUPromptCard[]
+  loading: boolean
+  error: boolean
+}) {
+  const { t } = useTranslation()
+  if (props.loading) {
+    return <div className='text-muted-foreground text-sm'>{t('Loading')}</div>
+  }
+  if (props.error) {
+    return (
+      <p className='text-muted-foreground text-sm'>
+        {t('Film POC prompts are unavailable')}
+      </p>
+    )
+  }
+  if (!props.cards?.length) {
+    return (
+      <p className='text-muted-foreground text-sm'>{t('No film prompts')}</p>
+    )
+  }
+  return (
+    <div className='grid gap-3 lg:grid-cols-3'>
+      {props.cards.map((card) => (
+        <article
+          key={card.id}
+          className='border-border bg-card flex min-w-0 flex-col gap-3 rounded-md border p-4'
+        >
+          <div className='flex items-start justify-between gap-3'>
+            <h3 className='min-w-0 text-sm font-semibold'>{card.title}</h3>
+            <Badge variant='secondary' className='shrink-0 text-[10px]'>
+              {card.language}
+            </Badge>
+          </div>
+          <p className='text-muted-foreground text-xs leading-5'>
+            {card.description}
+          </p>
+          <dl className='grid gap-2 text-xs'>
+            <div>
+              <dt className='text-muted-foreground'>{t('Source')}</dt>
+              <dd className='mt-1 break-all'>{card.source}</dd>
+            </div>
+            <div>
+              <dt className='text-muted-foreground'>{t('Execution status')}</dt>
+              <dd className='mt-1'>
+                {card.execution === 'used'
+                  ? t('Executed')
+                  : t('Configured but bypassed for explicit learning')}
+              </dd>
+            </div>
+          </dl>
+          <details className='border-border border-t pt-3'>
+            <summary className='cursor-pointer text-xs font-medium'>
+              {t('View full prompt')}
+            </summary>
+            <pre className='bg-muted/30 mt-3 max-h-80 overflow-auto rounded-md p-3 text-xs leading-5 whitespace-pre-wrap'>
+              {card.content}
+            </pre>
+          </details>
+        </article>
+      ))}
+    </div>
+  )
+}
+
 export function PrivateACUAdmin(
   props: { view?: 'all' | 'account' | 'prompts' } = {}
 ) {
@@ -117,6 +185,11 @@ export function PrivateACUAdmin(
   const promptsQuery = useQuery({
     queryKey: ['dashboard', 'private-acu-admin', 'prompts'],
     queryFn: getPrivateACUPrompts,
+  })
+  const filmPromptsQuery = useQuery({
+    queryKey: ['dashboard', 'private-acu-admin', 'film-prompts'],
+    queryFn: getPrivateACUFilmStatus,
+    enabled: props.view === 'prompts',
   })
   const memoryQuery = useQuery({
     queryKey: ['dashboard', 'private-acu-admin', 'memory', selectedUserId],
@@ -451,6 +524,19 @@ export function PrivateACUAdmin(
         ) : (
           <div className='text-muted-foreground text-sm'>{t('Loading')}</div>
         )}
+      </section>
+      <section className='space-y-3'>
+        <div>
+          <h2 className='text-base font-semibold'>{t('Film POC prompts')}</h2>
+          <p className='text-muted-foreground text-xs'>
+            {t('Read-only prompts used by the GYZ film learning path.')}
+          </p>
+        </div>
+        <FilmPromptCardsSection
+          cards={filmPromptsQuery.data?.promptCards}
+          loading={filmPromptsQuery.isLoading}
+          error={filmPromptsQuery.isError}
+        />
       </section>
       <section className='border-border space-y-2 rounded-md border p-4'>
         <h2 className='text-base font-semibold'>
