@@ -109,3 +109,32 @@ test('overview prompt cards only show prompts that actually execute', () => {
     /card\.execution === 'used' && card\.stage !== 'task'/
   )
 })
+
+test('overview keeps an audited account case instead of drifting to the newest run', () => {
+  assert.match(
+    overviewSource,
+    /FEATURED_ACCOUNT_LEARNING_RUN_ID[\s\S]*run_d2c5c5a4f42d4321b2318e3fabb584ef/
+  )
+  assert.match(overviewSource, /featuredAccountRun \?\?/)
+  assert.match(
+    overviewSource,
+    /getPrivateACULearningRuns\(50, 'user_dissatisfaction'\)/
+  )
+  assert.match(overviewSource, /Production database migration rework/)
+})
+
+test('account distillation renders reusable rules from Task Analysis output', () => {
+  assert.match(overviewSource, /field\('Goal'\)/)
+  assert.match(overviewSource, /field\('Applies When'\)/)
+  assert.match(overviewSource, /field\('Prevention Principle'\)/)
+  assert.match(overviewSource, /Reusable rule/)
+})
+
+test('the featured account case is reused across input evidence and skill output', () => {
+  assert.match(overviewSource, /accountJudgeRunExamples/)
+  assert.match(overviewSource, /Original request/)
+  assert.match(overviewSource, /Previous answer/)
+  assert.match(overviewSource, /User correction/)
+  assert.match(overviewSource, /feedback_reason/)
+  assert.match(overviewSource, /caseTitle=\{props\.prompt\.caseTitle\}/)
+})

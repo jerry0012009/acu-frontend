@@ -86,7 +86,10 @@ type LearningFlowPromptState = {
   runDetail?: PrivateACULearningRunDetail
   runLoading?: boolean
   runView?: 'summary' | 'skill-changes'
+  caseTitle?: string
 }
+
+const FEATURED_ACCOUNT_LEARNING_RUN_ID = 'run_d2c5c5a4f42d4321b2318e3fabb584ef'
 
 type DistilledClaimPreview = {
   topic: string
@@ -96,7 +99,7 @@ type DistilledClaimPreview = {
 
 function parseDistilledClaimPreviews(value: unknown): DistilledClaimPreview[] {
   if (typeof value !== 'string') return []
-  return value
+  const claims = value
     .split(/### Claim \d+/u)
     .slice(1)
     .map((claim) => ({
@@ -106,6 +109,21 @@ function parseDistilledClaimPreviews(value: unknown): DistilledClaimPreview[] {
       prefer: claim.match(/\*\*Prefer:\*\*\s*(.+)/u)?.[1]?.trim() ?? '',
     }))
     .filter((claim) => claim.topic || claim.appliesWhen || claim.prefer)
+  if (claims.length) return claims
+
+  const field = (label: string) =>
+    value
+      .match(new RegExp(`\\*\\*${label}:\\*\\*\\s*(.+)`, 'u'))?.[1]
+      ?.trim() ?? ''
+  const accountClaim = {
+    topic: field('Goal'),
+    appliesWhen: field('Applies When'),
+    prefer:
+      field('Prevention Principle') || field('What Should Have Been Done'),
+  }
+  return accountClaim.topic || accountClaim.appliesWhen || accountClaim.prefer
+    ? [accountClaim]
+    : []
 }
 
 type AgentContextMessage = {
@@ -148,9 +166,19 @@ function messageText(content: unknown): string {
     .join('\n')
 }
 
+type AccountCaseLabels = {
+  caseTitle: string
+  originalRequest: string
+  previousAnswer: string
+  userCorrection: string
+  capturedContext: string
+  dissatisfactionDetected: string
+}
+
 function accountRunExamples(
   detail: PrivateACULearningRunDetail | undefined,
-  step: 'input' | 'experience'
+  step: 'input' | 'experience',
+  labels: AccountCaseLabels
 ): PrivateACUPromptExample[] | undefined {
   if (!detail) return undefined
   const context = parseAgentContext(detail.evidence.agentContext)
@@ -163,6 +191,17 @@ function accountRunExamples(
 
   const firstUserMessage = messages.find((message) => message.role === 'user')
   const firstText = messageText(firstUserMessage?.content)
+  const previousAssistantMessage = [...messages]
+    .reverse()
+    .find((message) => message.role === 'assistant')
+  const previousAnswer = messageText(previousAssistantMessage?.content)
+  const contextText = [
+    firstText ? `${labels.originalRequest}：\n${firstText}` : '',
+    previousAnswer ? `${labels.previousAnswer}：\n${previousAnswer}` : '',
+    `${labels.userCorrection}：\n${latestText}`,
+  ]
+    .filter(Boolean)
+    .join('\n\n')
   const artifact =
     step === 'input'
       ? {
@@ -173,26 +212,59 @@ function accountRunExamples(
         }
       : {
           experience_id: detail.experienceId,
-          source: '完整 Agent Context',
+          source: labels.capturedContext,
           latest_user_message: latestText,
           preceding_user_context: firstText || undefined,
+          feedback_reason: detail.evidence.feedbackReason,
           learning_trigger: detail.learningKind,
         }
 
   return [
     {
       id: `${detail.runId}-${step}`,
-      title: step === 'input' ? '真实账户学习输入' : '真实账户学习 Experience',
+      title: labels.caseTitle,
       origin: 'captured_run',
       material: {
-        text:
-          step === 'input'
-            ? `最新人工消息：\n${latestText}`
-            : `完整上下文中的最新人工消息：\n${latestText}`,
+        text: contextText,
       },
       artifact: {
         format: 'json',
         content: artifact,
+      },
+      sourceRunId: detail.runId,
+    },
+  ]
+}
+
+function accountJudgeRunExamples(
+  detail: PrivateACULearningRunDetail | undefined,
+  labels: AccountCaseLabels
+): PrivateACUPromptExample[] | undefined {
+  if (!detail) return undefined
+  const context = parseAgentContext(detail.evidence.agentContext)
+  const messages = context?.input ?? []
+  const latestUserMessage = [...messages]
+    .reverse()
+    .find((message) => message.role === 'user')
+  const latestText = messageText(latestUserMessage?.content)
+  if (!latestText) return undefined
+
+  return [
+    {
+      id: `${detail.runId}-judge`,
+      title: labels.caseTitle,
+      origin: 'captured_run',
+      material: {
+        text: `${labels.userCorrection}：\n${latestText}`,
+      },
+      artifact: {
+        format: 'json',
+        content: {
+          judgment: 'dissatisfied',
+          result: labels.dissatisfactionDetected,
+          reason: detail.evidence.feedbackReason,
+          learning_trigger: detail.learningKind,
+        },
       },
       sourceRunId: detail.runId,
     },
@@ -286,6 +358,7 @@ function filmStepExamples(
 function LearningRunSummary(props: {
   detail?: PrivateACULearningRunDetail
   loading?: boolean
+  caseTitle?: string
 }) {
   const { t } = useTranslation()
   if (props.loading) {
@@ -304,10 +377,20 @@ function LearningRunSummary(props: {
   const claimPreviews = parseDistilledClaimPreviews(
     detail.distillation.distilled_context
   ).slice(0, 3)
+  const isFilmLearning = detail.learningKind === 'film_preference_v1'
   return (
     <section className='border-border space-y-3 border-t pt-4'>
       <div className='flex flex-wrap items-center justify-between gap-2'>
-        <h5 className='text-sm font-semibold'>{t('Captured learning run')}</h5>
+        <div>
+          <h5 className='text-sm font-semibold'>
+            {t('Captured learning run')}
+          </h5>
+          {props.caseTitle ? (
+            <p className='mt-1 text-xs font-medium text-cyan-700 dark:text-cyan-300'>
+              {t('Featured case')} · {props.caseTitle}
+            </p>
+          ) : null}
+        </div>
         <Badge variant='secondary'>{detail.status}</Badge>
       </div>
       <div className='grid gap-2 sm:grid-cols-3'>
@@ -375,13 +458,22 @@ function LearningRunSummary(props: {
                 </div>
                 {claim.appliesWhen ? (
                   <p className='mt-2 text-xs leading-5'>
-                    <strong>{t('Expression goal')}：</strong>
+                    <strong>
+                      {t(isFilmLearning ? 'Expression goal' : 'Applies when')}：
+                    </strong>
                     {claim.appliesWhen}
                   </p>
                 ) : null}
                 {claim.prefer ? (
                   <p className='mt-1 text-xs leading-5'>
-                    <strong>{t('Visual implementation')}：</strong>
+                    <strong>
+                      {t(
+                        isFilmLearning
+                          ? 'Visual implementation'
+                          : 'Reusable rule'
+                      )}
+                      ：
+                    </strong>
                     {claim.prefer}
                   </p>
                 ) : null}
@@ -407,6 +499,7 @@ function LearningRunSummary(props: {
 function SkillChangeExamples(props: {
   detail?: PrivateACULearningRunDetail
   loading?: boolean
+  caseTitle?: string
 }) {
   const { t } = useTranslation()
   if (props.loading) {
@@ -432,6 +525,11 @@ function SkillChangeExamples(props: {
           <p className='text-muted-foreground mt-1 text-xs'>
             {t('This Experience produced the following Skill updates.')}
           </p>
+          {props.caseTitle ? (
+            <p className='mt-1 text-xs font-medium text-cyan-700 dark:text-cyan-300'>
+              {t('Featured case')} · {props.caseTitle}
+            </p>
+          ) : null}
         </div>
         <Badge variant='secondary'>
           {props.detail.skillChangeCount} {t('Skills')}
@@ -658,12 +756,14 @@ function StepPrompt(props: {
         <LearningRunSummary
           detail={props.prompt.runDetail}
           loading={props.prompt.runLoading}
+          caseTitle={props.prompt.caseTitle}
         />
       ) : null}
       {props.prompt.runView === 'skill-changes' ? (
         <SkillChangeExamples
           detail={props.prompt.runDetail}
           loading={props.prompt.runLoading}
+          caseTitle={props.prompt.caseTitle}
         />
       ) : null}
     </Dialog>
@@ -848,23 +948,30 @@ function OverviewPage(props: { isAdmin: boolean }) {
   })
   const accountRunsQuery = useQuery({
     queryKey: ['private-acu', 'overview', 'account-learning-runs'],
-    queryFn: () => getPrivateACULearningRuns(10, 'user_dissatisfaction'),
+    queryFn: () => getPrivateACULearningRuns(50, 'user_dissatisfaction'),
     enabled: props.isAdmin,
     retry: false,
   })
-  const latestCompletedAccountRun = accountRunsQuery.data?.find(
-    (run) => run.status.toLowerCase() === 'completed'
+  const featuredAccountRun = accountRunsQuery.data?.find(
+    (run) =>
+      run.runId === FEATURED_ACCOUNT_LEARNING_RUN_ID &&
+      run.status.toLowerCase() === 'completed'
   )
+  const selectedAccountRun =
+    featuredAccountRun ??
+    accountRunsQuery.data?.find(
+      (run) => run.status.toLowerCase() === 'completed'
+    )
   const accountRunDetailQuery = useQuery({
     queryKey: [
       'private-acu',
       'overview',
       'account-learning-run',
-      latestCompletedAccountRun?.runId,
+      selectedAccountRun?.runId,
     ],
     queryFn: () =>
-      getPrivateACULearningRunDetail(latestCompletedAccountRun?.runId || ''),
-    enabled: props.isAdmin && Boolean(latestCompletedAccountRun?.runId),
+      getPrivateACULearningRunDetail(selectedAccountRun?.runId || ''),
+    enabled: props.isAdmin && Boolean(selectedAccountRun?.runId),
     retry: false,
   })
   const latestCompletedFilmRun = filmRunsQuery.data?.find(
@@ -888,6 +995,28 @@ function OverviewPage(props: { isAdmin: boolean }) {
   const filmIsError = props.isAdmin
     ? adminFilmQuery.isError
     : memberFilmQuery.isError
+  const accountCaseLabels: AccountCaseLabels = {
+    caseTitle: t('Production database migration rework'),
+    originalRequest: t('Original request'),
+    previousAnswer: t('Previous answer'),
+    userCorrection: t('User correction'),
+    capturedContext: t('Complete Agent Context'),
+    dissatisfactionDetected: t('Dissatisfaction detected'),
+  }
+  const accountInputExamples = accountRunExamples(
+    accountRunDetailQuery.data,
+    'input',
+    accountCaseLabels
+  )
+  const accountExperienceExamples = accountRunExamples(
+    accountRunDetailQuery.data,
+    'experience',
+    accountCaseLabels
+  )
+  const accountJudgeExamples = accountJudgeRunExamples(
+    accountRunDetailQuery.data,
+    accountCaseLabels
+  )
   let accountJudgePrompt: LearningFlowPromptState
   if (!props.isAdmin) {
     accountJudgePrompt = { status: 'restricted' }
@@ -907,7 +1036,8 @@ function OverviewPage(props: { isAdmin: boolean }) {
           language: promptLanguage(accountPromptsQuery.data.learningPrompt),
           source: t('Private ACU prompt configuration'),
           execution: 'used',
-          examples: accountPromptsQuery.data.learningExamples,
+          examples:
+            accountJudgeExamples ?? accountPromptsQuery.data.learningExamples,
         },
       ],
     }
@@ -919,14 +1049,6 @@ function OverviewPage(props: { isAdmin: boolean }) {
     accountMemoryQuery.isLoading,
     accountMemoryQuery.isError,
     accountMemoryQuery.data?.promptCards
-  )
-  const accountInputExamples = accountRunExamples(
-    accountRunDetailQuery.data,
-    'input'
-  )
-  const accountExperienceExamples = accountRunExamples(
-    accountRunDetailQuery.data,
-    'experience'
   )
   const filmLearningPrompt = promptStateForCards(
     props.isAdmin,
@@ -1008,9 +1130,9 @@ function OverviewPage(props: { isAdmin: boolean }) {
         runDetail: accountRunDetailQuery.data,
         runLoading:
           accountRunsQuery.isLoading ||
-          (Boolean(latestCompletedAccountRun) &&
-            accountRunDetailQuery.isLoading),
+          (Boolean(selectedAccountRun) && accountRunDetailQuery.isLoading),
         runView: 'summary',
+        caseTitle: accountCaseLabels.caseTitle,
       },
     },
     {
@@ -1025,9 +1147,9 @@ function OverviewPage(props: { isAdmin: boolean }) {
         runDetail: accountRunDetailQuery.data,
         runLoading:
           accountRunsQuery.isLoading ||
-          (Boolean(latestCompletedAccountRun) &&
-            accountRunDetailQuery.isLoading),
+          (Boolean(selectedAccountRun) && accountRunDetailQuery.isLoading),
         runView: 'skill-changes',
+        caseTitle: accountCaseLabels.caseTitle,
       },
     },
   ]
