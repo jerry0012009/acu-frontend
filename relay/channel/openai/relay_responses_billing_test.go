@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -192,6 +193,50 @@ func TestOaiResponsesHandlerIncompleteStatusCommitsZeroImageGeneration(t *testin
 	_, apiErr := OaiResponsesHandler(c, info, resp)
 	require.Nil(t, apiErr)
 	assert.Equal(t, 0, info.ResponsesUsageInfo.BuiltInTools[dto.BuildInToolImageGeneration].CallCount)
+}
+
+func TestOpenAIAdaptorBuffersUnexpectedResponsesStreamForNonStreamingClient(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := strings.Join([]string{
+		`event: response.output_text.delta`,
+		`data: {"type":"response.output_text.delta","delta":"buffered response"}`,
+		``,
+		`event: response.completed`,
+		`data: {"type":"response.completed","response":{"id":"resp_1","model":"gpt-test","status":"completed","output":[],"usage":{"input_tokens":2,"output_tokens":3,"total_tokens":5}}}`,
+		``,
+	}, "\n")
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	info := &relaycommon.RelayInfo{
+		RelayMode:       relayconstant.RelayModeResponses,
+		OriginModelName: "gpt-test",
+		IsStream:        false,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "gpt-test",
+		},
+	}
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+	}
+
+	usageValue, apiErr := (&Adaptor{}).DoResponse(c, resp, info)
+	require.Nil(t, apiErr)
+	usage, ok := usageValue.(*dto.Usage)
+	require.True(t, ok)
+	require.Equal(t, 5, usage.TotalTokens)
+	require.Equal(t, "application/json", w.Header().Get("Content-Type"))
+	require.NotContains(t, w.Body.String(), "data:")
+
+	var response dto.OpenAIResponsesResponse
+	require.NoError(t, common.Unmarshal(w.Body.Bytes(), &response))
+	require.Equal(t, "resp_1", response.ID)
+	require.Len(t, response.Output, 1)
+	require.Equal(t, "message", response.Output[0].Type)
+	require.Equal(t, "buffered response", response.Output[0].Content[0].Text)
 }
 
 func runResponsesImageBillingStream(t *testing.T, events ...string) *relaycommon.RelayInfo {
