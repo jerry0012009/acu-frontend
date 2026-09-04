@@ -402,6 +402,20 @@ test('does not repeat Probe status and omits error detail for success', () => {
   )
 })
 
+test('shows the canonical model before a distinct upstream alias', () => {
+  const probe = {
+    status: 'success',
+    http_status: 200,
+    canonical_model_id: 'claude-fable-5-1',
+    actual_model: 'claude-fable-5',
+    usage_trusted: true,
+  } as unknown as ACUProbeHistoryRow
+  assert.equal(
+    formatProbeResult(probe),
+    'success · HTTP 200 · claude-fable-5-1 · upstream claude-fable-5 · usage verified'
+  )
+})
+
 test('falls back to Probe status, HTTP status, and error class without metadata', () => {
   assert.equal(
     formatProbeResult({

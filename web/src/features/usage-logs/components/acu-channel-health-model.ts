@@ -134,8 +134,17 @@ export function formatProbeResult(
   const parts = includeStatus ? [probe.status] : []
   if (probe.http_status != null) parts.push(`HTTP ${probe.http_status}`)
   if (probe.status === 'success') {
-    const model = probe.actual_model || probe.canonical_model_id
-    if (model) parts.push(model)
+    const canonicalModel = probe.canonical_model_id
+    const actualModel = probe.actual_model
+    if (canonicalModel) parts.push(canonicalModel)
+    else if (actualModel) parts.push(actualModel)
+    if (
+      canonicalModel &&
+      actualModel &&
+      actualModel !== canonicalModel
+    ) {
+      parts.push(`upstream ${actualModel}`)
+    }
     if (
       probe.usage_trusted ||
       metadata.hasUsage === true ||
