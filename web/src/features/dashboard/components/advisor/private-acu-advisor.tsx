@@ -10,7 +10,7 @@ import {
   ThumbsDown,
   ThumbsUp,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -176,7 +176,7 @@ function AdvisorCard(props: {
   )
 }
 
-function AdvisorList() {
+function AdvisorList(props: { advisorId?: string }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [showAllHistory, setShowAllHistory] = useState(false)
@@ -185,6 +185,17 @@ function AdvisorList() {
     queryFn: () => getPrivateACUAdvisors(100),
   })
   const advisors = advisorsQuery.data ?? []
+  useEffect(() => {
+    if (
+      !props.advisorId ||
+      !advisors.some((advisor) => advisor.advisorId === props.advisorId)
+    ) {
+      return
+    }
+    document
+      .getElementById(`private-acu-advisor-${props.advisorId}`)
+      ?.scrollIntoView({ block: 'center' })
+  }, [advisors, props.advisorId])
   const visibleAdvisors = showAllHistory
     ? advisors
     : advisors.filter((advisor) => advisor.needAdvisor)
@@ -256,14 +267,22 @@ function AdvisorList() {
         </div>
       ) : (
         visibleAdvisors.map((advisor) => (
-          <AdvisorCard
+          <div
             key={advisor.advisorId}
-            advisor={advisor}
-            onFeedback={(advisorId, feedback) =>
-              feedbackMutation.mutate({ advisorId, feedback })
-            }
-            pending={feedbackMutation.isPending}
-          />
+            id={`private-acu-advisor-${advisor.advisorId}`}
+            className={cn(
+              props.advisorId === advisor.advisorId &&
+                'rounded-xl outline outline-2 outline-primary/50'
+            )}
+          >
+            <AdvisorCard
+              advisor={advisor}
+              onFeedback={(advisorId, feedback) =>
+                feedbackMutation.mutate({ advisorId, feedback })
+              }
+              pending={feedbackMutation.isPending}
+            />
+          </div>
         ))
       )}
     </div>
@@ -428,7 +447,7 @@ function PrivateACUMemory() {
   )
 }
 
-export function PrivateACUAdvisor() {
+export function PrivateACUAdvisor(props: { advisorId?: string }) {
   const { t } = useTranslation()
   return (
     <Tabs defaultValue='advisor'>
@@ -440,7 +459,7 @@ export function PrivateACUAdvisor() {
         <TabsTrigger value='settings'>{t('Notifications')}</TabsTrigger>
       </TabsList>
       <TabsContent value='advisor'>
-        <AdvisorList />
+        <AdvisorList advisorId={props.advisorId} />
       </TabsContent>
       <TabsContent value='memory'>
         <PrivateACUMemory />

@@ -270,9 +270,12 @@ export function PublicHeader(props: PublicHeaderProps) {
                   activeTab={notifications.activeTab}
                   onTabChange={notifications.setActiveTab}
                   notice={notifications.notice}
-                  announcements={notifications.announcements}
-                  advisorNotifications={notifications.advisorNotifications}
-                  loading={notifications.loading}
+                announcements={notifications.announcements}
+                advisorNotifications={notifications.advisorNotifications}
+                onAdvisorNotificationOpen={
+                  notifications.openAdvisorNotification
+                }
+                loading={notifications.loading}
                 />
               )}
 

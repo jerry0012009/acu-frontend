@@ -121,6 +121,9 @@ export function AppHeader({
                 notice={notifications.notice}
                 announcements={notifications.announcements}
                 advisorNotifications={notifications.advisorNotifications}
+                onAdvisorNotificationOpen={
+                  notifications.openAdvisorNotification
+                }
                 loading={notifications.loading}
               />
             )}

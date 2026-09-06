@@ -5,6 +5,7 @@ import {
   getPrivateACUAdvisorNotificationPreferences,
   getPrivateACUAdvisorNotifications,
   markPrivateACUAdvisorNotificationRead,
+  type PrivateACUAdvisorNotification,
 } from '@/features/dashboard/advisor-api'
 import { useStatus } from '@/hooks/use-status'
 import { getNotice } from '@/lib/api'
@@ -206,11 +207,6 @@ export function useNotifications() {
       markAnnouncementsAsRead()
     }
     if (nextTab === 'advisor') {
-      for (const notification of advisorNotifications.filter(
-        (item) => !item.readAt
-      )) {
-        void markPrivateACUAdvisorNotificationRead(notification.advisorId)
-      }
       void advisorNotificationsQuery.refetch()
     }
 
@@ -237,11 +233,6 @@ export function useNotifications() {
       markAnnouncementsAsRead()
     }
     if (tab === 'advisor') {
-      for (const notification of advisorNotifications.filter(
-        (item) => !item.readAt
-      )) {
-        void markPrivateACUAdvisorNotificationRead(notification.advisorId)
-      }
       void advisorNotificationsQuery.refetch()
     }
   }
@@ -264,6 +255,12 @@ export function useNotifications() {
     setPopoverOpen: handlePopoverOpenChange,
     activeTab,
     setActiveTab: handleTabChange,
+    openAdvisorNotification: async (
+      notification: PrivateACUAdvisorNotification
+    ) => {
+      await markPrivateACUAdvisorNotificationRead(notification.advisorId)
+      window.location.assign(notification.targetPath)
+    },
 
     // Actions
     openPopover: handleOpenPopover,

@@ -44,6 +44,9 @@ interface NotificationPopoverProps {
   notice: string
   announcements: AnnouncementItem[]
   advisorNotifications: PrivateACUAdvisorNotification[]
+  onAdvisorNotificationOpen: (
+    notification: PrivateACUAdvisorNotification
+  ) => Promise<void>
   loading: boolean
   className?: string
 }
@@ -273,9 +276,13 @@ function AnnouncementsContent({
 
 function AdvisorNotificationsContent({
   notifications,
+  onOpen,
   t,
 }: {
   notifications: PrivateACUAdvisorNotification[]
+  onOpen: (
+    notification: PrivateACUAdvisorNotification
+  ) => Promise<void>
   t: TFunction
 }) {
   if (notifications.length === 0) {
@@ -289,9 +296,7 @@ function AdvisorNotificationsContent({
             <button
               type='button'
               className='hover:bg-muted/50 w-full rounded-md p-3 text-left'
-              onClick={() => {
-                window.location.assign(notification.targetPath)
-              }}
+              onClick={() => void onOpen(notification)}
             >
               <div className='flex items-start gap-3'>
                 <span
@@ -333,6 +338,7 @@ export function NotificationPopover({
   notice,
   announcements,
   advisorNotifications,
+  onAdvisorNotificationOpen,
   loading,
   className,
 }: NotificationPopoverProps) {
@@ -405,6 +411,7 @@ export function NotificationPopover({
           <TabsContent value='advisor' className='mt-2'>
             <AdvisorNotificationsContent
               notifications={advisorNotifications}
+              onOpen={onAdvisorNotificationOpen}
               t={t}
             />
           </TabsContent>

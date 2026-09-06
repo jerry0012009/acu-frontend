@@ -19,6 +19,7 @@ const sections = [
 
 const privateACUSearchSchema = z.object({
   learningKind: z.string().optional(),
+  advisor: z.string().optional(),
 })
 
 export const Route = createFileRoute('/_authenticated/private-acu/$section')({
@@ -51,6 +52,7 @@ function PrivateACUSectionRoute() {
     <PrivateACUWorkspace
       section={Route.useParams().section as PrivateACUSection}
       learningKind={search.learningKind}
+      advisorId={search.advisor}
     />
   )
 }

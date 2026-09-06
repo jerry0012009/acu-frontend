@@ -1397,6 +1397,7 @@ function MemberFilmPage() {
 export function PrivateACUWorkspace(props: {
   section: PrivateACUSection
   learningKind?: string
+  advisorId?: string
 }) {
   const { t } = useTranslation()
   const role = useAuthStore((state) => state.auth.user?.role ?? ROLE.GUEST)
@@ -1424,7 +1425,7 @@ export function PrivateACUWorkspace(props: {
       <MemberFilmPage />
     )
   } else if (props.section === 'advisor') {
-    content = <PrivateACUAdvisor />
+    content = <PrivateACUAdvisor advisorId={props.advisorId} />
   } else {
     content = isAdmin ? <PrivateACUAdmin view='prompts' /> : <MemberFilmPage />
   }
