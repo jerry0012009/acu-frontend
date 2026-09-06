@@ -1,7 +1,9 @@
 import { useNavigate, useRouter } from '@tanstack/react-router'
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
+import { recoverFromChunkLoadError } from '@/lib/chunk-load-recovery'
 import { cn } from '@/lib/utils'
 
 const FEEDBACK_URL = 'https://github.com/QuantumNous/new-api/issues'
@@ -35,6 +37,10 @@ export function GeneralError({
   const description = isRateLimited
     ? t('Please wait a moment before trying again.')
     : t('Please try again later.')
+
+  useEffect(() => {
+    void recoverFromChunkLoadError(error)
+  }, [error])
 
   return (
     <div className={cn('h-svh w-full', className)}>
