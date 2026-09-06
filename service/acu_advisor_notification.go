@@ -158,13 +158,42 @@ func ReceivePrivateACUAdvisorEvent(
 	var notification model.ACUAdvisorNotification
 	var shouldEmail bool
 	var emailTarget string
+	eventType := strings.TrimSpace(input.EventType)
+	if eventType == "" {
+		eventType = "private_acu_advisor_ready"
+	}
 	err = model.DB.Transaction(func(tx *gorm.DB) error {
 		var existing model.ACUAdvisorNotification
 		if err := tx.Where("advisor_id = ?", advisorID).First(&existing).Error; err == nil {
 			notification = existing
+			incomingReferenceStatus := strings.TrimSpace(input.ReferenceStatus)
+			statusCanAdvance := (incomingReferenceStatus == "injected" &&
+				existing.ReferenceStatus != "injected" &&
+				existing.ReferenceStatus != "failed") ||
+				(incomingReferenceStatus == "failed" &&
+					existing.ReferenceStatus == "queued")
+			if eventType == "private_acu_advisor_status" && statusCanAdvance {
+				updates := map[string]interface{}{
+					"reference_status":               incomingReferenceStatus,
+					"consumed_by_logical_request_id": strings.TrimSpace(input.ConsumedByLogicalRequestID),
+				}
+				if consumedAt := parseAdvisorConsumedAt(input.ConsumedAt); consumedAt != nil {
+					updates["consumed_at"] = consumedAt
+				}
+				if err := tx.Model(&existing).Updates(updates).Error; err != nil {
+					return err
+				}
+				notification.ReferenceStatus = incomingReferenceStatus
+				notification.ConsumedByLogicalRequestID = strings.TrimSpace(input.ConsumedByLogicalRequestID)
+				notification.ConsumedAt = parseAdvisorConsumedAt(input.ConsumedAt)
+			}
 			return nil
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
+		} else if eventType == "private_acu_advisor_status" {
+			// The ready event is durable and may still be in flight.
+			// Retrying the status event preserves eventual consistency.
+			return gorm.ErrRecordNotFound
 		}
 		user, err := model.GetUserById(userID, true)
 		if err != nil {
@@ -174,14 +203,15 @@ func ReceivePrivateACUAdvisorEvent(
 		now := time.Now()
 		notification = model.ACUAdvisorNotification{
 			AdvisorID: advisorID, UserID: userID,
-			SessionID:        strings.TrimSpace(input.SessionID),
-			LogicalRequestID: strings.TrimSpace(input.LogicalRequestID),
-			Status:           strings.TrimSpace(input.Status),
-			ProblemSummary:   strings.TrimSpace(input.Problem),
-			AdviceSummary:    strings.TrimSpace(input.Advice),
-			ReferenceStatus:  strings.TrimSpace(input.ReferenceStatus),
-			TargetPath:       "/private-acu/advisor?advisor=" + advisorID,
-			SourceCreatedAt:  now,
+			SessionID:                  strings.TrimSpace(input.SessionID),
+			LogicalRequestID:           strings.TrimSpace(input.LogicalRequestID),
+			Status:                     strings.TrimSpace(input.Status),
+			ProblemSummary:             strings.TrimSpace(input.Problem),
+			AdviceSummary:              strings.TrimSpace(input.Advice),
+			ReferenceStatus:            strings.TrimSpace(input.ReferenceStatus),
+			ConsumedByLogicalRequestID: strings.TrimSpace(input.ConsumedByLogicalRequestID),
+			TargetPath:                 "/private-acu/advisor?advisor=" + advisorID,
+			SourceCreatedAt:            now,
 		}
 		if notification.Status == "" {
 			notification.Status = "risk"
@@ -189,13 +219,15 @@ func ReceivePrivateACUAdvisorEvent(
 		if notification.ReferenceStatus == "" {
 			notification.ReferenceStatus = "queued"
 		}
+		notification.ConsumedAt = parseAdvisorConsumedAt(input.ConsumedAt)
 		if err := tx.Create(&notification).Error; err != nil {
 			if errors.Is(err, gorm.ErrDuplicatedKey) {
 				return tx.Where("advisor_id = ?", advisorID).First(&notification).Error
 			}
 			return err
 		}
-		shouldEmail = prefs.EmailEnabled && prefs.EmailTarget != ""
+		shouldEmail = eventType == "private_acu_advisor_ready" &&
+			prefs.EmailEnabled && prefs.EmailTarget != ""
 		emailTarget = prefs.EmailTarget
 		if shouldEmail {
 			delivery := model.ACUAdvisorNotificationDelivery{
@@ -233,6 +265,17 @@ func ReceivePrivateACUAdvisorEvent(
 	return nil
 }
 
+func parseAdvisorConsumedAt(value string) *time.Time {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	parsed, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(value))
+	if err != nil {
+		return nil
+	}
+	return &parsed
+}
+
 func notificationDTO(row model.ACUAdvisorNotification) dto.ACUAdvisorNotification {
 	result := dto.ACUAdvisorNotification{
 		ID: row.ID, AdvisorID: row.AdvisorID, Status: row.Status,
@@ -240,6 +283,12 @@ func notificationDTO(row model.ACUAdvisorNotification) dto.ACUAdvisorNotificatio
 		ReferenceStatus: row.ReferenceStatus, TargetPath: row.TargetPath,
 		SourceCreatedAt: row.SourceCreatedAt.Format(time.RFC3339),
 		CreatedAt:       row.CreatedAt.Format(time.RFC3339),
+	}
+	if row.ConsumedByLogicalRequestID != "" {
+		result.ConsumedByLogicalRequestID = row.ConsumedByLogicalRequestID
+	}
+	if row.ConsumedAt != nil {
+		result.ConsumedAt = row.ConsumedAt.Format(time.RFC3339Nano)
 	}
 	if row.ReadAt != nil {
 		result.ReadAt = row.ReadAt.Format(time.RFC3339)

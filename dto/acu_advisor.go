@@ -23,16 +23,18 @@ type ACUAdvisor struct {
 }
 
 type ACUAdvisorNotification struct {
-	ID              uint   `json:"id"`
-	AdvisorID       string `json:"advisorId"`
-	Status          string `json:"status"`
-	ProblemSummary  string `json:"problemSummary"`
-	AdviceSummary   string `json:"adviceSummary"`
-	ReferenceStatus string `json:"referenceStatus"`
-	TargetPath      string `json:"targetPath"`
-	SourceCreatedAt string `json:"sourceCreatedAt"`
-	ReadAt          string `json:"readAt,omitempty"`
-	CreatedAt       string `json:"createdAt"`
+	ID                         uint   `json:"id"`
+	AdvisorID                  string `json:"advisorId"`
+	Status                     string `json:"status"`
+	ProblemSummary             string `json:"problemSummary"`
+	AdviceSummary              string `json:"adviceSummary"`
+	ReferenceStatus            string `json:"referenceStatus"`
+	TargetPath                 string `json:"targetPath"`
+	SourceCreatedAt            string `json:"sourceCreatedAt"`
+	ConsumedByLogicalRequestID string `json:"consumedByLogicalRequestId,omitempty"`
+	ConsumedAt                 string `json:"consumedAt,omitempty"`
+	ReadAt                     string `json:"readAt,omitempty"`
+	CreatedAt                  string `json:"createdAt"`
 }
 
 type ACUAdvisorNotificationList struct {
@@ -49,14 +51,17 @@ type ACUAdvisorNotificationPreferences struct {
 }
 
 type ACUAdvisorNotificationEvent struct {
-	AdvisorID        string `json:"advisorId" binding:"required"`
-	NewAPIUserID     string `json:"newapiUserId" binding:"required"`
-	SessionID        string `json:"sessionId"`
-	LogicalRequestID string `json:"logicalRequestId"`
-	Status           string `json:"status"`
-	Problem          string `json:"problem"`
-	Advice           string `json:"advice"`
-	ReferenceStatus  string `json:"referenceStatus"`
+	EventType                  string `json:"eventType"`
+	AdvisorID                  string `json:"advisorId" binding:"required"`
+	NewAPIUserID               string `json:"newapiUserId" binding:"required"`
+	SessionID                  string `json:"sessionId"`
+	LogicalRequestID           string `json:"logicalRequestId"`
+	Status                     string `json:"status"`
+	Problem                    string `json:"problem"`
+	Advice                     string `json:"advice"`
+	ReferenceStatus            string `json:"referenceStatus"`
+	ConsumedByLogicalRequestID string `json:"consumedByLogicalRequestId"`
+	ConsumedAt                 string `json:"consumedAt"`
 }
 
 type ACUAdvisorList struct {
@@ -68,26 +73,26 @@ type ACUAdvisorFeedbackRequest struct {
 }
 
 type ACUPrivatePrompts struct {
-	ObserverPrompt   string                    `json:"observerPrompt"`
-	AdvisorPrompt    string                    `json:"advisorPrompt"`
-	LearningPrompt   string                    `json:"learningPrompt"`
-	LearningExamples []ACUPrivatePromptExample `json:"learningExamples,omitempty"`
-	Enabled          bool                      `json:"enabled"`
-	AdvisorReferenceEnabled bool               `json:"advisorReferenceEnabled"`
-	ObserverInterval int                       `json:"observerInterval"`
-	PromptVersion    int64                     `json:"promptVersion"`
-	Source           string                    `json:"source"`
-	UpdatedAt        string                    `json:"updatedAt,omitempty"`
-	UpdatedBy        string                    `json:"updatedBy,omitempty"`
+	ObserverPrompt          string                    `json:"observerPrompt"`
+	AdvisorPrompt           string                    `json:"advisorPrompt"`
+	LearningPrompt          string                    `json:"learningPrompt"`
+	LearningExamples        []ACUPrivatePromptExample `json:"learningExamples,omitempty"`
+	Enabled                 bool                      `json:"enabled"`
+	AdvisorReferenceEnabled bool                      `json:"advisorReferenceEnabled"`
+	ObserverInterval        int                       `json:"observerInterval"`
+	PromptVersion           int64                     `json:"promptVersion"`
+	Source                  string                    `json:"source"`
+	UpdatedAt               string                    `json:"updatedAt,omitempty"`
+	UpdatedBy               string                    `json:"updatedBy,omitempty"`
 }
 
 type ACUPrivatePromptsRequest struct {
-	ObserverPrompt string `json:"observerPrompt" binding:"required"`
-	AdvisorPrompt  string `json:"advisorPrompt" binding:"required"`
-	LearningPrompt string `json:"learningPrompt" binding:"required"`
-	Enabled        *bool  `json:"enabled"`
-	AdvisorReferenceEnabled *bool `json:"advisorReferenceEnabled"`
-	ObserverInterval *int `json:"observerInterval"`
+	ObserverPrompt          string `json:"observerPrompt" binding:"required"`
+	AdvisorPrompt           string `json:"advisorPrompt" binding:"required"`
+	LearningPrompt          string `json:"learningPrompt" binding:"required"`
+	Enabled                 *bool  `json:"enabled"`
+	AdvisorReferenceEnabled *bool  `json:"advisorReferenceEnabled"`
+	ObserverInterval        *int   `json:"observerInterval"`
 }
 
 type ACUPrivateMemoryFile struct {

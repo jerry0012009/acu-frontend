@@ -3,20 +3,22 @@ package model
 import "time"
 
 type ACUAdvisorNotification struct {
-	ID               uint       `json:"id" gorm:"primaryKey"`
-	AdvisorID        string     `json:"advisor_id" gorm:"type:varchar(128);uniqueIndex;not null"`
-	UserID           int        `json:"user_id" gorm:"index;not null"`
-	SessionID        string     `json:"session_id" gorm:"type:varchar(128);index;not null"`
-	LogicalRequestID string     `json:"logical_request_id" gorm:"type:varchar(128);index;not null"`
-	Status           string     `json:"status" gorm:"type:varchar(32);not null"`
-	ProblemSummary   string     `json:"problem_summary" gorm:"type:text;not null"`
-	AdviceSummary    string     `json:"advice_summary" gorm:"type:text;not null"`
-	ReferenceStatus  string     `json:"reference_status" gorm:"type:varchar(32);not null"`
-	TargetPath       string     `json:"target_path" gorm:"type:varchar(255);not null"`
-	SourceCreatedAt  time.Time  `json:"source_created_at" gorm:"index;not null"`
-	ReadAt           *time.Time `json:"read_at"`
-	CreatedAt        time.Time  `json:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
+	ID                         uint       `json:"id" gorm:"primaryKey"`
+	AdvisorID                  string     `json:"advisor_id" gorm:"type:varchar(128);uniqueIndex;not null"`
+	UserID                     int        `json:"user_id" gorm:"index;not null"`
+	SessionID                  string     `json:"session_id" gorm:"type:varchar(128);index;not null"`
+	LogicalRequestID           string     `json:"logical_request_id" gorm:"type:varchar(128);index;not null"`
+	Status                     string     `json:"status" gorm:"type:varchar(32);not null"`
+	ProblemSummary             string     `json:"problem_summary" gorm:"type:text;not null"`
+	AdviceSummary              string     `json:"advice_summary" gorm:"type:text;not null"`
+	ReferenceStatus            string     `json:"reference_status" gorm:"type:varchar(32);not null"`
+	TargetPath                 string     `json:"target_path" gorm:"type:varchar(255);not null"`
+	SourceCreatedAt            time.Time  `json:"source_created_at" gorm:"index;not null"`
+	ConsumedByLogicalRequestID string     `json:"consumed_by_logical_request_id" gorm:"type:varchar(128)"`
+	ConsumedAt                 *time.Time `json:"consumed_at"`
+	ReadAt                     *time.Time `json:"read_at"`
+	CreatedAt                  time.Time  `json:"created_at"`
+	UpdatedAt                  time.Time  `json:"updated_at"`
 }
 
 type ACUAdvisorNotificationDelivery struct {
