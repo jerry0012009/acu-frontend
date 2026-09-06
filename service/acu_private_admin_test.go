@@ -101,9 +101,11 @@ func TestPrivateACUAdminProxySavesPrompts(t *testing.T) {
 	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-private-acu-token")
 
 	result, err := SavePrivateACUPrompts(context.Background(), dto.ACUPrivatePromptsRequest{
-		ObserverPrompt: "updated",
-		AdvisorPrompt:  "updated",
-		LearningPrompt: "updated",
+		ObserverPrompt:          "updated",
+		AdvisorPrompt:           "updated",
+		LearningPrompt:          "updated",
+		AdvisorReferenceEnabled: func() *bool { value := true; return &value }(),
+		ObserverInterval:        func() *int { value := 25; return &value }(),
 	}, "root")
 	require.NoError(t, err)
 	require.Equal(t, int64(3), result.PromptVersion)
@@ -111,11 +113,13 @@ func TestPrivateACUAdminProxySavesPrompts(t *testing.T) {
 	var payload map[string]interface{}
 	require.NoError(t, common.Unmarshal(body, &payload))
 	require.Equal(t, map[string]interface{}{
-		"observerPrompt": "updated",
-		"advisorPrompt":  "updated",
-		"learningPrompt": "updated",
-		"enabled":        true,
-		"updatedBy":      "root",
+		"observerPrompt":          "updated",
+		"advisorPrompt":           "updated",
+		"learningPrompt":          "updated",
+		"enabled":                 true,
+		"advisorReferenceEnabled": true,
+		"observerInterval":        float64(25),
+		"updatedBy":               "root",
 	}, payload)
 }
 

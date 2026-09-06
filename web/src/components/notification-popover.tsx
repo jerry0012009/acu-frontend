@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { getAnnouncementColorClass } from '@/lib/colors'
 import { formatDateTimeObject } from '@/lib/time'
 import { cn } from '@/lib/utils'
+import type { PrivateACUAdvisorNotification } from '@/features/dashboard/advisor-api'
 
 interface AnnouncementItem {
   id?: number | string
@@ -38,10 +39,11 @@ interface NotificationPopoverProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   unreadCount: number
-  activeTab: 'notice' | 'announcements'
-  onTabChange: (tab: 'notice' | 'announcements') => void
+  activeTab: 'notice' | 'announcements' | 'advisor'
+  onTabChange: (tab: 'notice' | 'announcements' | 'advisor') => void
   notice: string
   announcements: AnnouncementItem[]
+  advisorNotifications: PrivateACUAdvisorNotification[]
   loading: boolean
   className?: string
 }
@@ -269,6 +271,56 @@ function AnnouncementsContent({
   )
 }
 
+function AdvisorNotificationsContent({
+  notifications,
+  t,
+}: {
+  notifications: PrivateACUAdvisorNotification[]
+  t: TFunction
+}) {
+  if (notifications.length === 0) {
+    return <EmptyState icon={<Bell />} title={t('No Advisor suggestions')} />
+  }
+  return (
+    <ScrollArea className='h-[min(52vh,28rem)] pr-3'>
+      <div className='flex flex-col'>
+        {notifications.map((notification, idx) => (
+          <div key={notification.advisorId}>
+            <button
+              type='button'
+              className='hover:bg-muted/50 w-full rounded-md p-3 text-left'
+              onClick={() => {
+                window.location.assign(notification.targetPath)
+              }}
+            >
+              <div className='flex items-start gap-3'>
+                <span
+                  className={cn(
+                    'mt-1.5 size-2 shrink-0 rounded-full',
+                    notification.readAt ? 'bg-muted-foreground/40' : 'bg-amber-500'
+                  )}
+                />
+                <div className='min-w-0 flex-1 space-y-1'>
+                  <p className='text-sm font-medium'>
+                    {notification.problemSummary}
+                  </p>
+                  <p className='text-muted-foreground line-clamp-2 text-xs'>
+                    {notification.adviceSummary}
+                  </p>
+                  <p className='text-muted-foreground text-[11px]'>
+                    {notification.referenceStatus}
+                  </p>
+                </div>
+              </div>
+            </button>
+            {idx < notifications.length - 1 ? <Separator /> : null}
+          </div>
+        ))}
+      </div>
+    </ScrollArea>
+  )
+}
+
 /**
  * Notification popover with Notice and Announcements tabs
  */
@@ -280,6 +332,7 @@ export function NotificationPopover({
   onTabChange,
   notice,
   announcements,
+  advisorNotifications,
   loading,
   className,
 }: NotificationPopoverProps) {
@@ -313,7 +366,7 @@ export function NotificationPopover({
         className='w-[min(26rem,calc(100vw-1rem))] gap-3 p-3'
       >
         <PopoverHeader className='gap-1 px-1'>
-          <PopoverTitle>{t('System Announcements')}</PopoverTitle>
+          <PopoverTitle>{t('Notifications')}</PopoverTitle>
           <p className='text-muted-foreground text-xs'>
             {t('Latest platform updates and notices')}
           </p>
@@ -323,7 +376,7 @@ export function NotificationPopover({
           value={activeTab}
           onValueChange={onTabChange as (value: string) => void}
         >
-          <TabsList className='grid w-full grid-cols-2'>
+          <TabsList className='grid w-full grid-cols-3'>
             <TabsTrigger value='notice' className='gap-1.5'>
               <Bell className='size-3.5' />
               {t('Notice')}
@@ -331,6 +384,10 @@ export function NotificationPopover({
             <TabsTrigger value='announcements' className='gap-1.5'>
               <Megaphone className='size-3.5' />
               {t('Timeline')}
+            </TabsTrigger>
+            <TabsTrigger value='advisor' className='gap-1.5'>
+              <Bell className='size-3.5' />
+              {t('Advisor')}
             </TabsTrigger>
           </TabsList>
 
@@ -342,6 +399,12 @@ export function NotificationPopover({
             <AnnouncementsContent
               announcements={announcements}
               loading={loading}
+              t={t}
+            />
+          </TabsContent>
+          <TabsContent value='advisor' className='mt-2'>
+            <AdvisorNotificationsContent
+              notifications={advisorNotifications}
               t={t}
             />
           </TabsContent>

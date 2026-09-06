@@ -120,6 +120,7 @@ export function AppHeader({
                 onTabChange={notifications.setActiveTab}
                 notice={notifications.notice}
                 announcements={notifications.announcements}
+                advisorNotifications={notifications.advisorNotifications}
                 loading={notifications.loading}
               />
             )}

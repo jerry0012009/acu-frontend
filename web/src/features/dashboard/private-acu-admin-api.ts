@@ -6,6 +6,8 @@ export type PrivateACUPrompts = {
   learningPrompt: string
   learningExamples?: PrivateACUPromptExample[]
   enabled: boolean
+  advisorReferenceEnabled: boolean
+  observerInterval: number
   promptVersion: number
   source: 'default' | 'database'
   updatedAt?: string

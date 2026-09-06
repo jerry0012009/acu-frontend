@@ -37,11 +37,13 @@ func SavePrivateACUPrompts(
 	updatedBy string,
 ) (dto.ACUPrivatePrompts, error) {
 	body, err := common.Marshal(map[string]interface{}{
-		"observerPrompt": input.ObserverPrompt,
-		"advisorPrompt":  input.AdvisorPrompt,
-		"learningPrompt": input.LearningPrompt,
-		"enabled":        input.Enabled == nil || *input.Enabled,
-		"updatedBy":      updatedBy,
+		"observerPrompt":          input.ObserverPrompt,
+		"advisorPrompt":           input.AdvisorPrompt,
+		"learningPrompt":          input.LearningPrompt,
+		"enabled":                 input.Enabled == nil || *input.Enabled,
+		"advisorReferenceEnabled": input.AdvisorReferenceEnabled == nil || *input.AdvisorReferenceEnabled,
+		"observerInterval":        input.ObserverInterval,
+		"updatedBy":               updatedBy,
 	})
 	if err != nil {
 		return dto.ACUPrivatePrompts{}, err

@@ -1,21 +1,62 @@
 package dto
 
 type ACUAdvisor struct {
-	AdvisorID        string                 `json:"advisorId"`
-	NewAPIUserID     string                 `json:"newapiUserId"`
-	LogicalRequestID string                 `json:"logicalRequestId"`
-	TriggerCallCount int64                  `json:"triggerCallCount"`
-	NeedAdvisor      bool                   `json:"needAdvisor"`
-	Status           string                 `json:"status"`
-	Problem          string                 `json:"problem"`
-	Advice           string                 `json:"advice,omitempty"`
-	Learn            string                 `json:"learn"`
-	RelevantSkillIDs []string               `json:"relevantSkillIds"`
-	CreatedAt        string                 `json:"createdAt"`
-	UserFeedback     string                 `json:"userFeedback,omitempty"`
-	FeedbackAt       string                 `json:"feedbackAt,omitempty"`
-	ObserverResult   map[string]interface{} `json:"observerResult,omitempty"`
-	AdvisorResult    map[string]interface{} `json:"advisorResult,omitempty"`
+	AdvisorID                  string                 `json:"advisorId"`
+	NewAPIUserID               string                 `json:"newapiUserId"`
+	LogicalRequestID           string                 `json:"logicalRequestId"`
+	TriggerCallCount           int64                  `json:"triggerCallCount"`
+	NeedAdvisor                bool                   `json:"needAdvisor"`
+	Status                     string                 `json:"status"`
+	Problem                    string                 `json:"problem"`
+	Advice                     string                 `json:"advice,omitempty"`
+	Learn                      string                 `json:"learn"`
+	RelevantSkillIDs           []string               `json:"relevantSkillIds"`
+	CreatedAt                  string                 `json:"createdAt"`
+	UserFeedback               string                 `json:"userFeedback,omitempty"`
+	FeedbackAt                 string                 `json:"feedbackAt,omitempty"`
+	SessionID                  string                 `json:"sessionId,omitempty"`
+	ReferenceStatus            string                 `json:"referenceStatus,omitempty"`
+	ConsumedByLogicalRequestID string                 `json:"consumedByLogicalRequestId,omitempty"`
+	ConsumedAt                 string                 `json:"consumedAt,omitempty"`
+	ObserverResult             map[string]interface{} `json:"observerResult,omitempty"`
+	AdvisorResult              map[string]interface{} `json:"advisorResult,omitempty"`
+}
+
+type ACUAdvisorNotification struct {
+	ID              uint   `json:"id"`
+	AdvisorID       string `json:"advisorId"`
+	Status          string `json:"status"`
+	ProblemSummary  string `json:"problemSummary"`
+	AdviceSummary   string `json:"adviceSummary"`
+	ReferenceStatus string `json:"referenceStatus"`
+	TargetPath      string `json:"targetPath"`
+	SourceCreatedAt string `json:"sourceCreatedAt"`
+	ReadAt          string `json:"readAt,omitempty"`
+	CreatedAt       string `json:"createdAt"`
+}
+
+type ACUAdvisorNotificationList struct {
+	Notifications []ACUAdvisorNotification `json:"notifications"`
+	UnreadCount   int64                    `json:"unreadCount"`
+}
+
+type ACUAdvisorNotificationPreferences struct {
+	InAppEnabled   bool   `json:"inAppEnabled"`
+	BrowserEnabled bool   `json:"browserEnabled"`
+	EmailEnabled   bool   `json:"emailEnabled"`
+	Email          string `json:"email,omitempty"`
+	EmailTarget    string `json:"emailTarget,omitempty"`
+}
+
+type ACUAdvisorNotificationEvent struct {
+	AdvisorID        string `json:"advisorId" binding:"required"`
+	NewAPIUserID     string `json:"newapiUserId" binding:"required"`
+	SessionID        string `json:"sessionId"`
+	LogicalRequestID string `json:"logicalRequestId"`
+	Status           string `json:"status"`
+	Problem          string `json:"problem"`
+	Advice           string `json:"advice"`
+	ReferenceStatus  string `json:"referenceStatus"`
 }
 
 type ACUAdvisorList struct {
@@ -32,6 +73,8 @@ type ACUPrivatePrompts struct {
 	LearningPrompt   string                    `json:"learningPrompt"`
 	LearningExamples []ACUPrivatePromptExample `json:"learningExamples,omitempty"`
 	Enabled          bool                      `json:"enabled"`
+	AdvisorReferenceEnabled bool               `json:"advisorReferenceEnabled"`
+	ObserverInterval int                       `json:"observerInterval"`
 	PromptVersion    int64                     `json:"promptVersion"`
 	Source           string                    `json:"source"`
 	UpdatedAt        string                    `json:"updatedAt,omitempty"`
@@ -43,6 +86,8 @@ type ACUPrivatePromptsRequest struct {
 	AdvisorPrompt  string `json:"advisorPrompt" binding:"required"`
 	LearningPrompt string `json:"learningPrompt" binding:"required"`
 	Enabled        *bool  `json:"enabled"`
+	AdvisorReferenceEnabled *bool `json:"advisorReferenceEnabled"`
+	ObserverInterval *int `json:"observerInterval"`
 }
 
 type ACUPrivateMemoryFile struct {

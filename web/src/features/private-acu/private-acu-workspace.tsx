@@ -37,6 +37,7 @@ import {
 } from '@/features/dashboard/private-acu-admin-api'
 import { getPrivateACUFilmForUser } from '@/features/dashboard/private-acu-user-api'
 import { PromptExamples } from '@/features/private-acu/prompt-examples'
+import { PrivateACUAdvisor } from '@/features/dashboard/components/advisor/private-acu-advisor'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -45,6 +46,7 @@ export type PrivateACUSection =
   | 'account'
   | 'film'
   | 'learning-runs'
+  | 'advisor'
   | 'prompts'
 
 type LearningFlowStep = {
@@ -1404,6 +1406,7 @@ export function PrivateACUWorkspace(props: {
     account: t('Account learning'),
     film: t('Film POC'),
     'learning-runs': t('Learning runs'),
+    advisor: t('Advisor'),
     prompts: t('Prompts'),
   }
 
@@ -1420,6 +1423,8 @@ export function PrivateACUWorkspace(props: {
     ) : (
       <MemberFilmPage />
     )
+  } else if (props.section === 'advisor') {
+    content = <PrivateACUAdvisor />
   } else {
     content = isAdmin ? <PrivateACUAdmin view='prompts' /> : <MemberFilmPage />
   }

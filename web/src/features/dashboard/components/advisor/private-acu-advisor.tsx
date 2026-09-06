@@ -15,13 +15,17 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
 import {
   getPrivateACUMemory,
   getPrivateACUAdvisors,
+  getPrivateACUAdvisorNotificationPreferences,
+  updatePrivateACUAdvisorNotificationPreferences,
   updatePrivateACUAdvisorFeedback,
   type PrivateACUAdvisor,
 } from '../../advisor-api'
@@ -62,11 +66,6 @@ function AdvisorFeedback(props: {
       value: 'inaccurate' as const,
       label: t('Inaccurate'),
       icon: ThumbsDown,
-    },
-    {
-      value: 'ignored' as const,
-      label: t('Ignore'),
-      icon: CircleSlash,
     },
   ]
 
@@ -133,6 +132,11 @@ function AdvisorCard(props: {
           <span className='text-muted-foreground inline-flex items-center gap-1 text-xs'>
             <Lightbulb className='size-3.5' />
             {t('Learning candidate')}
+          </span>
+        )}
+        {props.advisor.referenceStatus && (
+          <span className='text-muted-foreground text-xs'>
+            {t('Reference status')}: {props.advisor.referenceStatus}
           </span>
         )}
       </div>
@@ -266,6 +270,88 @@ function AdvisorList() {
   )
 }
 
+function AdvisorNotificationPreferences() {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const preferencesQuery = useQuery({
+    queryKey: ['private-acu', 'advisor-notification-preferences'],
+    queryFn: getPrivateACUAdvisorNotificationPreferences,
+  })
+  const mutation = useMutation({
+    mutationFn: updatePrivateACUAdvisorNotificationPreferences,
+    onSuccess: (data) => {
+      queryClient.setQueryData(
+        ['private-acu', 'advisor-notification-preferences'],
+        data
+      )
+      toast.success(t('Notification preferences saved'))
+    },
+    onError: () => toast.error(t('Failed to save notification preferences')),
+  })
+
+  if (preferencesQuery.isLoading || !preferencesQuery.data) {
+    return <Skeleton className='h-28 w-full rounded-lg' />
+  }
+
+  const preferences = preferencesQuery.data
+  const update = (patch: Partial<typeof preferences>) =>
+    mutation.mutate({ ...preferences, ...patch })
+
+  return (
+    <section className='border-border/70 bg-card space-y-4 rounded-lg border p-4'>
+      <div>
+        <h3 className='text-sm font-semibold'>{t('Advisor notifications')}</h3>
+        <p className='text-muted-foreground mt-1 text-xs'>
+          {t('Choose how new Advisor audit suggestions reach you.')}
+        </p>
+      </div>
+      <div className='flex items-center justify-between gap-4'>
+        <span className='text-sm'>{t('Console notifications')}</span>
+        <Switch
+          checked={preferences.inAppEnabled}
+          onCheckedChange={(checked) => update({ inAppEnabled: checked })}
+        />
+      </div>
+      <div className='flex items-center justify-between gap-4'>
+        <span className='text-sm'>{t('Browser system notifications')}</span>
+        <Switch
+          checked={preferences.browserEnabled}
+          onCheckedChange={async (checked) => {
+            if (checked && 'Notification' in window) {
+              const permission = await Notification.requestPermission()
+              if (permission !== 'granted') {
+                toast.error(
+                  t('Browser notification permission was not granted')
+                )
+                return
+              }
+            }
+            update({ browserEnabled: checked })
+          }}
+        />
+      </div>
+      <div className='flex items-center justify-between gap-4'>
+        <span className='text-sm'>{t('Email notifications')}</span>
+        <Switch
+          checked={preferences.emailEnabled}
+          onCheckedChange={(checked) => update({ emailEnabled: checked })}
+        />
+      </div>
+      <label className='block space-y-2'>
+        <span className='text-muted-foreground text-xs'>
+          {t('Advisor notification email')}
+        </span>
+        <Input
+          type='email'
+          value={preferences.email}
+          placeholder={preferences.emailTarget || t('Account email')}
+          onChange={(event) => update({ email: event.target.value })}
+        />
+      </label>
+    </section>
+  )
+}
+
 function PrivateACUMemory() {
   const { t } = useTranslation()
   const memoryQuery = useQuery({
@@ -351,12 +437,16 @@ export function PrivateACUAdvisor() {
         <TabsTrigger value='memory'>
           {t('Preferences and experience')}
         </TabsTrigger>
+        <TabsTrigger value='settings'>{t('Notifications')}</TabsTrigger>
       </TabsList>
       <TabsContent value='advisor'>
         <AdvisorList />
       </TabsContent>
       <TabsContent value='memory'>
         <PrivateACUMemory />
+      </TabsContent>
+      <TabsContent value='settings'>
+        <AdvisorNotificationPreferences />
       </TabsContent>
     </Tabs>
   )

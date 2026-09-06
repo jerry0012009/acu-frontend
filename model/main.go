@@ -300,6 +300,8 @@ func migrateDB() error {
 		&SystemTask{},
 		&SystemTaskLock{},
 		&ACUUsageFinalize{},
+		&ACUAdvisorNotification{},
+		&ACUAdvisorNotificationDelivery{},
 		&CasbinRule{},
 		&AuthzRole{},
 	)

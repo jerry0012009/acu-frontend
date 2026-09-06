@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Combobox } from '@/components/ui/combobox'
+import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
@@ -285,6 +286,8 @@ export function PrivateACUAdmin(
         advisorPrompt: draft.advisorPrompt,
         learningPrompt: draft.learningPrompt,
         enabled: draft.enabled,
+        advisorReferenceEnabled: draft.advisorReferenceEnabled,
+        observerInterval: draft.observerInterval,
       }
     : undefined
   const userOptions = (usersQuery.data?.data?.items ?? []).map((user) => ({
@@ -494,18 +497,57 @@ export function PrivateACUAdmin(
             </p>
           </div>
           {draft && (
-            <label className='flex items-center gap-2 text-sm'>
-              <Switch
-                checked={draft.enabled}
-                disabled={disabled || !canEdit}
-                onCheckedChange={(checked) =>
-                  setDraft((current) =>
-                    current ? { ...current, enabled: checked } : current
-                  )
-                }
-              />
-              {t('Private ACU enabled')}
-            </label>
+            <div className='flex flex-wrap items-center gap-4 text-sm'>
+              <label className='flex items-center gap-2'>
+                <Switch
+                  checked={draft.enabled}
+                  disabled={disabled || !canEdit}
+                  onCheckedChange={(checked) =>
+                    setDraft((current) =>
+                      current ? { ...current, enabled: checked } : current
+                    )
+                  }
+                />
+                {t('Private ACU enabled')}
+              </label>
+              <label className='flex items-center gap-2'>
+                <Switch
+                  checked={draft.advisorReferenceEnabled}
+                  disabled={disabled || !canEdit}
+                  onCheckedChange={(checked) =>
+                    setDraft((current) =>
+                      current
+                        ? { ...current, advisorReferenceEnabled: checked }
+                        : current
+                    )
+                  }
+                />
+                {t('Advisor reference enabled')}
+              </label>
+              <label className='flex items-center gap-2'>
+                <span className='text-muted-foreground'>
+                  {t('Observer interval')}
+                </span>
+                <Input
+                  type='number'
+                  min={1}
+                  max={100000}
+                  className='w-24'
+                  value={draft.observerInterval}
+                  disabled={disabled || !canEdit}
+                  onChange={(event) =>
+                    setDraft((current) =>
+                      current
+                        ? {
+                            ...current,
+                            observerInterval: Number(event.target.value),
+                          }
+                        : current
+                    )
+                  }
+                />
+              </label>
+            </div>
           )}
           {canEdit && (
             <div className='flex gap-2'>

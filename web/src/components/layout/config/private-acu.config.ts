@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next'
 import {
   BookOpen,
+  Bell,
   Film,
   Gauge,
   LayoutDashboard,
@@ -38,6 +39,11 @@ function getPrivateACUNavGroups(t: TFunction): NavGroup[] {
           url: '/private-acu/learning-runs',
           icon: ListChecks,
           requiredRole: ROLE.ADMIN,
+        },
+        {
+          title: t('Advisor'),
+          url: '/private-acu/advisor',
+          icon: Bell,
         },
         {
           title: t('Prompts'),
