@@ -29,6 +29,7 @@ import {
   updatePrivateACUAdvisorFeedback,
   type PrivateACUAdvisor,
 } from '../../advisor-api'
+import { requestAdvisorBrowserNotificationPermission } from '../../lib/advisor-browser-notification'
 
 function AdvisorStatusIcon(props: { status: PrivateACUAdvisor['status'] }) {
   if (props.status === 'risk') {
@@ -336,8 +337,9 @@ function AdvisorNotificationPreferences() {
         <Switch
           checked={preferences.browserEnabled}
           onCheckedChange={async (checked) => {
-            if (checked && 'Notification' in window) {
-              const permission = await Notification.requestPermission()
+            if (checked) {
+              const permission =
+                await requestAdvisorBrowserNotificationPermission()
               if (permission !== 'granted') {
                 toast.error(
                   t('Browser notification permission was not granted')

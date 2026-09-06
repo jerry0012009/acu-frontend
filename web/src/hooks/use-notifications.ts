@@ -7,6 +7,7 @@ import {
   markPrivateACUAdvisorNotificationRead,
   type PrivateACUAdvisorNotification,
 } from '@/features/dashboard/advisor-api'
+import { showAdvisorBrowserNotifications } from '@/features/dashboard/lib/advisor-browser-notification'
 import { useStatus } from '@/hooks/use-status'
 import { getNotice } from '@/lib/api'
 import { useNotificationStore } from '@/stores/notification-store'
@@ -122,23 +123,9 @@ export function useNotifications() {
       toast.info('New Private ACU Advisor suggestion')
     }
 
-    if (
-      advisorPreferencesQuery.data?.browserEnabled &&
-      typeof window !== 'undefined' &&
-      'Notification' in window &&
-      Notification.permission === 'granted'
-    ) {
-      for (const notification of newNotifications) {
-        try {
-          new Notification('Private ACU Advisor', {
-            body: `${notification.problemSummary}\n${notification.adviceSummary}`,
-            tag: `acu-advisor-${notification.advisorId}`,
-          })
-        } catch {
-          // Browser notification is best effort; the bell and toast remain authoritative.
-        }
-      }
-    }
+    showAdvisorBrowserNotifications(newNotifications, {
+      browserEnabled: Boolean(advisorPreferencesQuery.data?.browserEnabled),
+    })
   }, [
     advisorNotifications,
     advisorPreferencesQuery.data?.inAppEnabled,
