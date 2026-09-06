@@ -46,6 +46,7 @@ const CLAUDE_GITHUB_INSTALL_BASE_URL =
 
 export type AcuClient = 'codex' | 'claude'
 export type AcuApiProtocol = 'responses' | 'messages'
+export type AcuQuickStartMode = 'preview' | 'credentialed'
 
 export function normalizeApiKey(value: string): string {
   if (!value) return ACU_MASKED_API_KEY
@@ -56,6 +57,21 @@ export function maskCredentialText(value: string, apiKey: string): string {
   const normalizedKey = normalizeApiKey(apiKey)
   if (normalizedKey === ACU_MASKED_API_KEY) return value
   return value.replaceAll(normalizedKey, ACU_MASKED_API_KEY)
+}
+
+export function displayCredentialText(
+  value: string,
+  apiKey: string,
+  mode: AcuQuickStartMode
+): string {
+  return mode === 'credentialed' ? value : maskCredentialText(value, apiKey)
+}
+
+export function displayCredentialValue(
+  apiKey: string,
+  mode: AcuQuickStartMode
+): string {
+  return mode === 'credentialed' ? normalizeApiKey(apiKey) : ACU_MASKED_API_KEY
 }
 
 function shellQuote(value: string): string {

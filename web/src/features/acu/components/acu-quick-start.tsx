@@ -39,16 +39,17 @@ import {
   buildPowerShellInstallCommand,
   buildUnixFallbackInstallCommand,
   buildUnixInstallCommand,
+  displayCredentialText,
+  displayCredentialValue,
   buildWindowsCommandPromptInstall,
   getLaunchCommand,
   getProtocolEndpoint,
-  maskCredentialText,
   normalizeApiKey,
+  type AcuQuickStartMode,
   type AcuApiProtocol,
   type AcuClient,
 } from '../lib/quick-start'
 
-type AcuQuickStartMode = 'preview' | 'credentialed'
 export type AcuQuickStartTab = 'codex' | 'claude' | 'ccswitch' | 'api' | 'agent'
 type Platform = 'unix' | 'windows'
 type Agent = 'openclaw' | 'hermes'
@@ -130,10 +131,18 @@ export function AcuQuickStart(props: AcuQuickStartProps) {
 
           <div className='min-h-[490px]'>
             <TabsContent value='codex' className='m-0'>
-              <ClientQuickStart client='codex' copyKey={copyKey} />
+              <ClientQuickStart
+                client='codex'
+                copyKey={copyKey}
+                mode={props.mode}
+              />
             </TabsContent>
             <TabsContent value='claude' className='m-0'>
-              <ClientQuickStart client='claude' copyKey={copyKey} />
+              <ClientQuickStart
+                client='claude'
+                copyKey={copyKey}
+                mode={props.mode}
+              />
             </TabsContent>
             <TabsContent value='ccswitch' className='m-0'>
               <CCSwitchQuickStart
@@ -150,7 +159,7 @@ export function AcuQuickStart(props: AcuQuickStartProps) {
               />
             </TabsContent>
             <TabsContent value='agent' className='m-0'>
-              <AgentQuickStart copyKey={copyKey} />
+              <AgentQuickStart copyKey={copyKey} mode={props.mode} />
             </TabsContent>
           </div>
         </Tabs>
@@ -159,10 +168,15 @@ export function AcuQuickStart(props: AcuQuickStartProps) {
   )
 }
 
-function ClientQuickStart(props: { client: AcuClient; copyKey: string }) {
+function ClientQuickStart(props: {
+  client: AcuClient
+  copyKey: string
+  mode: AcuQuickStartMode
+}) {
   const { t } = useTranslation()
-  const [connectionMode, setConnectionMode] =
-    useState<ClientConnectionMode>('install')
+  const [connectionMode, setConnectionMode] = useState<ClientConnectionMode>(
+    props.mode === 'credentialed' ? 'manual' : 'install'
+  )
   const [platform, setPlatform] = useState<Platform>('unix')
   const [fallbackOpen, setFallbackOpen] = useState(false)
   const [otherInstallOpen, setOtherInstallOpen] = useState(false)
@@ -175,30 +189,23 @@ function ClientQuickStart(props: { client: AcuClient; copyKey: string }) {
     platform === 'unix'
       ? buildUnixFallbackInstallCommand(props.client, props.copyKey)
       : buildPowerShellFallbackInstallCommand(props.client, props.copyKey)
-  const displayCanonicalCommand = maskCredentialText(
+  const displayCanonicalCommand = displayCredentialText(
     canonicalCommand,
-    props.copyKey
+    props.copyKey,
+    props.mode
   )
-  const displayFallbackCommand = maskCredentialText(
+  const displayFallbackCommand = displayCredentialText(
     fallbackCommand,
-    props.copyKey
+    props.copyKey,
+    props.mode
   )
   const manualConfig = buildManualConfig(props.client, props.copyKey)
   return (
     <div className='p-4 sm:p-5'>
-      <div className='space-y-2'>
-        <div className='text-[10px] font-semibold tracking-[0.16em] text-slate-500 uppercase'>
-          {t('Connection method')}
-        </div>
-        <SecondarySelector
-          value={connectionMode}
-          onChange={(value) => setConnectionMode(value as ClientConnectionMode)}
-          items={[
-            { value: 'install', label: 'One-click install' },
-            { value: 'manual', label: 'Base URL / API Key' },
-          ]}
-        />
-      </div>
+      <ConnectionModeSelector
+        value={connectionMode}
+        onChange={(value) => setConnectionMode(value as ClientConnectionMode)}
+      />
 
       {connectionMode === 'install' ? (
         <div className='mt-5 space-y-4'>
@@ -274,6 +281,7 @@ function ClientQuickStart(props: { client: AcuClient; copyKey: string }) {
           client={props.client}
           copyKey={props.copyKey}
           config={manualConfig}
+          mode={props.mode}
         />
       )}
     </div>
@@ -284,6 +292,7 @@ function ManualClientConfig(props: {
   client: AcuClient
   copyKey: string
   config: string
+  mode: AcuQuickStartMode
 }) {
   const { t } = useTranslation()
   const baseUrl =
@@ -305,7 +314,7 @@ function ManualClientConfig(props: {
         <ConnectionRow label='Base URL' value={baseUrl} copyValue={baseUrl} />
         <ConnectionRow
           label='API Key'
-          value={ACU_MASKED_API_KEY}
+          value={displayCredentialValue(props.copyKey, props.mode)}
           copyValue={props.copyKey}
         />
         <ConnectionRow label='Model' value={ACU_DEFAULT_MODEL} />
@@ -314,7 +323,11 @@ function ManualClientConfig(props: {
       <Step number='01' label={t('Copy the matching configuration')}>
         <CodePanel
           value={props.config}
-          displayValue={maskCredentialText(props.config, props.copyKey)}
+          displayValue={displayCredentialText(
+            props.config,
+            props.copyKey,
+            props.mode
+          )}
           copyLabel={t(
             props.copyKey === ACU_MASKED_API_KEY
               ? 'Copy template'
@@ -371,7 +384,7 @@ function CCSwitchQuickStart(props: {
       <div className='divide-y divide-white/[0.06] border-y border-white/[0.06]'>
         <ConnectionRow
           label='API Key'
-          value={ACU_MASKED_API_KEY}
+          value={displayCredentialValue(props.copyKey, props.mode)}
           copyValue={props.copyKey}
         />
         <ConnectionRow
@@ -508,7 +521,7 @@ function ApiQuickStart(props: {
         <ConnectionRow label='Base URL' value={ACU_API_BASE_URL} />
         <ConnectionRow
           label='API Key'
-          value={ACU_MASKED_API_KEY}
+          value={displayCredentialValue(props.copyKey, props.mode)}
           copyValue={props.copyKey}
         />
         <ConnectionRow label='Model' value={ACU_DEFAULT_MODEL} />
@@ -534,9 +547,10 @@ function ApiQuickStart(props: {
         </div>
         <CodePanel
           value={buildApiCurl(protocol, props.copyKey)}
-          displayValue={maskCredentialText(
+          displayValue={displayCredentialText(
             buildApiCurl(protocol, props.copyKey),
-            props.copyKey
+            props.copyKey,
+            props.mode
           )}
           copyLabel={t(
             props.copyKey === ACU_MASKED_API_KEY
@@ -599,14 +613,14 @@ function ApiQuickStart(props: {
   )
 }
 
-function AgentQuickStart(props: { copyKey: string }) {
+function AgentQuickStart(props: { copyKey: string; mode: AcuQuickStartMode }) {
   const { t } = useTranslation()
   const [agent, setAgent] = useState<Agent>('openclaw')
   const config =
     agent === 'openclaw'
       ? buildOpenClawConfig(props.copyKey)
       : buildHermesConfig(props.copyKey)
-  const displayConfig = maskCredentialText(config, props.copyKey)
+  const displayConfig = displayCredentialText(config, props.copyKey, props.mode)
   const protocol = agent === 'openclaw' ? 'openai-responses' : 'codex_responses'
 
   return (
@@ -677,6 +691,86 @@ function SecondarySelector(props: {
           {t(item.label)}
         </button>
       ))}
+    </div>
+  )
+}
+
+function ConnectionModeSelector(props: {
+  value: ClientConnectionMode
+  onChange: (value: ClientConnectionMode) => void
+}) {
+  const { t } = useTranslation()
+  const options: Array<{
+    value: ClientConnectionMode
+    label: string
+    description: string
+    icon: typeof Terminal
+  }> = [
+    {
+      value: 'manual',
+      label: 'Base URL / API Key',
+      description: 'Configure the client yourself',
+      icon: Settings2,
+    },
+    {
+      value: 'install',
+      label: 'One-click install',
+      description: 'Install the ACU helper',
+      icon: Terminal,
+    },
+  ]
+
+  return (
+    <div className='rounded-xl border border-sky-300/25 bg-sky-300/[0.06] p-3 shadow-[0_8px_24px_-18px_rgba(56,189,248,0.8)]'>
+      <div className='mb-2.5 flex items-center gap-2'>
+        <Settings2 className='size-4 text-sky-300' />
+        <span className='text-xs font-semibold text-white'>
+          {t('Connection method')}
+        </span>
+      </div>
+      <div
+        role='group'
+        aria-label={t('Connection method')}
+        className='grid gap-2 sm:grid-cols-2'
+      >
+        {options.map((option) => {
+          const Icon = option.icon
+          const selected = props.value === option.value
+          return (
+            <button
+              key={option.value}
+              type='button'
+              aria-pressed={selected}
+              onClick={() => props.onChange(option.value)}
+              className={cn(
+                'flex min-h-16 items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors',
+                selected
+                  ? 'border-sky-300/70 bg-sky-300/15 text-white shadow-[0_0_0_1px_rgba(125,211,252,0.15)]'
+                  : 'border-white/10 bg-black/15 text-slate-400 hover:border-sky-300/35 hover:bg-white/[0.06] hover:text-slate-200'
+              )}
+            >
+              <span
+                className={cn(
+                  'flex size-8 shrink-0 items-center justify-center rounded-md border',
+                  selected
+                    ? 'border-sky-300/40 bg-sky-300/15 text-sky-200'
+                    : 'border-white/10 bg-white/[0.04] text-slate-500'
+                )}
+              >
+                <Icon className='size-4' />
+              </span>
+              <span className='min-w-0'>
+                <span className='block text-xs font-semibold'>
+                  {t(option.label)}
+                </span>
+                <span className='mt-0.5 block text-[11px] text-slate-500'>
+                  {t(option.description)}
+                </span>
+              </span>
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }

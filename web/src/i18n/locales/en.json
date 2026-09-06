@@ -5543,6 +5543,8 @@
     "Connection method": "Connection method",
     "One-click install": "One-click install",
     "Base URL / API Key": "Base URL / API Key",
+    "Configure the client yourself": "Configure the client yourself",
+    "Install the ACU helper": "Install the ACU helper",
     "Keep your existing Codex CLI. Set the Base URL and API Key below in its provider configuration.": "Keep your existing Codex CLI. Set the Base URL and API Key below in its provider configuration.",
     "Keep your existing Claude Code. Set the Base URL and API Key below in its environment or settings.": "Keep your existing Claude Code. Set the Base URL and API Key below in its environment or settings.",
     "Copy the matching configuration": "Copy the matching configuration",

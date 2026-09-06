@@ -5562,6 +5562,8 @@
     "Connection method": "连接方式",
     "One-click install": "一键安装",
     "Base URL / API Key": "Base URL / API Key",
+    "Configure the client yourself": "手动配置客户端",
+    "Install the ACU helper": "安装 ACU 辅助程序",
     "Keep your existing Codex CLI. Set the Base URL and API Key below in its provider configuration.": "保留现有 Codex CLI，只需在它的 Provider 配置中填入下面的 Base URL 和 API Key。",
     "Keep your existing Claude Code. Set the Base URL and API Key below in its environment or settings.": "保留现有 Claude Code，只需在环境变量或设置中填入下面的 Base URL 和 API Key。",
     "Copy the matching configuration": "复制对应配置",

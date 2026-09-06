@@ -15,6 +15,8 @@ import {
   buildUnixFallbackInstallCommand,
   buildUnixInstallCommand,
   buildWindowsCommandPromptInstall,
+  displayCredentialText,
+  displayCredentialValue,
   maskCredentialText,
 } from '../quick-start.ts'
 
@@ -133,6 +135,21 @@ test('preview display masks credentials while credentialed copy values remain us
   const hermesDisplayed = maskCredentialText(hermesConfig, secret)
   assert.doesNotMatch(hermesDisplayed, /sk-test-secret-123/)
   assert.match(hermesDisplayed, /sk-••••••/)
+})
+
+test('credentialed setup displays the resolved API key while preview stays masked', () => {
+  const config = buildOpenClawConfig(secret)
+
+  assert.equal(displayCredentialValue(secret, 'credentialed'), secret)
+  assert.equal(displayCredentialValue(secret, 'preview'), ACU_MASKED_API_KEY)
+  assert.match(
+    displayCredentialText(config, secret, 'credentialed'),
+    /sk-test-secret-123/
+  )
+  assert.doesNotMatch(
+    displayCredentialText(config, secret, 'preview'),
+    /sk-test-secret-123/
+  )
 })
 
 test('CC Switch setup exposes canonical endpoints and the Codex model mapping', () => {
