@@ -30,6 +30,8 @@ import {
   type PrivateACUAdvisor,
 } from '../../advisor-api'
 import { requestAdvisorBrowserNotificationPermission } from '../../lib/advisor-browser-notification'
+import type { PrivateACUMemorySkill } from '../../private-acu-admin-api'
+import { PrivateACUSkillCatalog } from '../admin/private-acu-skill-catalog'
 
 function AdvisorStatusIcon(props: { status: PrivateACUAdvisor['status'] }) {
   if (props.status === 'risk') {
@@ -98,6 +100,8 @@ function AdvisorFeedback(props: {
 
 function AdvisorCard(props: {
   advisor: PrivateACUAdvisor
+  skills: PrivateACUMemorySkill[]
+  skillsLoading: boolean
   onFeedback: (
     advisorId: string,
     feedback: NonNullable<PrivateACUAdvisor['userFeedback']>
@@ -105,10 +109,23 @@ function AdvisorCard(props: {
   pending: boolean
 }) {
   const { t } = useTranslation()
+  const referencedSkills = props.skills.filter((skill) =>
+    props.advisor.relevantSkillIds.includes(skill.id)
+  )
   const createdAt = useMemo(
     () => new Date(props.advisor.createdAt).toLocaleString(),
     [props.advisor.createdAt]
   )
+  let referencedSkillsContent = (
+    <p className='text-muted-foreground text-sm'>{t('No skills')}</p>
+  )
+  if (props.skillsLoading) {
+    referencedSkillsContent = <Skeleton className='h-16 w-full rounded-md' />
+  } else if (referencedSkills.length > 0) {
+    referencedSkillsContent = (
+      <PrivateACUSkillCatalog skills={referencedSkills} />
+    )
+  }
 
   return (
     <article className='border-border/70 bg-card rounded-xl border p-4 sm:p-5'>
@@ -122,11 +139,6 @@ function AdvisorCard(props: {
                 {createdAt}
               </span>
             </div>
-            <p className='text-muted-foreground mt-1 text-xs'>
-              {t('After {{count}} model calls', {
-                count: props.advisor.triggerCallCount,
-              })}
-            </p>
           </div>
         </div>
         {props.advisor.learn === 'candidate' && (
@@ -158,9 +170,12 @@ function AdvisorCard(props: {
           </div>
         )}
         {props.advisor.relevantSkillIds.length > 0 && (
-          <p className='text-muted-foreground text-xs'>
-            {t('Reference skills')}: {props.advisor.relevantSkillIds.join(', ')}
-          </p>
+          <div className='space-y-2'>
+            <h3 className='text-muted-foreground text-xs font-medium uppercase'>
+              {t('Reference skills')}
+            </h3>
+            {referencedSkillsContent}
+          </div>
         )}
       </div>
 
@@ -185,7 +200,11 @@ function AdvisorList(props: { advisorId?: string }) {
     queryKey: ['dashboard', 'private-acu-advisor'],
     queryFn: () => getPrivateACUAdvisors(100),
   })
-  const advisors = advisorsQuery.data ?? []
+  const memoryQuery = useQuery({
+    queryKey: ['dashboard', 'private-acu-memory'],
+    queryFn: getPrivateACUMemory,
+  })
+  const advisors = useMemo(() => advisorsQuery.data ?? [], [advisorsQuery.data])
   useEffect(() => {
     if (
       !props.advisorId ||
@@ -278,6 +297,8 @@ function AdvisorList(props: { advisorId?: string }) {
           >
             <AdvisorCard
               advisor={advisor}
+              skills={memoryQuery.data?.skills ?? []}
+              skillsLoading={memoryQuery.isLoading}
               onFeedback={(advisorId, feedback) =>
                 feedbackMutation.mutate({ advisorId, feedback })
               }
