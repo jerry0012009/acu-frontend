@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Braces, RotateCcw, Save } from 'lucide-react'
+import { Braces, Info, RotateCcw, Save } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -11,6 +12,12 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { PromptExamples } from '@/features/private-acu/prompt-examples'
 import { getUsers } from '@/features/users/api'
 import { ROLE } from '@/lib/roles'
@@ -50,6 +57,29 @@ function PromptEditor(props: {
         className='min-h-48 font-mono text-xs'
       />
     </label>
+  )
+}
+
+function AdvisorSettingHint(props: { label: string; children: ReactNode }) {
+  return (
+    <TooltipProvider delay={100}>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <button
+              type='button'
+              className='text-muted-foreground hover:text-foreground inline-flex size-6 items-center justify-center rounded-sm'
+              aria-label={props.label}
+            />
+          }
+        >
+          <Info className='size-3.5' />
+        </TooltipTrigger>
+        <TooltipContent className='max-w-80 text-xs leading-5'>
+          {props.children}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }
 
@@ -498,32 +528,49 @@ export function PrivateACUAdmin(
           </div>
           {draft && (
             <div className='flex flex-wrap items-center gap-4 text-sm'>
-              <label className='flex items-center gap-2'>
-                <Switch
-                  checked={draft.enabled}
-                  disabled={disabled || !canEdit}
-                  onCheckedChange={(checked) =>
-                    setDraft((current) =>
-                      current ? { ...current, enabled: checked } : current
-                    )
-                  }
-                />
-                {t('Private ACU enabled')}
-              </label>
-              <label className='flex items-center gap-2'>
-                <Switch
-                  checked={draft.advisorReferenceEnabled}
-                  disabled={disabled || !canEdit}
-                  onCheckedChange={(checked) =>
-                    setDraft((current) =>
-                      current
-                        ? { ...current, advisorReferenceEnabled: checked }
-                        : current
-                    )
-                  }
-                />
-                {t('Advisor reference enabled')}
-              </label>
+              <div className='flex items-center gap-1.5'>
+                <label className='flex items-center gap-2'>
+                  <Switch
+                    checked={draft.enabled}
+                    disabled={disabled || !canEdit}
+                    onCheckedChange={(checked) =>
+                      setDraft((current) =>
+                        current ? { ...current, enabled: checked } : current
+                      )
+                    }
+                  />
+                  {t('Enable Advisor review')}
+                </label>
+                <AdvisorSettingHint label={t('Advisor review information')}>
+                  {t(
+                    'Runs Observer and Advisor asynchronously to extract relevant user preferences and past experience. It does not change the task or execute actions.'
+                  )}
+                </AdvisorSettingHint>
+              </div>
+              <div className='flex items-center gap-1.5'>
+                <label className='flex items-center gap-2'>
+                  <Switch
+                    checked={draft.advisorReferenceEnabled}
+                    disabled={disabled || !canEdit}
+                    onCheckedChange={(checked) =>
+                      setDraft((current) =>
+                        current
+                          ? {
+                              ...current,
+                              advisorReferenceEnabled: checked,
+                            }
+                          : current
+                      )
+                    }
+                  />
+                  {t('Insert Advisor reference automatically')}
+                </label>
+                <AdvisorSettingHint label={t('Advisor reference information')}>
+                  {t(
+                    'Adds the Advisor result to the same session’s next LLM request as non-authoritative context. It reflects preferences and past experience, not instructions; the model decides how to use it.'
+                  )}
+                </AdvisorSettingHint>
+              </div>
               <label className='flex items-center gap-2'>
                 <span className='text-muted-foreground'>
                   {t('Observer interval')}
