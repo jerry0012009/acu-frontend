@@ -1,5 +1,6 @@
 import type { TFunction } from 'i18next'
-import { Bell, Megaphone } from 'lucide-react'
+import { Bell, CheckCheck, Megaphone } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { RichContent } from '@/components/rich-content'
@@ -47,6 +48,7 @@ interface NotificationPopoverProps {
   onAdvisorNotificationOpen: (
     notification: PrivateACUAdvisorNotification
   ) => Promise<void>
+  onMarkAllRead: () => Promise<void>
   loading: boolean
   className?: string
 }
@@ -339,10 +341,22 @@ export function NotificationPopover({
   announcements,
   advisorNotifications,
   onAdvisorNotificationOpen,
+  onMarkAllRead,
   loading,
   className,
 }: NotificationPopoverProps) {
   const { t } = useTranslation()
+  const [markingAllRead, setMarkingAllRead] = useState(false)
+
+  const handleMarkAllRead = async () => {
+    setMarkingAllRead(true)
+    try {
+      await onMarkAllRead()
+    } finally {
+      setMarkingAllRead(false)
+    }
+  }
+
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger
@@ -372,7 +386,20 @@ export function NotificationPopover({
         className='w-[min(26rem,calc(100vw-1rem))] gap-3 p-3'
       >
         <PopoverHeader className='gap-1 px-1'>
-          <PopoverTitle>{t('Notifications')}</PopoverTitle>
+          <div className='flex items-center justify-between gap-3'>
+            <PopoverTitle>{t('Notifications')}</PopoverTitle>
+            <Button
+              type='button'
+              variant='ghost'
+              size='sm'
+              className='h-7 shrink-0 gap-1.5 px-2 text-xs'
+              disabled={unreadCount === 0 || markingAllRead}
+              onClick={() => void handleMarkAllRead()}
+            >
+              <CheckCheck className='size-3.5' />
+              {t('Mark all as read')}
+            </Button>
+          </div>
           <p className='text-muted-foreground text-xs'>
             {t('Latest platform updates and notices')}
           </p>

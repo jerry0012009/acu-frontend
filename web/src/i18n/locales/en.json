@@ -2563,6 +2563,7 @@
     "Manage Vendors": "Manage Vendors",
     "Manage your LinuxDO OAuth app": "Manage your LinuxDO OAuth app",
     "Manage your security settings and account access": "Manage your security settings and account access",
+    "Mark all as read": "Mark all as read",
     "Manual Disabled": "Manual Disabled",
     "Map fields from the user info response to local user attributes. Supports nested paths (e.g. ocs.data.id).": "Map fields from the user info response to local user attributes. Supports nested paths (e.g. ocs.data.id).",
     "Map model identifiers to Gemini API versions. A `default` entry applies when no specific match is found.": "Map model identifiers to Gemini API versions. A `default` entry applies when no specific match is found.",

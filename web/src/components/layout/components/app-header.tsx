@@ -124,6 +124,7 @@ export function AppHeader({
                 onAdvisorNotificationOpen={
                   notifications.openAdvisorNotification
                 }
+                onMarkAllRead={notifications.markAllNotificationsAsRead}
                 loading={notifications.loading}
               />
             )}

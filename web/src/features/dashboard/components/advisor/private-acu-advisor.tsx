@@ -195,7 +195,7 @@ function AdvisorCard(props: {
 function AdvisorList(props: { advisorId?: string }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [showAllHistory, setShowAllHistory] = useState(false)
+  const [showAllHistory, setShowAllHistory] = useState(true)
   const advisorsQuery = useQuery({
     queryKey: ['dashboard', 'private-acu-advisor'],
     queryFn: () => getPrivateACUAdvisors(100),

@@ -275,6 +275,7 @@ export function PublicHeader(props: PublicHeaderProps) {
                   onAdvisorNotificationOpen={
                     notifications.openAdvisorNotification
                   }
+                  onMarkAllRead={notifications.markAllNotificationsAsRead}
                   loading={notifications.loading}
                 />
               )}

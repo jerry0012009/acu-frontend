@@ -91,6 +91,10 @@ export async function markPrivateACUAdvisorNotificationRead(
   )
 }
 
+export async function markAllPrivateACUAdvisorNotificationsRead(): Promise<void> {
+  await api.post('/api/user/self/acu-advisor/notifications/read-all')
+}
+
 export async function getPrivateACUAdvisorNotificationPreferences(): Promise<PrivateACUAdvisorNotificationPreferences> {
   const response = await api.get<{
     data: PrivateACUAdvisorNotificationPreferences

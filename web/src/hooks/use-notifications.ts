@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import {
   getPrivateACUAdvisorNotificationPreferences,
   getPrivateACUAdvisorNotifications,
+  markAllPrivateACUAdvisorNotificationsRead,
   markPrivateACUAdvisorNotificationRead,
   type PrivateACUAdvisorNotification,
 } from '@/features/dashboard/advisor-api'
@@ -178,6 +179,18 @@ export function useNotifications() {
     }
   }
 
+  const markAllNotificationsAsRead = async () => {
+    if (noticeContent) {
+      markNoticeRead(noticeContent)
+    }
+    markAnnouncementsAsRead()
+
+    if (advisorUnreadCount > 0) {
+      await markAllPrivateACUAdvisorNotificationsRead()
+      await advisorNotificationsQuery.refetch()
+    }
+  }
+
   // Handle popover open
   const handleOpenPopover = (tab?: 'notice' | 'announcements' | 'advisor') => {
     const nextTab = tab || activeTab
@@ -244,6 +257,7 @@ export function useNotifications() {
     },
 
     // Actions
+    markAllNotificationsAsRead,
     openPopover: handleOpenPopover,
     closePopover: () => setPopoverOpen(false),
     refetchNotice,
