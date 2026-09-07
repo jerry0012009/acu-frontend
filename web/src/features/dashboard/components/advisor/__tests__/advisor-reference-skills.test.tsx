@@ -138,3 +138,52 @@ test('shows referenced Skill names and Markdown without exposing call counts', a
   await act(async () => root.unmount())
   container.remove()
 })
+
+test('shows a clear Observer result when progress is normal', async () => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+  })
+  queryClient.setQueryData(
+    ['dashboard', 'private-acu-advisor'],
+    [
+      {
+        advisorId: 'advisor-normal',
+        newapiUserId: '3',
+        logicalRequestId: 'request-normal',
+        triggerCallCount: 15100,
+        needAdvisor: false,
+        status: 'ok',
+        problem: '',
+        learn: 'none',
+        relevantSkillIds: [],
+        observerResult: { needAdvisor: false, problem: '' },
+        createdAt: '2026-09-07T13:45:27.000Z',
+        referenceStatus: 'disabled',
+      },
+    ]
+  )
+  queryClient.setQueryData(['dashboard', 'private-acu-memory'], {
+    enabled: true,
+    userId: '3',
+    skills: [],
+  })
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+
+  await act(async () => {
+    root.render(
+      <I18nextProvider i18n={i18n}>
+        <QueryClientProvider client={queryClient}>
+          <PrivateACUAdvisor />
+        </QueryClientProvider>
+      </I18nextProvider>
+    )
+  })
+
+  assert.match(container.textContent ?? '', /Observer observation/)
+  assert.match(container.textContent ?? '', /No issue detected/)
+
+  await act(async () => root.unmount())
+  container.remove()
+})

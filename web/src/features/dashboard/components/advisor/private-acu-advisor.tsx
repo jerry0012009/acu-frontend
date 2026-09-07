@@ -117,6 +117,11 @@ function AdvisorCard(props: {
     [props.advisor.createdAt]
   )
   const observerProblem = props.advisor.observerResult?.problem?.trim()
+  const observerObservation =
+    observerProblem ||
+    (props.advisor.observerResult?.needAdvisor === false
+      ? t('No issue detected')
+      : undefined)
   const advisorProblem = props.advisor.problem.trim()
   let referencedSkillsContent = (
     <p className='text-muted-foreground text-sm'>{t('No skills')}</p>
@@ -157,12 +162,12 @@ function AdvisorCard(props: {
       </div>
 
       <div className='mt-4 space-y-3'>
-        {observerProblem ? (
+        {observerObservation ? (
           <div>
             <h3 className='text-muted-foreground text-xs font-medium uppercase'>
               {t('Observer observation')}
             </h3>
-            <p className='mt-1 text-sm leading-6'>{observerProblem}</p>
+            <p className='mt-1 text-sm leading-6'>{observerObservation}</p>
           </div>
         ) : null}
         {advisorProblem && advisorProblem !== observerProblem ? (

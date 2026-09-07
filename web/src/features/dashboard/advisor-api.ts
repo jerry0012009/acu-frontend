@@ -14,6 +14,7 @@ export type PrivateACUAdvisor = {
   learn: 'none' | 'candidate'
   relevantSkillIds: string[]
   observerResult?: {
+    needAdvisor?: boolean
     problem?: string
   }
   createdAt: string

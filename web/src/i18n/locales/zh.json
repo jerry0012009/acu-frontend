@@ -5629,6 +5629,7 @@
     "Learning candidate": "学习候选",
     "After {{count}} model calls": "已进行 {{count}} 次模型调用",
     "Observer observation": "Observer 观察结果",
+    "No issue detected": "未发现需要提醒的问题",
     "Observed problem": "观察到的问题",
     "Advisor suggestion": "建议",
     "Reference skills": "参考技能",
