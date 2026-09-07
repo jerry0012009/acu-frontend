@@ -116,6 +116,8 @@ function AdvisorCard(props: {
     () => new Date(props.advisor.createdAt).toLocaleString(),
     [props.advisor.createdAt]
   )
+  const observerProblem = props.advisor.observerResult?.problem?.trim()
+  const advisorProblem = props.advisor.problem.trim()
   let referencedSkillsContent = (
     <p className='text-muted-foreground text-sm'>{t('No skills')}</p>
   )
@@ -155,12 +157,22 @@ function AdvisorCard(props: {
       </div>
 
       <div className='mt-4 space-y-3'>
-        <div>
-          <h3 className='text-muted-foreground text-xs font-medium uppercase'>
-            {t('Observed problem')}
-          </h3>
-          <p className='mt-1 text-sm leading-6'>{props.advisor.problem}</p>
-        </div>
+        {observerProblem ? (
+          <div>
+            <h3 className='text-muted-foreground text-xs font-medium uppercase'>
+              {t('Observer observation')}
+            </h3>
+            <p className='mt-1 text-sm leading-6'>{observerProblem}</p>
+          </div>
+        ) : null}
+        {advisorProblem && advisorProblem !== observerProblem ? (
+          <div>
+            <h3 className='text-muted-foreground text-xs font-medium uppercase'>
+              {t('Observed problem')}
+            </h3>
+            <p className='mt-1 text-sm leading-6'>{advisorProblem}</p>
+          </div>
+        ) : null}
         {props.advisor.advice && (
           <div className='border-primary/20 bg-primary/5 rounded-lg border p-3'>
             <h3 className='text-primary text-xs font-medium uppercase'>

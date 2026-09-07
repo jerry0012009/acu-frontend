@@ -69,6 +69,9 @@ test('shows referenced Skill names and Markdown without exposing call counts', a
         advice: 'The user prefers conclusions backed by real evidence.',
         learn: 'none',
         relevantSkillIds: ['skill-production-evidence'],
+        observerResult: {
+          problem: 'Observer saw a possible gap in production verification.',
+        },
         createdAt: '2026-09-07T00:00:00.000Z',
         referenceStatus: 'injected',
       },
@@ -113,6 +116,8 @@ test('shows referenced Skill names and Markdown without exposing call counts', a
   })
 
   const text = container.textContent ?? ''
+  assert.match(text, /Observer observation/)
+  assert.match(text, /Observer saw a possible gap/)
   assert.match(text, /Production conclusions need real evidence/)
   assert.doesNotMatch(text, /skill-production-evidence/)
   assert.doesNotMatch(text, /Unrelated preference/)

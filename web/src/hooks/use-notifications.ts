@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -60,6 +60,7 @@ export function useNotifications() {
     'notice' | 'announcements' | 'advisor'
   >('notice')
   const authenticated = useAuthStore((state) => Boolean(state.auth.user))
+  const queryClient = useQueryClient()
 
   // Fetch Notice from API
   const {
@@ -118,6 +119,10 @@ export function useNotifications() {
     )
     if (newNotifications.length === 0) return
 
+    void queryClient.invalidateQueries({
+      queryKey: ['dashboard', 'private-acu-advisor'],
+    })
+
     if (advisorPreferencesQuery.data?.inAppEnabled) {
       toast.info('New Private ACU Advisor suggestion')
     }
@@ -129,6 +134,7 @@ export function useNotifications() {
     advisorNotifications,
     advisorPreferencesQuery.data?.inAppEnabled,
     advisorPreferencesQuery.data?.browserEnabled,
+    queryClient,
   ])
 
   // Notification store

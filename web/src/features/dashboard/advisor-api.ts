@@ -13,6 +13,9 @@ export type PrivateACUAdvisor = {
   advice?: string
   learn: 'none' | 'candidate'
   relevantSkillIds: string[]
+  observerResult?: {
+    problem?: string
+  }
   createdAt: string
   userFeedback?: 'helpful' | 'inaccurate' | 'ignored'
   feedbackAt?: string
