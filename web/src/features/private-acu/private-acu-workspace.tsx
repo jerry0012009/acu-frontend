@@ -25,6 +25,7 @@ import { PrivateACUAdmin } from '@/features/dashboard/components/admin/private-a
 import { PrivateACUFilmPOC } from '@/features/dashboard/components/admin/private-acu-film-poc'
 import { PrivateACULearningRuns } from '@/features/dashboard/components/admin/private-acu-learning-runs'
 import { PrivateACUSkillCatalog } from '@/features/dashboard/components/admin/private-acu-skill-catalog'
+import { PrivateACUAdvisor } from '@/features/dashboard/components/advisor/private-acu-advisor'
 import {
   getPrivateACUFilmStatus,
   getPrivateACULearningRunDetail,
@@ -37,7 +38,6 @@ import {
 } from '@/features/dashboard/private-acu-admin-api'
 import { getPrivateACUFilmForUser } from '@/features/dashboard/private-acu-user-api'
 import { PromptExamples } from '@/features/private-acu/prompt-examples'
-import { PrivateACUAdvisor } from '@/features/dashboard/components/advisor/private-acu-advisor'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 

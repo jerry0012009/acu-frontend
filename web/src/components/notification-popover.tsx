@@ -22,10 +22,10 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import type { PrivateACUAdvisorNotification } from '@/features/dashboard/advisor-api'
 import { getAnnouncementColorClass } from '@/lib/colors'
 import { formatDateTimeObject } from '@/lib/time'
 import { cn } from '@/lib/utils'
-import type { PrivateACUAdvisorNotification } from '@/features/dashboard/advisor-api'
 
 interface AnnouncementItem {
   id?: number | string
@@ -280,9 +280,7 @@ function AdvisorNotificationsContent({
   t,
 }: {
   notifications: PrivateACUAdvisorNotification[]
-  onOpen: (
-    notification: PrivateACUAdvisorNotification
-  ) => Promise<void>
+  onOpen: (notification: PrivateACUAdvisorNotification) => Promise<void>
   t: TFunction
 }) {
   if (notifications.length === 0) {
@@ -302,7 +300,9 @@ function AdvisorNotificationsContent({
                 <span
                   className={cn(
                     'mt-1.5 size-2 shrink-0 rounded-full',
-                    notification.readAt ? 'bg-muted-foreground/40' : 'bg-amber-500'
+                    notification.readAt
+                      ? 'bg-muted-foreground/40'
+                      : 'bg-amber-500'
                   )}
                 />
                 <div className='min-w-0 flex-1 space-y-1'>

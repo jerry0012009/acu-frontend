@@ -138,11 +138,7 @@ export function formatProbeResult(
     const actualModel = probe.actual_model
     if (canonicalModel) parts.push(canonicalModel)
     else if (actualModel) parts.push(actualModel)
-    if (
-      canonicalModel &&
-      actualModel &&
-      actualModel !== canonicalModel
-    ) {
+    if (canonicalModel && actualModel && actualModel !== canonicalModel) {
       parts.push(`upstream ${actualModel}`)
     }
     if (

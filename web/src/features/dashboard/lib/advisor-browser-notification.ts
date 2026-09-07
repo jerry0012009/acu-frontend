@@ -59,7 +59,9 @@ export function showAdvisorBrowserNotifications(
     }
   }
 
-  const notificationApi = getNotificationEnvironment(options.target)?.Notification
+  const notificationApi = getNotificationEnvironment(
+    options.target
+  )?.Notification
   if (!notificationApi) {
     return {
       attempted: 0,

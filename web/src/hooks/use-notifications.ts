@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { toast } from 'sonner'
 
 import {
   getPrivateACUAdvisorNotificationPreferences,
@@ -10,9 +11,8 @@ import {
 import { showAdvisorBrowserNotifications } from '@/features/dashboard/lib/advisor-browser-notification'
 import { useStatus } from '@/hooks/use-status'
 import { getNotice } from '@/lib/api'
-import { useNotificationStore } from '@/stores/notification-store'
 import { useAuthStore } from '@/stores/auth-store'
-import { toast } from 'sonner'
+import { useNotificationStore } from '@/stores/notification-store'
 
 function hashString(input: string): string {
   let hash = 0
@@ -57,9 +57,7 @@ export function useNotifications() {
   const [popoverOpen, setPopoverOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<
     'notice' | 'announcements' | 'advisor'
-  >(
-    'notice'
-  )
+  >('notice')
   const authenticated = useAuthStore((state) => Boolean(state.auth.user))
 
   // Fetch Notice from API
@@ -181,9 +179,7 @@ export function useNotifications() {
   }
 
   // Handle popover open
-  const handleOpenPopover = (
-    tab?: 'notice' | 'announcements' | 'advisor'
-  ) => {
+  const handleOpenPopover = (tab?: 'notice' | 'announcements' | 'advisor') => {
     const nextTab = tab || activeTab
 
     // Mark currently visible content as read when opening the notification center
@@ -211,9 +207,7 @@ export function useNotifications() {
   }
 
   // Handle tab change - mark announcements as read when switching to that tab
-  const handleTabChange = (
-    tab: 'notice' | 'announcements' | 'advisor'
-  ) => {
+  const handleTabChange = (tab: 'notice' | 'announcements' | 'advisor') => {
     setActiveTab(tab)
 
     if (tab === 'announcements') {

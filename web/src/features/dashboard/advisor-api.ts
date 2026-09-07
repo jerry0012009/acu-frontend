@@ -70,14 +70,15 @@ export async function updatePrivateACUAdvisorFeedback(
   )
 }
 
-export async function getPrivateACUAdvisorNotifications(
-  limit = 10
-): Promise<{
+export async function getPrivateACUAdvisorNotifications(limit = 10): Promise<{
   notifications: PrivateACUAdvisorNotification[]
   unreadCount: number
 }> {
   const response = await api.get<{
-    data: { notifications: PrivateACUAdvisorNotification[]; unreadCount: number }
+    data: {
+      notifications: PrivateACUAdvisorNotification[]
+      unreadCount: number
+    }
   }>(`/api/user/self/acu-advisor/notifications?limit=${limit}`)
   return response.data.data
 }
