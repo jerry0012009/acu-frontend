@@ -28,6 +28,8 @@ import { useAuthRedirect } from '@/features/auth/hooks/use-auth-redirect'
 import { useEmailVerification } from '@/features/auth/hooks/use-email-verification'
 import { useTurnstile } from '@/features/auth/hooks/use-turnstile'
 import {
+  clearRedemptionCode,
+  clearRedemptionError,
   getAffiliateCode,
   getRedemptionCode,
   saveAffiliateCode,
@@ -48,6 +50,8 @@ export function SignUpForm({
   const [wechatCode, setWeChatCode] = useState('')
   const [isWeChatDialogOpen, setIsWeChatDialogOpen] = useState(false)
   const [isWeChatSubmitting, setIsWeChatSubmitting] = useState(false)
+  const [isRedemptionErrorDialogOpen, setIsRedemptionErrorDialogOpen] =
+    useState(false)
   const [turnstileWidgetKey, setTurnstileWidgetKey] = useState(0)
   const legalConsentErrorMessage = t('Please agree to the legal terms first')
 
@@ -119,6 +123,10 @@ export function SignUpForm({
     if (aff) {
       saveAffiliateCode(aff)
     }
+    if (new URLSearchParams(window.location.search).get('redeem_error')) {
+      clearRedemptionError()
+      setIsRedemptionErrorDialogOpen(true)
+    }
   }, [])
 
   async function onSubmit(data: z.infer<typeof registerFormSchema>) {
@@ -156,11 +164,18 @@ export function SignUpForm({
       if (res?.success) {
         toast.success(t('Account created! Please sign in'))
         redirectToLogin()
+      } else if (res?.code === 'REDEEM_CODE_INVALID') {
+        setIsRedemptionErrorDialogOpen(true)
       } else {
         toast.error(res?.message || t('Failed to create account'))
       }
-    } catch {
-      // Errors are handled by global interceptor
+    } catch (error: unknown) {
+      const responseCode = (
+        error as { response?: { data?: { code?: string } } }
+      ).response?.data?.code
+      if (responseCode === 'REDEEM_CODE_INVALID') {
+        setIsRedemptionErrorDialogOpen(true)
+      }
     } finally {
       setIsLoading(false)
     }
@@ -203,16 +218,38 @@ export function SignUpForm({
         await handleLoginSuccess(res.data)
         toast.success(t('Signed in via WeChat'))
         handleWeChatDialogChange(false)
+      } else if (res?.code === 'REDEEM_CODE_INVALID') {
+        handleWeChatDialogChange(false)
+        setIsRedemptionErrorDialogOpen(true)
       } else {
         if (getServerErrorMessageKey(res)) return
         toast.error(res?.message || t('Login failed'))
       }
     } catch (error: unknown) {
+      const responseCode = (
+        error as { response?: { data?: { code?: string } } }
+      ).response?.data?.code
+      if (responseCode === 'REDEEM_CODE_INVALID') {
+        handleWeChatDialogChange(false)
+        setIsRedemptionErrorDialogOpen(true)
+        return
+      }
       if (getServerErrorMessageKey(error)) return
       toast.error(t('Login failed'))
     } finally {
       setIsWeChatSubmitting(false)
     }
+  }
+
+  const handleKeepRedemptionCode = () => {
+    setIsRedemptionErrorDialogOpen(false)
+  }
+
+  const handleContinueWithoutRedemptionCode = () => {
+    clearRedemptionCode()
+    setTurnstileToken('')
+    setTurnstileWidgetKey((current) => current + 1)
+    setIsRedemptionErrorDialogOpen(false)
   }
 
   let verificationCodeAction: ReactNode = t('Send code')
@@ -438,6 +475,36 @@ export function SignUpForm({
           </div>
         </Dialog>
       )}
+
+      <Dialog
+        open={isRedemptionErrorDialogOpen}
+        onOpenChange={setIsRedemptionErrorDialogOpen}
+        title={t('Redemption code unavailable')}
+        description={t(
+          'This redemption code is invalid, expired, or already used.'
+        )}
+        contentClassName='max-w-md'
+        footer={
+          <>
+            <Button
+              type='button'
+              variant='outline'
+              onClick={handleKeepRedemptionCode}
+            >
+              {t('Return to change the code')}
+            </Button>
+            <Button type='button' onClick={handleContinueWithoutRedemptionCode}>
+              {t('Register without the code')}
+            </Button>
+          </>
+        }
+      >
+        <p className='text-muted-foreground text-sm'>
+          {t(
+            'You can return to change the code, or continue registration without a redemption code.'
+          )}
+        </p>
+      </Dialog>
     </Form>
   )
 }

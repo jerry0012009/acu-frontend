@@ -3,7 +3,11 @@ import axios from 'axios'
 import { api, refreshAuthentication, type RefreshOutcome } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
-import { getAffiliateCode, getRedemptionCode } from './lib/storage'
+import {
+  getAffiliateCode,
+  getRedemptionCode,
+  savePendingRedemptionCode,
+} from './lib/storage'
 import type { TelegramAuthorization } from './lib/telegram-login'
 import type {
   LoginPayload,
@@ -126,6 +130,7 @@ export async function createOAuthFlow(
 ): Promise<string> {
   const aff = intent === 'login' ? getAffiliateCode() : ''
   const redeem = intent === 'login' ? getRedemptionCode() : ''
+  if (redeem) savePendingRedemptionCode(redeem)
   const res = await api.post(
     '/api/oauth/state',
     {
@@ -152,6 +157,7 @@ export async function wechatLoginByCode(
 ): Promise<ApiResponse> {
   const res = await api.get('/api/oauth/wechat', {
     params: { code, redeem: redeemCode || undefined },
+    skipBusinessError: true,
   })
   return res.data
 }
@@ -177,6 +183,7 @@ export async function telegramLogin(
 export async function register(payload: RegisterPayload): Promise<ApiResponse> {
   const res = await api.post(`/api/user/register`, payload, {
     params: { turnstile: payload.turnstile ?? '' },
+    skipBusinessError: true,
   })
   return res.data
 }

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -67,7 +68,9 @@ func TestUserInsertRollsBackWhenRedeemCodeIsInvalid(t *testing.T) {
 		Status:     common.UserStatusEnabled,
 		Role:       common.RoleCommonUser,
 	}
-	require.Error(t, user.Insert(0))
+	err := user.Insert(0)
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrRedeemCodeInvalid))
 
 	var count int64
 	require.NoError(t, DB.Model(&User{}).Where("username = ?", user.Username).Count(&count).Error)

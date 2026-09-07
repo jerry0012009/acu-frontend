@@ -164,13 +164,13 @@ func Redeem(key string, userId int) (quota int, err error) {
 func redeemWithTx(tx *gorm.DB, keyCol string, key string, userId int) (*Redemption, error) {
 	redemption := &Redemption{}
 	if err := lockForUpdate(tx).Where(keyCol+" = ?", key).First(redemption).Error; err != nil {
-		return nil, errors.New("无效的兑换码")
+		return nil, ErrRedeemCodeInvalid
 	}
 	if redemption.Status != common.RedemptionCodeStatusEnabled {
-		return nil, errors.New("该兑换码已被使用")
+		return nil, ErrRedeemCodeInvalid
 	}
 	if redemption.ExpiredTime != 0 && redemption.ExpiredTime < common.GetTimestamp() {
-		return nil, errors.New("该兑换码已过期")
+		return nil, ErrRedeemCodeInvalid
 	}
 	// Compare-and-swap on status: only the transaction that flips
 	// enabled -> used may credit quota, so a concurrent redeem of the
@@ -186,7 +186,7 @@ func redeemWithTx(tx *gorm.DB, keyCol string, key string, userId int) (*Redempti
 		return nil, result.Error
 	}
 	if result.RowsAffected == 0 {
-		return nil, errors.New("该兑换码已被使用")
+		return nil, ErrRedeemCodeInvalid
 	}
 	if err := tx.Model(&User{}).Where("id = ?", userId).Update("quota", gorm.Expr("quota + ?", redemption.Quota)).Error; err != nil {
 		return nil, err

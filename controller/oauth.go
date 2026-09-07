@@ -206,6 +206,10 @@ func HandleOAuth(c *gin.Context) {
 			common.ApiErrorI18n(c, i18n.MsgUserEmailAlreadyTaken)
 			return
 		}
+		if errors.Is(err, model.ErrRedeemCodeInvalid) {
+			common.ApiErrorCode(c, "REDEEM_CODE_INVALID", err)
+			return
+		}
 		switch err.(type) {
 		case *OAuthUserDeletedError:
 			common.ApiErrorI18n(c, i18n.MsgOAuthUserDeleted)

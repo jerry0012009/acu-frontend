@@ -96,6 +96,10 @@ func WeChatAuth(c *gin.Context) {
 			user.RedeemCode = c.Query("redeem")
 
 			if err := user.Insert(0); err != nil {
+				if errors.Is(err, model.ErrRedeemCodeInvalid) {
+					common.ApiErrorCode(c, "REDEEM_CODE_INVALID", err)
+					return
+				}
 				c.JSON(http.StatusOK, gin.H{
 					"success": false,
 					"message": err.Error(),

@@ -20,6 +20,10 @@ import {
   postTelegramBindResult,
   startOAuthBindResponseDeadline,
 } from '@/features/auth/lib/oauth-bind-window'
+import {
+  clearPendingRedemptionCode,
+  getPendingRedemptionCode,
+} from '@/features/auth/lib/storage'
 import { api, applyAuthBundle, isAuthBundle } from '@/lib/api'
 import { getServerErrorMessageKey } from '@/lib/server-error-message'
 
@@ -166,18 +170,38 @@ function OAuthCallback() {
         }
         const response = await api.get(`/api/oauth/${provider}`, config)
         if (response.data?.success && isAuthBundle(response.data?.data)) {
+          clearPendingRedemptionCode()
           applyAuthBundle(response.data.data)
           safeNavigate(search.redirect)
           toast.success(i18next.t('Signed in successfully!'))
           return
         }
         const messageKey = getServerErrorMessageKey(response.data)
+        if (response.data?.code === 'REDEEM_CODE_INVALID') {
+          const redeem = getPendingRedemptionCode()
+          clearPendingRedemptionCode()
+          const params = new URLSearchParams({ redeem_error: '1' })
+          if (redeem) params.set('redeem', redeem)
+          safeNavigate(`/sign-up?${params.toString()}`, '/sign-up')
+          return
+        }
         toast.error(
           messageKey
             ? i18next.t(messageKey)
             : response.data?.message || i18next.t('OAuth failed')
         )
       } catch (error: unknown) {
+        const responseCode = (
+          error as { response?: { data?: { code?: string } } }
+        ).response?.data?.code
+        if (responseCode === 'REDEEM_CODE_INVALID') {
+          const redeem = getPendingRedemptionCode()
+          clearPendingRedemptionCode()
+          const params = new URLSearchParams({ redeem_error: '1' })
+          if (redeem) params.set('redeem', redeem)
+          safeNavigate(`/sign-up?${params.toString()}`, '/sign-up')
+          return
+        }
         const messageKey = getServerErrorMessageKey(error)
         const responseMessage = (
           error as { response?: { data?: { message?: string } } }

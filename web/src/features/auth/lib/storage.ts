@@ -9,6 +9,7 @@
 const STORAGE_KEYS = {
   AFFILIATE: 'aff',
   STATUS: 'status',
+  PENDING_REDEMPTION: 'pending_redeem',
 } as const
 
 // ============================================================================
@@ -50,5 +51,46 @@ export function getRedemptionCode(): string {
     )
   } catch {
     return ''
+  }
+}
+
+export function clearRedemptionCode(): void {
+  if (typeof window === 'undefined') return
+  const url = new URL(window.location.href)
+  url.searchParams.delete('redeem')
+  window.history.replaceState(window.history.state, '', url)
+}
+
+export function clearRedemptionError(): void {
+  if (typeof window === 'undefined') return
+  const url = new URL(window.location.href)
+  url.searchParams.delete('redeem_error')
+  window.history.replaceState(window.history.state, '', url)
+}
+
+export function savePendingRedemptionCode(code: string): void {
+  if (typeof window === 'undefined' || !code) return
+  try {
+    window.sessionStorage.setItem(STORAGE_KEYS.PENDING_REDEMPTION, code)
+  } catch {
+    // Session storage is optional; the signup flow still works without it.
+  }
+}
+
+export function getPendingRedemptionCode(): string {
+  if (typeof window === 'undefined') return ''
+  try {
+    return window.sessionStorage.getItem(STORAGE_KEYS.PENDING_REDEMPTION) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+export function clearPendingRedemptionCode(): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.sessionStorage.removeItem(STORAGE_KEYS.PENDING_REDEMPTION)
+  } catch {
+    // Session storage is optional.
   }
 }
