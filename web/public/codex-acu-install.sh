@@ -190,43 +190,81 @@ endpoint_available() {
     "$endpoint/models" >/dev/null
 }
 
+asset_is_current() {
+  asset_kind=$1
+  asset_path=$2
+  case "$asset_kind" in
+    launcher)
+      grep -Fq "gpt-6-astra" "$asset_path" &&
+        grep -Fq "allowed_model" "$asset_path"
+      ;;
+    catalog)
+      for model in \
+        acu-auto \
+        gpt-5.6-luna \
+        gpt-5.6-terra \
+        gpt-5.6-sol \
+        gpt-6-astra; do
+        grep -Fq "\"slug\": \"$model\"" "$asset_path" || return 1
+      done
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 download_asset() {
   local_path=$1
   public_name=$2
   raw_name=$3
   output=$4
-  if [ -f "$local_path" ]; then
+  asset_kind=$5
+  if [ -n "$local_path" ] && [ -f "$local_path" ]; then
     cp "$local_path" "$output"
-    return
+    if asset_is_current "$asset_kind" "$output"; then
+      return
+    fi
+    echo "local $public_name is stale; trying remote sources" >&2
+    rm -f "$output"
   fi
   for url in \
     "$PUBLIC_ASSET_BASE/$public_name" \
     "$DIRECT_ASSET_BASE/$public_name" \
     "$RAW_ASSET_BASE/$raw_name"; do
-    if download_file "$url" "$output"; then
+    if download_file "$url" "$output" && asset_is_current "$asset_kind" "$output"; then
       return
     fi
+    rm -f "$output"
   done
-  echo "failed to download $public_name from all configured sources" >&2
+  echo "failed to download current $public_name (gpt-6-astra support required)" >&2
   return 1
 }
 
 register_path() {
+  case ":${PATH}:" in
+    *":${bin_dir}:"*) return ;;
+  esac
   path_export="export PATH=\"${bin_dir}:\$PATH\""
   shell_name=$(basename "${SHELL:-sh}")
   profiles=
   case "$shell_name" in
-    zsh) profiles="$HOME/.zshrc" ;;
-    bash) profiles="$HOME/.bashrc" ;;
+    zsh) profiles="$HOME/.zprofile $HOME/.zshrc" ;;
+    bash) profiles="$HOME/.bash_profile $HOME/.bashrc" ;;
     *) profiles="$HOME/.profile" ;;
   esac
+  wrote_profile=0
   for profile in $profiles; do
-    if [ ! -f "$profile" ]; then
-      printf '%s\n' "$path_export" > "$profile"
-    elif ! grep -Fq "$bin_dir" "$profile"; then
-      printf '\n%s\n' "$path_export" >> "$profile"
+    if [ -f "$profile" ]; then
+      if ! grep -Fq "$bin_dir" "$profile"; then
+        printf '\n%s\n' "$path_export" >> "$profile"
+      fi
+      wrote_profile=1
     fi
   done
+  if [ "$wrote_profile" = "0" ]; then
+    printf '%s\n' "$path_export" >> "$HOME/.profile"
+  fi
 }
 
 mkdir -p "$bin_dir" "$native_bin_dir" "$acu_home"
@@ -270,8 +308,8 @@ if [ -n "$script_dir" ]; then
   local_launcher="$script_dir/codex-acu"
   local_catalog="$script_dir/model-catalog.json"
 fi
-download_asset "$local_launcher" "codex-acu" "codex-acu" "$tmp_dir/codex-acu"
-download_asset "$local_catalog" "codex-acu-model-catalog.json" "model-catalog.json" "$tmp_dir/model-catalog.json"
+download_asset "$local_launcher" "codex-acu" "codex-acu" "$tmp_dir/codex-acu" launcher
+download_asset "$local_catalog" "codex-acu-model-catalog.json" "model-catalog.json" "$tmp_dir/model-catalog.json" catalog
 chmod 755 "$tmp_dir/codex-acu"
 chmod 600 "$tmp_dir/model-catalog.json"
 mv "$tmp_dir/codex-acu" "$bin_dir/codex-acu"

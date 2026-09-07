@@ -177,7 +177,9 @@ test('Codex installers install the latest CLI with China and overseas fallbacks'
   )
   assert.match(codexPowerShellInstaller, /registry\.npmmirror\.com/)
   assert.match(codexPowerShellInstaller, /codex-releases/)
-  assert.match(codexPowerShellInstaller, /'npm\.cmd'.*'npm\.exe'.*'npm'/)
+  assert.match(codexPowerShellInstaller, /'npm\.cmd'/)
+  assert.match(codexPowerShellInstaller, /'npm\.exe'/)
+  assert.match(codexPowerShellInstaller, /'npm'/)
   assert.match(
     codexPowerShellInstaller,
     /Join-Path \$AcuHome 'npm\\codex\.cmd'/
@@ -191,7 +193,7 @@ test('Codex installers install the latest CLI with China and overseas fallbacks'
   assert.match(codexPowerShellInstaller, /CODEX_ACU_OK/)
   assert.match(
     codexLauncher,
-    /acu-auto\|gpt-5\.6-luna\|gpt-5\.6-terra\|gpt-5\.6-sol/
+    /acu-auto\|gpt-5\.6-luna\|gpt-5\.6-terra\|gpt-5\.6-sol\|gpt-6-astra/
   )
   assert.match(codexLauncher, /model=\*\|model_provider=\*/)
   assert.match(codexLauncher, /model_provider="acu-founder-alpha"/)
@@ -200,7 +202,7 @@ test('Codex installers install the latest CLI with China and overseas fallbacks'
   assert.doesNotMatch(codexLauncher, /-m acu-auto/)
   assert.deepEqual(
     codexModelCatalog.models.map(({ slug }) => slug),
-    ['acu-auto', 'gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol']
+    ['acu-auto', 'gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol', 'gpt-6-astra']
   )
   assert.deepEqual(
     codexModelCatalog.models.map(({ supported_reasoning_levels }) =>
@@ -210,6 +212,7 @@ test('Codex installers install the latest CLI with China and overseas fallbacks'
       ['low', 'medium', 'high', 'xhigh'],
       ['low', 'medium', 'high', 'max'],
       ['low', 'medium', 'high', 'max'],
+      ['low', 'medium', 'high', 'xhigh'],
       ['low', 'medium', 'high', 'xhigh'],
     ]
   )

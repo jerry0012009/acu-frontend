@@ -26,6 +26,11 @@ export const CC_SWITCH_MODEL_MAPPINGS = [
     contextWindow: 260000,
   },
   {
+    menuName: 'gpt-6-astra',
+    requestModel: 'gpt-6-astra',
+    contextWindow: 1050000,
+  },
+  {
     menuName: 'gpt-5.5',
     requestModel: 'gpt-5.5',
     contextWindow: 260000,

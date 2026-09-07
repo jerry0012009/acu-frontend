@@ -29,6 +29,26 @@ type ModelRequest struct {
 	Group string `json:"group,omitempty"`
 }
 
+func isPublicACURouterModel(c *gin.Context, modelName string) bool {
+	if !service.IsACUGlobalModelExposed(modelName) {
+		return false
+	}
+	groups := []string{common.GetContextKeyString(c, constant.ContextKeyUsingGroup)}
+	if groups[0] == "auto" {
+		groups = service.GetUserAutoGroup(common.GetContextKeyString(c, constant.ContextKeyUserGroup))
+	}
+	for _, group := range groups {
+		for _, path := range []string{"/v1/responses", "/v1/messages", "/v1/chat/completions"} {
+			if model.HasEnabledChannelTagForGroupModel(
+				group, modelName, path, constant.ChannelTagACURouter,
+			) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func Distribute() func(c *gin.Context) {
 	return func(c *gin.Context) {
 		var channel *model.Channel
@@ -70,7 +90,10 @@ func Distribute() func(c *gin.Context) {
 					tokenModelLimit = map[string]bool{}
 				}
 				matchName := ratio_setting.FormatMatchingModelName(modelRequest.Model) // match gpts & thinking-*
-				if _, ok := tokenModelLimit[matchName]; !ok {
+				explicitPublicACUModel := matchName != "acu-auto" &&
+					matchName != "acu-high" &&
+					isPublicACURouterModel(c, matchName)
+				if _, ok := tokenModelLimit[matchName]; !ok && !explicitPublicACUModel {
 					abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorTokenModelForbidden, map[string]any{"Model": modelRequest.Model}))
 					return
 				}

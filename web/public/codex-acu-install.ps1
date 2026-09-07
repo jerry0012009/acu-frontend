@@ -34,10 +34,13 @@ function Find-ManagedCodex {
   $candidates = @(
     (Join-Path $NativeBin 'codex.exe'),
     (Join-Path $NativeBin 'codex.cmd'),
-    (Join-Path $AcuHome 'npm\codex.exe'),
+    (Join-Path $NativeBin 'codex.ps1'),
     (Join-Path $AcuHome 'npm\codex.cmd'),
+    (Join-Path $AcuHome 'npm\codex.exe'),
+    (Join-Path $AcuHome 'npm\bin\codex.cmd'),
     (Join-Path $AcuHome 'npm\bin\codex.exe'),
-    (Join-Path $AcuHome 'npm\bin\codex.cmd')
+    (Join-Path $AcuHome 'npm\node_modules\.bin\codex.cmd'),
+    (Join-Path $AcuHome 'npm\node_modules\.bin\codex.exe')
   )
   foreach ($candidate in $candidates | Select-Object -Unique) {
     $version = Get-CodexVersion $candidate
@@ -49,12 +52,22 @@ function Find-ManagedCodex {
 }
 
 function Find-SystemCodex {
-  $command = Get-Command codex -ErrorAction SilentlyContinue
-  if (-not $command) { return $null }
-  $commandPath = if ($command.Source) { $command.Source } else { $command.Path }
-  $version = Get-CodexVersion $commandPath
-  if ($version -and $version -ge $MinimumCodexVersion) {
-    return $commandPath
+  foreach ($command in @(Get-Command codex.exe, codex.cmd, codex -ErrorAction SilentlyContinue)) {
+    $path = if ($command.Path) { $command.Path } elseif ($command.Source) { $command.Source } else { $null }
+    $version = Get-CodexVersion $path
+    if ($path -and $version -and $version -ge $MinimumCodexVersion) {
+      return $path
+    }
+  }
+  return $null
+}
+
+function Find-Npm {
+  foreach ($command in @(Get-Command npm.cmd, npm.exe, npm -ErrorAction SilentlyContinue)) {
+    $path = if ($command.Path) { $command.Path } elseif ($command.Source) { $command.Source } else { $null }
+    if ($path -and (Test-Path $path) -and ([System.IO.Path]::GetFileName($path) -in @('npm.cmd', 'npm.exe'))) {
+      return $path
+    }
   }
   return $null
 }
@@ -113,15 +126,8 @@ function Install-CodexOfficial {
 }
 
 function Install-CodexNpm {
-  $npmCommand = $null
-  foreach ($name in @('npm.cmd', 'npm.exe', 'npm')) {
-    $command = Get-Command $name -ErrorAction SilentlyContinue
-    if ($command -and $command.Source) {
-      $npmCommand = $command.Source
-      break
-    }
-  }
-  if (-not $npmCommand) { return $false }
+  $npm = Find-Npm
+  if (-not $npm) { return $false }
   $prefix = Join-Path $AcuHome 'npm'
   $codexRelease = if ($env:CODEX_ACU_CODEX_VERSION) { $env:CODEX_ACU_CODEX_VERSION } else { 'latest' }
   New-Item -ItemType Directory -Force -Path $prefix | Out-Null
@@ -136,21 +142,55 @@ function Install-CodexNpm {
       '--fetch-retries=1',
       '--fetch-timeout=60000'
     )
-    & $npmCommand @npmArguments 2>&1 | Out-Host
+    & $npm @npmArguments 2>&1 | Out-Host
     $npmExitCode = $LASTEXITCODE
     if ($npmExitCode -eq 0 -and (Find-ManagedCodex)) { return $true }
   }
   return $false
 }
 
-function Download-First([string[]]$Urls, [string]$Destination) {
+function Test-AcuAsset([string]$Path, [string]$Kind) {
+  if (-not (Test-Path $Path)) { return $false }
+  try {
+    $text = [System.IO.File]::ReadAllText($Path)
+    if ($Kind -eq 'launcher') {
+      return $text.Contains('gpt-6-astra') -and $text.Contains('Test-AllowedModel')
+    }
+    if ($Kind -eq 'catalog') {
+      $catalog = $text | ConvertFrom-Json
+      $slugs = @($catalog.models | ForEach-Object { $_.slug })
+      foreach ($required in @(
+        'acu-auto',
+        'gpt-5.6-luna',
+        'gpt-5.6-terra',
+        'gpt-5.6-sol',
+        'gpt-6-astra'
+      )) {
+        if ($slugs -notcontains $required) { return $false }
+      }
+      return $true
+    }
+  } catch {
+    return $false
+  }
+  return $false
+}
+
+function Download-First([string[]]$Urls, [string]$Destination, [string]$AssetKind = '') {
   foreach ($url in $Urls) {
     try {
       Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $Destination -TimeoutSec 300
-      return
+      if (-not $AssetKind -or (Test-AcuAsset $Destination $AssetKind)) {
+        return
+      }
+      Write-Warning "Downloaded stale or invalid $AssetKind from $url; trying the next source."
+      Remove-Item -Force -ErrorAction SilentlyContinue $Destination
     } catch {
       Remove-Item -Force -ErrorAction SilentlyContinue $Destination
     }
+  }
+  if ($AssetKind) {
+    throw "Unable to download a current $AssetKind with gpt-6-astra support from any configured source."
   }
   throw "Unable to download $Destination from any configured source."
 }
@@ -213,7 +253,7 @@ $catalogUrls = @(
   'https://acu-api-direct.jerrypsy.top/codex-acu-model-catalog.json',
   'https://raw.githubusercontent.com/jerry0012009/ClawRouter/main/tools/codex-acu/model-catalog.json'
 )
-Download-First $catalogUrls $CatalogPath
+Download-First $catalogUrls $CatalogPath 'catalog'
 
 if ([string]::IsNullOrWhiteSpace($ExistingApiKey) -or $ApiKey -ne $ExistingApiKey) {
   [System.IO.File]::WriteAllText($CredentialPath, $ApiKey, [System.Text.UTF8Encoding]::new($false))
@@ -269,7 +309,7 @@ $NativeCodexPath = [System.IO.File]::ReadAllText((Join-Path $AcuHome 'native-cod
 if (-not (Test-Path $NativeCodexPath)) { throw 'Native Codex binary is missing; rerun the installer.' }
 
 function Test-AllowedModel([string]$Model) {
-  return $Model -in @('acu-auto', 'gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol')
+  return $Model -in @('acu-auto', 'gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol', 'gpt-6-astra')
 }
 
 if ($args.Count -gt 0 -and @('--version', '-V') -contains $args[0]) {
