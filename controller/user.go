@@ -269,6 +269,7 @@ func Register(c *gin.Context) {
 		DisplayName: user.Username,
 		InviterId:   inviterId,
 		Role:        common.RoleCommonUser, // 明确设置角色为普通用户
+		RedeemCode:  user.RedeemCode,
 	}
 	if common.EmailVerificationEnabled {
 		cleanUser.Email = user.Email
@@ -281,7 +282,6 @@ func Register(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-
 	// 获取插入后的用户ID
 	var insertedUser model.User
 	if err := model.DB.Where("username = ?", cleanUser.Username).First(&insertedUser).Error; err != nil {

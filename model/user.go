@@ -91,6 +91,7 @@ type User struct {
 	WeChatId         string                     `json:"wechat_id" gorm:"column:wechat_id;index"`
 	TelegramId       string                     `json:"telegram_id" gorm:"column:telegram_id;index"`
 	VerificationCode string                     `json:"verification_code" gorm:"-:all"`                         // this field is only for Email verification, don't save it to database!
+	RedeemCode       string                     `json:"redeem_code" gorm:"-:all"`                               // optional one-time code applied after registration
 	AccessToken      *string                    `json:"-" gorm:"type:char(32);column:access_token;uniqueIndex"` // this token is for system management
 	Quota            int                        `json:"quota" gorm:"type:int;default:0"`
 	UsedQuota        int                        `json:"used_quota" gorm:"type:int;default:0;column:used_quota"` // used quota
@@ -589,6 +590,7 @@ func ensureEmailAvailableWithTx(tx *gorm.DB, email string, excludeUserID int) er
 }
 
 func (user *User) Insert(inviterId int) error {
+	var redeemed *Redemption
 	if err := DB.Transaction(func(tx *gorm.DB) error {
 		return withNormalizedEmailLock(tx, user.Email, func(tx *gorm.DB) error {
 			if err := user.prepareForInsert(tx); err != nil {
@@ -604,13 +606,30 @@ func (user *User) Insert(inviterId int) error {
 				user.SetSetting(defaultSetting)
 			}
 
-			return tx.Create(user).Error
+			if err := tx.Create(user).Error; err != nil {
+				return err
+			}
+			if user.RedeemCode != "" {
+				keyCol := "`key`"
+				if common.UsingMainDatabase(common.DatabaseTypePostgreSQL) {
+					keyCol = `"key"`
+				}
+				var err error
+				redeemed, err = redeemWithTx(tx, keyCol, user.RedeemCode, user.Id)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
 		})
 	}); err != nil {
 		return err
 	}
 
 	user.finishInsert(inviterId)
+	if redeemed != nil {
+		RecordLog(user.Id, LogTypeTopup, fmt.Sprintf("通过注册链接兑换 %s，兑换码ID %d", logger.LogQuota(redeemed.Quota), redeemed.Id))
+	}
 	return nil
 }
 
@@ -667,7 +686,19 @@ func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
 			user.SetSetting(defaultSetting)
 		}
 
-		return tx.Create(user).Error
+		if err := tx.Create(user).Error; err != nil {
+			return err
+		}
+		if user.RedeemCode != "" {
+			keyCol := "`key`"
+			if common.UsingMainDatabase(common.DatabaseTypePostgreSQL) {
+				keyCol = `"key"`
+			}
+			if _, err := redeemWithTx(tx, keyCol, user.RedeemCode, user.Id); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 

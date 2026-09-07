@@ -41,3 +41,14 @@ export function saveAffiliateCode(code: string): void {
     console.error('Failed to save affiliate code:', error)
   }
 }
+
+export function getRedemptionCode(): string {
+  if (typeof window === 'undefined') return ''
+  try {
+    return (
+      new URLSearchParams(window.location.search).get('redeem')?.trim() ?? ''
+    )
+  } catch {
+    return ''
+  }
+}

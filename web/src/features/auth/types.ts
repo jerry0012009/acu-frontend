@@ -21,6 +21,7 @@ export interface RegisterPayload {
   email?: string
   verification_code?: string
   aff_code?: string
+  redeem_code?: string
   turnstile?: string
 }
 

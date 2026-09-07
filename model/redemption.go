@@ -141,7 +141,7 @@ func Redeem(key string, userId int) (quota int, err error) {
 	if userId == 0 {
 		return 0, errors.New("无效的 user id")
 	}
-	redemption := &Redemption{}
+	var redemption *Redemption
 
 	keyCol := "`key`"
 	if common.UsingMainDatabase(common.DatabaseTypePostgreSQL) {
@@ -149,33 +149,9 @@ func Redeem(key string, userId int) (quota int, err error) {
 	}
 	common.RandomSleep()
 	err = DB.Transaction(func(tx *gorm.DB) error {
-		err := lockForUpdate(tx).Where(keyCol+" = ?", key).First(redemption).Error
-		if err != nil {
-			return errors.New("无效的兑换码")
-		}
-		if redemption.Status != common.RedemptionCodeStatusEnabled {
-			return errors.New("该兑换码已被使用")
-		}
-		if redemption.ExpiredTime != 0 && redemption.ExpiredTime < common.GetTimestamp() {
-			return errors.New("该兑换码已过期")
-		}
-		// Compare-and-swap on status: only the transaction that flips
-		// enabled -> used may credit quota, so a concurrent redeem of the
-		// same code loses here even without a row lock (e.g. on SQLite).
-		result := tx.Model(&Redemption{}).
-			Where("id = ? AND status = ?", redemption.Id, common.RedemptionCodeStatusEnabled).
-			Updates(map[string]interface{}{
-				"redeemed_time": common.GetTimestamp(),
-				"status":        common.RedemptionCodeStatusUsed,
-				"used_user_id":  userId,
-			})
-		if result.Error != nil {
-			return result.Error
-		}
-		if result.RowsAffected == 0 {
-			return errors.New("该兑换码已被使用")
-		}
-		return tx.Model(&User{}).Where("id = ?", userId).Update("quota", gorm.Expr("quota + ?", redemption.Quota)).Error
+		var err error
+		redemption, err = redeemWithTx(tx, keyCol, key, userId)
+		return err
 	})
 	if err != nil {
 		common.SysError("redemption failed: " + err.Error())
@@ -183,6 +159,39 @@ func Redeem(key string, userId int) (quota int, err error) {
 	}
 	RecordLog(userId, LogTypeTopup, fmt.Sprintf("通过兑换码充值 %s，兑换码ID %d", logger.LogQuota(redemption.Quota), redemption.Id))
 	return redemption.Quota, nil
+}
+
+func redeemWithTx(tx *gorm.DB, keyCol string, key string, userId int) (*Redemption, error) {
+	redemption := &Redemption{}
+	if err := lockForUpdate(tx).Where(keyCol+" = ?", key).First(redemption).Error; err != nil {
+		return nil, errors.New("无效的兑换码")
+	}
+	if redemption.Status != common.RedemptionCodeStatusEnabled {
+		return nil, errors.New("该兑换码已被使用")
+	}
+	if redemption.ExpiredTime != 0 && redemption.ExpiredTime < common.GetTimestamp() {
+		return nil, errors.New("该兑换码已过期")
+	}
+	// Compare-and-swap on status: only the transaction that flips
+	// enabled -> used may credit quota, so a concurrent redeem of the
+	// same code loses here even without a row lock (e.g. on SQLite).
+	result := tx.Model(&Redemption{}).
+		Where("id = ? AND status = ?", redemption.Id, common.RedemptionCodeStatusEnabled).
+		Updates(map[string]interface{}{
+			"redeemed_time": common.GetTimestamp(),
+			"status":        common.RedemptionCodeStatusUsed,
+			"used_user_id":  userId,
+		})
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return nil, errors.New("该兑换码已被使用")
+	}
+	if err := tx.Model(&User{}).Where("id = ?", userId).Update("quota", gorm.Expr("quota + ?", redemption.Quota)).Error; err != nil {
+		return nil, err
+	}
+	return redemption, nil
 }
 
 func (redemption *Redemption) Insert() error {
