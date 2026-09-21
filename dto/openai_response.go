@@ -229,11 +229,12 @@ type Usage struct {
 	UsageSource          string        `json:"usage_source,omitempty"`
 	BillingUsage         *BillingUsage `json:"billing_usage,omitempty"`
 
-	PromptTokensDetails    InputTokenDetails  `json:"prompt_tokens_details"`
-	CompletionTokenDetails OutputTokenDetails `json:"completion_tokens_details"`
-	InputTokens            int                `json:"input_tokens"`
-	OutputTokens           int                `json:"output_tokens"`
-	InputTokensDetails     *InputTokenDetails `json:"input_tokens_details"`
+	PromptTokensDetails    InputTokenDetails   `json:"prompt_tokens_details"`
+	CompletionTokenDetails OutputTokenDetails  `json:"completion_tokens_details"`
+	InputTokens            int                 `json:"input_tokens"`
+	OutputTokens           int                 `json:"output_tokens"`
+	InputTokensDetails     *InputTokenDetails  `json:"input_tokens_details"`
+	OutputTokensDetails    *OutputTokenDetails `json:"output_tokens_details,omitempty"`
 
 	// claude cache 1h
 	ClaudeCacheCreation5mTokens int `json:"claude_cache_creation_5_m_tokens"`
@@ -260,10 +261,17 @@ type InputTokenDetails struct {
 	// prompt_tokens_details.cache_write_tokens (Chat Completions) or
 	// input_tokens_details.cache_write_tokens (Responses). It is billed at the
 	// cache-creation price.
-	CacheWriteTokens int `json:"cache_write_tokens,omitempty"`
-	TextTokens       int `json:"text_tokens"`
-	AudioTokens      int `json:"audio_tokens"`
-	ImageTokens      int `json:"image_tokens"`
+	CacheWriteTokens    int                 `json:"cache_write_tokens,omitempty"`
+	TextTokens          int                 `json:"text_tokens"`
+	AudioTokens         int                 `json:"audio_tokens"`
+	ImageTokens         int                 `json:"image_tokens"`
+	CachedTokensDetails *CachedTokenDetails `json:"cached_tokens_details,omitempty"`
+}
+
+type CachedTokenDetails struct {
+	TextTokens  *int `json:"text_tokens,omitempty"`
+	ImageTokens *int `json:"image_tokens,omitempty"`
+	AudioTokens *int `json:"audio_tokens,omitempty"`
 }
 
 // CacheCreationTokensTotal returns the cache-write token count regardless of

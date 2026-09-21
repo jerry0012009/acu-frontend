@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
@@ -78,6 +79,26 @@ func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, m
 	other["cache_ratio"] = cacheRatio
 	other["model_price"] = modelPrice
 	other["user_group_ratio"] = userGroupRatio
+	if relayInfo != nil && strings.HasPrefix(relayInfo.OriginModelName, "gpt-image-") {
+		basePrice := common.ImageObservedBasePriceUSD
+		if relayInfo.ImageBillingFallback {
+			basePrice = common.ImageFallbackBasePriceUSD
+		}
+		settlementFX := operation_setting.USDExchangeRate
+		other["image"] = true
+		other["image_public_multiplier"] = modelPrice * settlementFX / basePrice
+		other["image_base_price_usd_per_image"] = basePrice
+		other["image_price_usd_per_image"] = modelPrice
+		other["image_settlement_fx_cny_per_usd"] = settlementFX
+		if ratio, ok := relayInfo.PriceData.OtherRatios()["n"]; ok {
+			other["image_count"] = ratio
+		}
+		if relayInfo.ImageBillingFallback {
+			other["image_billing_fallback"] = true
+			other["image_billing_fallback_reason"] = relayInfo.ImageBillingFallbackReason
+			other["image_fallback_usd_per_image"] = common.ImageFallbackPriceUSD
+		}
+	}
 	other["frt"] = float64(relayInfo.FirstResponseTime.UnixMilli() - relayInfo.StartTime.UnixMilli())
 	if relayInfo.ReasoningEffort != "" {
 		other["reasoning_effort"] = relayInfo.ReasoningEffort

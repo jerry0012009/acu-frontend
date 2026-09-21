@@ -48,6 +48,7 @@ type textQuotaSummary struct {
 	CacheCreationTokens1h  int
 	ImageTokens            int
 	AudioTokens            int
+	ImageBillingFallback   bool
 	ModelName              string
 	TokenName              string
 	UseTimeSeconds         int64
@@ -73,7 +74,7 @@ type textQuotaSummary struct {
 // surcharge (e.g. /v1/alpha/search returns no usage but bills one web_search
 // call), so token count alone is not sufficient to decide.
 func (s *textQuotaSummary) hasBillableUsage() bool {
-	return s.TotalTokens > 0 || !s.ToolCallSurchargeQuota.IsZero()
+	return s.TotalTokens > 0 || s.ImageBillingFallback || !s.ToolCallSurchargeQuota.IsZero()
 }
 
 func cacheWriteTokensTotal(summary textQuotaSummary) int {
@@ -243,6 +244,7 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 		CacheCreationRatio5m: relayInfo.PriceData.CacheCreation5mRatio,
 		CacheCreationRatio1h: relayInfo.PriceData.CacheCreation1hRatio,
 		UsageSemantic:        usageSemanticFromUsage(relayInfo, usage),
+		ImageBillingFallback: relayInfo.ImageBillingFallback,
 	}
 	summary.IsClaudeUsageSemantic = summary.UsageSemantic == "anthropic"
 
