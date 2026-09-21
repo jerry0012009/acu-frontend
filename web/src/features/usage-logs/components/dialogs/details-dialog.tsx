@@ -696,7 +696,7 @@ function BillingBreakdown(props: {
     }
   } else if (isPerCall) {
     rows.push({ label: t('Billing Mode'), value: t('Per-call') })
-    if (other.model_price != null) {
+    if (other.model_price != null && other.image_price_usd_per_image == null) {
       rows.push({
         label: t('Model Price'),
         value: fmtPrice(other.model_price),
@@ -714,6 +714,51 @@ function BillingBreakdown(props: {
       rows.push({
         label: t('Output'),
         value: `${fmtPrice(baseInputUSD * other.completion_ratio)}/M`,
+      })
+    }
+  }
+  if (other.image_public_multiplier != null) {
+    rows.push({
+      label: t('Image Public Multiplier'),
+      value: `${formatRatio(other.image_public_multiplier)}x`,
+    })
+  }
+  if (other.image_base_price_usd_per_image != null) {
+    rows.push({
+      label: t('Image Base Price'),
+      value: `$${other.image_base_price_usd_per_image.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')}/image`,
+    })
+  }
+  if (other.image_settlement_fx_cny_per_usd != null) {
+    rows.push({
+      label: t('Settlement FX'),
+      value: `${formatRatio(other.image_settlement_fx_cny_per_usd)} CNY/USD`,
+    })
+  }
+  if (other.image_price_usd_per_image != null) {
+    rows.push({
+      label: t('Image Price'),
+      value: `${fmtPrice(other.image_price_usd_per_image)}/image`,
+    })
+  }
+  if (other.image_count != null) {
+    rows.push({
+      label: t('Image Count'),
+      value: String(other.image_count),
+    })
+  }
+  if (other.image_billing_fallback) {
+    rows.push({
+      label: t('Image Billing Fallback'),
+      value:
+        other.image_fallback_usd_per_image != null
+          ? `${fmtPrice(other.image_fallback_usd_per_image)}/image`
+          : t('Used'),
+    })
+    if (other.image_billing_fallback_reason) {
+      rows.push({
+        label: t('Fallback Reason'),
+        value: other.image_billing_fallback_reason,
       })
     }
   }

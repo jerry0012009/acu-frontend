@@ -157,7 +157,27 @@ func cloneOpenAIUsage(usage *Usage) *Usage {
 	clone.BillingUsage = nil
 	if usage.InputTokensDetails != nil {
 		inputTokensDetails := *usage.InputTokensDetails
+		if usage.InputTokensDetails.CachedTokensDetails != nil {
+			cachedDetails := *usage.InputTokensDetails.CachedTokensDetails
+			if cachedDetails.TextTokens != nil {
+				value := *cachedDetails.TextTokens
+				cachedDetails.TextTokens = &value
+			}
+			if cachedDetails.ImageTokens != nil {
+				value := *cachedDetails.ImageTokens
+				cachedDetails.ImageTokens = &value
+			}
+			if cachedDetails.AudioTokens != nil {
+				value := *cachedDetails.AudioTokens
+				cachedDetails.AudioTokens = &value
+			}
+			inputTokensDetails.CachedTokensDetails = &cachedDetails
+		}
 		clone.InputTokensDetails = &inputTokensDetails
+	}
+	if usage.OutputTokensDetails != nil {
+		outputTokensDetails := *usage.OutputTokensDetails
+		clone.OutputTokensDetails = &outputTokensDetails
 	}
 	return &clone
 }

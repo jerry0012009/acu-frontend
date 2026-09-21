@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -23,7 +22,12 @@ import (
 )
 
 func updateOpenAIImageCount(info *relaycommon.RelayInfo, count int64) {
-	if info == nil || !info.PriceData.UsePrice || count <= 0 || count > int64(dto.MaxImageN) {
+	if info == nil {
+		return
+	}
+	info.ImageResponseCountObserved = true
+	info.ImageResponseCount = int(count)
+	if !info.PriceData.UsePrice || count <= 0 || count > int64(dto.MaxImageN) {
 		return
 	}
 	info.PriceData.AddOtherRatio("n", float64(count))
@@ -49,7 +53,7 @@ func OpenaiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)
 	}
 
-	updateOpenAIImageCount(info, gjson.GetBytes(responseBody, "data.#").Int())
+	updateOpenAIImageCount(info, openaiImageResponseCount(responseBody))
 
 	// 写入新的 response body
 	service.IOCopyBytesGracefully(c, resp, responseBody)
@@ -78,16 +82,40 @@ func normalizeOpenAIUsage(usage *dto.Usage) {
 		usage.CompletionTokens = usage.OutputTokens
 	}
 	if usage.InputTokensDetails != nil {
-		usage.PromptTokensDetails.CachedTokens = usage.InputTokensDetails.CachedTokens
-		usage.PromptTokensDetails.CachedCreationTokens = usage.InputTokensDetails.CachedCreationTokens
-		usage.PromptTokensDetails.CacheWriteTokens = usage.InputTokensDetails.CacheWriteTokens
-		usage.PromptTokensDetails.ImageTokens = usage.InputTokensDetails.ImageTokens
-		usage.PromptTokensDetails.TextTokens = usage.InputTokensDetails.TextTokens
-		usage.PromptTokensDetails.AudioTokens = usage.InputTokensDetails.AudioTokens
+		usage.PromptTokensDetails = *usage.InputTokensDetails
+	}
+	if usage.OutputTokensDetails != nil {
+		usage.CompletionTokenDetails = *usage.OutputTokensDetails
 	}
 	if usage.TotalTokens == 0 {
 		usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
 	}
+}
+
+func openaiImageResponseCount(responseBody []byte) int64 {
+	var count int64
+	for _, item := range openaiImageResponseItems(responseBody) {
+		if openaiImageDataHasField(item, "url") || openaiImageDataHasField(item, "b64_json") {
+			count++
+		}
+	}
+	return count
+}
+
+func openaiImageResponseItems(responseBody []byte) []gjson.Result {
+	data := gjson.GetBytes(responseBody, "data")
+	if data.IsObject() {
+		return []gjson.Result{data}
+	}
+	if data.IsArray() {
+		return data.Array()
+	}
+	return nil
+}
+
+func openaiImageDataHasField(item gjson.Result, field string) bool {
+	value := item.Get(field)
+	return value.Type == gjson.String && value.Raw != `""`
 }
 
 func OpenaiImageStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
@@ -252,7 +280,7 @@ func openaiImageJSONAsStreamHandler(c *gin.Context, info *relaycommon.RelayInfo,
 	normalizeOpenAIUsage(&usageResp.Usage)
 	applyUsagePostProcessing(info, &usageResp.Usage, responseBody)
 
-	imageCount := gjson.GetBytes(responseBody, "data.#").Int()
+	imageCount := openaiImageResponseCount(responseBody)
 	updateOpenAIImageCount(info, imageCount)
 
 	helper.SetEventStreamHeaders(c)
@@ -275,8 +303,11 @@ func openaiImageJSONAsStreamHandler(c *gin.Context, info *relaycommon.RelayInfo,
 		}
 	}
 
-	for i := int64(0); i < imageCount; i++ {
-		image := gjson.GetBytes(responseBody, "data."+strconv.FormatInt(i, 10))
+	emitted := int64(0)
+	for _, image := range openaiImageResponseItems(responseBody) {
+		if !openaiImageDataHasField(image, "url") && !openaiImageDataHasField(image, "b64_json") {
+			continue
+		}
 		payload := []byte(`{"type":"image_generation.completed"}`)
 		payload, err = sjson.SetBytes(payload, "created_at", created)
 		if err != nil {
@@ -311,6 +342,7 @@ func openaiImageJSONAsStreamHandler(c *gin.Context, info *relaycommon.RelayInfo,
 			}
 			return &usageResp.Usage, nil
 		}
+		emitted++
 	}
 	if err := writeOpenaiImageStreamDone(c); err != nil {
 		if info != nil && info.StreamStatus != nil {
@@ -319,7 +351,7 @@ func openaiImageJSONAsStreamHandler(c *gin.Context, info *relaycommon.RelayInfo,
 		return &usageResp.Usage, nil
 	}
 	if info != nil {
-		info.ReceivedResponseCount += int(imageCount)
+		info.ReceivedResponseCount += int(emitted)
 		if info.StreamStatus == nil {
 			info.StreamStatus = relaycommon.NewStreamStatus()
 		}

@@ -407,6 +407,14 @@ export interface LogOtherData {
   billing_mode?: string
   expr_b64?: string
   matched_tier?: string
+  image_count?: number
+  image_public_multiplier?: number
+  image_base_price_usd_per_image?: number
+  image_price_usd_per_image?: number
+  image_settlement_fx_cny_per_usd?: number
+  image_billing_fallback?: boolean
+  image_billing_fallback_reason?: string
+  image_fallback_usd_per_image?: number
   reasoning_effort?: string
   image?: boolean
   image_ratio?: number

@@ -123,11 +123,24 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 		imageN = *request.N
 	}
 
-	if usage.(*dto.Usage).TotalTokens == 0 {
-		usage.(*dto.Usage).TotalTokens = 1
-	}
-	if usage.(*dto.Usage).PromptTokens == 0 {
-		usage.(*dto.Usage).PromptTokens = 1
+	imageUsage := usage.(*dto.Usage)
+	isGPTImage := strings.HasPrefix(strings.ToLower(info.OriginModelName), "gpt-image-")
+	incompleteUsage := !hasCompleteGPTImageUsage(imageUsage)
+	invalidImagePayloadCount := info.ImageResponseCountObserved &&
+		(info.ImageResponseCount <= 0 || info.ImageResponseCount > dto.MaxImageN)
+	if isGPTImage && (incompleteUsage || invalidImagePayloadCount) {
+		// Fixed-price image billing does not need synthetic token usage. Keep the
+		// upstream usage untouched and settle the conservative per-image price.
+		info.PriceData.ModelPrice = common.ImageFallbackPriceUSD
+		info.ImageBillingFallback = true
+		switch {
+		case incompleteUsage && invalidImagePayloadCount:
+			info.ImageBillingFallbackReason = "upstream image usage or image payload count was incomplete"
+		case invalidImagePayloadCount:
+			info.ImageBillingFallbackReason = "upstream image payload count was invalid"
+		default:
+			info.ImageBillingFallbackReason = "upstream image usage was incomplete"
+		}
 	}
 
 	quality := request.Quality
@@ -147,6 +160,16 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 		logContent = append(logContent, fmt.Sprintf("生成数量 %d", imageN))
 	}
 
-	service.PostTextConsumeQuota(c, info, usage.(*dto.Usage), logContent)
+	service.PostTextConsumeQuota(c, info, imageUsage, logContent)
 	return nil
+}
+
+func hasCompleteGPTImageUsage(usage *dto.Usage) bool {
+	if usage == nil || usage.PromptTokens <= 0 || usage.CompletionTokens <= 0 {
+		return false
+	}
+	if usage.TotalTokens < usage.PromptTokens+usage.CompletionTokens {
+		return false
+	}
+	return usage.CompletionTokenDetails.ImageTokens > 0
 }
