@@ -98,6 +98,11 @@ func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, m
 			other["image_billing_fallback_reason"] = relayInfo.ImageBillingFallbackReason
 			other["image_fallback_usd_per_image"] = common.ImageFallbackPriceUSD
 		}
+		if relayInfo.RelayFormat == types.RelayFormatOpenAI &&
+			relayInfo.GetFinalRequestRelayFormat() == types.RelayFormatOpenAIImage {
+			other["image_chat_compat"] = true
+			other["image_upstream_request_path"] = "/v1/images/generations"
+		}
 	}
 	other["frt"] = float64(relayInfo.FirstResponseTime.UnixMilli() - relayInfo.StartTime.UnixMilli())
 	if relayInfo.ReasoningEffort != "" {

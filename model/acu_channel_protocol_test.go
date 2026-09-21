@@ -21,4 +21,16 @@ func TestACUChannelPreservesNativeProtocolDuringSelection(t *testing.T) {
 	require.True(t, openAI.SupportsRequestPath("/pg/chat/completions", "acu-high"))
 	require.True(t, openAI.SupportsRequestPath("/pg/chat/completions", "future-root-catalog-model"))
 	require.False(t, anthropic.SupportsRequestPath("/pg/chat/completions", "acu-auto"))
+	require.False(t, openAI.SupportsRequestPath("/pg/images/generations", "gpt-image-2"))
+}
+
+func TestSub2APIImageChannelSupportsVerifiedImageProtocols(t *testing.T) {
+	channel := &Channel{Type: constant.ChannelTypeSub2API}
+
+	require.True(t, channel.SupportsRequestPath("/v1/images/generations", "gpt-image-2"))
+	require.True(t, channel.SupportsRequestPath("/pg/images/generations", "gpt-image-2"))
+	require.True(t, channel.SupportsRequestPath("/v1/chat/completions", "gpt-image-2"))
+	require.False(t, channel.SupportsRequestPath("/v1/responses", "gpt-image-2"))
+	require.False(t, channel.SupportsRequestPath("/v1/messages", "gpt-image-2"))
+	require.True(t, channel.SupportsRequestPath("/v1/responses", "gpt-5.6-luna"))
 }

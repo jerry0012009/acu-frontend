@@ -165,6 +165,12 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 
 func RequiredPublicChannelTag(c *gin.Context, tokenGroup string, modelName string, requestPath string) string {
 	if requestPath == "/v1/chat/completions" {
+		// Sub2API exposes GPT image generation through the ordinary OpenAI chat
+		// endpoint as well as /v1/images/generations. Keep that request on the
+		// native upstream channel instead of forcing it through ACU Router.
+		if common.IsImageGenerationModel(modelName) {
+			return ""
+		}
 		return constant.ChannelTagACURouter
 	}
 	groups := []string{tokenGroup}

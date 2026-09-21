@@ -126,6 +126,28 @@ func TestFinalizeACUUsageAcceptsRoundedProviderCreditsConversion(t *testing.T) {
 	))
 }
 
+func TestFinalizeACUUsageAcceptsLastDigitProviderCreditsRounding(t *testing.T) {
+	setupACUFinalizeTestDB(t)
+	user := model.User{Username: "acu-last-digit-cash-user", Password: "test-only-password", Status: common.UserStatusEnabled, Quota: 200_000}
+	require.NoError(t, model.DB.Create(&user).Error)
+	token := model.Token{UserId: user.Id, Key: "test-only-last-digit-cash-token", Name: "acu-last-digit-cash", Status: common.TokenStatusEnabled, RemainQuota: 200_000}
+	require.NoError(t, model.DB.Create(&token).Error)
+
+	request := dto.ACUUsageFinalizeRequest{
+		ReportIdempotencyKey: "report_last_digit_cash_1", NewAPIUserID: fmt.Sprint(user.Id), NewAPITokenID: fmt.Sprint(token.Id),
+		NewAPILogID: "req_last_digit_cash_1", LogicalRequestID: "logical_last_digit_cash_1", ActualModel: "gpt-5.6-sol",
+		Provider: "blackai", Channel: "blackai-default", ProviderCostUSD: "1.1615110000",
+		NominalProviderCostUSD: "1.1615110000", ProviderBalanceCharge: "1.1615110000",
+		ProviderBalanceCurrency: "USD-denominated credits", ProviderCreditCashCostCNY: "0.1515151515",
+		EffectiveProviderCashCostCNY: "0.1759865152", ActualTotalCashCostCNY: "0.1759865152",
+		UserChargeCNY: "0.2199831439",
+	}
+
+	result, err := FinalizeACUUsage(request, "abababababababababababababababababababababababababababababababab")
+	require.NoError(t, err)
+	require.False(t, result.AlreadyProcessed)
+}
+
 func TestFinalizeACUUsageAcceptsJudgeCostSourceUpToBusinessLimit(t *testing.T) {
 	setupACUFinalizeTestDB(t)
 	user := model.User{Username: "acu-long-source-user", Password: "test-only-password", Status: common.UserStatusEnabled, Quota: 10_000}

@@ -329,6 +329,12 @@ func GetAndValidateTextRequest(c *gin.Context, relayMode int) (*dto.GeneralOpenA
 	if textRequest.Model == "" {
 		return nil, errors.New("model is required")
 	}
+	if relayMode == relayconstant.RelayModeChatCompletions &&
+		common.IsImageGenerationModel(textRequest.Model) &&
+		textRequest.N != nil &&
+		(*textRequest.N < 1 || *textRequest.N > dto.MaxImageN) {
+		return nil, fmt.Errorf("n must be an integer between 1 and %d", dto.MaxImageN)
+	}
 	if textRequest.WebSearchOptions != nil {
 		if textRequest.WebSearchOptions.SearchContextSize != "" {
 			validSizes := map[string]bool{

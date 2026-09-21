@@ -191,6 +191,13 @@ func (r *GeneralOpenAIRequest) GetTokenCountMeta() *types.TokenCountMeta {
 		//tkm += 8
 		//tkm += toolTokens
 	}
+	if common.IsImageGenerationModel(r.Model) {
+		imageN := 1
+		if r.N != nil && *r.N > 0 {
+			imageN = *r.N
+		}
+		tokenCountMeta.BillingRatios = map[string]float64{"n": float64(imageN)}
+	}
 	tokenCountMeta.CombineText = strings.Join(texts, "\n")
 	tokenCountMeta.Files = fileMeta
 	return &tokenCountMeta

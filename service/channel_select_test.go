@@ -9,12 +9,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRequiredPublicChannelTagForChatCompletionsIsAlwaysACURouter(t *testing.T) {
+func TestRequiredPublicChannelTagForChatCompletions(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	context, _ := gin.CreateTestContext(httptest.NewRecorder())
 
 	require.Equal(t, constant.ChannelTagACURouter, RequiredPublicChannelTag(
 		context, "default", "gpt-ordinary", "/v1/chat/completions",
+	))
+	require.Equal(t, "", RequiredPublicChannelTag(
+		context, "default", "gpt-image-2", "/v1/chat/completions",
 	))
 	require.Equal(t, "", RequiredPublicChannelTag(
 		context, "default", "gpt-ordinary", "/pg/chat/completions",

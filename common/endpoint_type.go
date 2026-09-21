@@ -1,6 +1,10 @@
 package common
 
-import "github.com/QuantumNous/new-api/constant"
+import (
+	"slices"
+
+	"github.com/QuantumNous/new-api/constant"
+)
 
 // GetEndpointTypesByChannelType 获取渠道最优先端点类型（所有的渠道都支持 OpenAI 端点）
 func GetEndpointTypesByChannelType(channelType int, modelName string) []constant.EndpointType {
@@ -31,12 +35,19 @@ func GetEndpointTypesByChannelType(channelType int, modelName string) []constant
 	case constant.ChannelTypeSora:
 		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAIVideo}
 	case constant.ChannelTypeSub2API:
-		endpointTypes = []constant.EndpointType{
-			constant.EndpointTypeOpenAI,
-			constant.EndpointTypeOpenAIResponse,
-			constant.EndpointTypeAnthropic,
-			constant.EndpointTypeGemini,
-			constant.EndpointTypeOpenAIAlphaSearch,
+		if IsImageGenerationModel(modelName) {
+			endpointTypes = []constant.EndpointType{
+				constant.EndpointTypeImageGeneration,
+				constant.EndpointTypeOpenAI,
+			}
+		} else {
+			endpointTypes = []constant.EndpointType{
+				constant.EndpointTypeOpenAI,
+				constant.EndpointTypeOpenAIResponse,
+				constant.EndpointTypeAnthropic,
+				constant.EndpointTypeGemini,
+				constant.EndpointTypeOpenAIAlphaSearch,
+			}
 		}
 	case constant.ChannelTypeCodex:
 		endpointTypes = []constant.EndpointType{
@@ -51,7 +62,7 @@ func GetEndpointTypesByChannelType(channelType int, modelName string) []constant
 			endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
 		}
 	}
-	if IsImageGenerationModel(modelName) {
+	if IsImageGenerationModel(modelName) && !slices.Contains(endpointTypes, constant.EndpointTypeImageGeneration) {
 		// add to first
 		endpointTypes = append([]constant.EndpointType{constant.EndpointTypeImageGeneration}, endpointTypes...)
 	}

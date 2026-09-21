@@ -351,6 +351,11 @@ func (channel *Channel) SupportsRequestPath(requestPath string, modelName string
 			return false
 		}
 	}
+	if channel.Type == constant.ChannelTypeSub2API && common.IsImageGenerationModel(modelName) {
+		return strings.HasPrefix(requestPath, "/v1/images/generations") ||
+			strings.HasPrefix(requestPath, "/pg/images/generations") ||
+			strings.HasPrefix(requestPath, "/v1/chat/completions")
+	}
 	if channel.Type != constant.ChannelTypeAdvancedCustom {
 		return true
 	}
