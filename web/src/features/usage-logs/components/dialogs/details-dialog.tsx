@@ -696,10 +696,7 @@ function BillingBreakdown(props: {
     }
   } else if (isPerCall) {
     rows.push({ label: t('Billing Mode'), value: t('Per-call') })
-    if (
-      other.model_price != null &&
-      other.image_price_usd_per_image == null
-    ) {
+    if (other.model_price != null && other.image_price_usd_per_image == null) {
       rows.push({
         label: t('Model Price'),
         value: fmtPrice(other.model_price),
