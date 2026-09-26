@@ -132,7 +132,7 @@ func TestExecutionProfileManagementForwardsOnlyTargetedRouterOperations(t *testi
 		map[string]interface{}{"observedBillingMultiplier": 0.06},
 	)
 	require.NoError(t, err)
-	_, err = ApplyACUExecutionProfiles(context.Background())
+	_, err = UpdateACUExecutionProfileRouting(context.Background(), "test:model:responses", false)
 	require.NoError(t, err)
 
 	expected := []struct {
@@ -144,7 +144,7 @@ func TestExecutionProfileManagementForwardsOnlyTargetedRouterOperations(t *testi
 		{http.MethodPut, "/internal/admin/execution-profiles/test:model:responses"},
 		{http.MethodPost, "/internal/admin/execution-profiles/probe"},
 		{http.MethodPatch, "/internal/admin/execution-profiles/test:model:responses/economics"},
-		{http.MethodPost, "/internal/admin/execution-profiles/apply"},
+		{http.MethodPatch, "/internal/admin/execution-profiles/test:model:responses/routing"},
 	}
 	for _, item := range expected {
 		actual := <-requests

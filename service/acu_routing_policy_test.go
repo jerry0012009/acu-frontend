@@ -6,7 +6,6 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -25,7 +24,7 @@ func TestResolveACUEffectiveRoutingPolicyUsesTokenAndGlobalIntersection(t *testi
 	require.NoError(t, err)
 	require.Equal(t, ACURoutingPolicyCustom, policy.RoutingPolicy)
 	require.Equal(t, []string{"a", "b"}, policy.AllowedModelIDs)
-	require.Equal(t, []string{"p2"}, policy.AllowedProfileIDs)
+	require.Equal(t, []string{"p2", "p3"}, policy.AllowedProfileIDs)
 	require.Equal(t, "economy", policy.RoutingPreference)
 }
 
@@ -37,12 +36,12 @@ func TestResolveACUEffectiveRoutingPolicyDefaultTokenDynamicallyInheritsGlobalPr
 
 	initial, err := ResolveACUEffectiveRoutingPolicy(token)
 	require.NoError(t, err)
-	require.Equal(t, []string{"p1"}, initial.AllowedProfileIDs)
+	require.Empty(t, initial.AllowedProfileIDs)
 
 	common.OptionMap["ACUGlobalRoutingPolicy"] = `{"profilePolicy":"custom_allowlist","allowedProfileIds":["p1","p2"]}`
 	updated, err := ResolveACUEffectiveRoutingPolicy(token)
 	require.NoError(t, err)
-	require.Equal(t, []string{"p1", "p2"}, updated.AllowedProfileIDs)
+	require.Empty(t, updated.AllowedProfileIDs)
 	require.False(t, token.ACUProfileLimitsEnabled)
 	require.Empty(t, token.ACUProfileLimits)
 }
@@ -143,8 +142,8 @@ func TestSanitizeACUGlobalRoutingScopeRemovesProfilesMissingFromRouterPool(t *te
 		scope,
 	)
 	require.NoError(t, err)
-	require.Equal(t, []string{"active-profile"}, sanitized.AllowedProfileIDs)
-	require.Equal(t, []string{"disabled-profile", "stale-profile"}, removed)
+	require.Equal(t, []string{"active-profile", "disabled-profile"}, sanitized.AllowedProfileIDs)
+	require.Equal(t, []string{"stale-profile"}, removed)
 }
 
 func TestUpdateACUGlobalProfileRoutingSynchronizesRouterAndGlobalPolicy(t *testing.T) {
@@ -171,13 +170,18 @@ func TestUpdateACUGlobalProfileRoutingSynchronizesRouterAndGlobalPolicy(t *testi
 	})
 
 	var running atomic.Bool
-	var desired atomic.Bool
 	var updateCount atomic.Int32
 	var applyCount atomic.Int32
-	policyContainedTargetAtUpdate := make(chan bool, 2)
 	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
+		case request.Method == http.MethodGet && request.URL.Path == "/internal/admin/execution-profiles":
+			state := running.Load()
+			_, _ = fmt.Fprintf(w, `{"profiles":[
+				{"executionProfileId":"managed-heju:gpt-6-sol:responses","modelId":"gpt-6-sol","routingEnabled":%t},
+				{"executionProfileId":"other-profile","modelId":"gpt-6-sol","routingEnabled":true},
+				{"executionProfileId":"legacy-inconsistent-profile","modelId":"gpt-6-sol","routingEnabled":false}
+			]}`, state)
 		case request.Method == http.MethodGet && request.URL.Path == "/internal/admin/channel-monitor":
 			state := running.Load()
 			_, _ = fmt.Fprintf(w, `{
@@ -203,30 +207,28 @@ func TestUpdateACUGlobalProfileRoutingSynchronizesRouterAndGlobalPolicy(t *testi
 				"history":[],"cooldownIntervals":[],"probeHistory":[],
 				"supplyInventory":[],"modelPool":[{"modelId":"gpt-6-sol"}]
 			}`, state, state)
-		case request.Method == http.MethodPut &&
-			request.URL.Path == "/internal/admin/execution-profiles/managed-heju:gpt-6-sol:responses":
+		case request.Method == http.MethodPatch &&
+			request.URL.Path == "/internal/admin/execution-profiles/routing":
 			var payload struct {
-				Profile struct {
-					Enabled         bool `json:"enabled"`
-					ActiveInAcuAuto bool `json:"activeInAcuAuto"`
-				} `json:"profile"`
+				IDs []string `json:"ids"`
 			}
 			require.NoError(t, common.DecodeJson(request.Body, &payload))
-			require.Equal(t, payload.Profile.Enabled, payload.Profile.ActiveInAcuAuto)
-			desired.Store(payload.Profile.Enabled)
+			require.Contains(t, payload.IDs, "managed-heju:gpt-6-sol:responses")
+			running.Store(true)
 			updateCount.Add(1)
-			common.OptionMapRWMutex.RLock()
-			policyContainedTargetAtUpdate <- strings.Contains(
-				common.OptionMap["ACUGlobalRoutingPolicy"],
-				"managed-heju:gpt-6-sol:responses",
-			)
-			common.OptionMapRWMutex.RUnlock()
 			_, _ = w.Write([]byte(`{"status":"saved"}`))
-		case request.Method == http.MethodPost &&
-			request.URL.Path == "/internal/admin/execution-profiles/apply":
-			running.Store(desired.Load())
+		case request.Method == http.MethodPatch &&
+			request.URL.Path == "/internal/admin/execution-profiles/managed-heju:gpt-6-sol:responses/routing":
+			var payload struct {
+				Enabled bool `json:"enabled"`
+			}
+			require.NoError(t, common.DecodeJson(request.Body, &payload))
+			running.Store(payload.Enabled)
+			updateCount.Add(1)
+			_, _ = w.Write([]byte(`{"status":"saved"}`))
+		case request.URL.Path == "/internal/admin/execution-profiles/apply":
 			applyCount.Add(1)
-			_, _ = w.Write([]byte(`{"status":"applying"}`))
+			http.NotFound(w, request)
 		default:
 			http.NotFound(w, request)
 		}
@@ -253,8 +255,7 @@ func TestUpdateACUGlobalProfileRoutingSynchronizesRouterAndGlobalPolicy(t *testi
 	require.Empty(t, removed)
 	require.True(t, running.Load())
 	require.Contains(t, enabledPolicy.AllowedProfileIDs, "managed-heju:gpt-6-sol:responses")
-	require.Contains(t, common.OptionMap["ACUGlobalRoutingPolicy"], "managed-heju:gpt-6-sol:responses")
-	require.True(t, <-policyContainedTargetAtUpdate)
+	require.NotContains(t, common.OptionMap["ACUGlobalRoutingPolicy"], "managed-heju:gpt-6-sol:responses")
 
 	disabledPolicy, err := UpdateACUGlobalProfileRouting(
 		context.Background(),
@@ -265,9 +266,8 @@ func TestUpdateACUGlobalProfileRoutingSynchronizesRouterAndGlobalPolicy(t *testi
 	require.False(t, running.Load())
 	require.NotContains(t, disabledPolicy.AllowedProfileIDs, "managed-heju:gpt-6-sol:responses")
 	require.NotContains(t, common.OptionMap["ACUGlobalRoutingPolicy"], "managed-heju:gpt-6-sol:responses")
-	require.False(t, <-policyContainedTargetAtUpdate)
 	require.Equal(t, int32(2), updateCount.Load())
-	require.Equal(t, int32(2), applyCount.Load())
+	require.Equal(t, int32(0), applyCount.Load())
 }
 
 func TestValidateACURoutingScopeAllowsExplicitProfileOutsideAutoModelAllowlist(t *testing.T) {
@@ -360,6 +360,7 @@ func TestCurrentGlobalACUProfileIDsIncludesExplicitModelsAndAppliesProfilePolicy
 	require.Equal(t, []string{
 		"auto:gpt-5.6-sol:responses",
 		"explicit:mimo-v2.5:chat_completions",
+		"not-allowed:mimo-v2.5:responses",
 	}, profileIDs)
 }
 

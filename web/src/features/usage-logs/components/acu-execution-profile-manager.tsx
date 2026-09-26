@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Clipboard, Pencil, Play, Plus, Rocket, Save } from 'lucide-react'
+import { Clipboard, Pencil, Play, Plus, Save } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -15,11 +15,10 @@ import {
 } from '@/components/ui/sheet'
 
 import {
-  applyACUExecutionProfiles,
   createACUExecutionProfile,
   getACUExecutionProfiles,
   probeACUExecutionProfile,
-  updateACUGlobalProfileRouting,
+  updateACUChannelConnection,
   updateACUExecutionProfile,
   type ACUExecutionProfile,
   type ACUExecutionProfileProbeResult,
@@ -36,11 +35,8 @@ function emptyProfile(): ACUExecutionProfile {
     provider: '',
     channel: '',
     protocols: ['responses'],
-    apiKeyEnv: '',
     authMode: 'bearer',
-    enabled: true,
-    administratorAllowed: true,
-    activeInAcuAuto: false,
+    routingEnabled: true,
     toolCallSupport: false,
     thinkingSupport: false,
     supportedReasoningEfforts: [],
@@ -77,11 +73,10 @@ export function ACUExecutionProfileManager() {
   const [probeProtocol, setProbeProtocol] = useState<Protocol>('responses')
   const [probeResult, setProbeResult] =
     useState<ACUExecutionProfileProbeResult | null>(null)
-  const [applyState, setApplyState] = useState<
-    'idle' | 'applying' | 'applied' | 'failed'
-  >('idle')
+  const [channelBaseUrl, setChannelBaseUrl] = useState('')
+  const [channelFallbackUrls, setChannelFallbackUrls] = useState('')
+  const [channelApiKey, setChannelApiKey] = useState('')
   const profiles = profileQuery.data?.data?.profiles ?? []
-  const savedState = profileQuery.data?.data
 
   const openEditor = (profile?: ACUExecutionProfile) => {
     const next = profileWithDefaults(profile)
@@ -89,6 +84,10 @@ export function ACUExecutionProfileManager() {
     setEditingId(profile?.executionProfileId ?? null)
     setProbeProtocol(next.protocols[0] ?? 'responses')
     setProbeResult(null)
+    const connection = profileQuery.data?.data?.channels?.[next.channelId || next.channel]
+    setChannelBaseUrl(connection?.baseUrl ?? '')
+    setChannelFallbackUrls(connection?.fallbackBaseUrls.join('\n') ?? '')
+    setChannelApiKey('')
     setOpen(true)
   }
   const update = <K extends keyof ACUExecutionProfile>(
@@ -97,22 +96,10 @@ export function ACUExecutionProfileManager() {
   ) => setDraft((current) => ({ ...current, [key]: value }))
 
   const save = useMutation({
-    mutationFn: async () => {
-      const currentProfile = editingId
-        ? profiles.find((profile) => profile.executionProfileId === editingId)
-        : undefined
-      const response = await (editingId
+    mutationFn: async () =>
+      editingId
         ? updateACUExecutionProfile(editingId, draft)
-        : createACUExecutionProfile(draft))
-      if (
-        editingId &&
-        currentProfile &&
-        currentProfile.enabled !== draft.enabled
-      ) {
-        await updateACUGlobalProfileRouting(editingId, draft.enabled)
-      }
-      return response
-    },
+        : createACUExecutionProfile(draft),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({
@@ -123,7 +110,6 @@ export function ACUExecutionProfileManager() {
         }),
         queryClient.invalidateQueries({ queryKey: ['acu-channel-monitor'] }),
       ])
-      setApplyState('idle')
       setOpen(false)
       toast.success(t('Execution profile configuration saved'))
     },
@@ -139,36 +125,23 @@ export function ACUExecutionProfileManager() {
     onError: (error) =>
       toast.error(error instanceof Error ? error.message : t('Probe failed')),
   })
-  const apply = useMutation({
-    mutationFn: applyACUExecutionProfiles,
+  const saveChannel = useMutation({
+    mutationFn: () => updateACUChannelConnection(draft.channelId || draft.channel, {
+      baseUrl: channelBaseUrl,
+      fallbackBaseUrls: channelFallbackUrls.split('\n').map((url) => url.trim()).filter(Boolean),
+      ...(channelApiKey.trim() ? { apiKey: channelApiKey.trim() } : {}),
+    }),
     onSuccess: async () => {
-      setApplyState('applying')
-      for (let attempt = 0; attempt < 10; attempt += 1) {
-        await new Promise((resolve) => window.setTimeout(resolve, 1000))
-        try {
-          const result = await queryClient.fetchQuery({
-            queryKey: ['acu-execution-profiles'],
-            queryFn: getACUExecutionProfiles,
-            staleTime: 0,
-          })
-          if (result.data && !result.data.applyRequired) {
-            setApplyState('applied')
-            toast.success(t('Execution profiles applied'))
-            return
-          }
-        } catch {
-          // Router is expected to be unavailable briefly while it restarts.
-        }
-      }
-      setApplyState('failed')
-      toast.error(t('Router did not report the new profile configuration'))
+      setChannelApiKey('')
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['acu-execution-profiles'] }),
+        queryClient.invalidateQueries({ queryKey: ['acu-channel-monitor'] }),
+      ])
+      toast.success(t('Channel connection saved'))
     },
-    onError: (error) => {
-      setApplyState('failed')
-      toast.error(error instanceof Error ? error.message : t('Apply failed'))
-    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : t('Save failed')),
   })
-
   const copyProbeResult = async () => {
     if (!probeResult) return
     await navigator.clipboard.writeText(JSON.stringify(probeResult, null, 2))
@@ -181,27 +154,13 @@ export function ACUExecutionProfileManager() {
         <div className='flex flex-wrap items-center justify-between gap-2'>
           <div>
             <h3 className='text-sm font-semibold'>{t('Execution Profiles')}</h3>
-            <p className='text-muted-foreground text-xs'>
-              {savedState?.applyRequired
-                ? t('Saved configuration is waiting for Router apply')
-                : t('Running Router profile set matches saved configuration')}
-            </p>
+            <p className='text-muted-foreground text-xs'>{t('Changes take effect immediately')}</p>
           </div>
           <div className='flex flex-wrap gap-2'>
             <ACUProviderQuickAdd />
             <Button size='sm' variant='outline' onClick={() => openEditor()}>
               <Plus className='size-3.5' />
               {t('Advanced Add Profile')}
-            </Button>
-            <Button
-              size='sm'
-              disabled={!savedState?.applyRequired || apply.isPending}
-              onClick={() => apply.mutate()}
-            >
-              <Rocket className='size-3.5' />
-              {applyState === 'applying'
-                ? t('Applying')
-                : t('Apply configuration')}
             </Button>
           </div>
         </div>
@@ -236,14 +195,6 @@ export function ACUExecutionProfileManager() {
             </div>
           )}
         </div>
-        {applyState === 'applied' && (
-          <div className='text-xs text-green-700'>{t('Applied')}</div>
-        )}
-        {applyState === 'failed' && (
-          <div className='text-destructive text-xs'>
-            {t('Apply status could not be confirmed')}
-          </div>
-        )}
       </section>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side='right' className='sm:max-w-2xl'>
@@ -270,10 +221,6 @@ export function ACUExecutionProfileManager() {
                   ['channel', 'channel'],
                   ['channelId', 'channelId'],
                   ['routingGroupName', 'routingGroupName'],
-                  ['apiKeyEnv', 'apiKeyEnv'],
-                  ['baseUrl', 'baseUrl'],
-                  ['baseUrlEnv', 'baseUrlEnv'],
-                  ['economicsProviderId', 'economicsProviderId'],
                 ] as Array<[keyof ACUExecutionProfile, string]>
               ).map(([key, label]) => (
                 <label key={label} className='space-y-1'>
@@ -288,6 +235,49 @@ export function ACUExecutionProfileManager() {
                 </label>
               ))}
             </div>
+            {editingId && (
+              <div className='space-y-3 border-t pt-4'>
+                <div className='text-sm font-medium'>
+                  {t('Channel connection')} · {draft.channelId || draft.channel}
+                </div>
+                <label className='block space-y-1'>
+                  <span className='text-muted-foreground'>{t('Base URL')}</span>
+                  <input
+                    className='bg-background h-8 w-full rounded border px-2'
+                    value={channelBaseUrl}
+                    onChange={(event) => setChannelBaseUrl(event.target.value)}
+                  />
+                </label>
+                <label className='block space-y-1'>
+                  <span className='text-muted-foreground'>{t('Fallback URLs (one per line)')}</span>
+                  <textarea
+                    className='bg-background min-h-16 w-full rounded border px-2 py-1'
+                    value={channelFallbackUrls}
+                    onChange={(event) => setChannelFallbackUrls(event.target.value)}
+                  />
+                </label>
+                <label className='block space-y-1'>
+                  <span className='text-muted-foreground'>{t('Replace API Key (leave blank to keep current)')}</span>
+                  <input
+                    type='password'
+                    autoComplete='new-password'
+                    className='bg-background h-8 w-full rounded border px-2'
+                    value={channelApiKey}
+                    onChange={(event) => setChannelApiKey(event.target.value)}
+                  />
+                </label>
+                <Button
+                  type='button'
+                  size='sm'
+                  variant='outline'
+                  disabled={saveChannel.isPending || !channelBaseUrl.trim()}
+                  onClick={() => saveChannel.mutate()}
+                >
+                  <Save className='size-3.5' />
+                  {t('Save Channel')}
+                </Button>
+              </div>
+            )}
             <div className='grid gap-3 sm:grid-cols-2'>
               <label className='space-y-1'>
                 <span className='text-muted-foreground'>{t('authMode')}</span>
@@ -377,8 +367,7 @@ export function ACUExecutionProfileManager() {
             <div className='grid gap-2 sm:grid-cols-2'>
               {(
                 [
-                  ['enabled', 'enabled'],
-                  ['administratorAllowed', 'administratorAllowed'],
+                  ['routingEnabled', t('Global routing')],
                   ['toolCallSupport', 'toolCallSupport'],
                   ['thinkingSupport', 'thinkingSupport'],
                   ['stripV1Path', 'stripV1Path'],

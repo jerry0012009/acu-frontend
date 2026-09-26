@@ -515,7 +515,9 @@ export type ACUExecutionProfile = {
   baseUrl?: string
   baseUrlEnv?: string
   networkFallbackBaseUrlEnvs?: string[]
-  apiKeyEnv: string
+  apiKeyEnv?: string
+  apiKeyConfigured?: boolean
+  routingEnabled?: boolean
   authMode: 'bearer' | 'x-api-key'
   anthropicVersion?: string
   stripV1Path?: boolean
@@ -532,9 +534,9 @@ export type ACUExecutionProfile = {
     observedAt: string
     status: 'verified' | 'estimated'
   }
-  enabled: boolean
-  administratorAllowed: boolean
-  activeInAcuAuto: boolean
+  enabled?: boolean
+  administratorAllowed?: boolean
+  activeInAcuAuto?: boolean
   toolCallSupport?: boolean
   supportedToolTypes?: string[]
   thinkingSupport?: boolean
@@ -549,12 +551,18 @@ export type ACUExecutionProfile = {
 
 export type ACUExecutionProfilesResponse = {
   profiles: ACUExecutionProfile[]
+  channels?: Record<string, { baseUrl: string; fallbackBaseUrls: string[]; apiKeyConfigured: boolean }>
   profileCount: number
-  runningProfileCount: number
   runningCommit: string
-  applyRequired: boolean
-  savedConfigDigest: string
-  runningConfigDigest: string
+}
+
+function requireACUSuccess<T extends { success: boolean; message?: string }>(
+  response: T
+): T {
+  if (response.success === false) {
+    throw new Error(response.message || 'ACU request failed')
+  }
+  return response
 }
 
 export type ACUExecutionProfileProbeResult = {
@@ -622,8 +630,6 @@ export type ACUQuickAddDiscovery = {
   providerId: string
   channelId: string
   routingGroupName: string
-  baseUrlEnv: string
-  apiKeyEnv: string
   connectionFingerprint: string
   existingProviderEconomics?: {
     creditsPerCny: number
@@ -650,14 +656,14 @@ export type ACUGlobalRoutingPolicy = {
 
 export async function getACUGlobalRoutingPolicy(): Promise<ACUGlobalRoutingPolicy> {
   const res = await api.get('/api/option/acu-routing-policy')
-  return res.data.data
+  return requireACUSuccess(res.data).data
 }
 
 export async function updateACUGlobalRoutingPolicy(
   policy: ACUGlobalRoutingPolicy
 ) {
   const res = await api.put('/api/option/acu-routing-policy', policy)
-  return res.data
+  return requireACUSuccess(res.data)
 }
 
 export async function updateACUGlobalProfileRouting(
@@ -668,11 +674,11 @@ export async function updateACUGlobalProfileRouting(
     executionProfileId,
     enabled,
   })
-  return res.data as {
+  return requireACUSuccess(res.data as {
     success: boolean
     message?: string
     data?: ACUGlobalRoutingPolicy
-  }
+  })
 }
 
 export type ACURoutingUtilityConfig = {
@@ -823,20 +829,20 @@ export async function updateACUProfilePublicNote(
 
 export async function getACUExecutionProfiles() {
   const res = await api.get('/api/log/acu-execution-profiles')
-  return res.data as {
+  return requireACUSuccess(res.data as {
     success: boolean
     message?: string
     data?: ACUExecutionProfilesResponse
-  }
+  })
 }
 
 export async function createACUExecutionProfile(profile: ACUExecutionProfile) {
   const res = await api.post('/api/log/acu-execution-profiles', { profile })
-  return res.data as {
+  return requireACUSuccess(res.data as {
     success: boolean
     message?: string
     data?: Record<string, unknown>
-  }
+  })
 }
 
 export async function updateACUExecutionProfile(
@@ -847,11 +853,22 @@ export async function updateACUExecutionProfile(
     `/api/log/acu-execution-profiles/${encodeURIComponent(id)}`,
     { profile }
   )
-  return res.data as {
+  return requireACUSuccess(res.data as {
     success: boolean
     message?: string
     data?: Record<string, unknown>
-  }
+  })
+}
+
+export async function updateACUChannelConnection(
+  id: string,
+  input: { baseUrl?: string; fallbackBaseUrls?: string[]; apiKey?: string }
+) {
+  const res = await api.patch(
+    `/api/log/acu-execution-profiles/channels/${encodeURIComponent(id)}`,
+    input
+  )
+  return requireACUSuccess(res.data as { success: boolean; message?: string })
 }
 
 export async function probeACUExecutionProfile(
@@ -862,11 +879,11 @@ export async function probeACUExecutionProfile(
     profile,
     protocol,
   })
-  return res.data as {
+  return requireACUSuccess(res.data as {
     success: boolean
     message?: string
     data?: ACUExecutionProfileProbeResult
-  }
+  })
 }
 
 export async function probeACUExecutionProfileById(
@@ -877,11 +894,11 @@ export async function probeACUExecutionProfileById(
     executionProfileId,
     protocol,
   })
-  return res.data as {
+  return requireACUSuccess(res.data as {
     success: boolean
     message?: string
     data?: ACUExecutionProfileProbeResult
-  }
+  })
 }
 
 export async function reconcileACUExecutionProfileEconomics(
@@ -895,7 +912,7 @@ export async function reconcileACUExecutionProfileEconomics(
     `/api/log/acu-execution-profiles/${encodeURIComponent(executionProfileId)}/economics`,
     input
   )
-  return res.data as {
+  return requireACUSuccess(res.data as {
     success: boolean
     message?: string
     data?: {
@@ -904,25 +921,10 @@ export async function reconcileACUExecutionProfileEconomics(
         observedBillingMultiplier: boolean
         creditsPerCny: boolean
       }
-      applyRequired: boolean
       executionProfileId: string
       economicsProviderId: string
     }
-  }
-}
-
-export async function applyACUExecutionProfiles() {
-  const res = await api.post('/api/log/acu-execution-profiles/apply')
-  return res.data as {
-    success: boolean
-    message?: string
-    data?: {
-      status: string
-      routerOnly: boolean
-      profileCount: number
-      savedConfigDigest: string
-    }
-  }
+  })
 }
 
 export async function quickAddACUProviderDiscover(
@@ -932,11 +934,11 @@ export async function quickAddACUProviderDiscover(
     '/api/log/acu-execution-profiles/quick-add/discover',
     connection
   )
-  return res.data as {
+  return requireACUSuccess(res.data as {
     success: boolean
     message?: string
     data?: ACUQuickAddDiscovery
-  }
+  })
 }
 
 export async function quickAddACUProviderProbe(input: {
@@ -954,14 +956,14 @@ export async function quickAddACUProviderProbe(input: {
     '/api/log/acu-execution-profiles/quick-add/probe',
     input
   )
-  return res.data as {
+  return requireACUSuccess(res.data as {
     success: boolean
     message?: string
     data?: ACUExecutionProfileProbeResult & {
       profile?: Record<string, unknown>
       profileProbeIdentityDigest?: string
     }
-  }
+  })
 }
 
 export async function quickAddACUProviderSave(input: {
@@ -980,7 +982,7 @@ export async function quickAddACUProviderSave(input: {
     '/api/log/acu-execution-profiles/quick-add/save',
     input
   )
-  return res.data as {
+  return requireACUSuccess(res.data as {
     success: boolean
     message?: string
     data?: {
@@ -989,10 +991,8 @@ export async function quickAddACUProviderSave(input: {
       skippedDuplicates: string[]
       createdCount: number
       skippedDuplicateCount: number
-      applyRequired: boolean
-      savedConfigDigest: string
     }
-  }
+  })
 }
 
 export async function getUserInfo(
