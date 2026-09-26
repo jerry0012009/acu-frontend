@@ -185,6 +185,37 @@ func TestMigrateRetiredFrontendOptionsKeepsEmptyAuthoritativeTargets(t *testing.
 	}
 }
 
+func TestMigrateRetiredFrontendOptionsRemovesFormulaModeIdempotently(t *testing.T) {
+	db := useFrontendOptionMigrationDB(t)
+	legacy := `{"schemaVersion":"acu-routing-utility-config-v1","formulaMode":"legacy","qualityPresets":{"balanced":20}}`
+	require.NoError(t, db.Create(&Option{
+		Key:   acuRoutingUtilityConfigOptionKey,
+		Value: legacy,
+	}).Error)
+
+	require.NoError(t, MigrateRetiredFrontendOptions())
+	assert.JSONEq(t,
+		`{"schemaVersion":"acu-routing-utility-config-v1","qualityPresets":{"balanced":20}}`,
+		requireOptionValue(t, db, acuRoutingUtilityConfigOptionKey),
+	)
+
+	before := requireOptionValue(t, db, acuRoutingUtilityConfigOptionKey)
+	require.NoError(t, MigrateRetiredFrontendOptions())
+	assert.Equal(t, before, requireOptionValue(t, db, acuRoutingUtilityConfigOptionKey))
+}
+
+func TestMigrateRetiredFrontendOptionsPreservesMalformedRoutingUtilityConfig(t *testing.T) {
+	db := useFrontendOptionMigrationDB(t)
+	legacy := `{"formulaMode":`
+	require.NoError(t, db.Create(&Option{
+		Key:   acuRoutingUtilityConfigOptionKey,
+		Value: legacy,
+	}).Error)
+
+	require.NoError(t, MigrateRetiredFrontendOptions())
+	assert.Equal(t, legacy, requireOptionValue(t, db, acuRoutingUtilityConfigOptionKey))
+}
+
 func TestRetiredThemeOptionIsPersistedButNotPublished(t *testing.T) {
 	db := useFrontendOptionMigrationDB(t)
 	previousMap := common.OptionMap
