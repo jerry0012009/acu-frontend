@@ -76,7 +76,7 @@ func TestApplyACUTrustedIdentityReplacesForgedHeadersAndBindsBody(t *testing.T) 
 		req.Header.Get("X-ACU-Reliability-Policy"), req.Header.Get("X-ACU-Work-Phase-Bias-Offsets"),
 		req.Header.Get("X-ACU-Allowed-Candidate-Ids"), req.Header.Get("X-ACU-Candidate-Preference-Scores"),
 		req.Header.Get("X-ACU-Profile-Preference-Scores"),
-		req.Header.Get("X-ACU-Routing-Utility-Version"), req.Header.Get("X-ACU-Formula-Mode"),
+		req.Header.Get("X-ACU-Routing-Utility-Version"),
 		"v6", req.Header.Get("X-ACU-Timestamp"), bodyHash,
 	}, "\n")
 	mac := hmac.New(sha256.New, []byte("test-only-shared-secret"))

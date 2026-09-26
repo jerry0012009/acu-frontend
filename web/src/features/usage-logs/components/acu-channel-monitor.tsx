@@ -119,12 +119,8 @@ function buildAvailableModelEntries(
       )
       return {
         id,
-        hasConfiguredProfile: modelProfiles.some(
-          (item) => item.routingEnabled
-        ),
-        autoRouteEnabled: modelProfiles.some(
-          (item) => item.routingEnabled
-        ),
+        hasConfiguredProfile: modelProfiles.some((item) => item.routingEnabled),
+        autoRouteEnabled: modelProfiles.some((item) => item.routingEnabled),
       }
     })
 }
@@ -241,15 +237,11 @@ export function ACUChannelMonitor() {
       weight?: number
       inheritWeight?: boolean
     }) =>
-      updateACUTokenProfileRouting(
-        input.tokenId,
-        input.executionProfileId,
-        {
-          enabled: input.enabled,
-          weight: input.weight,
-          inheritWeight: input.inheritWeight,
-        }
-      ),
+      updateACUTokenProfileRouting(input.tokenId, input.executionProfileId, {
+        enabled: input.enabled,
+        weight: input.weight,
+        inheritWeight: input.inheritWeight,
+      }),
     onSuccess: async (response) => {
       queryClient.setQueryData(
         ['acu-token-profile-routing', response.data?.tokenId],
@@ -502,10 +494,7 @@ export function ACUChannelMonitor() {
               enabled,
             })
           },
-          onSetWeight: (
-            profile: ACUChannelMonitorProfile,
-            weight: number
-          ) => {
+          onSetWeight: (profile: ACUChannelMonitorProfile, weight: number) => {
             tokenProfileRoutingMutation.mutate({
               tokenId: selectedTokenId,
               executionProfileId: profile.executionProfileId,
@@ -1253,12 +1242,6 @@ function RouterConfigurationTab(props: {
         savedUtilityConfig && (
           <section className='space-y-3 rounded border p-3 text-xs'>
             <div>
-              <span className='text-muted-foreground'>{t('Formula')}: </span>
-              <span className='font-medium'>
-                {savedUtilityConfig.formulaMode}
-              </span>
-            </div>
-            <div>
               <div className='text-muted-foreground'>
                 {t('Global model access')}
               </div>
@@ -1465,24 +1448,6 @@ function RoutingUtilityEditor(props: {
       </summary>
       <div className='mt-3 space-y-4'>
         <div className='grid gap-3 sm:grid-cols-2 lg:grid-cols-4'>
-          <label className='space-y-1 text-xs'>
-            <span className='text-muted-foreground'>{t('Formula mode')}</span>
-            <select
-              className='bg-background h-8 w-full rounded-md border px-2'
-              value={props.value.formulaMode}
-              onChange={(event) =>
-                props.onChange({
-                  ...props.value,
-                  formulaMode: event.target
-                    .value as ACURoutingUtilityConfig['formulaMode'],
-                })
-              }
-            >
-              <option value='legacy'>legacy</option>
-              <option value='shadow'>shadow</option>
-              <option value='active'>active</option>
-            </select>
-          </label>
           {(['economy', 'balanced', 'quality'] as const).map((preset) =>
             numberField(
               `${preset} quality bias`,

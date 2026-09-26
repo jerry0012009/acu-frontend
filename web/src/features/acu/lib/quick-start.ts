@@ -8,22 +8,22 @@ export const CC_SWITCH_MODEL_MAPPINGS = [
   {
     menuName: 'acu-auto',
     requestModel: 'acu-auto',
-    contextWindow: 260000,
+    contextWindow: 1050000,
   },
   {
     menuName: 'gpt-5.6-luna',
     requestModel: 'gpt-5.6-luna',
-    contextWindow: 260000,
+    contextWindow: 1050000,
   },
   {
     menuName: 'gpt-5.6-terra',
     requestModel: 'gpt-5.6-terra',
-    contextWindow: 260000,
+    contextWindow: 1050000,
   },
   {
     menuName: 'gpt-5.6-sol',
     requestModel: 'gpt-5.6-sol',
-    contextWindow: 260000,
+    contextWindow: 1050000,
   },
   {
     menuName: 'gpt-6-astra',
@@ -31,14 +31,24 @@ export const CC_SWITCH_MODEL_MAPPINGS = [
     contextWindow: 1050000,
   },
   {
+    menuName: 'gpt-6-luna',
+    requestModel: 'gpt-6-luna',
+    contextWindow: 1050000,
+  },
+  {
+    menuName: 'gpt-6-sol',
+    requestModel: 'gpt-6-sol',
+    contextWindow: 1050000,
+  },
+  {
     menuName: 'gpt-5.5',
     requestModel: 'gpt-5.5',
-    contextWindow: 260000,
+    contextWindow: 1050000,
   },
   {
     menuName: 'gpt-5.4-mini',
     requestModel: 'gpt-5.4-mini',
-    contextWindow: 260000,
+    contextWindow: 400000,
   },
 ] as const
 
@@ -242,7 +252,7 @@ export function buildOpenClawConfig(apiKey: string): string {
           "reasoning": false,
           "input": ["text"],
           "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
-          "contextWindow": 272000,
+          "contextWindow": 1050000,
           "maxTokens": 32000
         }]
       }

@@ -112,7 +112,7 @@ func GetACUChannelMonitor(ctx context.Context, rangeValue, supplyStrategy, scena
 		return dto.ACUChannelMonitor{}, err
 	}
 	utilityPolicy, err := common.Marshal(map[string]interface{}{
-		"formulaMode": config.FormulaMode, "qualityBias": config.QualityPresets["balanced"],
+		"qualityBias":    config.QualityPresets["balanced"],
 		"supplyStrategy": supplyStrategy, "supplyWeights": config.SupplyPresets[supplyStrategy],
 		"acuHighBiasOffset": config.ACUHighBiasOffset, "modelCostLogScale": config.ModelCostLogScale,
 		"profileCostLogScale": config.ProfileCostLogScale, "profileSpeedLogScale": config.ProfileSpeedLogScale,
@@ -346,7 +346,6 @@ func buildACUSelectionCorridorBody(inputTokens, expectedOutputTokens int, policy
 		"latencyPolicy": policy.LatencyPolicy, "reliabilityPolicy": policy.ReliabilityPolicy,
 		"workPhaseBiasOffsets": policy.WorkPhaseBiasOffsets,
 		"routeMode":            "acu-auto", "routingUtilityVersion": policy.RoutingUtilityVersion,
-		"formulaMode":             policy.FormulaMode,
 		"profilePreferenceScores": policy.ProfilePreferenceScores,
 	}
 	if includeCandidatePreferenceScores {

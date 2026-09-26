@@ -202,7 +202,15 @@ test('Codex installers install the latest CLI with China and overseas fallbacks'
   assert.doesNotMatch(codexLauncher, /-m acu-auto/)
   assert.deepEqual(
     codexModelCatalog.models.map(({ slug }) => slug),
-    ['acu-auto', 'gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol', 'gpt-6-astra']
+    [
+      'acu-auto',
+      'gpt-5.6-luna',
+      'gpt-5.6-terra',
+      'gpt-5.6-sol',
+      'gpt-6-astra',
+      'gpt-6-luna',
+      'gpt-6-sol',
+    ]
   )
   assert.deepEqual(
     codexModelCatalog.models.map(({ supported_reasoning_levels }) =>
@@ -213,6 +221,8 @@ test('Codex installers install the latest CLI with China and overseas fallbacks'
       ['low', 'medium', 'high', 'max'],
       ['low', 'medium', 'high', 'max'],
       ['low', 'medium', 'high', 'xhigh'],
+      ['low', 'medium', 'high', 'xhigh'],
+      ['low', 'medium', 'high', 'max'],
       ['low', 'medium', 'high', 'xhigh'],
     ]
   )

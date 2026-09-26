@@ -25,7 +25,7 @@ const (
 	ACUModelAccessExplicit        = "explicit"
 	ACUModelAccessAuto            = "auto"
 	acuModelFormulaVersion        = "acu-model-utility-v2.2"
-	acuProfileFormulaVersion      = "acu-profile-utility-v2.2"
+	acuProfileFormulaVersion      = "acu-profile-utility-v2.4"
 	acuQualitySatisfactionVersion = "acu-quality-satisfaction-v1"
 )
 
@@ -56,7 +56,6 @@ type ACUEffectiveRoutingPolicy struct {
 	ReliabilityPolicy         ACUReliabilityPolicy
 	WorkPhaseBiasOffsets      map[string]int
 	RoutingUtilityVersion     string
-	FormulaMode               string
 	AllowedCandidateIDs       []string
 	CandidatePreferenceScores map[string]float64
 	ProfilePreferenceScores   map[string]float64
@@ -84,7 +83,6 @@ type ACUReliabilityPolicy struct {
 
 type ACURoutingUtilityConfig struct {
 	SchemaVersion                    string                      `json:"schemaVersion"`
-	FormulaMode                      string                      `json:"formulaMode"`
 	QualityPresets                   map[string]int              `json:"qualityPresets"`
 	ACUHighBiasOffset                int                         `json:"acuHighBiasOffset"`
 	ModelCostLogScale                float64                     `json:"modelCostLogScale"`
@@ -112,7 +110,7 @@ func defaultACUCandidatePreferenceScores() map[string]float64 {
 
 func defaultACURoutingUtilityConfig() ACURoutingUtilityConfig {
 	return ACURoutingUtilityConfig{
-		SchemaVersion: "acu-routing-utility-config-v1", FormulaMode: "legacy",
+		SchemaVersion:     "acu-routing-utility-config-v1",
 		QualityPresets:    map[string]int{"economy": -10, "balanced": 20, "quality": 70},
 		ACUHighBiasOffset: 40, ModelCostLogScale: 0.75,
 		SupplyPresets: map[string]ACUSupplyWeights{
@@ -149,9 +147,6 @@ func NormalizeACURoutingUtilityConfig(config ACURoutingUtilityConfig) (ACURoutin
 	}
 	if config.SchemaVersion != "acu-routing-utility-config-v1" {
 		return config, fmt.Errorf("invalid ACU routing utility schema version")
-	}
-	if config.FormulaMode != "legacy" && config.FormulaMode != "shadow" && config.FormulaMode != "active" {
-		return config, fmt.Errorf("invalid ACU routing formula mode")
 	}
 	for _, name := range []string{"economy", "balanced", "quality"} {
 		value, ok := config.QualityPresets[name]
@@ -882,7 +877,7 @@ func ResolveACUEffectiveRoutingPolicy(token *model.Token) (ACUEffectiveRoutingPo
 		ACUHighBiasOffset: utilityConfig.ACUHighBiasOffset, ModelCostLogScale: utilityConfig.ModelCostLogScale,
 		ProfileCostLogScale: utilityConfig.ProfileCostLogScale, ProfileSpeedLogScale: utilityConfig.ProfileSpeedLogScale,
 		LatencyPolicy: utilityConfig.Latency, ReliabilityPolicy: utilityConfig.Reliability,
-		WorkPhaseBiasOffsets: utilityConfig.WorkPhaseBiasOffsets, FormulaMode: utilityConfig.FormulaMode,
+		WorkPhaseBiasOffsets:      utilityConfig.WorkPhaseBiasOffsets,
 		AllowedCandidateIDs:       allowedCandidateIDs,
 		CandidatePreferenceScores: candidatePreferenceScores,
 		ProfilePreferenceScores:   profilePreferenceScores,
@@ -966,7 +961,7 @@ func ResolveACUEffectiveRoutingPolicy(token *model.Token) (ACUEffectiveRoutingPo
 		"acuHighBiasOffset": result.ACUHighBiasOffset, "modelCostLogScale": result.ModelCostLogScale,
 		"profileCostLogScale": result.ProfileCostLogScale, "profileSpeedLogScale": result.ProfileSpeedLogScale,
 		"latency": result.LatencyPolicy, "reliability": result.ReliabilityPolicy,
-		"workPhaseBiasOffsets": result.WorkPhaseBiasOffsets, "formulaMode": result.FormulaMode,
+		"workPhaseBiasOffsets":      result.WorkPhaseBiasOffsets,
 		"candidatePreferenceScores": result.CandidatePreferenceScores,
 		"profilePreferenceScores":   result.ProfilePreferenceScores,
 	})

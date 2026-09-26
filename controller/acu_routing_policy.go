@@ -111,7 +111,6 @@ func UpdateACURoutingUtilityConfig(c *gin.Context) {
 		return
 	}
 	model.RecordOperationAuditLog(c.GetInt("id"), "Updated ACU routing utility config", c.ClientIP(), "acu_routing_utility.update", map[string]interface{}{
-		"formula_mode":                       normalized.FormulaMode,
 		"schema_version":                     normalized.SchemaVersion,
 		"default_candidate_preference_count": len(normalized.DefaultCandidatePreferenceScores),
 	}, auditOperatorInfo(c), nil)
