@@ -32,6 +32,7 @@ import {
   getACUTokenProfileRouting,
   probeACUExecutionProfileById,
   reconcileACUExecutionProfileEconomics,
+  updateACUGlobalProfileRouting,
   updateACUGlobalRoutingPolicy,
   updateACUProfilePublicNote,
   updateACURoutingUtilityConfig,
@@ -55,7 +56,6 @@ import { ACUExecutionProfileManager } from './acu-execution-profile-manager'
 import {
   modelAccessFor,
   updateGlobalModelAccess,
-  updateGlobalProfileRouting,
   type ACUModelAccess,
 } from './acu-global-routing-policy'
 import { ACUModelHealthCard } from './acu-model-health-card'
@@ -107,11 +107,7 @@ function isProfileGloballyUsable(
   profile: ACUChannelMonitorProfile,
   modelEntries: GlobalModelOption[]
 ) {
-  if (
-    !profile.executionProfileId ||
-    profile.enabled === false ||
-    profile.administratorAllowed === false
-  ) {
+  if (!profile.executionProfileId || profile.administratorAllowed === false) {
     return false
   }
   const model = modelEntries.find(
@@ -325,10 +321,8 @@ export function ACUChannelMonitor() {
     enabled: isRoot,
   })
   const globalRoutingMutation = useMutation({
-    mutationFn: (input: {
-      profileId: string
-      policy: ACUGlobalRoutingPolicy
-    }) => updateACUGlobalRoutingPolicy(input.policy),
+    mutationFn: (input: { profileId: string; enabled: boolean }) =>
+      updateACUGlobalProfileRouting(input.profileId, input.enabled),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({
@@ -491,16 +485,9 @@ export function ACUChannelMonitor() {
           profile: ACUChannelMonitorProfile,
           enabled: boolean
         ) => {
-          const policy = globalRoutingPolicyQuery.data
-          if (!policy) return
           globalRoutingMutation.mutate({
             profileId: profile.executionProfileId,
-            policy: updateGlobalProfileRouting(
-              policy,
-              allProfiles,
-              profile.executionProfileId,
-              enabled
-            ),
+            enabled,
           })
         },
         onProbe: (profile: ACUChannelMonitorProfile, probeProtocol: string) => {
@@ -1255,10 +1242,7 @@ function RouterConfigurationTab(props: {
             )
           : 'disabled'
         let disabledReason: string | undefined
-        if (
-          profile.enabled === false ||
-          profile.administratorAllowed === false
-        ) {
+        if (profile.administratorAllowed === false) {
           disabledReason = 'Profile is disabled'
         } else if (modelAccess === 'disabled') {
           disabledReason = 'Model is disabled'

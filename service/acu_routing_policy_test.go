@@ -2,14 +2,19 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestResolveACUEffectiveRoutingPolicyUsesTokenAndGlobalIntersection(t *testing.T) {
@@ -140,6 +145,122 @@ func TestSanitizeACUGlobalRoutingScopeRemovesProfilesMissingFromRouterPool(t *te
 	require.NoError(t, err)
 	require.Equal(t, []string{"active-profile"}, sanitized.AllowedProfileIDs)
 	require.Equal(t, []string{"disabled-profile", "stale-profile"}, removed)
+}
+
+func TestUpdateACUGlobalProfileRoutingSynchronizesRouterAndGlobalPolicy(t *testing.T) {
+	clearACUChannelMonitorCache()
+	previousDB := model.DB
+	previousOptions := common.OptionMap
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Option{}))
+	model.DB = db
+	common.OptionMap = map[string]string{
+		"ACUGlobalRoutingPolicy": `{
+			"modelPolicy":"custom_allowlist",
+			"allowedModelIds":["gpt-6-sol"],
+			"modelAccess":{"gpt-6-sol":"auto"},
+			"profilePolicy":"custom_allowlist",
+			"allowedProfileIds":["other-profile"]
+		}`,
+	}
+	t.Cleanup(func() {
+		clearACUChannelMonitorCache()
+		model.DB = previousDB
+		common.OptionMap = previousOptions
+	})
+
+	var running atomic.Bool
+	var desired atomic.Bool
+	var updateCount atomic.Int32
+	var applyCount atomic.Int32
+	policyContainedTargetAtUpdate := make(chan bool, 2)
+	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case request.Method == http.MethodGet && request.URL.Path == "/internal/admin/channel-monitor":
+			state := running.Load()
+			_, _ = fmt.Fprintf(w, `{
+				"profiles":[{
+					"executionProfileId":"managed-heju:gpt-6-sol:responses",
+					"canonicalModel":"gpt-6-sol",
+					"enabled":%t,
+					"administratorAllowed":true,
+					"autoRouteEnabled":%t
+				},{
+					"executionProfileId":"other-profile",
+					"canonicalModel":"gpt-6-sol",
+					"enabled":true,
+					"administratorAllowed":true,
+					"autoRouteEnabled":true
+				}],
+				"history":[],"cooldownIntervals":[],"probeHistory":[],
+				"supplyInventory":[],"modelPool":[{"modelId":"gpt-6-sol"}]
+			}`, state, state)
+		case request.Method == http.MethodPut &&
+			request.URL.Path == "/internal/admin/execution-profiles/managed-heju:gpt-6-sol:responses":
+			var payload struct {
+				Profile struct {
+					Enabled         bool `json:"enabled"`
+					ActiveInAcuAuto bool `json:"activeInAcuAuto"`
+				} `json:"profile"`
+			}
+			require.NoError(t, common.DecodeJson(request.Body, &payload))
+			require.Equal(t, payload.Profile.Enabled, payload.Profile.ActiveInAcuAuto)
+			desired.Store(payload.Profile.Enabled)
+			updateCount.Add(1)
+			common.OptionMapRWMutex.RLock()
+			policyContainedTargetAtUpdate <- strings.Contains(
+				common.OptionMap["ACUGlobalRoutingPolicy"],
+				"managed-heju:gpt-6-sol:responses",
+			)
+			common.OptionMapRWMutex.RUnlock()
+			_, _ = w.Write([]byte(`{"status":"saved"}`))
+		case request.Method == http.MethodPost &&
+			request.URL.Path == "/internal/admin/execution-profiles/apply":
+			running.Store(desired.Load())
+			applyCount.Add(1)
+			_, _ = w.Write([]byte(`{"status":"applying"}`))
+		default:
+			http.NotFound(w, request)
+		}
+	}))
+	t.Cleanup(router.Close)
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
+
+	enabledPolicy, removed, err := ApplyACUGlobalRoutingScope(
+		context.Background(),
+		ACURoutingScope{
+			ModelAccess: map[string]string{
+				"gpt-6-sol": ACUModelAccessAuto,
+			},
+			ProfilePolicy: ACURoutingPolicyCustom,
+			AllowedProfileIDs: []string{
+				"managed-heju:gpt-6-sol:responses",
+				"other-profile",
+			},
+		},
+	)
+	require.NoError(t, err)
+	require.Empty(t, removed)
+	require.True(t, running.Load())
+	require.Contains(t, enabledPolicy.AllowedProfileIDs, "managed-heju:gpt-6-sol:responses")
+	require.Contains(t, common.OptionMap["ACUGlobalRoutingPolicy"], "managed-heju:gpt-6-sol:responses")
+	require.True(t, <-policyContainedTargetAtUpdate)
+
+	disabledPolicy, err := UpdateACUGlobalProfileRouting(
+		context.Background(),
+		"managed-heju:gpt-6-sol:responses",
+		false,
+	)
+	require.NoError(t, err)
+	require.False(t, running.Load())
+	require.NotContains(t, disabledPolicy.AllowedProfileIDs, "managed-heju:gpt-6-sol:responses")
+	require.NotContains(t, common.OptionMap["ACUGlobalRoutingPolicy"], "managed-heju:gpt-6-sol:responses")
+	require.False(t, <-policyContainedTargetAtUpdate)
+	require.Equal(t, int32(2), updateCount.Load())
+	require.Equal(t, int32(2), applyCount.Load())
 }
 
 func TestValidateACURoutingScopeAllowsExplicitProfileOutsideAutoModelAllowlist(t *testing.T) {

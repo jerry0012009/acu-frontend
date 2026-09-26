@@ -225,6 +225,7 @@ func SetApiRouter(router *gin.Engine) {
 			optionRoute.PUT("/", controller.UpdateOption)
 			optionRoute.GET("/acu-routing-policy", controller.GetACUGlobalRoutingPolicy)
 			optionRoute.PUT("/acu-routing-policy", controller.UpdateACUGlobalRoutingPolicy)
+			optionRoute.PUT("/acu-routing-policy/profile", controller.UpdateACUGlobalProfileRouting)
 			optionRoute.GET("/acu-routing-utility-config", controller.GetACURoutingUtilityConfig)
 			optionRoute.PUT("/acu-routing-utility-config", controller.UpdateACURoutingUtilityConfig)
 			optionRoute.POST("/payment_compliance", controller.ConfirmPaymentCompliance)

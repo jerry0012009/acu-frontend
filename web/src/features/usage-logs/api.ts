@@ -660,6 +660,21 @@ export async function updateACUGlobalRoutingPolicy(
   return res.data
 }
 
+export async function updateACUGlobalProfileRouting(
+  executionProfileId: string,
+  enabled: boolean
+) {
+  const res = await api.put('/api/option/acu-routing-policy/profile', {
+    executionProfileId,
+    enabled,
+  })
+  return res.data as {
+    success: boolean
+    message?: string
+    data?: ACUGlobalRoutingPolicy
+  }
+}
+
 export type ACURoutingUtilityConfig = {
   schemaVersion: 'acu-routing-utility-config-v1'
   formulaMode: 'legacy' | 'shadow' | 'active'

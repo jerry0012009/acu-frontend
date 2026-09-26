@@ -19,6 +19,7 @@ import {
   createACUExecutionProfile,
   getACUExecutionProfiles,
   probeACUExecutionProfile,
+  updateACUGlobalProfileRouting,
   updateACUExecutionProfile,
   type ACUExecutionProfile,
   type ACUExecutionProfileProbeResult,
@@ -96,14 +97,32 @@ export function ACUExecutionProfileManager() {
   ) => setDraft((current) => ({ ...current, [key]: value }))
 
   const save = useMutation({
-    mutationFn: () =>
-      editingId
+    mutationFn: async () => {
+      const currentProfile = editingId
+        ? profiles.find((profile) => profile.executionProfileId === editingId)
+        : undefined
+      const response = await (editingId
         ? updateACUExecutionProfile(editingId, draft)
-        : createACUExecutionProfile(draft),
+        : createACUExecutionProfile(draft))
+      if (
+        editingId &&
+        currentProfile &&
+        currentProfile.enabled !== draft.enabled
+      ) {
+        await updateACUGlobalProfileRouting(editingId, draft.enabled)
+      }
+      return response
+    },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ['acu-execution-profiles'],
-      })
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['acu-execution-profiles'],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['acu-global-routing-policy'],
+        }),
+        queryClient.invalidateQueries({ queryKey: ['acu-channel-monitor'] }),
+      ])
       setApplyState('idle')
       setOpen(false)
       toast.success(t('Execution profile configuration saved'))
