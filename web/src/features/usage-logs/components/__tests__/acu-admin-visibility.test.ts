@@ -71,7 +71,6 @@ test('root Router configuration is lazy and keeps saved state separate from draf
   assert.match(monitorSource, /const \[utilityDraft, setUtilityDraft\]/)
   assert.match(monitorSource, /structuredClone\(savedPolicy\)/)
   assert.match(monitorSource, /structuredClone\(savedUtilityConfig\)/)
-  assert.match(monitorSource, /currently unavailable/)
 })
 
 test('overview Profile routing controls stay Root-only and reuse existing policy and Probe APIs', () => {
@@ -139,34 +138,21 @@ test('router configuration refetches saved state after success or partial failur
   )
 })
 
-test('global configuration keeps model access and Profile availability separate', () => {
+test('global configuration controls models while Profile availability comes from the database', () => {
   assert.match(monitorSource, /function buildAvailableModelEntries/)
-  assert.match(monitorSource, /function isProfileGloballyUsable/)
   assert.match(monitorSource, /const availableModelEntries = useMemo/)
-  assert.match(monitorSource, /const availableProfileIdList = useMemo/)
   assert.match(monitorSource, /const changeModelAccess = \(/)
   assert.match(
     monitorSource,
     /modelPolicy: autoModelIds\.length \? 'custom_allowlist' : 'explicit_only'/
   )
-  assert.match(
-    monitorSource,
-    /disabledReason[\s\S]{0,220}'Profile is disabled'/
-  )
-  assert.match(monitorSource, /disabledReason[\s\S]{0,220}'Model is disabled'/)
-  assert.match(
-    monitorSource,
-    /Custom mode starts with all currently configured entries selected/
-  )
-  assert.match(monitorSource, /scopeSummary[\s\S]{0,520}Excluded/)
-  assert.doesNotMatch(monitorSource, /outside current model allowlist/)
+  assert.doesNotMatch(monitorSource, /profilePolicy/)
+  assert.doesNotMatch(monitorSource, /allowedProfileIds/)
 })
 
-test('saved profile scope summary includes the current profile inventory', () => {
-  assert.match(
-    monitorSource,
-    /scopeSummary\([\s\S]{0,180}savedPolicy\.profilePolicy[\s\S]{0,180}savedPolicy\.allowedProfileIds[\s\S]{0,220}availableProfileIdList/
-  )
+test('saved routing scope no longer carries a second Profile allowlist', () => {
+  assert.doesNotMatch(monitorSource, /savedPolicy\.profilePolicy/)
+  assert.doesNotMatch(monitorSource, /savedPolicy\.allowedProfileIds/)
 })
 
 test('root execution profile manager saves immediately without Router apply', () => {

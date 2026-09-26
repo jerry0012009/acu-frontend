@@ -265,9 +265,7 @@ export type ACUChannelMonitorProfile = {
   routingWeight: number
   effectivePriceMultiplier: number | null
   effectiveCostStatus: string
-  enabled: boolean
-  administratorAllowed: boolean
-  autoRouteEnabled: boolean
+  routingEnabled: boolean
   routingEligible: boolean
   routingEligibility: string
   state: string
@@ -514,9 +512,6 @@ export type ACUExecutionProfile = {
   inputTokenAccountingMode?: 'includes_cached' | 'excludes_cached'
   protocols: Array<'responses' | 'messages' | 'chat_completions'>
   baseUrl?: string
-  baseUrlEnv?: string
-  networkFallbackBaseUrlEnvs?: string[]
-  apiKeyEnv?: string
   apiKeyConfigured?: boolean
   routingEnabled?: boolean
   authMode: 'bearer' | 'x-api-key'
@@ -536,9 +531,6 @@ export type ACUExecutionProfile = {
     observedAt: string
     status: 'verified' | 'estimated'
   }
-  enabled?: boolean
-  administratorAllowed?: boolean
-  activeInAcuAuto?: boolean
   toolCallSupport?: boolean
   supportedToolTypes?: string[]
   thinkingSupport?: boolean
@@ -652,8 +644,6 @@ export type ACUGlobalRoutingPolicy = {
   modelPolicy: 'all_routing_eligible' | 'custom_allowlist' | 'explicit_only'
   allowedModelIds: string[]
   modelAccess?: Record<string, 'disabled' | 'explicit' | 'auto'>
-  profilePolicy: 'all_routing_eligible' | 'custom_allowlist'
-  allowedProfileIds: string[]
 }
 
 export async function getACUGlobalRoutingPolicy(): Promise<ACUGlobalRoutingPolicy> {
@@ -983,7 +973,7 @@ export async function quickAddACUProviderSave(input: {
     protocols: Array<'responses' | 'messages' | 'chat_completions'>
     billingPrice?: Record<string, number>
     observedBillingMultiplier?: number
-    activeInAcuAuto?: boolean
+    routingEnabled?: boolean
   }>
 }) {
   const res = await api.post(

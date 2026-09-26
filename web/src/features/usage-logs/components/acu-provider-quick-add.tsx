@@ -37,7 +37,7 @@ type QuickModel = ACUQuickAddDiscoveredModel & {
   protocols: Protocol[]
   price?: PriceDraft
   observedBillingMultiplier?: number
-  activeInAcuAuto: boolean
+  routingEnabled: boolean
   existingProtocols: Protocol[]
 }
 
@@ -130,7 +130,7 @@ export function ACUProviderQuickAdd() {
               existingProtocols.length > 0
                 ? existingProtocols
                 : defaultProtocols,
-            activeInAcuAuto: true,
+            routingEnabled: true,
             existingProtocols: [...new Set(existingProtocols)],
           }
         })
@@ -220,6 +220,7 @@ export function ACUProviderQuickAdd() {
             ...(model.observedBillingMultiplier
               ? { observedBillingMultiplier: model.observedBillingMultiplier }
               : {}),
+            routingEnabled: model.routingEnabled,
           },
         ]
       })
@@ -271,7 +272,7 @@ export function ACUProviderQuickAdd() {
         catalogKnown: false,
         selected: true,
         protocols: [...PROTOCOLS],
-        activeInAcuAuto: true,
+        routingEnabled: true,
         existingProtocols: [],
       },
     ])

@@ -164,17 +164,17 @@ func TestGetACURoutingCatalogOmitsSupplyTelemetry(t *testing.T) {
 			"profiles":[{
 				"executionProfileId":"lucen:luna:responses","canonicalModel":"gpt-5.6-luna",
 				"protocol":["responses"],"provider":"lucen","channel":"cx014",
-				"enabled":true,"administratorAllowed":true,"autoRouteEnabled":true,
+				"routingEnabled":true,
 				"supportedReasoningEfforts":["default","max"],"probeCostCny":12.5,
 				"state":"healthy"
 			},{
 				"executionProfileId":"disabled:profile","canonicalModel":"gpt-5.6-sol",
 				"protocol":["responses"],"provider":"secret-provider","channel":"secret-channel",
-				"enabled":false,"administratorAllowed":true,"autoRouteEnabled":true
+				"routingEnabled":false
 			},{
 				"executionProfileId":"go:mimo-v2.5:chat_completions","canonicalModel":"mimo-v2.5",
 				"protocol":["chat_completions"],"provider":"opencode","channel":"go",
-				"enabled":true,"administratorAllowed":true,"autoRouteEnabled":false
+				"routingEnabled":true
 			}],
 			"modelPool":[{
 				"modelId":"gpt-5.6-luna","vendor":"OpenAI","modelCategory":"text_agent",
@@ -210,41 +210,8 @@ func TestGetACURoutingCatalogOmitsSupplyTelemetry(t *testing.T) {
 	require.Equal(t, "lucen:luna:responses", result.Profiles[0].ExecutionProfileID)
 	require.Equal(t, []string{"default", "max"}, result.Profiles[0].SupportedReasoningEfforts)
 	require.Equal(t, "go:mimo-v2.5:chat_completions", result.Profiles[1].ExecutionProfileID)
-	require.False(t, result.Profiles[1].AutoRouteEnabled)
 	require.NotContains(t, string(mustMarshalTestJSON(t, result)), "secret-channel")
 	require.NotContains(t, string(mustMarshalTestJSON(t, result)), "probeCostCny")
-}
-
-func TestGetACURoutingCatalogTreatsLegacyProfileFlagsAsEnabled(t *testing.T) {
-	clearACUChannelMonitorCache()
-	t.Cleanup(clearACUChannelMonitorCache)
-	previous := common.OptionMap
-	t.Cleanup(func() { common.OptionMap = previous })
-	common.OptionMap = map[string]string{}
-	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{
-			"profiles":[{
-				"executionProfileId":"legacy:gpt-5.6-luna:responses",
-				"canonicalModel":"gpt-5.6-luna",
-				"protocol":["responses"]
-			}],
-			"modelPool":[{
-				"modelId":"gpt-5.6-luna","vendor":"OpenAI",
-				"modelCategory":"text_agent","capabilityTier":"LUNA",
-				"protocols":["responses"],"verificationStatus":"verified"
-			}]
-		}`))
-	}))
-	t.Cleanup(router.Close)
-	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
-	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
-
-	result, err := GetACURoutingCatalog(context.Background())
-	require.NoError(t, err)
-	require.Len(t, result.Models, 1)
-	require.Len(t, result.Profiles, 1)
-	require.True(t, result.Profiles[0].AutoRouteEnabled)
 }
 
 func mustMarshalTestJSON(t *testing.T, value interface{}) []byte {

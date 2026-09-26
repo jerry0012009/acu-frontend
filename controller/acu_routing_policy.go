@@ -30,7 +30,7 @@ func UpdateACUGlobalRoutingPolicy(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
 		return
 	}
-	normalized, removedProfileIDs, err := service.ApplyACUGlobalRoutingScope(
+	normalized, err = service.ApplyACUGlobalRoutingScope(
 		c.Request.Context(),
 		normalized,
 	)
@@ -38,12 +38,8 @@ func UpdateACUGlobalRoutingPolicy(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	model.RecordOperationAuditLog(c.GetInt("id"), "Updated ACU global routing policy", c.ClientIP(), "acu_routing_policy.update", map[string]interface{}{"model_count": len(normalized.AllowedModelIDs), "profile_count": len(normalized.AllowedProfileIDs)}, auditOperatorInfo(c), nil)
-	c.JSON(http.StatusOK, gin.H{
-		"success":           true,
-		"data":              normalized,
-		"removedProfileIds": removedProfileIDs,
-	})
+	model.RecordOperationAuditLog(c.GetInt("id"), "Updated ACU global routing policy", c.ClientIP(), "acu_routing_policy.update", map[string]interface{}{"model_count": len(normalized.AllowedModelIDs)}, auditOperatorInfo(c), nil)
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": normalized})
 }
 
 func UpdateACUGlobalProfileRouting(c *gin.Context) {

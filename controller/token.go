@@ -282,22 +282,8 @@ func AddToken(c *gin.Context) {
 			return
 		}
 	}
-	if token.ModelLimitsEnabled || token.ACUProfileLimitsEnabled {
-		scope := service.ACURoutingScope{Policy: service.ACURoutingPolicyAll, ProfilePolicy: service.ACURoutingPolicyAll}
-		if candidateModelIDs := service.ACUCandidateModelIDs(token.ACUAllowedCandidateIDs); len(candidateModelIDs) > 0 {
-			scope.AllowedModelIDs = candidateModelIDs
-			scope.Policy = service.ACURoutingPolicyCustom
-		}
-		if token.ACUProfileLimitsEnabled {
-			scope.ProfilePolicy = service.ACURoutingPolicyCustom
-			scope.AllowedProfileIDs = token.ACUProfileLimits
-		}
-		scope, err = service.NormalizeACURoutingScope(scope)
-		if err != nil {
-			common.ApiError(c, err)
-			return
-		}
-		if err = service.ValidateACURoutingScopeAgainstPool(c.Request.Context(), scope); err != nil {
+	if token.ACUProfileLimitsEnabled {
+		if err = service.ValidateACUProfileIDsAgainstPool(c.Request.Context(), token.ACUProfileLimits); err != nil {
 			common.ApiError(c, err)
 			return
 		}
@@ -441,22 +427,8 @@ func UpdateToken(c *gin.Context) {
 				return
 			}
 		}
-		if token.ModelLimitsEnabled || token.ACUProfileLimitsEnabled {
-			scope := service.ACURoutingScope{Policy: service.ACURoutingPolicyAll, ProfilePolicy: service.ACURoutingPolicyAll}
-			if candidateModelIDs := service.ACUCandidateModelIDs(token.ACUAllowedCandidateIDs); len(candidateModelIDs) > 0 {
-				scope.AllowedModelIDs = candidateModelIDs
-				scope.Policy = service.ACURoutingPolicyCustom
-			}
-			if token.ACUProfileLimitsEnabled {
-				scope.ProfilePolicy = service.ACURoutingPolicyCustom
-				scope.AllowedProfileIDs = token.ACUProfileLimits
-			}
-			scope, err = service.NormalizeACURoutingScope(scope)
-			if err != nil {
-				common.ApiError(c, err)
-				return
-			}
-			if err = service.ValidateACURoutingScopeAgainstPool(c.Request.Context(), scope); err != nil {
+		if token.ACUProfileLimitsEnabled {
+			if err = service.ValidateACUProfileIDsAgainstPool(c.Request.Context(), token.ACUProfileLimits); err != nil {
 				common.ApiError(c, err)
 				return
 			}

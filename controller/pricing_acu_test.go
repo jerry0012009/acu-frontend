@@ -16,7 +16,7 @@ func TestGetACUSelectionCorridorUsesGlobalPolicy(t *testing.T) {
 	previousOptions := common.OptionMap
 	t.Cleanup(func() { common.OptionMap = previousOptions })
 	common.OptionMap = map[string]string{
-		"ACUGlobalRoutingPolicy": `{"modelPolicy":"custom_allowlist","allowedModelIds":["gpt-5.6-sol"],"profilePolicy":"custom_allowlist","allowedProfileIds":["sol:responses"]}`,
+		"ACUGlobalRoutingPolicy": `{"modelPolicy":"custom_allowlist","allowedModelIds":["gpt-5.6-sol"]}`,
 	}
 	var method string
 	var body []byte
