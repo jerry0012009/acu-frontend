@@ -38,11 +38,13 @@ func TestACUTokenProfileRoutingUpdatesOnlyTheSelectedTokenScope(t *testing.T) {
 			"profiles":[{
 				"executionProfileId":"provider:model:responses",
 				"canonicalModel":"model","enabled":true,
-				"administratorAllowed":true,"autoRouteEnabled":true
+				"administratorAllowed":true,"autoRouteEnabled":true,
+				"routingWeight":130
 			},{
 				"executionProfileId":"provider:model:messages",
 				"canonicalModel":"model","enabled":true,
-				"administratorAllowed":true,"autoRouteEnabled":true
+				"administratorAllowed":true,"autoRouteEnabled":true,
+				"routingWeight":80
 			}],
 			"history":[],"cooldownIntervals":[],"probeHistory":[],
 			"supplyInventory":[],"modelPool":[]
@@ -62,14 +64,19 @@ func TestACUTokenProfileRoutingUpdatesOnlyTheSelectedTokenScope(t *testing.T) {
 		"provider:model:messages",
 		"provider:model:responses",
 	}, scope.EffectiveProfileIDs)
+	require.Equal(t, map[string]float64{
+		"provider:model:messages":  80,
+		"provider:model:responses": 130,
+	}, scope.EffectiveWeights)
 
+	disabled := false
 	scope, err = UpdateACUTokenProfileRouting(
 		context.Background(),
 		7,
 		token.Id,
 		dto.ACUTokenProfileRoutingUpdate{
 			ExecutionProfileID: "provider:model:messages",
-			Enabled:            false,
+			Enabled:            &disabled,
 		},
 	)
 	require.NoError(t, err)
@@ -82,18 +89,19 @@ func TestACUTokenProfileRoutingUpdatesOnlyTheSelectedTokenScope(t *testing.T) {
 		token.Id,
 		dto.ACUTokenProfileRoutingUpdate{
 			ExecutionProfileID: "provider:model:responses",
-			Enabled:            false,
+			Enabled:            &disabled,
 		},
 	)
 	require.ErrorContains(t, err, "at least one ACU Profile")
 
+	enabled := true
 	scope, err = UpdateACUTokenProfileRouting(
 		context.Background(),
 		7,
 		token.Id,
 		dto.ACUTokenProfileRoutingUpdate{
 			ExecutionProfileID: "provider:model:messages",
-			Enabled:            true,
+			Enabled:            &enabled,
 		},
 	)
 	require.NoError(t, err)
@@ -103,6 +111,33 @@ func TestACUTokenProfileRoutingUpdatesOnlyTheSelectedTokenScope(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, stored.ACUProfileLimitsEnabled)
 	require.Empty(t, stored.ACUProfileLimits)
+
+	neutral := 100.0
+	scope, err = UpdateACUTokenProfileRouting(
+		context.Background(),
+		7,
+		token.Id,
+		dto.ACUTokenProfileRoutingUpdate{
+			ExecutionProfileID: "provider:model:responses",
+			Weight:             &neutral,
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, 100.0, scope.ConfiguredWeights["provider:model:responses"])
+	require.Equal(t, 100.0, scope.EffectiveWeights["provider:model:responses"])
+
+	scope, err = UpdateACUTokenProfileRouting(
+		context.Background(),
+		7,
+		token.Id,
+		dto.ACUTokenProfileRoutingUpdate{
+			ExecutionProfileID: "provider:model:responses",
+			InheritWeight:      true,
+		},
+	)
+	require.NoError(t, err)
+	require.NotContains(t, scope.ConfiguredWeights, "provider:model:responses")
+	require.Equal(t, 130.0, scope.EffectiveWeights["provider:model:responses"])
 
 	_, err = GetACUTokenProfileRoutingScope(context.Background(), 8, token.Id)
 	require.Error(t, err)

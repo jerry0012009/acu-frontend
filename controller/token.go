@@ -37,6 +37,9 @@ func buildMaskedTokenResponse(token *model.Token) *model.Token {
 	if maskedToken.ACUCandidatePreferenceScores == nil {
 		maskedToken.ACUCandidatePreferenceScores = make(map[string]float64)
 	}
+	if maskedToken.ACUProfilePreferenceScores == nil {
+		maskedToken.ACUProfilePreferenceScores = make(map[string]float64)
+	}
 	return &maskedToken
 }
 
@@ -268,6 +271,17 @@ func AddToken(c *gin.Context) {
 			return
 		}
 	}
+	if token.ACUProfilePreferenceScores != nil {
+		token.ACUProfilePreferenceScores, err = service.NormalizeACUProfilePreferenceScores(token.ACUProfilePreferenceScores)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		if err = service.ValidateACUProfilePreferenceScoresAgainstPool(c.Request.Context(), token.ACUProfilePreferenceScores); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
 	if token.ModelLimitsEnabled || token.ACUProfileLimitsEnabled {
 		scope := service.ACURoutingScope{Policy: service.ACURoutingPolicyAll, ProfilePolicy: service.ACURoutingPolicyAll}
 		if candidateModelIDs := service.ACUCandidateModelIDs(token.ACUAllowedCandidateIDs); len(candidateModelIDs) > 0 {
@@ -306,6 +320,7 @@ func AddToken(c *gin.Context) {
 		ACUSupplyStrategy:            supplyStrategy,
 		ACUAllowedCandidateIDs:       token.ACUAllowedCandidateIDs,
 		ACUCandidatePreferenceScores: token.ACUCandidatePreferenceScores,
+		ACUProfilePreferenceScores:   token.ACUProfilePreferenceScores,
 		AllowIps:                     token.AllowIps,
 		Group:                        token.Group,
 		CrossGroupRetry:              token.CrossGroupRetry,
@@ -415,6 +430,17 @@ func UpdateToken(c *gin.Context) {
 				return
 			}
 		}
+		if token.ACUProfilePreferenceScores != nil {
+			token.ACUProfilePreferenceScores, err = service.NormalizeACUProfilePreferenceScores(token.ACUProfilePreferenceScores)
+			if err != nil {
+				common.ApiError(c, err)
+				return
+			}
+			if err = service.ValidateACUProfilePreferenceScoresAgainstPool(c.Request.Context(), token.ACUProfilePreferenceScores); err != nil {
+				common.ApiError(c, err)
+				return
+			}
+		}
 		if token.ModelLimitsEnabled || token.ACUProfileLimitsEnabled {
 			scope := service.ACURoutingScope{Policy: service.ACURoutingPolicyAll, ProfilePolicy: service.ACURoutingPolicyAll}
 			if candidateModelIDs := service.ACUCandidateModelIDs(token.ACUAllowedCandidateIDs); len(candidateModelIDs) > 0 {
@@ -449,6 +475,9 @@ func UpdateToken(c *gin.Context) {
 		cleanToken.ACUSupplyStrategy = supplyStrategy
 		cleanToken.ACUAllowedCandidateIDs = token.ACUAllowedCandidateIDs
 		cleanToken.ACUCandidatePreferenceScores = token.ACUCandidatePreferenceScores
+		if token.ACUProfilePreferenceScores != nil {
+			cleanToken.ACUProfilePreferenceScores = token.ACUProfilePreferenceScores
+		}
 		cleanToken.AllowIps = token.AllowIps
 		cleanToken.Group = token.Group
 		cleanToken.CrossGroupRetry = token.CrossGroupRetry

@@ -103,10 +103,6 @@ func UpdateACURoutingUtilityConfig(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	if err := service.ValidateACUProfilePreferenceScoresAgainstPool(c.Request.Context(), normalized.DefaultProfilePreferenceScores); err != nil {
-		common.ApiError(c, err)
-		return
-	}
 	raw, err := common.Marshal(normalized)
 	if err != nil {
 		common.ApiError(c, err)
@@ -122,7 +118,6 @@ func UpdateACURoutingUtilityConfig(c *gin.Context) {
 		"formula_mode":                       normalized.FormulaMode,
 		"schema_version":                     normalized.SchemaVersion,
 		"default_candidate_preference_count": len(normalized.DefaultCandidatePreferenceScores),
-		"default_profile_preference_count":   len(normalized.DefaultProfilePreferenceScores),
 	}, auditOperatorInfo(c), nil)
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": normalized})
 }

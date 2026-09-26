@@ -262,6 +262,7 @@ export type ACUChannelMonitorProfile = {
   publicNote: string
   endpointHost: string
   multiplier: number
+  routingWeight: number
   effectivePriceMultiplier: number | null
   effectiveCostStatus: string
   enabled: boolean
@@ -523,6 +524,7 @@ export type ACUExecutionProfile = {
   stripV1Path?: boolean
   economicsProviderId?: string
   observedBillingMultiplier?: number
+  routingWeight?: number
   effectiveCostStatus?: 'verified' | 'estimated' | 'missing'
   billingPrice?: {
     inputPricePerMillion: number
@@ -715,7 +717,6 @@ export type ACURoutingUtilityConfig = {
     number
   >
   defaultCandidatePreferenceScores: Record<string, number>
-  defaultProfilePreferenceScores: Record<string, number>
 }
 
 export async function getACURoutingUtilityConfig(): Promise<ACURoutingUtilityConfig> {
@@ -773,6 +774,9 @@ export type ACUTokenProfileRoutingScope = {
   globalProfileIds: string[]
   configuredProfileIds: string[]
   effectiveProfileIds: string[]
+  globalWeights?: Record<string, number>
+  configuredWeights?: Record<string, number>
+  effectiveWeights?: Record<string, number>
 }
 
 export async function getACUTokenProfileRouting(tokenId: number) {
@@ -791,11 +795,11 @@ export async function getACUTokenProfileRouting(tokenId: number) {
 export async function updateACUTokenProfileRouting(
   tokenId: number,
   executionProfileId: string,
-  enabled: boolean
+  update: { enabled?: boolean; weight?: number; inheritWeight?: boolean }
 ) {
   const res = await api.put(`/api/token/${tokenId}/acu-profile-routing`, {
     executionProfileId,
-    enabled,
+    ...update,
   })
   const response = res.data as {
     success: boolean
@@ -901,15 +905,16 @@ export async function probeACUExecutionProfileById(
   })
 }
 
-export async function reconcileACUExecutionProfileEconomics(
+export async function reconcileACUExecutionProfileCalibration(
   executionProfileId: string,
   input: {
     observedBillingMultiplier?: number
     creditsPerCny?: number
+    routingWeight?: number
   }
 ) {
   const res = await api.patch(
-    `/api/log/acu-execution-profiles/${encodeURIComponent(executionProfileId)}/economics`,
+    `/api/log/acu-execution-profiles/${encodeURIComponent(executionProfileId)}/calibration`,
     input
   )
   return requireACUSuccess(res.data as {
@@ -920,9 +925,12 @@ export async function reconcileACUExecutionProfileEconomics(
       changed: {
         observedBillingMultiplier: boolean
         creditsPerCny: boolean
+        routingWeight: boolean
       }
       executionProfileId: string
       economicsProviderId: string
+      previousProfile?: ACUExecutionProfile
+      profile?: ACUExecutionProfile
     }
   })
 }

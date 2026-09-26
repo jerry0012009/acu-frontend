@@ -35,6 +35,10 @@ export function getApiKeyFormSchema(t: TFunction) {
         z.string(),
         z.number().min(0).max(200)
       ),
+      acu_profile_preference_scores: z.record(
+        z.string(),
+        z.number().min(0).max(200)
+      ).optional(),
       allow_ips: z.string().optional(),
       group: z.string().optional(),
       cross_group_retry: z.boolean().optional(),
@@ -112,6 +116,7 @@ export const API_KEY_FORM_DEFAULT_VALUES: ApiKeyFormValues = {
   acu_supply_strategy: 'balanced',
   acu_allowed_candidate_ids: [],
   acu_candidate_preference_scores: {},
+  acu_profile_preference_scores: {},
   allow_ips: '',
   group: DEFAULT_GROUP,
   cross_group_retry: true,
@@ -180,6 +185,15 @@ export function transformFormDataToPayload(
           )
         )
       : {},
+    ...(Object.keys(data.acu_profile_preference_scores ?? {}).length
+      ? {
+          acu_profile_preference_scores: Object.fromEntries(
+            Object.entries(data.acu_profile_preference_scores ?? {}).sort(
+              ([left], [right]) => left.localeCompare(right)
+            )
+          ),
+        }
+      : {}),
     allow_ips: data.allow_ips || '',
     group: data.group || '',
     cross_group_retry: data.group === 'auto' ? !!data.cross_group_retry : false,
@@ -222,6 +236,8 @@ export function transformApiKeyToFormDefaults(
     acu_allowed_candidate_ids: apiKey.acu_allowed_candidate_ids ?? [],
     acu_candidate_preference_scores:
       apiKey.acu_candidate_preference_scores ?? {},
+    acu_profile_preference_scores:
+      apiKey.acu_profile_preference_scores ?? {},
     allow_ips: apiKey.allow_ips || '',
     group: apiKey.group || DEFAULT_GROUP,
     cross_group_retry: !!apiKey.cross_group_retry,

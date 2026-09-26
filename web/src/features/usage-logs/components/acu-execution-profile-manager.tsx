@@ -297,6 +297,27 @@ export function ACUExecutionProfileManager() {
               </label>
               <label className='space-y-1'>
                 <span className='text-muted-foreground'>
+                  {t('Global Profile weight')}
+                </span>
+                <input
+                  className='bg-background h-8 w-full rounded border px-2'
+                  type='number'
+                  min={0}
+                  max={200}
+                  step={0.1}
+                  value={inputValue(draft.routingWeight ?? 100)}
+                  onChange={(event) =>
+                    update(
+                      'routingWeight',
+                      event.target.value === ''
+                        ? 100
+                        : Number(event.target.value)
+                    )
+                  }
+                />
+              </label>
+              <label className='space-y-1'>
+                <span className='text-muted-foreground'>
                   {t('observedBillingMultiplier')}
                 </span>
                 <input

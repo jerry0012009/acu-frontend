@@ -31,6 +31,7 @@ type Token struct {
 	ACUSupplyStrategy            string             `json:"acu_supply_strategy" gorm:"type:varchar(24)"`
 	ACUAllowedCandidateIDs       []string           `json:"acu_allowed_candidate_ids" gorm:"serializer:json;type:text"`
 	ACUCandidatePreferenceScores map[string]float64 `json:"acu_candidate_preference_scores" gorm:"serializer:json;type:text"`
+	ACUProfilePreferenceScores   map[string]float64 `json:"acu_profile_preference_scores" gorm:"serializer:json;type:text"`
 	AllowIps                     *string            `json:"allow_ips" gorm:"default:''"`
 	UsedQuota                    int                `json:"used_quota" gorm:"default:0"` // used quota
 	Group                        string             `json:"group" gorm:"default:''"`
@@ -311,7 +312,7 @@ func (token *Token) Update() (err error) {
 	err = DB.Model(token).Select("name", "status", "expired_time", "remain_quota", "unlimited_quota",
 		"model_limits_enabled", "model_limits", "acu_profile_limits_enabled", "acu_profile_limits",
 		"acu_routing_preference", "acu_quality_bias", "acu_supply_strategy", "acu_allowed_candidate_ids",
-		"acu_candidate_preference_scores",
+		"acu_candidate_preference_scores", "acu_profile_preference_scores",
 		"allow_ips", "group", "cross_group_retry").Updates(token).Error
 	return err
 }

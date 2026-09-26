@@ -29,6 +29,7 @@ export function ACUProfileProbeInspector(props: {
   onSaveCalibration: (input: {
     observedBillingMultiplier: number
     creditsPerCny?: number
+    routingWeight: number
   }) => void
 }) {
   const { t } = useTranslation()
@@ -36,6 +37,7 @@ export function ACUProfileProbeInspector(props: {
   const [calibrationMultiplier, setCalibrationMultiplier] = useState('')
   const [calibrationCreditsPerCny, setCalibrationCreditsPerCny] = useState('')
   const [creditsPerCnyDirty, setCreditsPerCnyDirty] = useState(false)
+  const [routingWeight, setRoutingWeight] = useState('100')
   const [calibrationError, setCalibrationError] = useState('')
 
   useEffect(() => {
@@ -57,6 +59,7 @@ export function ACUProfileProbeInspector(props: {
         ? (1 / providerCreditCashCostCny).toFixed(4)
         : ''
     )
+    setRoutingWeight(String(props.profile?.routingWeight ?? 100))
   }, [props.profile, props.result])
 
   const saveCalibration = () => {
@@ -75,12 +78,22 @@ export function ACUProfileProbeInspector(props: {
         return
       }
     }
+    const parsedRoutingWeight = Number(routingWeight)
+    if (
+      !Number.isFinite(parsedRoutingWeight) ||
+      parsedRoutingWeight < 0 ||
+      parsedRoutingWeight > 200
+    ) {
+      setCalibrationError(t('Profile weight must be from 0 to 200'))
+      return
+    }
     setCalibrationError('')
     props.onSaveCalibration(
       buildProbeCalibrationInput(
         observedBillingMultiplier,
         calibrationCreditsPerCny,
-        creditsPerCnyDirty
+        creditsPerCnyDirty,
+        parsedRoutingWeight
       )
     )
   }
@@ -106,6 +119,13 @@ export function ACUProfileProbeInspector(props: {
               {props.requestError}
             </div>
           )}
+          {props.result && !props.result.success ? (
+            <div className='text-muted-foreground rounded border p-3'>
+              {t(
+                'This Probe did not provide successful cost evidence. You may still edit saved values manually, but no automatic weight or cost recommendation is applied.'
+              )}
+            </div>
+          ) : null}
           {props.result && (
             <>
               <div className='text-muted-foreground grid grid-cols-2 gap-2 border-b pb-3'>
@@ -117,6 +137,36 @@ export function ACUProfileProbeInspector(props: {
                 </span>
                 <span>{t('Protocol')}</span>
                 <span>{props.result.protocol}</span>
+                <span>{t('Current rank')}</span>
+                <span>
+                  {props.profile?.profileRank == null
+                    ? t('Not scored')
+                    : `#${props.profile.profileRank} / ${props.profile.profileCandidateCount ?? 0}`}
+                </span>
+              </div>
+              <div className='space-y-2 rounded border p-3'>
+                <label className='block space-y-1'>
+                  <span className='text-muted-foreground'>
+                    {t('Global Profile weight')}
+                  </span>
+                  <input
+                    className='bg-background h-8 w-full rounded border px-2'
+                    type='number'
+                    min={0}
+                    max={200}
+                    step={0.1}
+                    value={routingWeight}
+                    onChange={(event) => {
+                      setCalibrationError('')
+                      setRoutingWeight(event.target.value)
+                    }}
+                  />
+                </label>
+                <div className='text-muted-foreground'>
+                  {t(
+                    '100 is neutral. Higher values increase preference; 0 is not disabled and does not bypass routing health or permissions.'
+                  )}
+                </div>
               </div>
               <ACUProbeResultPanel
                 result={props.result}

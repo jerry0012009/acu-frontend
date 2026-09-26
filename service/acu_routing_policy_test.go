@@ -565,40 +565,7 @@ func TestDefaultCandidatePreferencesAreInheritedAndTokenScoresOverride(t *testin
 	require.NotEqual(t, inherited.RoutingUtilityVersion, changed.RoutingUtilityVersion)
 }
 
-func TestDefaultProfilePreferencesAreInheritedFilteredAndVersioned(t *testing.T) {
-	previous := common.OptionMap
-	t.Cleanup(func() { common.OptionMap = previous })
-	config := defaultACURoutingUtilityConfig()
-	config.FormulaMode = "active"
-	config.DefaultProfilePreferenceScores = map[string]float64{
-		"cockpit:gpt-5.6-sol:responses": 125.5,
-		"wawazz:gpt-5.6-sol:responses":  100,
-	}
-	raw, err := common.Marshal(config)
-	require.NoError(t, err)
-	common.OptionMap = map[string]string{
-		"ACURoutingUtilityConfig": string(raw),
-		"ACUGlobalRoutingPolicy":  `{"profilePolicy":"custom_allowlist","allowedProfileIds":["cockpit:gpt-5.6-sol:responses"]}`,
-	}
-
-	inherited, err := ResolveACUEffectiveRoutingPolicy(&model.Token{})
-	require.NoError(t, err)
-	require.Equal(t, map[string]float64{
-		"cockpit:gpt-5.6-sol:responses": 125.5,
-	}, inherited.ProfilePreferenceScores)
-	initialVersion := inherited.RoutingUtilityVersion
-
-	config.DefaultProfilePreferenceScores["cockpit:gpt-5.6-sol:responses"] = 130
-	raw, err = common.Marshal(config)
-	require.NoError(t, err)
-	common.OptionMap["ACURoutingUtilityConfig"] = string(raw)
-	changed, err := ResolveACUEffectiveRoutingPolicy(&model.Token{})
-	require.NoError(t, err)
-	require.NotEqual(t, initialVersion, changed.RoutingUtilityVersion)
-	require.Equal(t, inherited.RoutingPolicyVersion, changed.RoutingPolicyVersion)
-}
-
-func TestNormalizeProfilePreferencesUsesImplicitNeutralAndValidatesBounds(t *testing.T) {
+func TestTokenProfilePreferencesPreserveExplicitNeutralAndValidateBounds(t *testing.T) {
 	scores, err := NormalizeACUProfilePreferenceScores(map[string]float64{
 		"cockpit:gpt-5.6-sol:responses": 125.5,
 		"wawazz:gpt-5.6-sol:responses":  100,
@@ -606,6 +573,7 @@ func TestNormalizeProfilePreferencesUsesImplicitNeutralAndValidatesBounds(t *tes
 	require.NoError(t, err)
 	require.Equal(t, map[string]float64{
 		"cockpit:gpt-5.6-sol:responses": 125.5,
+		"wawazz:gpt-5.6-sol:responses":  100,
 	}, scores)
 
 	for _, invalid := range []map[string]float64{
