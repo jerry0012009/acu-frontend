@@ -76,6 +76,21 @@ func UpdateACUTokenProfileRouting(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	model.RecordOperationAuditLog(
+		c.GetInt("id"),
+		"Updated API key ACU Profile settings",
+		c.ClientIP(),
+		"acu_token_profile.update",
+		map[string]interface{}{
+			"token_id":             tokenID,
+			"execution_profile_id": input.ExecutionProfileID,
+			"enabled":              input.Enabled,
+			"weight":               input.Weight,
+			"inherit_weight":       input.InheritWeight,
+		},
+		auditOperatorInfo(c),
+		nil,
+	)
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
 }
 
@@ -184,13 +199,13 @@ func ProbeACUExecutionProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
 }
 
-func ReconcileACUExecutionProfileEconomics(c *gin.Context) {
+func ReconcileACUExecutionProfileCalibration(c *gin.Context) {
 	var input map[string]interface{}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	result, err := service.ReconcileACUExecutionProfileEconomics(
+	result, err := service.ReconcileACUExecutionProfileCalibration(
 		c.Request.Context(),
 		c.Param("id"),
 		input,
@@ -199,6 +214,22 @@ func ReconcileACUExecutionProfileEconomics(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	model.RecordOperationAuditLog(
+		c.GetInt("id"),
+		"Updated ACU Profile calibration",
+		c.ClientIP(),
+		"acu_profile_calibration.update",
+		map[string]interface{}{
+			"execution_profile_id": c.Param("id"),
+			"routing_weight":       input["routingWeight"],
+			"cost_multiplier":      input["observedBillingMultiplier"],
+			"credits_per_cny":      input["creditsPerCny"],
+			"previous_profile":     result["previousProfile"],
+			"current_profile":      result["profile"],
+		},
+		auditOperatorInfo(c),
+		nil,
+	)
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
 }
 

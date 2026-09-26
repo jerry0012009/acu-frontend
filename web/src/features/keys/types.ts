@@ -46,6 +46,10 @@ export const apiKeySchema = z.object({
     .record(z.string(), z.number().min(0).max(200))
     .nullish()
     .transform((value) => value ?? {}),
+  acu_profile_preference_scores: z
+    .record(z.string(), z.number().min(0).max(200))
+    .nullish()
+    .optional(),
   allow_ips: z.string().nullish().default(''),
 })
 
@@ -102,6 +106,7 @@ export interface ApiKeyFormData {
     | 'high_reliability'
   acu_allowed_candidate_ids: string[]
   acu_candidate_preference_scores: Record<string, number>
+  acu_profile_preference_scores?: Record<string, number>
   allow_ips: string
   group: string
   cross_group_retry: boolean

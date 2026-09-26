@@ -126,7 +126,7 @@ func TestExecutionProfileManagementForwardsOnlyTargetedRouterOperations(t *testi
 		"executionProfileId": "test:model:responses", "protocol": "responses",
 	})
 	require.NoError(t, err)
-	_, err = ReconcileACUExecutionProfileEconomics(
+	_, err = ReconcileACUExecutionProfileCalibration(
 		context.Background(),
 		"test:model:responses",
 		map[string]interface{}{"observedBillingMultiplier": 0.06},
@@ -143,7 +143,7 @@ func TestExecutionProfileManagementForwardsOnlyTargetedRouterOperations(t *testi
 		{http.MethodPost, "/internal/admin/execution-profiles"},
 		{http.MethodPut, "/internal/admin/execution-profiles/test:model:responses"},
 		{http.MethodPost, "/internal/admin/execution-profiles/probe"},
-		{http.MethodPatch, "/internal/admin/execution-profiles/test:model:responses/economics"},
+		{http.MethodPatch, "/internal/admin/execution-profiles/test:model:responses/calibration"},
 		{http.MethodPatch, "/internal/admin/execution-profiles/test:model:responses/routing"},
 	}
 	for _, item := range expected {

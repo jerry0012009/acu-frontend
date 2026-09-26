@@ -24,6 +24,7 @@ import {
   modelAccessFor,
 } from './acu-global-routing-policy'
 import { StatusTimeline } from './acu-health-timeline'
+import { ACUTokenProfileWeight } from './acu-token-profile-weight'
 import {
   monitorReason,
   monitorStateLabel,
@@ -77,6 +78,8 @@ export function ACUChannelHealthCard(props: {
     scope?: ACUTokenProfileRoutingScope
     isPending: (profileId: string) => boolean
     onToggle: (profile: ACUChannelMonitorProfile, enabled: boolean) => void
+    onSetWeight?: (profile: ACUChannelMonitorProfile, weight: number) => void
+    onInheritWeight?: (profile: ACUChannelMonitorProfile) => void
   }
   profileActions?: {
     policy?: ACUGlobalRoutingPolicy
@@ -268,6 +271,8 @@ function ChannelProfile(props: {
     scope?: ACUTokenProfileRoutingScope
     isPending: (profileId: string) => boolean
     onToggle: (profile: ACUChannelMonitorProfile, enabled: boolean) => void
+    onSetWeight?: (profile: ACUChannelMonitorProfile, weight: number) => void
+    onInheritWeight?: (profile: ACUChannelMonitorProfile) => void
   }
   actions?: {
     policy?: ACUGlobalRoutingPolicy
@@ -302,6 +307,7 @@ function ChannelProfile(props: {
   const notePending =
     props.noteActions?.isPending(profile.executionProfileId) ?? false
   const tokenScope = props.tokenActions?.scope
+  const tokenActions = props.tokenActions
   const globallyAvailableForToken =
     tokenScope?.globalProfileIds.includes(profile.executionProfileId) ?? false
   const tokenAllowed =
@@ -413,6 +419,18 @@ function ChannelProfile(props: {
           >
             {t('Probe test')}
           </Button>
+          {tokenActions?.onSetWeight &&
+          tokenActions.onInheritWeight &&
+          tokenScope &&
+          globallyAvailableForToken ? (
+            <ACUTokenProfileWeight
+              profile={profile}
+              scope={tokenScope}
+              pending={tokenTogglePending}
+              onSetWeight={tokenActions.onSetWeight}
+              onInheritWeight={tokenActions.onInheritWeight}
+            />
+          ) : null}
         </div>
       )}
       {props.tokenActions ? (

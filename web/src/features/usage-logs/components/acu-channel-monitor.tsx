@@ -31,7 +31,7 @@ import {
   getACURoutingUtilityConfig,
   getACUTokenProfileRouting,
   probeACUExecutionProfileById,
-  reconcileACUExecutionProfileEconomics,
+  reconcileACUExecutionProfileCalibration,
   updateACUGlobalProfileRouting,
   updateACUGlobalRoutingPolicy,
   updateACUProfilePublicNote,
@@ -249,12 +249,18 @@ export function ACUChannelMonitor() {
     mutationFn: (input: {
       tokenId: number
       executionProfileId: string
-      enabled: boolean
+      enabled?: boolean
+      weight?: number
+      inheritWeight?: boolean
     }) =>
       updateACUTokenProfileRouting(
         input.tokenId,
         input.executionProfileId,
-        input.enabled
+        {
+          enabled: input.enabled,
+          weight: input.weight,
+          inheritWeight: input.inheritWeight,
+        }
       ),
     onSuccess: async (response) => {
       queryClient.setQueryData(
@@ -360,15 +366,17 @@ export function ACUChannelMonitor() {
           : current
       ),
   })
-  const economicsMutation = useMutation({
+  const calibrationMutation = useMutation({
     mutationFn: (input: {
       executionProfileId: string
       observedBillingMultiplier: number
       creditsPerCny?: number
+      routingWeight: number
     }) =>
-      reconcileACUExecutionProfileEconomics(input.executionProfileId, {
+      reconcileACUExecutionProfileCalibration(input.executionProfileId, {
         observedBillingMultiplier: input.observedBillingMultiplier,
         creditsPerCny: input.creditsPerCny,
+        routingWeight: input.routingWeight,
       }),
     onSuccess: async () => {
       await Promise.all([
@@ -504,6 +512,23 @@ export function ACUChannelMonitor() {
               tokenId: selectedTokenId,
               executionProfileId: profile.executionProfileId,
               enabled,
+            })
+          },
+          onSetWeight: (
+            profile: ACUChannelMonitorProfile,
+            weight: number
+          ) => {
+            tokenProfileRoutingMutation.mutate({
+              tokenId: selectedTokenId,
+              executionProfileId: profile.executionProfileId,
+              weight,
+            })
+          },
+          onInheritWeight: (profile: ACUChannelMonitorProfile) => {
+            tokenProfileRoutingMutation.mutate({
+              tokenId: selectedTokenId,
+              executionProfileId: profile.executionProfileId,
+              inheritWeight: true,
             })
           },
         }
@@ -1047,14 +1072,14 @@ export function ACUChannelMonitor() {
         loading={probeMutation.isPending}
         result={probeInspector?.result ?? null}
         requestError={probeInspector?.requestError}
-        savePending={economicsMutation.isPending}
+        savePending={calibrationMutation.isPending}
         saveMessage={calibrationMessage}
         onOpenChange={(open) => {
           if (!open) setProbeInspector(null)
         }}
         onSaveCalibration={(input) => {
           if (!probeInspector) return
-          economicsMutation.mutate({
+          calibrationMutation.mutate({
             executionProfileId: probeInspector.profile.executionProfileId,
             ...input,
           })
@@ -1399,21 +1424,6 @@ function RouterConfigurationTab(props: {
             </div>
             <div>
               <div className='text-muted-foreground'>
-                {t('Profile Preference')}
-              </div>
-              <div className='mt-1 grid gap-x-4 gap-y-1 sm:grid-cols-2'>
-                {Object.entries(
-                  savedUtilityConfig.defaultProfilePreferenceScores ?? {}
-                ).map(([profileId, score]) => (
-                  <div key={profileId} className='flex justify-between gap-3'>
-                    <span className='truncate font-mono'>{profileId}</span>
-                    <span>{score}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className='text-muted-foreground'>
                 {t('Quality presets')}
               </div>
               <div className='mt-1 flex flex-wrap gap-x-4 gap-y-1'>
@@ -1509,7 +1519,6 @@ function RoutingUtilityEditor(props: {
   const { t } = useTranslation()
   const [candidatePreferencesOpen, setCandidatePreferencesOpen] =
     useState(false)
-  const [profilePreferencesOpen, setProfilePreferencesOpen] = useState(false)
   const candidateGroups = useMemo(() => {
     const groups = props.modelPool
       .filter(
@@ -1564,22 +1573,6 @@ function RoutingUtilityEditor(props: {
       .filter((group) => group.candidates.length > 0)
       .sort((left, right) => left.modelId.localeCompare(right.modelId))
   }, [props.modelPool, props.value.defaultCandidatePreferenceScores])
-  const preferenceProfiles = useMemo(
-    () =>
-      props.profiles
-        .filter(
-          (profile) =>
-            profile.enabled &&
-            profile.administratorAllowed &&
-            profile.autoRouteEnabled
-        )
-        .sort(
-          (left, right) =>
-            left.canonicalModel.localeCompare(right.canonicalModel) ||
-            left.executionProfileId.localeCompare(right.executionProfileId)
-        ),
-    [props.profiles]
-  )
   const numberField = (
     label: string,
     value: number,
@@ -1786,71 +1779,6 @@ function RoutingUtilityEditor(props: {
                     )
                   })}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className='rounded border p-2'>
-          <Button
-            size='sm'
-            variant='ghost'
-            aria-expanded={profilePreferencesOpen}
-            onClick={() => setProfilePreferencesOpen((open) => !open)}
-          >
-            {t('Profile Preference')}
-          </Button>
-          <p className='text-muted-foreground mt-2 text-xs'>
-            {t(
-              'Profile preferences multiply base Profile utility after eligibility and health checks.'
-            )}
-          </p>
-          {profilePreferencesOpen && (
-            <div className='mt-3 grid max-h-96 gap-2 overflow-y-auto pr-1 md:grid-cols-2'>
-              {preferenceProfiles.map((profile) => (
-                <label
-                  key={profile.executionProfileId}
-                  className='grid grid-cols-[minmax(0,1fr)_5.5rem] items-center gap-2 rounded border p-2 text-xs'
-                >
-                  <span className='min-w-0'>
-                    <span className='block truncate font-medium'>
-                      {profile.canonicalModel}
-                    </span>
-                    <span
-                      className='text-muted-foreground block truncate font-mono'
-                      title={profile.executionProfileId}
-                    >
-                      {profile.executionProfileId}
-                    </span>
-                  </span>
-                  <input
-                    aria-label={`${profile.executionProfileId} ${t('Profile Preference')}`}
-                    className='bg-background h-8 w-full rounded-md border px-2'
-                    type='number'
-                    min={0}
-                    max={200}
-                    step={0.1}
-                    value={
-                      (props.value.defaultProfilePreferenceScores ?? {})[
-                        profile.executionProfileId
-                      ] ?? 100
-                    }
-                    onChange={(event) => {
-                      const score = event.target.valueAsNumber
-                      const next = {
-                        ...props.value.defaultProfilePreferenceScores,
-                      }
-                      if (!Number.isFinite(score) || score === 100) {
-                        delete next[profile.executionProfileId]
-                      } else {
-                        next[profile.executionProfileId] = score
-                      }
-                      props.onChange({
-                        ...props.value,
-                        defaultProfilePreferenceScores: next,
-                      })
-                    }}
-                  />
-                </label>
               ))}
             </div>
           )}

@@ -65,6 +65,7 @@ type ACUChannelMonitorProfile struct {
 	PublicNote                  string                   `json:"publicNote"`
 	EndpointHost                string                   `json:"endpointHost"`
 	Multiplier                  float64                  `json:"multiplier"`
+	RoutingWeight               float64                  `json:"routingWeight"`
 	EffectivePriceMultiplier    *float64                 `json:"effectivePriceMultiplier"`
 	EffectiveCostStatus         string                   `json:"effectiveCostStatus"`
 	Enabled                     bool                     `json:"enabled"`
@@ -167,16 +168,21 @@ type ACUChannelPauseResult struct {
 }
 
 type ACUTokenProfileRoutingScope struct {
-	TokenID              int      `json:"tokenId"`
-	Custom               bool     `json:"custom"`
-	GlobalProfileIDs     []string `json:"globalProfileIds"`
-	ConfiguredProfileIDs []string `json:"configuredProfileIds"`
-	EffectiveProfileIDs  []string `json:"effectiveProfileIds"`
+	TokenID              int                `json:"tokenId"`
+	Custom               bool               `json:"custom"`
+	GlobalProfileIDs     []string           `json:"globalProfileIds"`
+	ConfiguredProfileIDs []string           `json:"configuredProfileIds"`
+	EffectiveProfileIDs  []string           `json:"effectiveProfileIds"`
+	GlobalWeights        map[string]float64 `json:"globalWeights"`
+	ConfiguredWeights    map[string]float64 `json:"configuredWeights"`
+	EffectiveWeights     map[string]float64 `json:"effectiveWeights"`
 }
 
 type ACUTokenProfileRoutingUpdate struct {
-	ExecutionProfileID string `json:"executionProfileId" binding:"required"`
-	Enabled            bool   `json:"enabled"`
+	ExecutionProfileID string   `json:"executionProfileId" binding:"required"`
+	Enabled            *bool    `json:"enabled"`
+	Weight             *float64 `json:"weight"`
+	InheritWeight      bool     `json:"inheritWeight"`
 }
 
 type ACUProfilePublicNoteUpdate struct {

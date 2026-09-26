@@ -15,6 +15,7 @@ test('Quick Add and Profile Inspector use the same ledger reconciliation formula
 test('Profile-only calibration omits the displayed Provider conversion', () => {
   assert.deepEqual(buildProbeCalibrationInput(0.06, '1.25', false), {
     observedBillingMultiplier: 0.06,
+    routingWeight: 100,
   })
 })
 
@@ -22,5 +23,13 @@ test('Provider conversion calibration is included only after editing it', () => 
   assert.deepEqual(buildProbeCalibrationInput(0.06, '1.25', true), {
     observedBillingMultiplier: 0.06,
     creditsPerCny: 1.25,
+    routingWeight: 100,
+  })
+})
+
+test('Profile calibration includes an explicit global routing weight', () => {
+  assert.deepEqual(buildProbeCalibrationInput(0.06, '1.25', false, 145), {
+    observedBillingMultiplier: 0.06,
+    routingWeight: 145,
   })
 })

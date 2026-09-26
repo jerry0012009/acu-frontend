@@ -325,7 +325,7 @@ func SetApiRouter(router *gin.Engine) {
 			executionProfileRoute.POST("", controller.CreateACUExecutionProfile)
 			executionProfileRoute.PUT("/:id", controller.UpdateACUExecutionProfile)
 			executionProfileRoute.PATCH("/channels/:id", controller.UpdateACUChannelConnection)
-			executionProfileRoute.PATCH("/:id/economics", controller.ReconcileACUExecutionProfileEconomics)
+			executionProfileRoute.PATCH("/:id/calibration", controller.ReconcileACUExecutionProfileCalibration)
 			executionProfileRoute.POST("/probe", controller.ProbeACUExecutionProfile)
 			executionProfileRoute.POST("/quick-add/discover", controller.QuickAddACUProviderDiscover)
 			executionProfileRoute.POST("/quick-add/probe", controller.QuickAddACUProviderProbe)

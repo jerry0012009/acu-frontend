@@ -118,7 +118,7 @@ func GetACUChannelMonitor(ctx context.Context, rangeValue, supplyStrategy, scena
 		"profileCostLogScale": config.ProfileCostLogScale, "profileSpeedLogScale": config.ProfileSpeedLogScale,
 		"latency": config.Latency, "reliability": config.Reliability,
 		"allowedCandidateIds": []string{}, "candidatePreferenceScores": map[string]int{},
-		"profilePreferenceScores": config.DefaultProfilePreferenceScores,
+		"profilePreferenceScores": map[string]float64{},
 		"routingUtilityVersion":   config.SchemaVersion, "workPhaseBiasOffsets": config.WorkPhaseBiasOffsets,
 	})
 	if err != nil {
@@ -486,7 +486,11 @@ func CreateACUExecutionProfile(
 	ctx context.Context,
 	input map[string]interface{},
 ) (map[string]interface{}, error) {
-	return acuExecutionProfileRequest(ctx, http.MethodPost, "/internal/admin/execution-profiles", input)
+	result, err := acuExecutionProfileRequest(ctx, http.MethodPost, "/internal/admin/execution-profiles", input)
+	if err == nil {
+		clearACUChannelMonitorCache()
+	}
+	return result, err
 }
 
 func UpdateACUExecutionProfile(
@@ -494,12 +498,16 @@ func UpdateACUExecutionProfile(
 	id string,
 	input map[string]interface{},
 ) (map[string]interface{}, error) {
-	return acuExecutionProfileRequest(
+	result, err := acuExecutionProfileRequest(
 		ctx,
 		http.MethodPut,
 		"/internal/admin/execution-profiles/"+url.PathEscape(id),
 		input,
 	)
+	if err == nil {
+		clearACUChannelMonitorCache()
+	}
+	return result, err
 }
 
 func UpdateACUExecutionProfileRouting(
@@ -532,12 +540,16 @@ func UpdateACUChannelConnection(
 	id string,
 	input map[string]interface{},
 ) (map[string]interface{}, error) {
-	return acuExecutionProfileRequest(
+	result, err := acuExecutionProfileRequest(
 		ctx,
 		http.MethodPatch,
 		"/internal/admin/execution-profiles/channels/"+url.PathEscape(id),
 		input,
 	)
+	if err == nil {
+		clearACUChannelMonitorCache()
+	}
+	return result, err
 }
 
 func ProbeACUExecutionProfile(
@@ -553,17 +565,21 @@ func ProbeACUExecutionProfile(
 	)
 }
 
-func ReconcileACUExecutionProfileEconomics(
+func ReconcileACUExecutionProfileCalibration(
 	ctx context.Context,
 	id string,
 	input map[string]interface{},
 ) (map[string]interface{}, error) {
-	return acuExecutionProfileRequest(
+	result, err := acuExecutionProfileRequest(
 		ctx,
 		http.MethodPatch,
-		"/internal/admin/execution-profiles/"+url.PathEscape(id)+"/economics",
+		"/internal/admin/execution-profiles/"+url.PathEscape(id)+"/calibration",
 		input,
 	)
+	if err == nil {
+		clearACUChannelMonitorCache()
+	}
+	return result, err
 }
 
 func QuickAddACUProviderDiscover(

@@ -197,6 +197,11 @@ func applyACUTrustedIdentity(req *http.Request, c *gin.Context, info *common.Rel
 			token.ACUCandidatePreferenceScores = scores
 		}
 	}
+	if rawScores, exists := c.Get("acu_profile_preference_scores"); exists {
+		if scores, ok := rawScores.(map[string]float64); ok {
+			token.ACUProfilePreferenceScores = scores
+		}
+	}
 	if value, exists := c.Get("acu_quality_bias"); exists {
 		if bias, ok := value.(*int); ok {
 			token.ACUQualityBias = bias
