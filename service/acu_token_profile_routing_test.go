@@ -37,13 +37,11 @@ func TestACUTokenProfileRoutingUpdatesOnlyTheSelectedTokenScope(t *testing.T) {
 		_, _ = w.Write([]byte(`{
 			"profiles":[{
 				"executionProfileId":"provider:model:responses",
-				"canonicalModel":"model","enabled":true,
-				"administratorAllowed":true,"autoRouteEnabled":true,
+				"canonicalModel":"model","routingEnabled":true,
 				"routingWeight":130
 			},{
 				"executionProfileId":"provider:model:messages",
-				"canonicalModel":"model","enabled":true,
-				"administratorAllowed":true,"autoRouteEnabled":true,
+				"canonicalModel":"model","routingEnabled":true,
 				"routingWeight":80
 			}],
 			"history":[],"cooldownIntervals":[],"probeHistory":[],

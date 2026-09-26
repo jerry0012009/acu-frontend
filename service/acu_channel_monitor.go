@@ -226,7 +226,7 @@ func GetACURoutingCatalog(ctx context.Context) (dto.ACURoutingCatalog, error) {
 	}
 	configuredModels := make(map[string]struct{})
 	for _, profile := range monitor.Profiles {
-		if profile.Enabled && profile.AdministratorAllowed && profile.CanonicalModel != "" {
+		if profile.RoutingEnabled && profile.CanonicalModel != "" {
 			configuredModels[profile.CanonicalModel] = struct{}{}
 		}
 	}
@@ -252,14 +252,13 @@ func GetACURoutingCatalog(ctx context.Context) (dto.ACURoutingCatalog, error) {
 	}
 	profiles := make([]dto.ACURoutingCatalogProfile, 0, len(monitor.Profiles))
 	for _, profile := range monitor.Profiles {
-		if !profile.Enabled || !profile.AdministratorAllowed {
+		if !profile.RoutingEnabled {
 			continue
 		}
 		profiles = append(profiles, dto.ACURoutingCatalogProfile{
 			ExecutionProfileID:        profile.ExecutionProfileID,
 			CanonicalModel:            profile.CanonicalModel,
 			Protocol:                  append([]string(nil), profile.Protocol...),
-			AutoRouteEnabled:          profile.AutoRouteEnabled,
 			SupportedReasoningEfforts: append([]string(nil), profile.SupportedReasoningEfforts...),
 		})
 	}
@@ -520,18 +519,6 @@ func UpdateACUExecutionProfileRouting(
 		http.MethodPatch,
 		"/internal/admin/execution-profiles/"+url.PathEscape(id)+"/routing",
 		map[string]interface{}{"enabled": enabled},
-	)
-}
-
-func UpdateACUExecutionProfilesRoutingSet(
-	ctx context.Context,
-	ids []string,
-) (map[string]interface{}, error) {
-	return acuExecutionProfileRequest(
-		ctx,
-		http.MethodPatch,
-		"/internal/admin/execution-profiles/routing",
-		map[string]interface{}{"ids": ids},
 	)
 }
 

@@ -19,10 +19,7 @@ import {
   probeBucketTitle,
   type ACUChannelOverview,
 } from './acu-channel-health-model'
-import {
-  isProfileGloballyAllowed,
-  modelAccessFor,
-} from './acu-global-routing-policy'
+import { modelAccessFor } from './acu-global-routing-policy'
 import { StatusTimeline } from './acu-health-timeline'
 import { ACUTokenProfileWeight } from './acu-token-profile-weight'
 import {
@@ -288,15 +285,14 @@ function ChannelProfile(props: {
   const { t, i18n } = useTranslation()
   const profile = props.profile
   const policy = props.actions?.policy
-  const globallyAllowed =
-    policy && isProfileGloballyAllowed(policy, profile.executionProfileId)
+  const globallyAllowed = profile.routingEnabled
   const modelAccess =
     policy &&
     modelAccessFor(
       policy,
       profile.canonicalModel,
       true,
-      profile.autoRouteEnabled !== false
+      profile.routingEnabled
     )
   const modelExposed = modelAccess !== 'disabled'
   const firstProtocol = profile.protocol[0]

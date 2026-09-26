@@ -102,14 +102,6 @@ const EMPTY_PROFILE_FILTERS: ProfileFilters = {
   state: '',
 }
 
-function isProfileGloballyUsable(
-  _policy: ACUGlobalRoutingPolicy,
-  profile: ACUChannelMonitorProfile,
-  _modelEntries: GlobalModelOption[]
-) {
-  return Boolean(profile.executionProfileId)
-}
-
 function buildAvailableModelEntries(
   modelPool: ACUModelPoolEntry[],
   profiles: ACUChannelMonitorProfile[]
@@ -128,14 +120,10 @@ function buildAvailableModelEntries(
       return {
         id,
         hasConfiguredProfile: modelProfiles.some(
-          (item) =>
-            item.enabled !== false && item.administratorAllowed !== false
+          (item) => item.routingEnabled
         ),
         autoRouteEnabled: modelProfiles.some(
-          (item) =>
-            item.enabled !== false &&
-            item.administratorAllowed !== false &&
-            item.autoRouteEnabled !== false
+          (item) => item.routingEnabled
         ),
       }
     })
@@ -1175,16 +1163,6 @@ function RouterConfigurationTab(props: {
         ),
       ])
     )
-    const availableProfileIds = new Set(
-      props.profiles
-        .filter((profile) =>
-          isProfileGloballyUsable(nextPolicy, profile, modelEntries)
-        )
-        .map((profile) => profile.executionProfileId)
-    )
-    nextPolicy.allowedProfileIds = nextPolicy.allowedProfileIds.filter((id) =>
-      availableProfileIds.has(id)
-    )
     setPolicyDraft(nextPolicy)
     setUtilityDraft(structuredClone(savedUtilityConfig))
     setEditing(true)
@@ -1199,27 +1177,6 @@ function RouterConfigurationTab(props: {
     [props.modelPool, props.profiles]
   )
   const editingPolicy = policyDraft ?? savedPolicy
-  const availableProfileIds = useMemo(
-    () =>
-      new Set(
-        props.profiles
-          .filter((item) =>
-            editingPolicy
-              ? isProfileGloballyUsable(
-                  editingPolicy,
-                  item,
-                  availableModelEntries
-                )
-              : false
-          )
-          .map((item) => item.executionProfileId)
-      ),
-    [availableModelEntries, editingPolicy, props.profiles]
-  )
-  const availableProfileIdList = useMemo(
-    () => [...availableProfileIds].sort(),
-    [availableProfileIds]
-  )
   const modelOptions = useMemo(() => {
     if (!editingPolicy) return []
     return availableModelEntries.map((entry) => ({
@@ -1232,68 +1189,6 @@ function RouterConfigurationTab(props: {
       ),
     }))
   }, [availableModelEntries, editingPolicy])
-  const profileOptions = useMemo(() => {
-    if (!editingPolicy) return []
-    return props.profiles
-      .filter((profile) => profile.executionProfileId)
-      .map((profile) => {
-        const model = availableModelEntries.find(
-          (entry) => entry.id === profile.canonicalModel
-        )
-        const modelAccess = model
-          ? modelAccessFor(
-              editingPolicy,
-              model.id,
-              model.hasConfiguredProfile,
-              model.autoRouteEnabled
-            )
-          : 'disabled'
-        let disabledReason: string | undefined
-        if (profile.administratorAllowed === false) {
-          disabledReason = 'Profile is disabled'
-        } else if (modelAccess === 'disabled') {
-          disabledReason = 'Model is disabled'
-        }
-        return {
-          id: profile.executionProfileId,
-          unavailable: Boolean(disabledReason),
-          disabled: Boolean(disabledReason),
-          disabledReason,
-        }
-      })
-  }, [availableModelEntries, editingPolicy, props.profiles])
-  const ids = (values: string[]) =>
-    values.length ? values.join(', ') : t('None')
-  const scopeSummary = (
-    mode: 'all_routing_eligible' | 'custom_allowlist',
-    values: string[],
-    allLabel: string,
-    noun: string,
-    availableValues: string[] = []
-  ) => {
-    if (mode === 'all_routing_eligible') {
-      return `${allLabel} · ${t('No custom exclusions')}`
-    }
-    const excludedValues = availableValues.filter(
-      (value) => !values.includes(value)
-    )
-    const excludedSummary = excludedValues.length
-      ? ` · ${t('Excluded')}: ${ids(excludedValues)}`
-      : ''
-    return `${noun} · ${values.length} · ${ids(values)}${excludedSummary}`
-  }
-  const beginProfileCustomPolicy = (custom: boolean) => {
-    if (!policyDraft) return
-    const allowedProfileIds =
-      custom && policyDraft.allowedProfileIds.length === 0
-        ? availableProfileIdList
-        : policyDraft.allowedProfileIds
-    setPolicyDraft({
-      ...policyDraft,
-      profilePolicy: custom ? 'custom_allowlist' : 'all_routing_eligible',
-      allowedProfileIds,
-    })
-  }
   const changeModelAccess = (
     modelId: string,
     access: 'disabled' | 'explicit' | 'auto'
@@ -1323,12 +1218,6 @@ function RouterConfigurationTab(props: {
         modelAccess: modelAccessForSave,
         modelPolicy: autoModelIds.length ? 'custom_allowlist' : 'explicit_only',
         allowedModelIds: autoModelIds,
-        allowedProfileIds: policyDraft.allowedProfileIds.filter((profileId) => {
-          const profile = props.profiles.find(
-            (item) => item.executionProfileId === profileId
-          )
-          return profile !== undefined
-        }),
       }
     : undefined
   return (
@@ -1395,20 +1284,6 @@ function RouterConfigurationTab(props: {
             </div>
             <div>
               <div className='text-muted-foreground'>
-                {t('Global Profile availability')}
-              </div>
-              <div className='mt-1'>
-                {scopeSummary(
-                  savedPolicy.profilePolicy,
-                  savedPolicy.allowedProfileIds,
-                  t('All configured Profiles'),
-                  t('Custom allowlist'),
-                  availableProfileIdList
-                )}
-              </div>
-            </div>
-            <div>
-              <div className='text-muted-foreground'>
                 {t('Model Preference')}
               </div>
               <div className='mt-1 grid gap-x-4 gap-y-1 sm:grid-cols-2'>
@@ -1468,17 +1343,6 @@ function RouterConfigurationTab(props: {
           <ModelAccessEditor
             options={modelOptions}
             onChange={changeModelAccess}
-          />
-          <PolicyScopeEditor
-            title={t('Available Profiles')}
-            allLabel={t('All configured Profiles')}
-            custom={policyDraft.profilePolicy === 'custom_allowlist'}
-            values={policyDraft.allowedProfileIds}
-            options={profileOptions}
-            onCustom={beginProfileCustomPolicy}
-            onChange={(values) =>
-              setPolicyDraft({ ...policyDraft, allowedProfileIds: values })
-            }
           />
           <RoutingUtilityEditor
             value={utilityDraft}
@@ -1901,80 +1765,6 @@ function RoutingUtilityEditor(props: {
         </details>
       </div>
     </details>
-  )
-}
-
-function PolicyScopeEditor(props: {
-  title: string
-  allLabel: string
-  custom: boolean
-  values: string[]
-  options: Array<{
-    id: string
-    unavailable: boolean
-    disabled?: boolean
-    disabledReason?: string
-  }>
-  onCustom: (custom: boolean) => void
-  onChange: (values: string[]) => void
-}) {
-  const { t } = useTranslation()
-  return (
-    <div className='space-y-2 rounded border p-2'>
-      <label className='flex items-center gap-2 text-xs font-medium'>
-        <input
-          type='checkbox'
-          checked={props.custom}
-          onChange={(event) => props.onCustom(event.target.checked)}
-        />
-        {props.custom ? props.title : props.allLabel}
-      </label>
-      {props.custom && (
-        <>
-          <p className='text-muted-foreground text-xs'>
-            {t(
-              'Custom mode starts with all currently configured entries selected. Uncheck entries to exclude them.'
-            )}
-          </p>
-          <div className='max-h-64 space-y-1 overflow-y-auto'>
-            {props.options.map((option) => {
-              let suffix = ''
-              if (option.unavailable) {
-                suffix = ` · ${t('currently unavailable')}`
-              } else if (option.disabledReason) {
-                suffix = ` · ${t(option.disabledReason)}`
-              }
-              return (
-                <label
-                  key={option.id}
-                  className='flex items-center gap-2 text-xs'
-                >
-                  <input
-                    type='checkbox'
-                    disabled={option.disabled}
-                    checked={props.values.includes(option.id)}
-                    onChange={(event) =>
-                      props.onChange(
-                        event.target.checked
-                          ? [...new Set([...props.values, option.id])].sort()
-                          : props.values.filter((value) => value !== option.id)
-                      )
-                    }
-                  />
-                  <span
-                    className='font-mono'
-                    title={option.disabledReason || undefined}
-                  >
-                    {option.id}
-                    {suffix}
-                  </span>
-                </label>
-              )
-            })}
-          </div>
-        </>
-      )}
-    </div>
   )
 }
 
