@@ -495,7 +495,19 @@ func ApplyACUGlobalRoutingScope(
 	ctx context.Context,
 	scope ACURoutingScope,
 ) (ACURoutingScope, []string, error) {
+	return applyACUGlobalRoutingScope(ctx, scope, nil)
+}
+
+func applyACUGlobalRoutingScope(
+	ctx context.Context,
+	scope ACURoutingScope,
+	forcedProfileStates map[string]bool,
+) (ACURoutingScope, []string, error) {
 	normalized, err := NormalizeACURoutingScope(scope)
+	if err != nil {
+		return ACURoutingScope{}, nil, err
+	}
+	current, err := GetACUGlobalRoutingScope()
 	if err != nil {
 		return ACURoutingScope{}, nil, err
 	}
@@ -541,19 +553,33 @@ func ApplyACUGlobalRoutingScope(
 		normalized.AllowedProfileIDs = normalizeACUIDs(availableProfileIDs)
 	}
 
-	allowedProfiles := make(map[string]struct{}, len(normalized.AllowedProfileIDs))
+	currentAllowedProfiles := make(map[string]struct{}, len(current.AllowedProfileIDs))
+	for _, profileID := range current.AllowedProfileIDs {
+		currentAllowedProfiles[profileID] = struct{}{}
+	}
+	nextAllowedProfiles := make(map[string]struct{}, len(normalized.AllowedProfileIDs))
 	for _, profileID := range normalized.AllowedProfileIDs {
-		allowedProfiles[profileID] = struct{}{}
+		nextAllowedProfiles[profileID] = struct{}{}
 	}
 	changes := map[string]bool{}
 	for _, profile := range monitor.Profiles {
-		desired := profile.AdministratorAllowed &&
-			normalized.ModelAccess[profile.CanonicalModel] != ACUModelAccessDisabled
-		if desired && normalized.ProfilePolicy == ACURoutingPolicyCustom {
-			_, desired = allowedProfiles[profile.ExecutionProfileID]
+		currentEnabled := profile.AdministratorAllowed &&
+			current.ModelAccess[profile.CanonicalModel] != ACUModelAccessDisabled
+		if currentEnabled && current.ProfilePolicy == ACURoutingPolicyCustom {
+			_, currentEnabled = currentAllowedProfiles[profile.ExecutionProfileID]
 		}
-		if profile.Enabled != desired || profile.AutoRouteEnabled != desired {
-			changes[profile.ExecutionProfileID] = desired
+		nextEnabled := profile.AdministratorAllowed &&
+			normalized.ModelAccess[profile.CanonicalModel] != ACUModelAccessDisabled
+		if nextEnabled && normalized.ProfilePolicy == ACURoutingPolicyCustom {
+			_, nextEnabled = nextAllowedProfiles[profile.ExecutionProfileID]
+		}
+		if currentEnabled != nextEnabled {
+			changes[profile.ExecutionProfileID] = nextEnabled
+		}
+	}
+	for profileID, enabled := range forcedProfileStates {
+		if _, ok := profiles[profileID]; ok {
+			changes[profileID] = enabled
 		}
 	}
 
@@ -657,7 +683,11 @@ func UpdateACUGlobalProfileRouting(
 		}
 	}
 
-	next, _, err = ApplyACUGlobalRoutingScope(ctx, next)
+	next, _, err = applyACUGlobalRoutingScope(
+		ctx,
+		next,
+		map[string]bool{executionProfileID: enabled},
+	)
 	return next, err
 }
 

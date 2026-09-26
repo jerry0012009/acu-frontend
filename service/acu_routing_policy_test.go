@@ -161,7 +161,7 @@ func TestUpdateACUGlobalProfileRoutingSynchronizesRouterAndGlobalPolicy(t *testi
 			"allowedModelIds":["gpt-6-sol"],
 			"modelAccess":{"gpt-6-sol":"auto"},
 			"profilePolicy":"custom_allowlist",
-			"allowedProfileIds":["other-profile"]
+			"allowedProfileIds":["legacy-inconsistent-profile","other-profile"]
 		}`,
 	}
 	t.Cleanup(func() {
@@ -193,6 +193,12 @@ func TestUpdateACUGlobalProfileRoutingSynchronizesRouterAndGlobalPolicy(t *testi
 					"enabled":true,
 					"administratorAllowed":true,
 					"autoRouteEnabled":true
+				},{
+					"executionProfileId":"legacy-inconsistent-profile",
+					"canonicalModel":"gpt-6-sol",
+					"enabled":false,
+					"administratorAllowed":true,
+					"autoRouteEnabled":false
 				}],
 				"history":[],"cooldownIntervals":[],"probeHistory":[],
 				"supplyInventory":[],"modelPool":[{"modelId":"gpt-6-sol"}]
@@ -237,6 +243,7 @@ func TestUpdateACUGlobalProfileRoutingSynchronizesRouterAndGlobalPolicy(t *testi
 			},
 			ProfilePolicy: ACURoutingPolicyCustom,
 			AllowedProfileIDs: []string{
+				"legacy-inconsistent-profile",
 				"managed-heju:gpt-6-sol:responses",
 				"other-profile",
 			},
