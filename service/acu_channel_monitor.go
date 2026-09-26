@@ -502,6 +502,44 @@ func UpdateACUExecutionProfile(
 	)
 }
 
+func UpdateACUExecutionProfileRouting(
+	ctx context.Context,
+	id string,
+	enabled bool,
+) (map[string]interface{}, error) {
+	return acuExecutionProfileRequest(
+		ctx,
+		http.MethodPatch,
+		"/internal/admin/execution-profiles/"+url.PathEscape(id)+"/routing",
+		map[string]interface{}{"enabled": enabled},
+	)
+}
+
+func UpdateACUExecutionProfilesRoutingSet(
+	ctx context.Context,
+	ids []string,
+) (map[string]interface{}, error) {
+	return acuExecutionProfileRequest(
+		ctx,
+		http.MethodPatch,
+		"/internal/admin/execution-profiles/routing",
+		map[string]interface{}{"ids": ids},
+	)
+}
+
+func UpdateACUChannelConnection(
+	ctx context.Context,
+	id string,
+	input map[string]interface{},
+) (map[string]interface{}, error) {
+	return acuExecutionProfileRequest(
+		ctx,
+		http.MethodPatch,
+		"/internal/admin/execution-profiles/channels/"+url.PathEscape(id),
+		input,
+	)
+}
+
 func ProbeACUExecutionProfile(
 	ctx context.Context,
 	input map[string]interface{},
@@ -525,15 +563,6 @@ func ReconcileACUExecutionProfileEconomics(
 		http.MethodPatch,
 		"/internal/admin/execution-profiles/"+url.PathEscape(id)+"/economics",
 		input,
-	)
-}
-
-func ApplyACUExecutionProfiles(ctx context.Context) (map[string]interface{}, error) {
-	return acuExecutionProfileRequest(
-		ctx,
-		http.MethodPost,
-		"/internal/admin/execution-profiles/apply",
-		nil,
 	)
 }
 

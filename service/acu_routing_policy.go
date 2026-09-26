@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
@@ -448,11 +447,55 @@ func ValidateACUProfilePreferenceScoresAgainstPool(ctx context.Context, scores m
 	return nil
 }
 
+func loadACUProfileRoutingInventory(ctx context.Context) (map[string]string, []string, error) {
+	response, err := GetACUExecutionProfiles(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	rows, ok := response["profiles"].([]interface{})
+	if !ok {
+		return nil, nil, fmt.Errorf("Router Profile inventory is missing")
+	}
+	profiles := make(map[string]string, len(rows))
+	active := make([]string, 0, len(rows))
+	for _, row := range rows {
+		profile, ok := row.(map[string]interface{})
+		if !ok {
+			return nil, nil, fmt.Errorf("invalid Router Profile inventory")
+		}
+		id, validID := profile["executionProfileId"].(string)
+		modelID, validModel := profile["modelId"].(string)
+		enabled, validEnabled := profile["routingEnabled"].(bool)
+		if !validID || id == "" || !validModel || modelID == "" || !validEnabled {
+			return nil, nil, fmt.Errorf("invalid Router Profile inventory")
+		}
+		profiles[id] = modelID
+		if enabled {
+			active = append(active, id)
+		}
+	}
+	return profiles, normalizeACUIDs(active), nil
+}
+
 func GetACUGlobalRoutingScope() (ACURoutingScope, error) {
-	return globalACURoutingScope()
+	scope, err := globalACURoutingScope()
+	if err != nil {
+		return scope, err
+	}
+	profiles, active, err := loadACUProfileRoutingInventory(context.Background())
+	if err != nil {
+		return scope, err
+	}
+	scope.AllowedProfileIDs = active
+	if len(active) < len(profiles) {
+		scope.ProfilePolicy = ACURoutingPolicyCustom
+	}
+	return scope, nil
 }
 
 func persistACUGlobalRoutingScope(scope ACURoutingScope) error {
+	scope.ProfilePolicy = ACURoutingPolicyAll
+	scope.AllowedProfileIDs = nil
 	raw, err := common.Marshal(scope)
 	if err != nil {
 		return err
@@ -462,66 +505,22 @@ func persistACUGlobalRoutingScope(scope ACURoutingScope) error {
 	})
 }
 
-func waitForACUProfileRoutingStates(
-	ctx context.Context,
-	expected map[string]bool,
-) error {
-	deadline := time.Now().Add(60 * time.Second)
-	for time.Now().Before(deadline) {
-		clearACUChannelMonitorCache()
-		monitor, err := GetACUChannelMonitor(ctx, "24h", "balanced", "standard", "48h", "all")
-		if err == nil {
-			matched := 0
-			for _, profile := range monitor.Profiles {
-				enabled, ok := expected[profile.ExecutionProfileID]
-				if ok && profile.Enabled == enabled && profile.AutoRouteEnabled == enabled {
-					matched++
-				}
-			}
-			if matched == len(expected) {
-				return nil
-			}
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(time.Second):
-		}
-	}
-	return fmt.Errorf("Router did not apply the requested ACU Profile routing state")
-}
-
 func ApplyACUGlobalRoutingScope(
 	ctx context.Context,
 	scope ACURoutingScope,
-) (ACURoutingScope, []string, error) {
-	return applyACUGlobalRoutingScope(ctx, scope, nil)
-}
-
-func applyACUGlobalRoutingScope(
-	ctx context.Context,
-	scope ACURoutingScope,
-	forcedProfileStates map[string]bool,
 ) (ACURoutingScope, []string, error) {
 	normalized, err := NormalizeACURoutingScope(scope)
 	if err != nil {
 		return ACURoutingScope{}, nil, err
 	}
-	current, err := GetACUGlobalRoutingScope()
-	if err != nil {
-		return ACURoutingScope{}, nil, err
-	}
-	clearACUChannelMonitorCache()
-	monitor, err := GetACUChannelMonitor(ctx, "24h", "balanced", "standard", "48h", "all")
+	profiles, _, err := loadACUProfileRoutingInventory(ctx)
 	if err != nil {
 		return ACURoutingScope{}, nil, err
 	}
 
-	models := make(map[string]struct{}, len(monitor.ModelPool))
-	for _, item := range monitor.ModelPool {
-		if modelID, ok := item["modelId"].(string); ok {
-			models[modelID] = struct{}{}
-		}
+	models := make(map[string]struct{}, len(profiles))
+	for _, modelID := range profiles {
+		models[modelID] = struct{}{}
 	}
 	if normalized.Policy == ACURoutingPolicyCustom {
 		for _, modelID := range normalized.AllowedModelIDs {
@@ -531,17 +530,12 @@ func applyACUGlobalRoutingScope(
 		}
 	}
 
-	profiles := make(map[string]dto.ACUChannelMonitorProfile, len(monitor.Profiles))
-	for _, profile := range monitor.Profiles {
-		profiles[profile.ExecutionProfileID] = profile
-	}
 	removedProfileIDs := []string{}
 	if normalized.ProfilePolicy == ACURoutingPolicyCustom {
 		availableProfileIDs := make([]string, 0, len(normalized.AllowedProfileIDs))
 		for _, profileID := range normalized.AllowedProfileIDs {
-			profile, ok := profiles[profileID]
-			if !ok || !profile.AdministratorAllowed ||
-				normalized.ModelAccess[profile.CanonicalModel] == ACUModelAccessDisabled {
+			_, ok := profiles[profileID]
+			if !ok {
 				removedProfileIDs = append(removedProfileIDs, profileID)
 				continue
 			}
@@ -553,67 +547,21 @@ func applyACUGlobalRoutingScope(
 		normalized.AllowedProfileIDs = normalizeACUIDs(availableProfileIDs)
 	}
 
-	currentAllowedProfiles := make(map[string]struct{}, len(current.AllowedProfileIDs))
-	for _, profileID := range current.AllowedProfileIDs {
-		currentAllowedProfiles[profileID] = struct{}{}
+	if _, err := UpdateACUExecutionProfilesRoutingSet(
+		ctx,
+		func() []string {
+			if normalized.ProfilePolicy == ACURoutingPolicyCustom {
+				return normalized.AllowedProfileIDs
+			}
+			return nil
+		}(),
+	); err != nil {
+		return ACURoutingScope{}, removedProfileIDs, err
 	}
-	nextAllowedProfiles := make(map[string]struct{}, len(normalized.AllowedProfileIDs))
-	for _, profileID := range normalized.AllowedProfileIDs {
-		nextAllowedProfiles[profileID] = struct{}{}
-	}
-	changes := map[string]bool{}
-	for _, profile := range monitor.Profiles {
-		currentEnabled := profile.AdministratorAllowed &&
-			current.ModelAccess[profile.CanonicalModel] != ACUModelAccessDisabled
-		if currentEnabled && current.ProfilePolicy == ACURoutingPolicyCustom {
-			_, currentEnabled = currentAllowedProfiles[profile.ExecutionProfileID]
-		}
-		nextEnabled := profile.AdministratorAllowed &&
-			normalized.ModelAccess[profile.CanonicalModel] != ACUModelAccessDisabled
-		if nextEnabled && normalized.ProfilePolicy == ACURoutingPolicyCustom {
-			_, nextEnabled = nextAllowedProfiles[profile.ExecutionProfileID]
-		}
-		if currentEnabled != nextEnabled {
-			changes[profile.ExecutionProfileID] = nextEnabled
-		}
-	}
-	for profileID, enabled := range forcedProfileStates {
-		if _, ok := profiles[profileID]; ok {
-			changes[profileID] = enabled
-		}
-	}
-
-	// Persist first so exclusions block both explicit and ACU Auto requests
-	// before Router applies the matching hard Profile state.
 	if err := persistACUGlobalRoutingScope(normalized); err != nil {
 		return ACURoutingScope{}, removedProfileIDs, err
 	}
-	if len(changes) == 0 {
-		return normalized, removedProfileIDs, nil
-	}
-
-	profileIDs := make([]string, 0, len(changes))
-	for profileID := range changes {
-		profileIDs = append(profileIDs, profileID)
-	}
-	sort.Strings(profileIDs)
-	for _, profileID := range profileIDs {
-		enabled := changes[profileID]
-		if _, err := UpdateACUExecutionProfile(ctx, profileID, map[string]interface{}{
-			"profile": map[string]interface{}{
-				"enabled":         enabled,
-				"activeInAcuAuto": enabled,
-			},
-		}); err != nil {
-			return ACURoutingScope{}, removedProfileIDs, err
-		}
-	}
-	if _, err := ApplyACUExecutionProfiles(ctx); err != nil {
-		return ACURoutingScope{}, removedProfileIDs, err
-	}
-	if err := waitForACUProfileRoutingStates(ctx, changes); err != nil {
-		return ACURoutingScope{}, removedProfileIDs, err
-	}
+	clearACUChannelMonitorCache()
 	return normalized, removedProfileIDs, nil
 }
 
@@ -626,69 +574,11 @@ func UpdateACUGlobalProfileRouting(
 	if executionProfileID == "" {
 		return ACURoutingScope{}, fmt.Errorf("executionProfileId is required")
 	}
-
+	if _, err := UpdateACUExecutionProfileRouting(ctx, executionProfileID, enabled); err != nil {
+		return ACURoutingScope{}, err
+	}
 	clearACUChannelMonitorCache()
-	monitor, err := GetACUChannelMonitor(ctx, "24h", "balanced", "standard", "48h", "all")
-	if err != nil {
-		return ACURoutingScope{}, err
-	}
-	var target *dto.ACUChannelMonitorProfile
-	for index := range monitor.Profiles {
-		if monitor.Profiles[index].ExecutionProfileID == executionProfileID {
-			target = &monitor.Profiles[index]
-			break
-		}
-	}
-	if target == nil {
-		return ACURoutingScope{}, fmt.Errorf("ACU Profile %q is not present in the current Router Profile pool", executionProfileID)
-	}
-	if !target.AdministratorAllowed {
-		return ACURoutingScope{}, fmt.Errorf("ACU Profile %q is disabled by administrator policy", executionProfileID)
-	}
-
-	scope, err := GetACUGlobalRoutingScope()
-	if err != nil {
-		return ACURoutingScope{}, err
-	}
-	next := scope
-	if enabled {
-		if scope.ModelAccess[target.CanonicalModel] == ACUModelAccessDisabled {
-			return ACURoutingScope{}, fmt.Errorf("ACU Profile %q belongs to globally disabled model %q", executionProfileID, target.CanonicalModel)
-		}
-		if next.ProfilePolicy == ACURoutingPolicyCustom {
-			next.AllowedProfileIDs = normalizeACUIDs(append(next.AllowedProfileIDs, executionProfileID))
-		}
-	} else {
-		if next.ProfilePolicy == ACURoutingPolicyAll {
-			next.ProfilePolicy = ACURoutingPolicyCustom
-			next.AllowedProfileIDs = make([]string, 0, len(monitor.Profiles))
-			for _, profile := range monitor.Profiles {
-				if profile.ExecutionProfileID != executionProfileID &&
-					profile.Enabled && profile.AdministratorAllowed {
-					next.AllowedProfileIDs = append(next.AllowedProfileIDs, profile.ExecutionProfileID)
-				}
-			}
-		} else {
-			filtered := make([]string, 0, len(next.AllowedProfileIDs))
-			for _, profileID := range next.AllowedProfileIDs {
-				if profileID != executionProfileID {
-					filtered = append(filtered, profileID)
-				}
-			}
-			next.AllowedProfileIDs = filtered
-		}
-		next.AllowedProfileIDs = normalizeACUIDs(next.AllowedProfileIDs)
-		if len(next.AllowedProfileIDs) == 0 {
-			return ACURoutingScope{}, fmt.Errorf("cannot disable the last globally routed ACU Profile")
-		}
-	}
-
-	next, _, err = applyACUGlobalRoutingScope(
-		ctx,
-		next,
-		map[string]bool{executionProfileID: enabled},
-	)
-	return next, err
+	return GetACUGlobalRoutingScope()
 }
 
 func ACUGlobalModelAccess(modelID string) (string, error) {
@@ -733,9 +623,7 @@ func validateACURoutingScopeAgainstPool(
 	}
 	profiles := make(map[string]string, len(monitor.Profiles))
 	for _, profile := range monitor.Profiles {
-		if profile.ExecutionProfileID != "" &&
-			profile.Enabled &&
-			profile.AdministratorAllowed {
+		if profile.ExecutionProfileID != "" {
 			profiles[profile.ExecutionProfileID] = profile.CanonicalModel
 		}
 	}
@@ -953,7 +841,13 @@ func globalACURoutingScope() (ACURoutingScope, error) {
 	if err := common.UnmarshalJsonStr(raw, &scope); err != nil {
 		return scope, fmt.Errorf("invalid global ACU routing policy: %w", err)
 	}
-	return normalizeACUScope(scope)
+	normalized, err := normalizeACUScope(scope)
+	if err != nil {
+		return normalized, err
+	}
+	normalized.ProfilePolicy = ACURoutingPolicyAll
+	normalized.AllowedProfileIDs = nil
+	return normalized, nil
 }
 
 func ResolveACUEffectiveRoutingPolicy(token *model.Token) (ACUEffectiveRoutingPolicy, error) {
@@ -1092,14 +986,10 @@ func ResolveACUEffectiveRoutingPolicy(token *model.Token) (ACUEffectiveRoutingPo
 			}
 		}
 	}
-	if global.ProfilePolicy == ACURoutingPolicyCustom && tokenScope.ProfilePolicy == ACURoutingPolicyCustom {
-		result.AllowedProfileIDs = intersectACUIDs(global.AllowedProfileIDs, tokenScope.AllowedProfileIDs)
-	} else if global.ProfilePolicy == ACURoutingPolicyCustom {
-		result.AllowedProfileIDs = global.AllowedProfileIDs
-	} else if tokenScope.ProfilePolicy == ACURoutingPolicyCustom {
+	if tokenScope.ProfilePolicy == ACURoutingPolicyCustom {
 		result.AllowedProfileIDs = normalizeACUIDs(tokenScope.AllowedProfileIDs)
 	}
-	if len(result.AllowedProfileIDs) == 0 && (global.ProfilePolicy == ACURoutingPolicyCustom || tokenScope.ProfilePolicy == ACURoutingPolicyCustom) {
+	if len(result.AllowedProfileIDs) == 0 && tokenScope.ProfilePolicy == ACURoutingPolicyCustom {
 		return result, fmt.Errorf("ACU profile allowlist intersection is empty")
 	}
 	if len(result.AllowedProfileIDs) > 0 {

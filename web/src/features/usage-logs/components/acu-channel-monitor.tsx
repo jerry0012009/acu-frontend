@@ -103,25 +103,11 @@ const EMPTY_PROFILE_FILTERS: ProfileFilters = {
 }
 
 function isProfileGloballyUsable(
-  policy: ACUGlobalRoutingPolicy,
+  _policy: ACUGlobalRoutingPolicy,
   profile: ACUChannelMonitorProfile,
-  modelEntries: GlobalModelOption[]
+  _modelEntries: GlobalModelOption[]
 ) {
-  if (!profile.executionProfileId || profile.administratorAllowed === false) {
-    return false
-  }
-  const model = modelEntries.find(
-    (entry) => entry.id === profile.canonicalModel
-  )
-  return Boolean(
-    model &&
-    modelAccessFor(
-      policy,
-      model.id,
-      model.hasConfiguredProfile,
-      model.autoRouteEnabled
-    ) !== 'disabled'
-  )
+  return Boolean(profile.executionProfileId)
 }
 
 function buildAvailableModelEntries(
@@ -384,16 +370,12 @@ export function ACUChannelMonitor() {
         observedBillingMultiplier: input.observedBillingMultiplier,
         creditsPerCny: input.creditsPerCny,
       }),
-    onSuccess: async (response) => {
+    onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['acu-channel-monitor'] }),
         queryClient.invalidateQueries({ queryKey: ['acu-execution-profiles'] }),
       ])
-      setCalibrationMessage(
-        response.data?.applyRequired
-          ? t('Saved · Apply configuration required')
-          : t('Saved')
-      )
+      setCalibrationMessage(t('Saved'))
     },
     onError: (error) =>
       setCalibrationMessage(
@@ -1320,14 +1302,7 @@ function RouterConfigurationTab(props: {
           const profile = props.profiles.find(
             (item) => item.executionProfileId === profileId
           )
-          return (
-            profile !== undefined &&
-            isProfileGloballyUsable(
-              { ...policyDraft, modelAccess: modelAccessForSave },
-              profile,
-              availableModelEntries
-            )
-          )
+          return profile !== undefined
         }),
       }
     : undefined

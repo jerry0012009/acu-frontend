@@ -169,7 +169,7 @@ test('saved profile scope summary includes the current profile inventory', () =>
   )
 })
 
-test('root execution profile manager separates save, targeted probe, and apply', () => {
+test('root execution profile manager saves immediately without Router apply', () => {
   assert.match(monitorSource, /<ACUExecutionProfileManager \/>/)
   assert.match(profileManagerSource, /createACUExecutionProfile/)
   assert.match(profileManagerSource, /updateACUExecutionProfile/)
@@ -177,11 +177,8 @@ test('root execution profile manager separates save, targeted probe, and apply',
     profileManagerSource,
     /probeACUExecutionProfile\(draft, probeProtocol\)/
   )
-  assert.match(profileManagerSource, /applyACUExecutionProfiles/)
-  assert.match(
-    profileManagerSource,
-    /Saved configuration is waiting for Router apply/
-  )
+  assert.doesNotMatch(profileManagerSource, /applyACUExecutionProfiles/)
+  assert.match(profileManagerSource, /Changes take effect immediately/)
   assert.doesNotMatch(profileManagerSource, /recentSuccessRate/)
   assert.doesNotMatch(profileManagerSource, /observedLatency/)
   assert.doesNotMatch(profileManagerSource, /actualModelVerified/)
