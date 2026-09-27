@@ -349,18 +349,20 @@ func TestTokenProfilePreferencesPreserveExplicitNeutralAndValidateBounds(t *test
 	scores, err := NormalizeACUProfilePreferenceScores(map[string]float64{
 		"cockpit:gpt-5.6-sol:responses": 125.5,
 		"wawazz:gpt-5.6-sol:responses":  100,
+		"special:gpt-6-sol:responses":  500,
 	})
 	require.NoError(t, err)
 	require.Equal(t, map[string]float64{
 		"cockpit:gpt-5.6-sol:responses": 125.5,
 		"wawazz:gpt-5.6-sol:responses":  100,
+		"special:gpt-6-sol:responses":  500,
 	}, scores)
 
 	for _, invalid := range []map[string]float64{
 		{"": 120},
 		{"invalid profile": 120},
 		{"cockpit:gpt-5.6-sol:responses": -1},
-		{"cockpit:gpt-5.6-sol:responses": 201},
+		{"cockpit:gpt-5.6-sol:responses": 501},
 		{"cockpit:gpt-5.6-sol:responses": math.NaN()},
 	} {
 		_, err = NormalizeACUProfilePreferenceScores(invalid)

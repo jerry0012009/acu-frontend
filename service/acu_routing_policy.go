@@ -350,8 +350,8 @@ func NormalizeACUProfilePreferenceScores(scores map[string]float64) (map[string]
 		if profileID == "" || len(profileID) > 256 || !acuRoutingCandidateIDPattern.MatchString(profileID) {
 			return nil, fmt.Errorf("invalid ACU execution Profile ID %q", rawProfileID)
 		}
-		if math.IsNaN(score) || math.IsInf(score, 0) || score < 0 || score > 200 {
-			return nil, fmt.Errorf("ACU Profile preference score for %q must be a number from 0 to 200", profileID)
+		if math.IsNaN(score) || math.IsInf(score, 0) || score < 0 || score > 500 {
+			return nil, fmt.Errorf("ACU Profile preference score for %q must be a number from 0 to 500", profileID)
 		}
 		normalized[profileID] = score
 	}
@@ -761,8 +761,8 @@ func UpdateACUTokenProfileRouting(
 		if input.InheritWeight {
 			return dto.ACUTokenProfileRoutingScope{}, fmt.Errorf("weight and inheritWeight cannot be combined")
 		}
-		if math.IsNaN(*input.Weight) || math.IsInf(*input.Weight, 0) || *input.Weight < 0 || *input.Weight > 200 {
-			return dto.ACUTokenProfileRoutingScope{}, fmt.Errorf("ACU Profile preference must be from 0 to 200")
+		if math.IsNaN(*input.Weight) || math.IsInf(*input.Weight, 0) || *input.Weight < 0 || *input.Weight > 500 {
+			return dto.ACUTokenProfileRoutingScope{}, fmt.Errorf("ACU Profile preference must be from 0 to 500")
 		}
 		token.ACUProfilePreferenceScores[input.ExecutionProfileID] = *input.Weight
 	}

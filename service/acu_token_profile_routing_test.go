@@ -124,6 +124,31 @@ func TestACUTokenProfileRoutingUpdatesOnlyTheSelectedTokenScope(t *testing.T) {
 	require.Equal(t, 100.0, scope.ConfiguredWeights["provider:model:responses"])
 	require.Equal(t, 100.0, scope.EffectiveWeights["provider:model:responses"])
 
+	special := 400.0
+	scope, err = UpdateACUTokenProfileRouting(
+		context.Background(),
+		7,
+		token.Id,
+		dto.ACUTokenProfileRoutingUpdate{
+			ExecutionProfileID: "provider:model:responses",
+			Weight:             &special,
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, 400.0, scope.EffectiveWeights["provider:model:responses"])
+
+	invalid := 501.0
+	_, err = UpdateACUTokenProfileRouting(
+		context.Background(),
+		7,
+		token.Id,
+		dto.ACUTokenProfileRoutingUpdate{
+			ExecutionProfileID: "provider:model:responses",
+			Weight:             &invalid,
+		},
+	)
+	require.ErrorContains(t, err, "from 0 to 500")
+
 	scope, err = UpdateACUTokenProfileRouting(
 		context.Background(),
 		7,
