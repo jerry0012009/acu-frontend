@@ -246,6 +246,27 @@ func TestGetACUSelectionCorridorSendsCandidatePolicy(t *testing.T) {
 	require.Equal(t, "messages", body["protocol"])
 }
 
+func TestGetACUSelectionCorridorPreservesChatCompletionsProtocol(t *testing.T) {
+	var requestBody []byte
+	var requestProtocol string
+	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		requestBody, _ = io.ReadAll(request.Body)
+		requestProtocol = request.URL.Query().Get("protocol")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"series":{}}`))
+	}))
+	defer router.Close()
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
+
+	_, err := GetACUSelectionCorridor(context.Background(), 10_000, 1_000, &ACUEffectiveRoutingPolicy{}, "chat_completions")
+	require.NoError(t, err)
+	var body map[string]interface{}
+	require.NoError(t, common.Unmarshal(requestBody, &body))
+	require.Equal(t, "chat_completions", body["protocol"])
+	require.Equal(t, "chat_completions", requestProtocol)
+}
+
 func TestGetACUSelectionCorridorPropagatesPreferenceValidationError(t *testing.T) {
 	requests := 0
 	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {

@@ -1527,8 +1527,8 @@ func UpdateUserSetting(c *gin.Context) {
 		settings.ACURoutingPolicy = "all_routing_eligible"
 	}
 	if req.ACUAllowedModelIds != nil {
-		acuCatalog, err := loadACUPricingCatalog()
-		if err != nil || acuCatalog == nil {
+		acuCatalog, _ := loadACUPricingCatalog(c.Request.Context())
+		if acuCatalog == nil {
 			common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 			return
 		}

@@ -37,8 +37,8 @@ func filterPricingByUsableGroups(pricing []model.Pricing, usableGroup map[string
 
 func GetPricing(c *gin.Context) {
 	pricing := model.GetPricing()
-	acuCatalog, acuCatalogErr := loadACUPricingCatalog()
-	if acuCatalogErr == nil {
+	acuCatalog, acuCatalogErr := loadACUPricingCatalog(c.Request.Context())
+	if acuCatalog != nil {
 		pricing = overlayACUPricing(acuCatalog, pricing)
 	}
 	userId, exists := c.Get("id")
@@ -104,7 +104,7 @@ func GetACUSelectionCorridor(c *gin.Context) {
 	inputTokens, _ := strconv.Atoi(c.DefaultQuery("input_tokens", "100000"))
 	expectedOutputTokens, _ := strconv.Atoi(c.DefaultQuery("output_tokens", "4000"))
 	protocol := c.DefaultQuery("protocol", "responses")
-	if protocol != "responses" && protocol != "messages" {
+	if protocol != "responses" && protocol != "messages" && protocol != "chat_completions" {
 		c.JSON(400, gin.H{"success": false, "message": "invalid protocol"})
 		return
 	}
@@ -125,7 +125,7 @@ func GetACUTokenSelectionCorridor(c *gin.Context) {
 	inputTokens, _ := strconv.Atoi(c.DefaultQuery("input_tokens", "100000"))
 	expectedOutputTokens, _ := strconv.Atoi(c.DefaultQuery("output_tokens", "4000"))
 	protocol := c.DefaultQuery("protocol", "responses")
-	if protocol != "responses" && protocol != "messages" {
+	if protocol != "responses" && protocol != "messages" && protocol != "chat_completions" {
 		c.JSON(400, gin.H{"success": false, "message": "invalid protocol"})
 		return
 	}
