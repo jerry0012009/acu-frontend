@@ -1381,9 +1381,7 @@ function RouterConfigurationTab(props: {
           <section className='space-y-3 rounded border p-3 text-xs'>
             <div>
               <span className='text-muted-foreground'>{t('Formula')}: </span>
-              <span className='font-medium'>
-                {savedUtilityConfig.formulaMode}
-              </span>
+              <span className='font-medium'>{t('Active Utility')}</span>
             </div>
             <div>
               <div className='text-muted-foreground'>
@@ -1541,7 +1539,7 @@ function RouterConfigurationTab(props: {
   )
 }
 
-function RoutingUtilityEditor(props: {
+export function RoutingUtilityEditor(props: {
   value: ACURoutingUtilityConfig
   modelPool: ACUModelPoolEntry[]
   profiles: ACUChannelMonitorProfile[]
@@ -1649,24 +1647,12 @@ function RoutingUtilityEditor(props: {
       </summary>
       <div className='mt-3 space-y-4'>
         <div className='grid gap-3 sm:grid-cols-2 lg:grid-cols-4'>
-          <label className='space-y-1 text-xs'>
-            <span className='text-muted-foreground'>{t('Formula mode')}</span>
-            <select
-              className='bg-background h-8 w-full rounded-md border px-2'
-              value={props.value.formulaMode}
-              onChange={(event) =>
-                props.onChange({
-                  ...props.value,
-                  formulaMode: event.target
-                    .value as ACURoutingUtilityConfig['formulaMode'],
-                })
-              }
-            >
-              <option value='legacy'>legacy</option>
-              <option value='shadow'>shadow</option>
-              <option value='active'>active</option>
-            </select>
-          </label>
+          <div className='space-y-1 text-xs'>
+            <div className='text-muted-foreground'>{t('Formula')}</div>
+            <div className='flex h-8 items-center font-medium'>
+              {t('Active Utility')}
+            </div>
+          </div>
           {(['economy', 'balanced', 'quality'] as const).map((preset) =>
             numberField(
               `${preset} quality bias`,

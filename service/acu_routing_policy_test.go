@@ -5,6 +5,7 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -276,7 +277,7 @@ func TestResolveACUEffectiveRoutingPolicyUsesPresetAndCustomBias(t *testing.T) {
 	previous := common.OptionMap
 	t.Cleanup(func() { common.OptionMap = previous })
 	common.OptionMap = map[string]string{
-		"ACURoutingUtilityConfig": `{"schemaVersion":"acu-routing-utility-config-v1","formulaMode":"shadow","qualityPresets":{"economy":-70,"balanced":5,"quality":75},"acuHighBiasOffset":35,"modelCostLogScale":3,"supplyPresets":{"lowest_cost":{"cost":100,"speed":0,"reliability":0},"balanced":{"cost":40,"speed":25,"reliability":35},"low_latency":{"cost":10,"speed":80,"reliability":10},"high_reliability":{"cost":10,"speed":10,"reliability":80}},"profileCostLogScale":2,"profileSpeedLogScale":4,"latency":{"windowHours":24,"longContextThresholdTokens":100000,"minimumSamples":5,"unknownLatencyMultiplier":1.2},"reliability":{"windowHours":24,"minimumSamples":5,"unknownDefault":0.75,"degradedMultiplier":0.85},"workPhaseBiasOffsets":{"inspection":-10,"general":0,"implementation":0,"verification":0,"planning":10,"recovery":20}}`,
+		"ACURoutingUtilityConfig": `{"schemaVersion":"acu-routing-utility-config-v1","qualityPresets":{"economy":-70,"balanced":5,"quality":75},"acuHighBiasOffset":35,"modelCostLogScale":3,"supplyPresets":{"lowest_cost":{"cost":100,"speed":0,"reliability":0},"balanced":{"cost":40,"speed":25,"reliability":35},"low_latency":{"cost":10,"speed":80,"reliability":10},"high_reliability":{"cost":10,"speed":10,"reliability":80}},"profileCostLogScale":2,"profileSpeedLogScale":4,"latency":{"windowHours":24,"longContextThresholdTokens":100000,"minimumSamples":5,"unknownLatencyMultiplier":1.2},"reliability":{"windowHours":24,"minimumSamples":5,"unknownDefault":0.75,"degradedMultiplier":0.85},"workPhaseBiasOffsets":{"inspection":-10,"general":0,"implementation":0,"verification":0,"planning":10,"recovery":20}}`,
 	}
 	preset, err := ResolveACUEffectiveRoutingPolicy(&model.Token{
 		ACURoutingPreference: "economy", ACUSupplyStrategy: "low_latency",
@@ -286,7 +287,6 @@ func TestResolveACUEffectiveRoutingPolicyUsesPresetAndCustomBias(t *testing.T) {
 	require.Equal(t, map[string]int{"economy": -70, "balanced": 5, "quality": 75}, preset.QualityPresets)
 	require.Equal(t, "low_latency", preset.SupplyStrategy)
 	require.Equal(t, []int{10, 80, 10}, []int{preset.SupplyCostWeight, preset.SupplySpeedWeight, preset.SupplyReliabilityWeight})
-	require.Equal(t, "shadow", preset.FormulaMode)
 
 	customBias := -13
 	custom, err := ResolveACUEffectiveRoutingPolicy(&model.Token{
@@ -298,7 +298,6 @@ func TestResolveACUEffectiveRoutingPolicyUsesPresetAndCustomBias(t *testing.T) {
 
 func TestNormalizeACURoutingUtilityConfigRejectsInvalidContracts(t *testing.T) {
 	config := defaultACURoutingUtilityConfig()
-	config.FormulaMode = "shadow"
 	_, err := NormalizeACURoutingUtilityConfig(config)
 	require.NoError(t, err)
 
@@ -317,6 +316,26 @@ func TestNormalizeACURoutingUtilityConfigRejectsInvalidContracts(t *testing.T) {
 	require.ErrorContains(t, err, "quality preset")
 }
 
+func TestNormalizeACURoutingUtilityConfigIgnoresLegacyFormulaMode(t *testing.T) {
+	rawConfig, err := common.Marshal(defaultACURoutingUtilityConfig())
+	require.NoError(t, err)
+
+	legacyPayload := strings.Replace(
+		string(rawConfig),
+		`{"schemaVersion":`,
+		`{"formulaMode":"shadow","schemaVersion":`,
+		1,
+	)
+	var config ACURoutingUtilityConfig
+	require.NoError(t, common.UnmarshalJsonStr(legacyPayload, &config))
+
+	normalized, err := NormalizeACURoutingUtilityConfig(config)
+	require.NoError(t, err)
+	normalizedRaw, err := common.Marshal(normalized)
+	require.NoError(t, err)
+	require.NotContains(t, string(normalizedRaw), `"formulaMode"`)
+}
+
 func TestLegacyTokenDefaultsToBalancedUtility(t *testing.T) {
 	previous := common.OptionMap
 	t.Cleanup(func() { common.OptionMap = previous })
@@ -326,7 +345,6 @@ func TestLegacyTokenDefaultsToBalancedUtility(t *testing.T) {
 	require.Equal(t, "balanced", policy.RoutingPreference)
 	require.Equal(t, "balanced", policy.SupplyStrategy)
 	require.Equal(t, 20, policy.QualityBias)
-	require.Equal(t, "legacy", policy.FormulaMode)
 	require.NotEmpty(t, policy.RoutingUtilityVersion)
 }
 
@@ -334,7 +352,6 @@ func TestQualitySatisfactionVersionInvalidatesRoutingUtilityVersion(t *testing.T
 	previous := common.OptionMap
 	t.Cleanup(func() { common.OptionMap = previous })
 	config := defaultACURoutingUtilityConfig()
-	config.FormulaMode = "active"
 	config.QualityPresets = map[string]int{"economy": 0, "balanced": 40, "quality": 70}
 	raw, err := common.Marshal(config)
 	require.NoError(t, err)
@@ -406,7 +423,6 @@ func TestDefaultCandidatePreferencesAreInheritedAndTokenScoresOverride(t *testin
 	previous := common.OptionMap
 	t.Cleanup(func() { common.OptionMap = previous })
 	config := defaultACURoutingUtilityConfig()
-	config.FormulaMode = "active"
 	config.DefaultCandidatePreferenceScores = map[string]float64{
 		"gpt-5.6-luna":     118,
 		"gpt-5.6-sol@high": 90,
@@ -440,7 +456,6 @@ func TestDefaultProfilePreferencesAreInheritedFilteredAndVersioned(t *testing.T)
 	previous := common.OptionMap
 	t.Cleanup(func() { common.OptionMap = previous })
 	config := defaultACURoutingUtilityConfig()
-	config.FormulaMode = "active"
 	config.DefaultProfilePreferenceScores = map[string]float64{
 		"cockpit:gpt-5.6-sol:responses": 125.5,
 		"wawazz:gpt-5.6-sol:responses":  100,

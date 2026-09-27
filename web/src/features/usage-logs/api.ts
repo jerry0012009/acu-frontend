@@ -662,7 +662,6 @@ export async function updateACUGlobalRoutingPolicy(
 
 export type ACURoutingUtilityConfig = {
   schemaVersion: 'acu-routing-utility-config-v1'
-  formulaMode: 'legacy' | 'shadow' | 'active'
   qualityPresets: Record<'economy' | 'balanced' | 'quality', number>
   acuHighBiasOffset: number
   modelCostLogScale: number

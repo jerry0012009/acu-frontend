@@ -54,6 +54,7 @@ func TestApplyACUTrustedIdentityReplacesForgedHeadersAndBindsBody(t *testing.T) 
 	require.Equal(t, `{"gpt-5.6-luna@max":150,"gpt-5.6-sol@high":70.5}`, req.Header.Get("X-ACU-Candidate-Preference-Scores"))
 	require.Equal(t, `{}`, req.Header.Get("X-ACU-Profile-Preference-Scores"))
 	require.NotEmpty(t, req.Header.Get("X-ACU-Routing-Policy-Version"))
+	require.Empty(t, req.Header.Get("X-ACU-Formula-Mode"))
 	require.Empty(t, req.Header.Get("X-ACU-Unrecognized-Internal"))
 
 	digest := sha256.Sum256(body)
@@ -73,7 +74,7 @@ func TestApplyACUTrustedIdentityReplacesForgedHeadersAndBindsBody(t *testing.T) 
 		req.Header.Get("X-ACU-Reliability-Policy"), req.Header.Get("X-ACU-Work-Phase-Bias-Offsets"),
 		req.Header.Get("X-ACU-Allowed-Candidate-Ids"), req.Header.Get("X-ACU-Candidate-Preference-Scores"),
 		req.Header.Get("X-ACU-Profile-Preference-Scores"),
-		req.Header.Get("X-ACU-Routing-Utility-Version"), req.Header.Get("X-ACU-Formula-Mode"),
+		req.Header.Get("X-ACU-Routing-Utility-Version"),
 		"v6", req.Header.Get("X-ACU-Timestamp"), bodyHash,
 	}, "\n")
 	mac := hmac.New(sha256.New, []byte("test-only-shared-secret"))
