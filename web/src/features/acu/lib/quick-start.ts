@@ -48,7 +48,7 @@ export const CC_SWITCH_MODEL_MAPPINGS = [
   {
     menuName: 'gpt-5.4-mini',
     requestModel: 'gpt-5.4-mini',
-    contextWindow: 400000,
+    contextWindow: 1048576,
   },
 ] as const
 

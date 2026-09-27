@@ -234,8 +234,6 @@ func GetACURoutingCatalog(ctx context.Context) (dto.ACURoutingCatalog, error) {
 	for _, value := range monitor.ModelPool {
 		if stringValue(value, "modelCategory") != "text_agent" ||
 			(!boolValue(value, "autoRouteEnabled") &&
-				!hasConfiguredModel(configuredModels, stringValue(value, "modelId"))) ||
-			(!isRoutingCatalogVerificationStatus(stringValue(value, "verificationStatus")) &&
 				!hasConfiguredModel(configuredModels, stringValue(value, "modelId"))) {
 			continue
 		}
@@ -272,10 +270,6 @@ func GetACURoutingCatalog(ctx context.Context) (dto.ACURoutingCatalog, error) {
 func hasConfiguredModel(models map[string]struct{}, modelID string) bool {
 	_, ok := models[modelID]
 	return ok
-}
-
-func isRoutingCatalogVerificationStatus(value string) bool {
-	return value == "verified" || value == "verified_provisional"
 }
 
 func stringSlice(value interface{}) []string {

@@ -190,6 +190,10 @@ func TestGetACURoutingCatalogOmitsSupplyTelemetry(t *testing.T) {
 				"capabilityTier":"LUNA","protocols":["responses"],
 				"verificationStatus":"rejected","autoRouteEnabled":false
 			},{
+				"modelId":"discovered-auto","vendor":"OpenAI","modelCategory":"text_agent",
+				"capabilityTier":"LUNA","protocols":["responses"],
+				"verificationStatus":"discovered","autoRouteEnabled":true
+			},{
 				"modelId":"mimo-v2.5","vendor":"Xiaomi","modelCategory":"text_agent",
 				"capabilityTier":"LUNA","protocols":["chat_completions"],
 				"verificationStatus":"discovered","autoRouteEnabled":false
@@ -205,7 +209,12 @@ func TestGetACURoutingCatalogOmitsSupplyTelemetry(t *testing.T) {
 
 	result, err := GetACURoutingCatalog(context.Background())
 	require.NoError(t, err)
-	require.Len(t, result.Models, 2)
+	require.Len(t, result.Models, 3)
+	modelIDs := make([]string, 0, len(result.Models))
+	for _, model := range result.Models {
+		modelIDs = append(modelIDs, model.ModelID)
+	}
+	require.ElementsMatch(t, []string{"gpt-5.6-luna", "discovered-auto", "mimo-v2.5"}, modelIDs)
 	require.Len(t, result.Profiles, 2)
 	require.Equal(t, "lucen:luna:responses", result.Profiles[0].ExecutionProfileID)
 	require.Equal(t, []string{"default", "max"}, result.Profiles[0].SupportedReasoningEfforts)

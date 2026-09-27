@@ -173,7 +173,6 @@ export function ApiKeysMutateDrawer({
     (model) =>
       model.modelCategory === 'text_agent' &&
       model.autoRouteEnabled &&
-      ['verified', 'verified_provisional'].includes(model.verificationStatus) &&
       (!acuModelFilters.vendor || model.vendor === acuModelFilters.vendor) &&
       (!acuModelFilters.protocol ||
         model.protocols.includes(acuModelFilters.protocol)) &&
@@ -772,7 +771,7 @@ export function ApiKeysMutateDrawer({
                             <FormDescription className='text-xs'>
                               {field.value
                                 ? t('Custom allowed routing candidates')
-                                : t('All verified routing candidates')}
+                                : t('All available routing candidates')}
                             </FormDescription>
                           </div>
                           <FormControl>
@@ -1045,8 +1044,8 @@ export function ApiKeysMutateDrawer({
                                 ? t('Custom allowed execution routes', {
                                     defaultValue: '自定义可用执行线路',
                                   })
-                                : t('All verified execution routes', {
-                                    defaultValue: '全部已验证执行线路',
+                                : t('All available execution routes', {
+                                    defaultValue: '全部可用执行线路',
                                   })}
                             </FormDescription>
                           </div>
