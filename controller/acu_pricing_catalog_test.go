@@ -1,9 +1,15 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -11,6 +17,96 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/stretchr/testify/require"
 )
+
+func TestLoadACUPricingCatalogServesStaleDuringSingleBackgroundRefresh(t *testing.T) {
+	previousOptions := common.OptionMap
+	t.Cleanup(func() { common.OptionMap = previousOptions })
+	common.OptionMap = map[string]string{}
+
+	oldCatalog := &acuPricingCatalog{SourceCatalogVersion: "old"}
+	acuPricingCatalogCache.Lock()
+	acuPricingCatalogCache.catalog = oldCatalog
+	acuPricingCatalogCache.expiresAt = time.Now().Add(-time.Second)
+	acuPricingCatalogCache.Unlock()
+	t.Cleanup(func() {
+		acuPricingCatalogRefreshMu.Lock()
+		defer acuPricingCatalogRefreshMu.Unlock()
+		acuPricingCatalogCache.Lock()
+		acuPricingCatalogCache.catalog = nil
+		acuPricingCatalogCache.expiresAt = time.Time{}
+		acuPricingCatalogCache.Unlock()
+	})
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	defer func() {
+		if release != nil {
+			close(release)
+		}
+	}()
+	var monitorRequests atomic.Int32
+	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/internal/admin/channel-monitor":
+			monitorRequests.Add(1)
+			close(started)
+			<-release
+			_, _ = w.Write([]byte(`{"catalogVersion":"new","modelPool":[{"modelId":"test-model","modelCategory":"text_agent","verificationStatus":"verified","routingEnabled":true,"protocols":["responses"],"curve":[{"difficultyScore":0,"estimatedQuality":0.9}]}],"profiles":[]}`))
+		case "/internal/admin/selection-corridor":
+			_, _ = w.Write([]byte(`{"pricing":{"test-model":{"payableInputPriceCnyPerMillion":1,"payableOutputPriceCnyPerMillion":2,"effectiveCostStatus":"estimated"}}}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer router.Close()
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
+
+	catalog, err := loadACUPricingCatalog(context.Background())
+	require.NoError(t, err)
+	require.Same(t, oldCatalog, catalog)
+	select {
+	case <-started:
+	case <-time.After(3 * time.Second):
+		t.Fatal("background refresh did not start")
+	}
+
+	var calls sync.WaitGroup
+	for range 12 {
+		calls.Add(1)
+		go func() {
+			defer calls.Done()
+			got, loadErr := loadACUPricingCatalog(context.Background())
+			if loadErr != nil || got != oldCatalog {
+				t.Errorf("concurrent request did not receive stale catalog: %v", loadErr)
+			}
+		}()
+	}
+	done := make(chan struct{})
+	go func() {
+		calls.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("stale catalog requests blocked on Router")
+	}
+	require.Equal(t, int32(1), monitorRequests.Load())
+	close(release)
+	release = nil
+	require.Eventually(t, func() bool {
+		acuPricingCatalogCache.RLock()
+		defer acuPricingCatalogCache.RUnlock()
+		return acuPricingCatalogCache.catalog != nil && acuPricingCatalogCache.catalog.SourceCatalogVersion == "new"
+	}, 3*time.Second, 10*time.Millisecond)
+	catalog, err = loadACUPricingCatalog(context.Background())
+	require.NoError(t, err)
+	require.Len(t, catalog.Responses, 1)
+	require.True(t, catalog.Responses[0].ActiveInAcuAuto)
+	require.Len(t, catalog.Responses[0].Curve, 1)
+}
 
 func TestOverlayACUPricingUsesDynamicAutoAndCatalogPrices(t *testing.T) {
 	cachePayable := 0.006

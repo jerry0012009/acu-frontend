@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
@@ -118,7 +119,7 @@ type acuPricingCatalog struct {
 	CurveModelStatuses   []acuCurveModelStatus `json:"curveModelStatuses"`
 }
 
-const acuPricingCatalogCacheTTL = 30 * time.Second
+const acuPricingCatalogCacheTTL = 5 * time.Minute
 
 var acuPricingCatalogCache = struct {
 	sync.RWMutex
@@ -136,7 +137,22 @@ func loadACUPricingCatalog(ctx context.Context) (*acuPricingCatalog, error) {
 		acuPricingCatalogCache.RUnlock()
 		return catalog, nil
 	}
+	staleCatalog := acuPricingCatalogCache.catalog
 	acuPricingCatalogCache.RUnlock()
+
+	if staleCatalog != nil {
+		if acuPricingCatalogRefreshMu.TryLock() {
+			go func() {
+				defer acuPricingCatalogRefreshMu.Unlock()
+				refreshCtx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+				defer cancel()
+				if _, err := refreshACUPricingCatalog(refreshCtx); err != nil {
+					common.SysLog("ACU pricing catalog background refresh failed: " + err.Error())
+				}
+			}()
+		}
+		return staleCatalog, nil
+	}
 
 	acuPricingCatalogRefreshMu.Lock()
 	defer acuPricingCatalogRefreshMu.Unlock()
@@ -147,15 +163,17 @@ func loadACUPricingCatalog(ctx context.Context) (*acuPricingCatalog, error) {
 		acuPricingCatalogCache.RUnlock()
 		return catalog, nil
 	}
-	staleCatalog := acuPricingCatalogCache.catalog
 	acuPricingCatalogCache.RUnlock()
+	return refreshACUPricingCatalog(ctx)
+}
 
+func refreshACUPricingCatalog(ctx context.Context) (*acuPricingCatalog, error) {
 	routingCatalog, err := service.GetACURoutingCatalog(ctx)
 	if err != nil {
-		return staleCatalog, err
+		return nil, err
 	}
 	if routingCatalog.CatalogVersion == "" {
-		return staleCatalog, fmt.Errorf("ACU Router catalog metadata is unavailable")
+		return nil, fmt.Errorf("ACU Router catalog metadata is unavailable")
 	}
 
 	type corridorResult struct {
@@ -175,18 +193,18 @@ func loadACUPricingCatalog(ctx context.Context) (*acuPricingCatalog, error) {
 	for range protocols {
 		result := <-results
 		if result.err != nil {
-			return staleCatalog, fmt.Errorf("load ACU %s pricing: %w", result.protocol, result.err)
+			return nil, fmt.Errorf("load ACU %s pricing: %w", result.protocol, result.err)
 		}
 		corridors[result.protocol] = result.value
 	}
 
 	catalog, err := buildLiveACUPricingCatalog(routingCatalog, corridors)
 	if err != nil {
-		return staleCatalog, err
+		return nil, err
 	}
 	if mode := strings.TrimSpace(os.Getenv("ACU_PRICING_DISPLAY_MODE")); mode != "" {
 		if mode != "payable_only" && mode != "reference_only" && mode != "comparison" {
-			return staleCatalog, fmt.Errorf("invalid ACU_PRICING_DISPLAY_MODE %q", mode)
+			return nil, fmt.Errorf("invalid ACU_PRICING_DISPLAY_MODE %q", mode)
 		}
 		catalog.DisplayMode = mode
 	}

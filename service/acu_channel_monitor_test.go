@@ -179,7 +179,7 @@ func TestGetACURoutingCatalogOmitsSupplyTelemetry(t *testing.T) {
 			"modelPool":[{
 				"modelId":"gpt-5.6-luna","vendor":"OpenAI","modelCategory":"text_agent",
 				"capabilityTier":"LUNA","protocols":["responses"],
-				"verificationStatus":"verified","autoRouteEnabled":true,
+				"verificationStatus":"verified","routingEnabled":true,
 				"currentBestChannel":"secret-channel",
 				"routingCandidates":[{
 					"candidateId":"gpt-5.6-luna","modelId":"gpt-5.6-luna",
@@ -207,11 +207,22 @@ func TestGetACURoutingCatalogOmitsSupplyTelemetry(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, result.Models, 2)
 	require.Len(t, result.Profiles, 2)
+	require.True(t, result.Models[0].AutoRouteEnabled)
+	require.False(t, result.Models[1].AutoRouteEnabled)
 	require.Equal(t, "lucen:luna:responses", result.Profiles[0].ExecutionProfileID)
 	require.Equal(t, []string{"default", "max"}, result.Profiles[0].SupportedReasoningEfforts)
 	require.Equal(t, "go:mimo-v2.5:chat_completions", result.Profiles[1].ExecutionProfileID)
 	require.NotContains(t, string(mustMarshalTestJSON(t, result)), "secret-channel")
 	require.NotContains(t, string(mustMarshalTestJSON(t, result)), "probeCostCny")
+}
+
+func TestRoutingCatalogPrefersExplicitRoutingFlag(t *testing.T) {
+	require.False(t, routingCatalogAutoRouteEnabled(map[string]interface{}{
+		"routingEnabled": false, "autoRouteEnabled": true,
+	}))
+	require.True(t, routingCatalogAutoRouteEnabled(map[string]interface{}{
+		"autoRouteEnabled": true,
+	}))
 }
 
 func mustMarshalTestJSON(t *testing.T, value interface{}) []byte {
