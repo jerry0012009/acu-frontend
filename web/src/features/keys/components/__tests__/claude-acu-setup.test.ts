@@ -76,7 +76,9 @@ test('Unix installer is syntactically valid and keeps the credential local', () 
   assert.doesNotMatch(shellInstaller, /:8443/)
   assert.match(shellInstaller, /ACU_NATIVE_PATH_FILE=.*native-claude-path/)
   assert.match(shellInstaller, /"availableModels"/)
-  assert.match(shellInstaller, /ANTHROPIC_DEFAULT_OPUS_MODEL="claude-opus-4-8"/)
+  assert.match(shellInstaller, /ANTHROPIC_DEFAULT_OPUS_MODEL="claude-opus-5-5"/)
+  assert.match(shellInstaller, /"claude-opus-5-5"/)
+  assert.match(shellInstaller, /"claude-opus-4-8"/)
   assert.match(
     shellInstaller,
     /ANTHROPIC_DEFAULT_SONNET_MODEL="claude-sonnet-5"/
@@ -114,8 +116,10 @@ test('PowerShell installer uses a private config and never puts the key in a URL
   assert.match(powerShellInstaller, /Join-Path \$AcuHome 'config'\), \$AcuBin/)
   assert.match(
     powerShellInstaller,
-    /\$env:ANTHROPIC_DEFAULT_OPUS_MODEL = 'claude-opus-4-8'/
+    /\$env:ANTHROPIC_DEFAULT_OPUS_MODEL = 'claude-opus-5-5'/
   )
+  assert.match(powerShellInstaller, /"claude-opus-5-5"/)
+  assert.match(powerShellInstaller, /"claude-opus-4-8"/)
   assert.match(
     powerShellInstaller,
     /\$env:ANTHROPIC_DEFAULT_SONNET_MODEL = 'claude-sonnet-5'/
@@ -240,8 +244,12 @@ test('ACU Quick Start and CC Switch expose no Gemini user entry', () => {
   assert.doesNotMatch(ccSwitchSource, /gemini/i)
 })
 
-test('ACU Quick Start keeps Chat Completions hidden and exposes verified Hermes configuration', () => {
-  assert.doesNotMatch(quickStartComponentSource, /Chat Completions/)
+test('ACU Quick Start scopes Chat Completions to WorkBuddy and keeps verified agent protocols', () => {
+  assert.match(quickStartComponentSource, /WorkBuddy/)
+  assert.match(quickStartComponentSource, /OpenAI Chat Completions/)
+  assert.match(quickStartSource, /WORKBUDDY_CHAT_COMPLETIONS_ENDPOINT/)
+  assert.match(quickStartSource, /\/v1\/chat\/completions/)
+  assert.match(quickStartSource, /"api": "openai-responses"/)
   assert.match(quickStartComponentSource, /Hermes/)
   assert.match(quickStartSource, /buildHermesConfig/)
   assert.match(quickStartSource, /custom_providers/)
@@ -373,6 +381,7 @@ chmod 755 "$prefix/bin/claude"
     {
       availableModels: [
         'acu-auto',
+        'claude-opus-5-5',
         'claude-opus-4-8',
         'claude-sonnet-5',
         'claude-fable-5',
@@ -526,6 +535,7 @@ printf '%s\\n' "$ANTHROPIC_BASE_URL|$*"
   assert.deepEqual(JSON.parse(firstSettings), {
     availableModels: [
       'acu-auto',
+      'claude-opus-5-5',
       'claude-opus-4-8',
       'claude-sonnet-5',
       'claude-fable-5',

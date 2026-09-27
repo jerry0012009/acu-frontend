@@ -215,7 +215,7 @@ if ([string]::IsNullOrWhiteSpace($ExistingToken) -or $Token -ne $ExistingToken) 
 [System.IO.File]::WriteAllText($NativePathFile, $nativeClaude, [System.Text.UTF8Encoding]::new($false))
 [System.IO.File]::WriteAllText(
   $ModelSettingsPath,
-  '{"availableModels":["acu-auto","claude-opus-4-8","claude-sonnet-5","claude-fable-5"]}',
+  '{"availableModels":["acu-auto","claude-opus-5-5","claude-opus-4-8","claude-sonnet-5","claude-fable-5"]}',
   [System.Text.UTF8Encoding]::new($false)
 )
 if ($RunningOnWindows) {
@@ -234,9 +234,9 @@ $env:ANTHROPIC_AUTH_TOKEN = [System.IO.File]::ReadAllText((Join-Path $AcuHome 'c
 $env:ANTHROPIC_CUSTOM_MODEL_OPTION = 'acu-auto'
 $env:ANTHROPIC_CUSTOM_MODEL_OPTION_NAME = 'ACU Auto (Recommended)'
 $env:ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION = 'ACU Auto value routing'
-$env:ANTHROPIC_DEFAULT_OPUS_MODEL = 'claude-opus-4-8'
-$env:ANTHROPIC_DEFAULT_OPUS_MODEL_NAME = 'Claude Opus 4.8'
-$env:ANTHROPIC_DEFAULT_OPUS_MODEL_DESCRIPTION = 'Claude Opus 4.8 via ACU Messages'
+$env:ANTHROPIC_DEFAULT_OPUS_MODEL = 'claude-opus-5-5'
+$env:ANTHROPIC_DEFAULT_OPUS_MODEL_NAME = 'Claude Opus 5.5'
+$env:ANTHROPIC_DEFAULT_OPUS_MODEL_DESCRIPTION = 'Claude Opus 5.5 via ACU Messages'
 $env:ANTHROPIC_DEFAULT_SONNET_MODEL = 'claude-sonnet-5'
 $env:ANTHROPIC_DEFAULT_SONNET_MODEL_NAME = 'Claude Sonnet 5'
 $env:ANTHROPIC_DEFAULT_SONNET_MODEL_DESCRIPTION = 'Claude Sonnet 5 via ACU Messages'
@@ -249,7 +249,7 @@ Remove-Item Env:ANTHROPIC_DEFAULT_HAIKU_MODEL_DESCRIPTION -ErrorAction SilentlyC
 Remove-Item Env:CLAUDE_CODE_SUBAGENT_MODEL -ErrorAction SilentlyContinue
 if (-not (Test-Path $NativeClaude)) { throw 'Native Claude Code is missing; rerun the installer.' }
 
-$allowedModels = @('acu-auto', 'claude-opus-4-8', 'claude-sonnet-5', 'claude-fable-5', 'opus', 'sonnet', 'fable')
+$allowedModels = @('acu-auto', 'claude-opus-5-5', 'claude-opus-4-8', 'claude-sonnet-5', 'claude-fable-5', 'opus', 'sonnet', 'fable')
 $selectedModel = $null
 for ($index = 0; $index -lt $args.Count; $index++) {
   if ($args[$index] -eq '--model') {

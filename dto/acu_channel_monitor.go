@@ -8,6 +8,9 @@ type ACUChannelMonitor struct {
 	Scenario                         string                     `json:"scenario"`
 	Protocol                         string                     `json:"protocol"`
 	GeneratedAt                      string                     `json:"generatedAt"`
+	CatalogVersion                   string                     `json:"catalogVersion"`
+	CatalogGeneratedAt               string                     `json:"catalogGeneratedAt"`
+	PricingPolicyVersion             string                     `json:"pricingPolicyVersion"`
 	Profiles                         []ACUChannelMonitorProfile `json:"profiles"`
 	History                          []map[string]interface{}   `json:"history"`
 	CooldownIntervals                []map[string]interface{}   `json:"cooldownIntervals"`
@@ -21,20 +24,45 @@ type ACUChannelMonitor struct {
 // token's ACU model/profile constraints. It intentionally excludes runtime
 // supply, health, inventory, latency, and cost telemetry.
 type ACURoutingCatalog struct {
+	CatalogVersion                   string                     `json:"catalogVersion"`
+	CatalogGeneratedAt               string                     `json:"catalogGeneratedAt"`
+	PricingPolicyVersion             string                     `json:"pricingPolicyVersion"`
 	Models                           []ACURoutingCatalogModel   `json:"models"`
 	Profiles                         []ACURoutingCatalogProfile `json:"profiles"`
 	DefaultCandidatePreferenceScores map[string]float64         `json:"defaultCandidatePreferenceScores"`
 }
 
 type ACURoutingCatalogModel struct {
-	ModelID            string                       `json:"modelId"`
-	Vendor             string                       `json:"vendor"`
-	ModelCategory      string                       `json:"modelCategory"`
-	CapabilityTier     string                       `json:"capabilityTier"`
-	Protocols          []string                     `json:"protocols"`
-	VerificationStatus string                       `json:"verificationStatus"`
-	AutoRouteEnabled   bool                         `json:"autoRouteEnabled"`
-	RoutingCandidates  []ACURoutingCatalogCandidate `json:"routingCandidates"`
+	ModelID            string                        `json:"modelId"`
+	DisplayName        string                        `json:"displayName"`
+	Vendor             string                        `json:"vendor"`
+	ModelCategory      string                        `json:"modelCategory"`
+	CapabilityTier     string                        `json:"capabilityTier"`
+	Protocols          []string                      `json:"protocols"`
+	VerificationStatus string                        `json:"verificationStatus"`
+	AutoRouteEnabled   bool                          `json:"autoRouteEnabled"`
+	ToolCallSupport    bool                          `json:"toolCallSupport"`
+	CurveProfile       string                        `json:"curveProfile"`
+	ProfileConfidence  string                        `json:"profileConfidence"`
+	Curve              []ACURoutingCatalogCurvePoint `json:"curve"`
+	ReferencePricing   *ACURoutingCatalogReference   `json:"referencePricing"`
+	RoutingCandidates  []ACURoutingCatalogCandidate  `json:"routingCandidates"`
+}
+
+type ACURoutingCatalogCurvePoint struct {
+	DifficultyScore  float64 `json:"difficultyScore"`
+	EstimatedQuality float64 `json:"estimatedQuality"`
+	QualityLower     float64 `json:"qualityLower"`
+	QualityUpper     float64 `json:"qualityUpper"`
+}
+
+type ACURoutingCatalogReference struct {
+	InputUSDPerMillion       *float64 `json:"inputUsdPerMillion"`
+	OutputUSDPerMillion      *float64 `json:"outputUsdPerMillion"`
+	CachedInputUSDPerMillion *float64 `json:"cachedInputUsdPerMillion"`
+	CacheWriteUSDPerMillion  *float64 `json:"cacheWriteUsdPerMillion"`
+	SourceNames              []string `json:"sourceNames"`
+	ObservedAt               *string  `json:"observedAt"`
 }
 
 type ACURoutingCatalogCandidate struct {
@@ -72,6 +100,8 @@ type ACUChannelMonitorProfile struct {
 	AutoRouteEnabled            bool                     `json:"autoRouteEnabled"`
 	RoutingEligible             bool                     `json:"routingEligible"`
 	RoutingEligibility          string                   `json:"routingEligibility"`
+	ExplicitRoutingEligible     bool                     `json:"explicitRoutingEligible"`
+	ExplicitRoutingEligibility  string                   `json:"explicitRoutingEligibility"`
 	State                       string                   `json:"state"`
 	ChannelState                string                   `json:"channelState"`
 	ProfileState                string                   `json:"profileState"`
@@ -117,6 +147,8 @@ type ACUChannelMonitorProfile struct {
 	ProfileUtility              *float64                 `json:"profileUtility"`
 	ProfileRank                 *int                     `json:"profileRank"`
 	ProfileCandidateCount       *int                     `json:"profileCandidateCount"`
+	ProfilePreferenceScore      *float64                 `json:"profilePreferenceScore"`
+	ProfilePreferenceMultiplier *float64                 `json:"profilePreferenceMultiplier"`
 	ProfileCost                 *float64                 `json:"profileCost"`
 	ProfileLatencyMs            *float64                 `json:"profileLatencyMs"`
 	CostUtility                 *float64                 `json:"costUtility"`
@@ -149,6 +181,12 @@ func (profile *ACUChannelMonitorProfile) UnmarshalJSON(data []byte) error {
 	}
 	if _, ok := fields["autoRouteEnabled"]; !ok {
 		decoded.AutoRouteEnabled = true
+	}
+	if _, ok := fields["explicitRoutingEligible"]; !ok {
+		decoded.ExplicitRoutingEligible = decoded.RoutingEligible
+	}
+	if _, ok := fields["explicitRoutingEligibility"]; !ok {
+		decoded.ExplicitRoutingEligibility = decoded.RoutingEligibility
 	}
 	*profile = ACUChannelMonitorProfile(decoded)
 	return nil

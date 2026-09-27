@@ -249,6 +249,7 @@ cat >"$model_settings_tmp" <<'EOF'
 {
   "availableModels": [
     "acu-auto",
+    "claude-opus-5-5",
     "claude-opus-4-8",
     "claude-sonnet-5",
     "claude-fable-5"
@@ -272,7 +273,7 @@ ACU_NATIVE_SETTINGS_FILE="${ACU_HOME}/config/settings.json"
 
 allowed_model() {
   case "$1" in
-    acu-auto|claude-opus-4-8|claude-sonnet-5|claude-fable-5|opus|sonnet|fable) return 0 ;;
+    acu-auto|claude-opus-5-5|claude-opus-4-8|claude-sonnet-5|claude-fable-5|opus|sonnet|fable) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -286,7 +287,7 @@ validate_model_args() {
         selected_model=$2
         allowed_model "$selected_model" || {
           printf '%s\n' "unsupported Claude ACU model: $selected_model" >&2
-          printf '%s\n' "allowed models: acu-auto, claude-opus-4-8, claude-sonnet-5, claude-fable-5" >&2
+          printf '%s\n' "allowed models: acu-auto, claude-opus-5-5, claude-opus-4-8, claude-sonnet-5, claude-fable-5" >&2
           exit 2
         }
         shift 2
@@ -295,7 +296,7 @@ validate_model_args() {
         selected_model=${1#--model=}
         allowed_model "$selected_model" || {
           printf '%s\n' "unsupported Claude ACU model: $selected_model" >&2
-          printf '%s\n' "allowed models: acu-auto, claude-opus-4-8, claude-sonnet-5, claude-fable-5" >&2
+          printf '%s\n' "allowed models: acu-auto, claude-opus-5-5, claude-opus-4-8, claude-sonnet-5, claude-fable-5" >&2
           exit 2
         }
         shift
@@ -317,9 +318,9 @@ export ANTHROPIC_AUTH_TOKEN="$ACU_TOKEN"
 export ANTHROPIC_CUSTOM_MODEL_OPTION="acu-auto"
 export ANTHROPIC_CUSTOM_MODEL_OPTION_NAME="ACU Auto (Recommended)"
 export ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION="ACU Auto value routing"
-export ANTHROPIC_DEFAULT_OPUS_MODEL="claude-opus-4-8"
-export ANTHROPIC_DEFAULT_OPUS_MODEL_NAME="Claude Opus 4.8"
-export ANTHROPIC_DEFAULT_OPUS_MODEL_DESCRIPTION="Claude Opus 4.8 via ACU Messages"
+export ANTHROPIC_DEFAULT_OPUS_MODEL="claude-opus-5-5"
+export ANTHROPIC_DEFAULT_OPUS_MODEL_NAME="Claude Opus 5.5"
+export ANTHROPIC_DEFAULT_OPUS_MODEL_DESCRIPTION="Claude Opus 5.5 via ACU Messages"
 export ANTHROPIC_DEFAULT_SONNET_MODEL="claude-sonnet-5"
 export ANTHROPIC_DEFAULT_SONNET_MODEL_NAME="Claude Sonnet 5"
 export ANTHROPIC_DEFAULT_SONNET_MODEL_DESCRIPTION="Claude Sonnet 5 via ACU Messages"

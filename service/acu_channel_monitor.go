@@ -20,6 +20,7 @@ import (
 
 const acuChannelMonitorCacheTTL = 15 * time.Second
 const acuProfilePublicNotesOption = "ACUProfilePublicNotes"
+const acuVeridropCooldown = 10 * time.Minute
 
 type acuChannelMonitorCacheEntry struct {
 	result    dto.ACUChannelMonitor
@@ -32,6 +33,8 @@ var acuChannelMonitorCache = struct {
 }{entries: make(map[string]acuChannelMonitorCacheEntry)}
 
 var acuProfilePublicNotesMu sync.Mutex
+var acuVeridropMu sync.Mutex
+var acuVeridropLastRun = map[string]time.Time{}
 
 func clearACUChannelMonitorCache() {
 	acuChannelMonitorCache.Lock()
@@ -54,7 +57,7 @@ func acuProfilePublicNotes() (map[string]string, error) {
 }
 
 func acuRouterAdminRequest(ctx context.Context, method, path string, body []byte, headers ...map[string]string) (*http.Response, error) {
-	return acuRouterAdminRequestWithTimeout(ctx, 20*time.Second, method, path, body, headers...)
+	return acuRouterAdminRequestWithTimeout(ctx, 45*time.Second, method, path, body, headers...)
 }
 
 func acuRouterAdminRequestWithTimeout(
@@ -112,7 +115,7 @@ func GetACUChannelMonitor(ctx context.Context, rangeValue, supplyStrategy, scena
 		return dto.ACUChannelMonitor{}, err
 	}
 	utilityPolicy, err := common.Marshal(map[string]interface{}{
-		"formulaMode": config.FormulaMode, "qualityBias": config.QualityPresets["balanced"],
+		"qualityBias":    config.QualityPresets["balanced"],
 		"supplyStrategy": supplyStrategy, "supplyWeights": config.SupplyPresets[supplyStrategy],
 		"acuHighBiasOffset": config.ACUHighBiasOffset, "modelCostLogScale": config.ModelCostLogScale,
 		"profileCostLogScale": config.ProfileCostLogScale, "profileSpeedLogScale": config.ProfileSpeedLogScale,
@@ -241,12 +244,18 @@ func GetACURoutingCatalog(ctx context.Context) (dto.ACURoutingCatalog, error) {
 		}
 		models = append(models, dto.ACURoutingCatalogModel{
 			ModelID:            stringValue(value, "modelId"),
+			DisplayName:        stringValue(value, "displayName"),
 			Vendor:             stringValue(value, "vendor"),
 			ModelCategory:      stringValue(value, "modelCategory"),
 			CapabilityTier:     stringValue(value, "capabilityTier"),
 			Protocols:          stringSlice(value["protocols"]),
 			VerificationStatus: stringValue(value, "verificationStatus"),
 			AutoRouteEnabled:   boolValue(value, "autoRouteEnabled"),
+			ToolCallSupport:    boolValue(value, "toolCallSupport"),
+			CurveProfile:       stringValue(value, "curveProfile"),
+			ProfileConfidence:  stringValue(value, "profileConfidence"),
+			Curve:              routingCatalogCurve(value["curve"]),
+			ReferencePricing:   routingCatalogReference(value["referencePricing"]),
 			RoutingCandidates:  routingCatalogCandidates(value["routingCandidates"]),
 		})
 	}
@@ -264,10 +273,70 @@ func GetACURoutingCatalog(ctx context.Context) (dto.ACURoutingCatalog, error) {
 		})
 	}
 	return dto.ACURoutingCatalog{
+		CatalogVersion:                   monitor.CatalogVersion,
+		CatalogGeneratedAt:               monitor.CatalogGeneratedAt,
+		PricingPolicyVersion:             monitor.PricingPolicyVersion,
 		Models:                           models,
 		Profiles:                         profiles,
 		DefaultCandidatePreferenceScores: monitor.DefaultCandidatePreferenceScores,
 	}, nil
+}
+
+func routingCatalogCurve(value interface{}) []dto.ACURoutingCatalogCurvePoint {
+	values, ok := value.([]interface{})
+	if !ok {
+		return []dto.ACURoutingCatalogCurvePoint{}
+	}
+	result := make([]dto.ACURoutingCatalogCurvePoint, 0, len(values))
+	for _, item := range values {
+		point, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		result = append(result, dto.ACURoutingCatalogCurvePoint{
+			DifficultyScore:  acuCatalogFloatValue(point, "difficultyScore"),
+			EstimatedQuality: acuCatalogFloatValue(point, "estimatedQuality"),
+			QualityLower:     acuCatalogFloatValue(point, "qualityLower"),
+			QualityUpper:     acuCatalogFloatValue(point, "qualityUpper"),
+		})
+	}
+	return result
+}
+
+func routingCatalogReference(value interface{}) *dto.ACURoutingCatalogReference {
+	reference, ok := value.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	return &dto.ACURoutingCatalogReference{
+		InputUSDPerMillion:       acuCatalogOptionalFloatValue(reference, "inputUsdPerMillion"),
+		OutputUSDPerMillion:      acuCatalogOptionalFloatValue(reference, "outputUsdPerMillion"),
+		CachedInputUSDPerMillion: acuCatalogOptionalFloatValue(reference, "cachedInputUsdPerMillion"),
+		CacheWriteUSDPerMillion:  acuCatalogOptionalFloatValue(reference, "cacheWriteUsdPerMillion"),
+		SourceNames:              stringSlice(reference["sourceNames"]),
+		ObservedAt:               acuCatalogOptionalStringValue(reference, "observedAt"),
+	}
+}
+
+func acuCatalogFloatValue(value map[string]interface{}, key string) float64 {
+	number, _ := value[key].(float64)
+	return number
+}
+
+func acuCatalogOptionalFloatValue(value map[string]interface{}, key string) *float64 {
+	number, ok := value[key].(float64)
+	if !ok {
+		return nil
+	}
+	return &number
+}
+
+func acuCatalogOptionalStringValue(value map[string]interface{}, key string) *string {
+	text, ok := value[key].(string)
+	if !ok || text == "" {
+		return nil
+	}
+	return &text
 }
 
 func hasConfiguredModel(models map[string]struct{}, modelID string) bool {
@@ -322,8 +391,9 @@ func routingCatalogCandidates(value interface{}) []dto.ACURoutingCatalogCandidat
 }
 
 func normalizedACUSelectionProtocol(protocol string) string {
-	if protocol == "messages" {
-		return "messages"
+	switch protocol {
+	case "messages", "chat_completions", "responses":
+		return protocol
 	}
 	return "responses"
 }
@@ -347,7 +417,6 @@ func buildACUSelectionCorridorBody(inputTokens, expectedOutputTokens int, policy
 		"latencyPolicy": policy.LatencyPolicy, "reliabilityPolicy": policy.ReliabilityPolicy,
 		"workPhaseBiasOffsets": policy.WorkPhaseBiasOffsets,
 		"routeMode":            "acu-auto", "routingUtilityVersion": policy.RoutingUtilityVersion,
-		"formulaMode":             policy.FormulaMode,
 		"profilePreferenceScores": policy.ProfilePreferenceScores,
 	}
 	if includeCandidatePreferenceScores {
@@ -508,7 +577,7 @@ func ProbeACUExecutionProfile(
 ) (map[string]interface{}, error) {
 	return acuExecutionProfileRequestWithTimeout(
 		ctx,
-		40*time.Second,
+		55*time.Second,
 		http.MethodPost,
 		"/internal/admin/execution-profiles/probe",
 		input,
@@ -574,4 +643,47 @@ func QuickAddACUProviderSave(
 		"/internal/admin/execution-profiles/quick-add/save",
 		input,
 	)
+}
+
+func RunACUProfileVeridrop(
+	ctx context.Context,
+	userID int,
+	input map[string]interface{},
+) (map[string]interface{}, error) {
+	profileID, ok := input["executionProfileId"].(string)
+	if !ok || strings.TrimSpace(profileID) == "" {
+		return nil, errors.New("executionProfileId is required")
+	}
+	protocol, ok := input["protocol"].(string)
+	if !ok || (protocol != "responses" && protocol != "messages" && protocol != "chat_completions") {
+		return nil, errors.New("unsupported Profile protocol")
+	}
+	if len(input) != 2 {
+		return nil, errors.New("only executionProfileId and protocol are accepted")
+	}
+	key := fmt.Sprintf("%d:%s:%s", userID, strings.TrimSpace(profileID), protocol)
+	acuVeridropMu.Lock()
+	if last, found := acuVeridropLastRun[key]; found {
+		remaining := acuVeridropCooldown - time.Since(last)
+		if remaining > 0 {
+			acuVeridropMu.Unlock()
+			return nil, fmt.Errorf("check is cooling down; retry in %d seconds", int(remaining.Seconds())+1)
+		}
+	}
+	acuVeridropLastRun[key] = time.Now()
+	acuVeridropMu.Unlock()
+	result, err := acuExecutionProfileRequestWithTimeout(
+		ctx,
+		180*time.Second,
+		http.MethodPost,
+		"/internal/admin/execution-profiles/veridrop",
+		map[string]interface{}{"executionProfileId": strings.TrimSpace(profileID), "protocol": protocol},
+	)
+	if err != nil {
+		acuVeridropMu.Lock()
+		delete(acuVeridropLastRun, key)
+		acuVeridropMu.Unlock()
+		return nil, err
+	}
+	return result, nil
 }
