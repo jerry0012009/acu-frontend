@@ -121,7 +121,7 @@ func GetACUChannelMonitor(ctx context.Context, rangeValue, supplyStrategy, scena
 		"profileCostLogScale": config.ProfileCostLogScale, "profileSpeedLogScale": config.ProfileSpeedLogScale,
 		"latency": config.Latency, "reliability": config.Reliability,
 		"allowedCandidateIds": []string{}, "candidatePreferenceScores": map[string]int{},
-		"profilePreferenceScores": config.DefaultProfilePreferenceScores,
+		"profilePreferenceScores": map[string]float64{},
 		"routingUtilityVersion":   config.SchemaVersion, "workPhaseBiasOffsets": config.WorkPhaseBiasOffsets,
 	})
 	if err != nil {
@@ -229,7 +229,7 @@ func GetACURoutingCatalog(ctx context.Context) (dto.ACURoutingCatalog, error) {
 	}
 	configuredModels := make(map[string]struct{})
 	for _, profile := range monitor.Profiles {
-		if profile.Enabled && profile.AdministratorAllowed && profile.CanonicalModel != "" {
+		if profile.RoutingEnabled && profile.CanonicalModel != "" {
 			configuredModels[profile.CanonicalModel] = struct{}{}
 		}
 	}
@@ -259,14 +259,13 @@ func GetACURoutingCatalog(ctx context.Context) (dto.ACURoutingCatalog, error) {
 	}
 	profiles := make([]dto.ACURoutingCatalogProfile, 0, len(monitor.Profiles))
 	for _, profile := range monitor.Profiles {
-		if !profile.Enabled || !profile.AdministratorAllowed {
+		if !profile.RoutingEnabled {
 			continue
 		}
 		profiles = append(profiles, dto.ACURoutingCatalogProfile{
 			ExecutionProfileID:        profile.ExecutionProfileID,
 			CanonicalModel:            profile.CanonicalModel,
 			Protocol:                  append([]string(nil), profile.Protocol...),
-			AutoRouteEnabled:          profile.AutoRouteEnabled,
 			SupportedReasoningEfforts: append([]string(nil), profile.SupportedReasoningEfforts...),
 		})
 	}
@@ -549,7 +548,11 @@ func CreateACUExecutionProfile(
 	ctx context.Context,
 	input map[string]interface{},
 ) (map[string]interface{}, error) {
-	return acuExecutionProfileRequest(ctx, http.MethodPost, "/internal/admin/execution-profiles", input)
+	result, err := acuExecutionProfileRequest(ctx, http.MethodPost, "/internal/admin/execution-profiles", input)
+	if err == nil {
+		clearACUChannelMonitorCache()
+	}
+	return result, err
 }
 
 func UpdateACUExecutionProfile(
@@ -557,12 +560,46 @@ func UpdateACUExecutionProfile(
 	id string,
 	input map[string]interface{},
 ) (map[string]interface{}, error) {
-	return acuExecutionProfileRequest(
+	result, err := acuExecutionProfileRequest(
 		ctx,
 		http.MethodPut,
 		"/internal/admin/execution-profiles/"+url.PathEscape(id),
 		input,
 	)
+	if err == nil {
+		clearACUChannelMonitorCache()
+	}
+	return result, err
+}
+
+func UpdateACUExecutionProfileRouting(
+	ctx context.Context,
+	id string,
+	enabled bool,
+) (map[string]interface{}, error) {
+	return acuExecutionProfileRequest(
+		ctx,
+		http.MethodPatch,
+		"/internal/admin/execution-profiles/"+url.PathEscape(id)+"/routing",
+		map[string]interface{}{"enabled": enabled},
+	)
+}
+
+func UpdateACUChannelConnection(
+	ctx context.Context,
+	id string,
+	input map[string]interface{},
+) (map[string]interface{}, error) {
+	result, err := acuExecutionProfileRequest(
+		ctx,
+		http.MethodPatch,
+		"/internal/admin/execution-profiles/channels/"+url.PathEscape(id),
+		input,
+	)
+	if err == nil {
+		clearACUChannelMonitorCache()
+	}
+	return result, err
 }
 
 func ProbeACUExecutionProfile(
@@ -578,26 +615,21 @@ func ProbeACUExecutionProfile(
 	)
 }
 
-func ReconcileACUExecutionProfileEconomics(
+func ReconcileACUExecutionProfileCalibration(
 	ctx context.Context,
 	id string,
 	input map[string]interface{},
 ) (map[string]interface{}, error) {
-	return acuExecutionProfileRequest(
+	result, err := acuExecutionProfileRequest(
 		ctx,
 		http.MethodPatch,
-		"/internal/admin/execution-profiles/"+url.PathEscape(id)+"/economics",
+		"/internal/admin/execution-profiles/"+url.PathEscape(id)+"/calibration",
 		input,
 	)
-}
-
-func ApplyACUExecutionProfiles(ctx context.Context) (map[string]interface{}, error) {
-	return acuExecutionProfileRequest(
-		ctx,
-		http.MethodPost,
-		"/internal/admin/execution-profiles/apply",
-		nil,
-	)
+	if err == nil {
+		clearACUChannelMonitorCache()
+	}
+	return result, err
 }
 
 func QuickAddACUProviderDiscover(
