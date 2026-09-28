@@ -14,6 +14,24 @@ export type PrivateACUPrompts = {
   updatedBy?: string
 }
 
+export type PrivateACUUserConfig = {
+  observerEnabled: boolean
+  advisorEnabled: boolean
+  injectionEnabled: boolean
+  learningEnabled: boolean
+  observerInterval?: number
+  effectiveObserverInterval: number
+  globalObserverInterval: number
+  usesGlobalObserverInterval: boolean
+  globalEnabled: boolean
+  globalInjectionEnabled: boolean
+  updatedAt?: string
+}
+
+export type PrivateACUUserConfigSummary = {
+  newapiUserId: string
+} & PrivateACUUserConfig
+
 export type PrivateACUMemoryFile = {
   path: string
   mime: string
@@ -267,9 +285,47 @@ export async function savePrivateACUPrompts(
   return response.data.data
 }
 
+export async function savePrivateACURuntime(
+  runtime: Pick<
+    PrivateACUPrompts,
+    'enabled' | 'advisorReferenceEnabled' | 'observerInterval'
+  >
+) {
+  const response = await api.put<{ data: PrivateACUPrompts }>(
+    '/api/admin/acu-private/runtime',
+    runtime
+  )
+  return response.data.data
+}
+
 export async function resetPrivateACUPrompts() {
   const response = await api.post<{ data: PrivateACUPrompts }>(
     '/api/admin/acu-private/prompts/reset'
+  )
+  return response.data.data
+}
+
+export async function getPrivateACUUserConfigs() {
+  const response = await api.get<{
+    data: { configs: PrivateACUUserConfigSummary[] }
+  }>('/api/admin/acu-private/user-configs')
+  return response.data.data.configs
+}
+
+export async function updatePrivateACUUserConfig(
+  userId: string,
+  config: Pick<
+    PrivateACUUserConfig,
+    | 'observerEnabled'
+    | 'advisorEnabled'
+    | 'injectionEnabled'
+    | 'learningEnabled'
+    | 'observerInterval'
+  >
+) {
+  const response = await api.put<{ data: PrivateACUUserConfig }>(
+    '/api/admin/acu-private/user-config',
+    { userId: Number(userId), ...config }
   )
   return response.data.data
 }

@@ -34,12 +34,11 @@ export const Route = createFileRoute('/_authenticated/private-acu/$section')({
     const role = useAuthStore.getState().auth.user?.role ?? ROLE.GUEST
     if (
       role < ROLE.ADMIN &&
-      params.section !== 'film' &&
-      params.section !== 'advisor'
+      (params.section === 'prompts' || params.section === 'film')
     ) {
       throw redirect({
         to: '/private-acu/$section',
-        params: { section: 'film' },
+        params: { section: 'overview' },
       })
     }
   },

@@ -17,8 +17,8 @@ const advisorNotification: PrivateACUAdvisorNotification = {
   id: 1,
   advisorId: 'advisor_test_1',
   status: 'risk',
-  problemSummary: '用户偏好要求先验证真实生产链路',
-  adviceSummary: '当前可关注浏览器通知权限和同 session 注入证据。',
+  problemSummary: 'Skill requires validating the real production path',
+  adviceSummary: 'Prefer evidence before changing the Skill document.',
   referenceStatus: 'injected',
   targetPath: '/private-acu/advisor?advisor=advisor_test_1',
   sourceCreatedAt: '2026-09-07T00:00:00.000Z',
@@ -62,8 +62,9 @@ describe('Advisor browser notifications', () => {
     assert.equal(calls[0]?.options?.tag, 'acu-advisor-advisor_test_1')
     assert.equal(calls[0]?.options?.icon, '/logo.png')
     assert.equal(calls[0]?.options?.silent, false)
-    assert.match(calls[0]?.options?.body ?? '', /真实生产链路/)
-    assert.match(calls[0]?.options?.body ?? '', /浏览器通知权限/)
+    assert.match(calls[0]?.options?.body ?? '', /Preference requires/)
+    assert.match(calls[0]?.options?.body ?? '', /the Preference document/)
+    assert.doesNotMatch(calls[0]?.options?.body ?? '', /skill/i)
   })
 
   test('does not show a browser notification when the channel is disabled', () => {

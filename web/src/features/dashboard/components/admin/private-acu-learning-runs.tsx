@@ -11,6 +11,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import {
+  preferenceDisplayText,
+  preferenceDocumentLabel,
+} from '@/features/private-acu/preference-display'
 import { api } from '@/lib/api'
 
 import {
@@ -19,10 +23,12 @@ import {
   type PrivateACULearningRunDetail,
 } from '../../private-acu-admin-api'
 
-function JsonBlock(props: { value: unknown }) {
+function JsonBlock(props: { value: unknown; adaptTerminology?: boolean }) {
   return (
     <pre className='bg-muted/30 max-h-80 overflow-auto rounded-md p-3 text-xs whitespace-pre-wrap'>
-      {JSON.stringify(props.value, null, 2)}
+      {props.adaptTerminology
+        ? preferenceDisplayText(JSON.stringify(props.value, null, 2) ?? '')
+        : JSON.stringify(props.value, null, 2)}
     </pre>
   )
 }
@@ -31,6 +37,7 @@ function SkillSnapshot(props: {
   title: string
   skills: PrivateACULearningRunDetail['skillsBefore']
 }) {
+  const { t } = useTranslation()
   return (
     <section className='space-y-2'>
       <h3 className='font-medium'>{props.title}</h3>
@@ -41,16 +48,17 @@ function SkillSnapshot(props: {
             className='border-border rounded-md border p-3'
           >
             <summary className='cursor-pointer text-sm'>
-              {skill.name} · {skill.description}
+              {preferenceDisplayText(skill.name)} ·{' '}
+              {preferenceDisplayText(skill.description)}
             </summary>
             {skill.files.map((file) => (
               <pre
                 key={file.path}
                 className='bg-muted/30 mt-2 overflow-auto p-2 text-xs whitespace-pre-wrap'
               >
-                {file.path}
+                {preferenceDocumentLabel(file.path, t('Preference document'))}
                 {'\n\n'}
-                {file.content || ''}
+                {preferenceDisplayText(file.content || '')}
               </pre>
             ))}
           </details>
@@ -151,7 +159,7 @@ function RunDetail(props: {
       )}
       <section className='space-y-2'>
         <h3 className='font-medium'>{t('Distillation')}</h3>
-        <JsonBlock value={detail.distillation} />
+        <JsonBlock value={detail.distillation} adaptTerminology />
       </section>
       <section className='space-y-3'>
         <h3 className='font-medium'>{t('Skill changes')}</h3>
@@ -163,15 +171,18 @@ function RunDetail(props: {
               open
             >
               <summary className='cursor-pointer text-sm'>
-                {change.name} · {change.changeType}
+                {preferenceDisplayText(change.name)} · {change.changeType}
               </summary>
               {change.files.map((file) => (
                 <div key={file.path} className='mt-3 space-y-2'>
                   <div className='text-muted-foreground font-mono text-xs'>
-                    {file.path}
+                    {preferenceDocumentLabel(
+                      file.path,
+                      t('Preference document')
+                    )}
                   </div>
                   <pre className='bg-muted/30 overflow-auto p-2 text-xs whitespace-pre-wrap'>
-                    {file.diff}
+                    {preferenceDisplayText(file.diff)}
                   </pre>
                 </div>
               ))}
@@ -190,12 +201,12 @@ function RunDetail(props: {
       </div>
       <section className='space-y-2'>
         <h3 className='font-medium'>{t('Timeline')}</h3>
-        <JsonBlock value={detail.timeline} />
+        <JsonBlock value={detail.timeline} adaptTerminology />
       </section>
       {detail.error && (
         <section className='space-y-2'>
           <h3 className='font-medium'>{t('Error')}</h3>
-          <JsonBlock value={detail.error} />
+          <JsonBlock value={detail.error} adaptTerminology />
         </section>
       )}
     </div>

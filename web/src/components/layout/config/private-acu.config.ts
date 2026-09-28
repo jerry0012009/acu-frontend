@@ -27,18 +27,17 @@ function getPrivateACUNavGroups(t: TFunction): NavGroup[] {
           title: t('Account learning'),
           url: '/private-acu/account',
           icon: BookOpen,
-          requiredRole: ROLE.ADMIN,
         },
         {
           title: t('Film POC'),
           url: '/private-acu/film',
           icon: Film,
+          requiredRole: ROLE.ADMIN,
         },
         {
           title: t('Learning runs'),
           url: '/private-acu/learning-runs',
           icon: ListChecks,
-          requiredRole: ROLE.ADMIN,
         },
         {
           title: t('Advisor'),

@@ -1,3 +1,5 @@
+import { preferenceDisplayText } from '@/features/private-acu/preference-display'
+
 import type { PrivateACUAdvisorNotification } from '../advisor-api'
 
 export type AdvisorNotificationConstructor = {
@@ -30,7 +32,7 @@ function getNotificationEnvironment(
 
 function compactNotificationBody(notification: PrivateACUAdvisorNotification) {
   return [notification.problemSummary, notification.adviceSummary]
-    .map((text) => text.trim())
+    .map((text) => preferenceDisplayText(text.trim()))
     .filter(Boolean)
     .join('\n')
     .slice(0, 480)

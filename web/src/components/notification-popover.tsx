@@ -24,6 +24,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { PrivateACUAdvisorNotification } from '@/features/dashboard/advisor-api'
+import { preferenceDisplayText } from '@/features/private-acu/preference-display'
 import { getAnnouncementColorClass } from '@/lib/colors'
 import { formatDateTimeObject } from '@/lib/time'
 import { cn } from '@/lib/utils'
@@ -309,10 +310,10 @@ function AdvisorNotificationsContent({
                 />
                 <div className='min-w-0 flex-1 space-y-1'>
                   <p className='text-sm font-medium'>
-                    {notification.problemSummary}
+                    {preferenceDisplayText(notification.problemSummary)}
                   </p>
                   <p className='text-muted-foreground line-clamp-2 text-xs'>
-                    {notification.adviceSummary}
+                    {preferenceDisplayText(notification.adviceSummary)}
                   </p>
                   <p className='text-muted-foreground text-[11px]'>
                     {notification.referenceStatus}

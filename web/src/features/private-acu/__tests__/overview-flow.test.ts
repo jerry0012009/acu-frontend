@@ -61,7 +61,7 @@ test('Private ACU overview presents the shared backbone and both learning paths'
   assert.match(overviewSource, /Distillation output/)
   assert.match(
     overviewSource,
-    /This Experience produced the following Skill updates/
+    /This Experience produced the following Preference MD updates/
   )
 
   for (const stage of [
@@ -69,7 +69,7 @@ test('Private ACU overview presents the shared backbone and both learning paths'
     'Evidence',
     'Experience',
     'Learning',
-    'Quality Skill',
+    'Preference MD',
   ]) {
     assert.match(overviewSource, new RegExp(`t\\('${stage}'\\)`))
   }

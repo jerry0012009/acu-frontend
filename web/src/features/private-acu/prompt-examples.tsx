@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import type { PrivateACUPromptExample } from '@/features/dashboard/private-acu-admin-api'
 
+import { preferenceDisplayText } from './preference-display'
+
 function formatExampleValue(value: unknown): string {
   if (typeof value === 'string') return value
   const formatted = JSON.stringify(value, null, 2)
@@ -41,6 +43,7 @@ function ExampleValue(props: {
   label: string
   value: unknown
   muted?: boolean
+  adaptTerminology?: boolean
 }) {
   return (
     <div className='space-y-1.5'>
@@ -52,7 +55,9 @@ function ExampleValue(props: {
           props.muted ? 'text-muted-foreground' : ''
         }`}
       >
-        {formatExampleValue(props.value)}
+        {props.adaptTerminology
+          ? preferenceDisplayText(formatExampleValue(props.value))
+          : formatExampleValue(props.value)}
       </pre>
     </div>
   )
@@ -60,6 +65,7 @@ function ExampleValue(props: {
 
 function ExampleMaterial(props: {
   material: PrivateACUPromptExample['material']
+  adaptTerminology: boolean
 }) {
   const { t } = useTranslation()
   const hasImages = Boolean(props.material.images?.length)
@@ -83,9 +89,19 @@ function ExampleMaterial(props: {
         </div>
       )}
       {hasText && (
-        <ExampleValue label={t('Text')} value={props.material.text} />
+        <ExampleValue
+          label={t('Text')}
+          value={props.material.text}
+          adaptTerminology={props.adaptTerminology}
+        />
       )}
-      {hasJson && <ExampleValue label='JSON' value={props.material.json} />}
+      {hasJson && (
+        <ExampleValue
+          label='JSON'
+          value={props.material.json}
+          adaptTerminology={props.adaptTerminology}
+        />
+      )}
     </div>
   )
 }
@@ -107,6 +123,7 @@ function ExampleArtifact(props: {
       <ExampleValue
         label={props.label || t('Artifact')}
         value={props.artifact.content}
+        adaptTerminology
       />
     </div>
   )
@@ -149,7 +166,9 @@ export function PromptExamples(props: {
           >
             <header className='flex flex-wrap items-start justify-between gap-2'>
               <div className='min-w-0'>
-                <h6 className='text-sm font-medium'>{example.title}</h6>
+                <h6 className='text-sm font-medium'>
+                  {preferenceDisplayText(example.title)}
+                </h6>
                 <div className='text-muted-foreground mt-1 flex flex-wrap items-center gap-2 text-xs'>
                   <Badge variant='outline' className='text-[10px]'>
                     {example.origin === 'captured_run'
@@ -193,7 +212,10 @@ export function PromptExamples(props: {
                     {props.materialHint}
                   </p>
                 ) : null}
-                <ExampleMaterial material={example.material} />
+                <ExampleMaterial
+                  material={example.material}
+                  adaptTerminology={example.origin !== 'captured_run'}
+                />
               </div>
               {!props.hideArtifact && (
                 <div className='space-y-2'>

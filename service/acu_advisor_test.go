@@ -6,9 +6,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/model"
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestPrivateACUAdvisorProxyScopesListToAuthenticatedUser(t *testing.T) {
@@ -102,4 +107,65 @@ func TestPrivateACUAdvisorProxyForwardsFeedback(t *testing.T) {
 		"newapiUserId": "42",
 		"feedback":     "helpful",
 	}, body)
+}
+
+func TestGetUserACUChargesScopesFinalizedChargesToUserAndWindow(t *testing.T) {
+	previousDB := model.DB
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.ACUUsageFinalize{}))
+	model.DB = db
+	t.Cleanup(func() {
+		model.DB = previousDB
+	})
+
+	now := time.Unix(1_700_000_000, 0)
+	records := []model.ACUUsageFinalize{
+		{ReportIdempotencyKey: "report-1", LogicalRequestId: "logical-1", PayloadHash: "hash-1", UserId: 42, UserChargeCny: "1.25", Status: model.ACUFinalizeStatusFinalized, CreatedAt: now.Add(-time.Hour).Unix()},
+		{ReportIdempotencyKey: "report-2", LogicalRequestId: "logical-2", PayloadHash: "hash-2", UserId: 42, UserChargeCny: "0.75", Status: model.ACUFinalizeStatusFinalized, CreatedAt: now.Add(-48 * time.Hour).Unix()},
+		{ReportIdempotencyKey: "report-3", LogicalRequestId: "logical-3", PayloadHash: "hash-3", UserId: 7, UserChargeCny: "9.00", Status: model.ACUFinalizeStatusFinalized, CreatedAt: now.Add(-time.Hour).Unix()},
+		{ReportIdempotencyKey: "report-4", LogicalRequestId: "logical-4", PayloadHash: "hash-4", UserId: 42, UserChargeCny: "4.00", Status: model.ACUFinalizeStatusCharged, CreatedAt: now.Add(-time.Hour).Unix()},
+	}
+	for index := range records {
+		require.NoError(t, db.Create(&records[index]).Error)
+	}
+
+	charges := getUserACUCharges(42, now)
+	require.InDelta(t, 1.25, charges["24h"], 1e-9)
+	require.InDelta(t, 2.0, charges["7d"], 1e-9)
+	require.InDelta(t, 2.0, charges["30d"], 1e-9)
+}
+
+func TestSummarizePrivateACUEntriesCountsValueStagesWithinWindow(t *testing.T) {
+	cutoff := time.Unix(1_700_000_000, 0)
+	entries := []dto.ACUPrivateUsageEntry{
+		{Stage: "learning", Status: "success", UserChargeCNY: "0.10", CreatedAt: cutoff.Add(time.Minute).Format(time.RFC3339Nano)},
+		{Stage: "observer", Status: "success", UserChargeCNY: "0.20", CreatedAt: cutoff.Add(time.Minute).Format(time.RFC3339Nano)},
+		{Stage: "advisor", Status: "success", UserChargeCNY: "0.30", CreatedAt: cutoff.Add(time.Minute).Format(time.RFC3339Nano)},
+		{Stage: "observer", Status: "error", UserChargeCNY: "0.40", CreatedAt: cutoff.Add(time.Minute).Format(time.RFC3339Nano)},
+		{Stage: "acontext", Status: "success", UserChargeCNY: "9.00", CreatedAt: cutoff.Add(time.Minute).Format(time.RFC3339Nano)},
+		{Stage: "learning", Status: "success", UserChargeCNY: "5.00", CreatedAt: cutoff.Add(-time.Minute).Format(time.RFC3339Nano)},
+	}
+
+	calls, charge, byStage, byStageCalls := summarizePrivateACUEntries(entries, cutoff)
+	require.Equal(t, int64(5), calls)
+	require.InDelta(t, 10.0, charge, 1e-9)
+	require.InDelta(t, 0.1, byStage["learning"], 1e-9)
+	require.InDelta(t, 0.6, byStage["observer"], 1e-9)
+	require.InDelta(t, 0.3, byStage["advisor"], 1e-9)
+	require.Equal(t, int64(1), byStageCalls["learning"])
+	require.Equal(t, int64(1), byStageCalls["observer"])
+	require.Equal(t, int64(1), byStageCalls["advisor"])
+}
+
+func TestPrivateACUPreferenceDisplayTextAdaptsAdvisorCopyOnly(t *testing.T) {
+	value := "Skill Learner updated SKILL.md; prefer skills, but keep skillful wording."
+
+	result := privateACUPreferenceDisplayText(value)
+
+	require.Equal(
+		t,
+		"Preference Writer updated PREFERENCE.md; prefer preferences, but keep skillful wording.",
+		result,
+	)
 }

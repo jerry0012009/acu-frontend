@@ -37,9 +37,19 @@ import {
   type PrivateACUPromptCard,
 } from '@/features/dashboard/private-acu-admin-api'
 import { getPrivateACUFilmForUser } from '@/features/dashboard/private-acu-user-api'
+import {
+  PrivateACUUserAccount,
+  PrivateACUUserLearningRuns,
+  PrivateACUUserOverview,
+} from '@/features/private-acu/private-acu-user-pages'
 import { PromptExamples } from '@/features/private-acu/prompt-examples'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
+
+import {
+  preferenceDisplayText,
+  preferenceDocumentLabel,
+} from './preference-display'
 
 export type PrivateACUSection =
   | 'overview'
@@ -412,7 +422,7 @@ function LearningRunSummary(props: {
         </div>
         <div className='bg-muted/30 rounded-md p-3'>
           <div className='text-muted-foreground text-[11px]'>
-            {t('Skill updates')}
+            {t('Preference MD updates')}
           </div>
           <div className='mt-1 text-lg font-semibold'>
             {detail.skillChangeCount}
@@ -450,7 +460,7 @@ function LearningRunSummary(props: {
               >
                 <div className='flex flex-wrap items-center gap-2'>
                   <Badge variant='outline' className='text-[10px]'>
-                    {claim.topic}
+                    {preferenceDisplayText(claim.topic)}
                   </Badge>
                   <span className='text-muted-foreground text-[11px]'>
                     {t(isFilmLearning ? 'Learning Claim' : 'Preference rule')}
@@ -461,7 +471,7 @@ function LearningRunSummary(props: {
                     <strong>
                       {t(isFilmLearning ? 'Expression goal' : 'Applies when')}：
                     </strong>
-                    {claim.appliesWhen}
+                    {preferenceDisplayText(claim.appliesWhen)}
                   </p>
                 ) : null}
                 {claim.prefer ? (
@@ -474,7 +484,7 @@ function LearningRunSummary(props: {
                       )}
                       ：
                     </strong>
-                    {claim.prefer}
+                    {preferenceDisplayText(claim.prefer)}
                   </p>
                 ) : null}
               </article>
@@ -487,9 +497,11 @@ function LearningRunSummary(props: {
           {t('Distillation output')}
         </summary>
         <pre className='bg-muted/30 mt-3 max-h-72 overflow-auto rounded-md p-3 text-xs leading-5 whitespace-pre-wrap'>
-          {typeof detail.distillation.distilled_context === 'string'
-            ? detail.distillation.distilled_context
-            : JSON.stringify(detail.distillation, null, 2)}
+          {preferenceDisplayText(
+            typeof detail.distillation.distilled_context === 'string'
+              ? detail.distillation.distilled_context
+              : JSON.stringify(detail.distillation, null, 2)
+          )}
         </pre>
       </details>
     </section>
@@ -512,7 +524,7 @@ function SkillChangeExamples(props: {
   if (!props.detail?.skillChanges.length) {
     return (
       <p className='text-muted-foreground text-xs'>
-        {t('No real Skill changes')}
+        {t('No real Preference MD changes')}
       </p>
     )
   }
@@ -521,9 +533,11 @@ function SkillChangeExamples(props: {
     <section className='border-border space-y-3 border-t pt-4'>
       <div className='flex flex-wrap items-center justify-between gap-2'>
         <div>
-          <h5 className='text-sm font-semibold'>{t('Real Skill changes')}</h5>
+          <h5 className='text-sm font-semibold'>
+            {t('Real Preference MD changes')}
+          </h5>
           <p className='text-muted-foreground mt-1 text-xs'>
-            {t('This Experience produced the following Skill updates.')}
+            {t('This Experience produced the following Preference MD updates.')}
           </p>
           {props.caseTitle ? (
             <p className='mt-1 text-xs font-medium text-cyan-700 dark:text-cyan-300'>
@@ -532,7 +546,7 @@ function SkillChangeExamples(props: {
           ) : null}
         </div>
         <Badge variant='secondary'>
-          {props.detail.skillChangeCount} {t('Skills')}
+          {props.detail.skillChangeCount} {t('Preference MD updates')}
         </Badge>
       </div>
       <div className='space-y-2'>
@@ -550,7 +564,9 @@ function SkillChangeExamples(props: {
               open
             >
               <summary className='flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 text-sm font-medium'>
-                <span className='min-w-0 break-all'>{change.name}</span>
+                <span className='min-w-0 break-all'>
+                  {preferenceDisplayText(change.name)}
+                </span>
                 <Badge variant='outline' className='shrink-0 text-[10px]'>
                   {change.changeType}
                 </Badge>
@@ -579,7 +595,7 @@ function SkillChangeExamples(props: {
                           key={line}
                           className='text-foreground rounded bg-emerald-500/10 px-2 py-1 text-xs leading-5 font-medium'
                         >
-                          {line}
+                          {preferenceDisplayText(line)}
                         </p>
                       ))}
                     </div>
@@ -594,7 +610,9 @@ function SkillChangeExamples(props: {
                         : ''}
                     </summary>
                     <pre className='bg-muted/30 mt-1 max-h-48 overflow-auto rounded-md p-2 text-xs leading-5 whitespace-pre-wrap'>
-                      {beforeBody || change.descriptionBefore || '-'}
+                      {preferenceDisplayText(
+                        beforeBody || change.descriptionBefore || '-'
+                      )}
                     </pre>
                   </details>
                   <details className='min-w-0' open>
@@ -602,14 +620,19 @@ function SkillChangeExamples(props: {
                       {t('After')}
                     </summary>
                     <pre className='mt-1 max-h-48 overflow-auto rounded-md border border-emerald-500/30 bg-emerald-500/5 p-2 text-xs leading-5 whitespace-pre-wrap'>
-                      {afterBody || change.descriptionAfter || '-'}
+                      {preferenceDisplayText(
+                        afterBody || change.descriptionAfter || '-'
+                      )}
                     </pre>
                   </details>
                 </div>
                 {firstFile ? (
                   <div>
                     <div className='text-muted-foreground mb-1 font-mono text-[11px]'>
-                      {firstFile.path}
+                      {preferenceDocumentLabel(
+                        firstFile.path,
+                        t('Preference document')
+                      )}
                     </div>
                     <div className='bg-muted/30 max-h-64 overflow-auto rounded-md p-2 text-xs leading-5'>
                       {firstFile.diff ? (
@@ -631,7 +654,7 @@ function SkillChangeExamples(props: {
                               key={line || 'blank'}
                               className={`break-words whitespace-pre-wrap ${lineClass}`}
                             >
-                              {line || ' '}
+                              {preferenceDisplayText(line) || ' '}
                             </div>
                           )
                         })
@@ -706,18 +729,20 @@ function StepPrompt(props: {
               className='border-border space-y-3 rounded-md border p-3'
             >
               <div className='flex items-start justify-between gap-3'>
-                <h4 className='min-w-0 text-sm font-semibold'>{item.title}</h4>
+                <h4 className='min-w-0 text-sm font-semibold'>
+                  {preferenceDisplayText(item.title)}
+                </h4>
                 <Badge variant='secondary' className='shrink-0 text-[10px]'>
                   {item.language}
                 </Badge>
               </div>
               <p className='text-muted-foreground text-xs leading-5'>
-                {item.description}
+                {preferenceDisplayText(item.description)}
               </p>
               <dl className='grid gap-2 text-xs sm:grid-cols-2'>
                 <div>
                   <dt className='text-muted-foreground'>{t('Source')}</dt>
-                  <dd className='mt-1 break-all'>{item.source}</dd>
+                  <dd className='mt-1 break-all'>{t('Account learning')}</dd>
                 </div>
                 <div>
                   <dt className='text-muted-foreground'>
@@ -727,7 +752,7 @@ function StepPrompt(props: {
                 </div>
               </dl>
               <pre className='bg-muted/30 max-h-80 overflow-auto rounded-md p-3 text-xs leading-5 whitespace-pre-wrap'>
-                {item.content}
+                {preferenceDisplayText(item.content)}
               </pre>
               <PromptExamples examples={item.examples} />
             </article>
@@ -888,7 +913,7 @@ function SharedLearningBackbone() {
     [t('Evidence'), '02'],
     [t('Experience'), '03'],
     [t('Learning'), '04'],
-    [t('Quality Skill'), '05'],
+    [t('Quality MD'), '05'],
   ]
 
   return (
@@ -1136,10 +1161,10 @@ function OverviewPage(props: { isAdmin: boolean }) {
       },
     },
     {
-      label: t('Quality Skill'),
+      label: t('Preference MD'),
       title: t('Reusable account preference'),
       description: t(
-        'The resulting Skill becomes part of the account memory for later work.'
+        'The resulting Preference MD becomes part of the account memory for later work.'
       ),
       icon: BookOpen,
       prompt: {
@@ -1212,10 +1237,10 @@ function OverviewPage(props: { isAdmin: boolean }) {
       },
     },
     {
-      label: t('Quality Skill'),
-      title: t('GYZ visual-language Skill'),
+      label: t('Quality MD'),
+      title: t('GYZ visual-language Quality MD'),
       description: t(
-        'Acontext produces a conditional Quality Skill for future image-generation work.'
+        'Acontext produces a conditional Quality MD for future image-generation work.'
       ),
       icon: Film,
       prompt: {
@@ -1242,7 +1267,7 @@ function OverviewPage(props: { isAdmin: boolean }) {
           </h3>
           <p className='text-muted-foreground mt-2 text-sm leading-6'>
             {t(
-              'Private ACU turns interaction feedback and curated visual evidence into reusable Quality Skills through one shared learning backbone.'
+              'Private ACU turns interaction feedback and curated visual evidence into reusable Preference MD and Quality MD through one shared learning backbone.'
             )}
           </p>
         </div>
@@ -1308,7 +1333,7 @@ function OverviewPage(props: { isAdmin: boolean }) {
           </h3>
           <p className='text-muted-foreground mt-1 text-sm'>
             {t(
-              'Inspect inputs, learning runs, Skills, and prompt configuration.'
+              'Inspect inputs, learning runs, Preference MD, and prompt configuration.'
             )}
           </p>
         </div>
@@ -1324,20 +1349,20 @@ function OverviewPage(props: { isAdmin: boolean }) {
           <WorkspaceCard
             title={t('Film POC')}
             description={t(
-              'Review the team visual-language learning space and Quality Skills.'
+              'Review the team visual-language learning space and Quality MD.'
             )}
             icon={Film}
             to='/private-acu/film'
             value={
               filmIsError
                 ? t('No access')
-                : `${filmSkills.length} ${t('skills')}`
+                : `${filmSkills.length} ${t('Quality MD items')}`
             }
           />
           <WorkspaceCard
             title={t('Learning runs')}
             description={t(
-              'Inspect the recorded inputs, intermediate results, and Skill changes.'
+              'Inspect the recorded inputs, intermediate results, and Preference MD changes.'
             )}
             icon={ListChecks}
             to='/private-acu/learning-runs'
@@ -1413,16 +1438,20 @@ export function PrivateACUWorkspace(props: {
 
   let content: React.ReactNode
   if (props.section === 'overview') {
-    content = <OverviewPage isAdmin={isAdmin} />
+    content = isAdmin ? <OverviewPage isAdmin /> : <PrivateACUUserOverview />
   } else if (props.section === 'account') {
-    content = isAdmin ? <PrivateACUAdmin view='account' /> : <MemberFilmPage />
+    content = isAdmin ? (
+      <PrivateACUAdmin view='account' />
+    ) : (
+      <PrivateACUUserAccount />
+    )
   } else if (props.section === 'film') {
     content = isAdmin ? <PrivateACUFilmPOC /> : <MemberFilmPage />
   } else if (props.section === 'learning-runs') {
     content = isAdmin ? (
       <PrivateACULearningRuns learningKind={props.learningKind} />
     ) : (
-      <MemberFilmPage />
+      <PrivateACUUserLearningRuns />
     )
   } else if (props.section === 'advisor') {
     content = <PrivateACUAdvisor advisorId={props.advisorId} />

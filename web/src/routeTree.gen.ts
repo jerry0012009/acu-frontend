@@ -45,6 +45,7 @@ import { Route as AuthenticatedPlaygroundIndexRouteImport } from './routes/_auth
 import { Route as AuthenticatedPrivateAcuIndexRouteImport } from './routes/_authenticated/private-acu/index'
 import { Route as AuthenticatedPrivateAcuSectionRouteImport } from './routes/_authenticated/private-acu/$section'
 import { Route as AuthenticatedProfileIndexRouteImport } from './routes/_authenticated/profile/index'
+import { Route as AuthenticatedPublicAcuIndexRouteImport } from './routes/_authenticated/public-acu/index'
 import { Route as AuthenticatedRedemptionCodesIndexRouteImport } from './routes/_authenticated/redemption-codes/index'
 import { Route as AuthenticatedSubscriptionsIndexRouteImport } from './routes/_authenticated/subscriptions/index'
 import { Route as AuthenticatedSystemInfoIndexRouteImport } from './routes/_authenticated/system-info/index'
@@ -258,6 +259,12 @@ const AuthenticatedProfileIndexRoute =
     path: '/profile/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedPublicAcuIndexRoute =
+  AuthenticatedPublicAcuIndexRouteImport.update({
+    id: '/public-acu/',
+    path: '/public-acu/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedRedemptionCodesIndexRoute =
   AuthenticatedRedemptionCodesIndexRouteImport.update({
     id: '/redemption-codes/',
@@ -431,6 +438,7 @@ export interface FileRoutesByFullPath {
   '/playground/': typeof AuthenticatedPlaygroundIndexRoute
   '/private-acu/': typeof AuthenticatedPrivateAcuIndexRoute
   '/profile/': typeof AuthenticatedProfileIndexRoute
+  '/public-acu/': typeof AuthenticatedPublicAcuIndexRoute
   '/redemption-codes/': typeof AuthenticatedRedemptionCodesIndexRoute
   '/subscriptions/': typeof AuthenticatedSubscriptionsIndexRoute
   '/system-info/': typeof AuthenticatedSystemInfoIndexRoute
@@ -489,6 +497,7 @@ export interface FileRoutesByTo {
   '/playground': typeof AuthenticatedPlaygroundIndexRoute
   '/private-acu': typeof AuthenticatedPrivateAcuIndexRoute
   '/profile': typeof AuthenticatedProfileIndexRoute
+  '/public-acu': typeof AuthenticatedPublicAcuIndexRoute
   '/redemption-codes': typeof AuthenticatedRedemptionCodesIndexRoute
   '/subscriptions': typeof AuthenticatedSubscriptionsIndexRoute
   '/system-info': typeof AuthenticatedSystemInfoIndexRoute
@@ -551,6 +560,7 @@ export interface FileRoutesById {
   '/_authenticated/playground/': typeof AuthenticatedPlaygroundIndexRoute
   '/_authenticated/private-acu/': typeof AuthenticatedPrivateAcuIndexRoute
   '/_authenticated/profile/': typeof AuthenticatedProfileIndexRoute
+  '/_authenticated/public-acu/': typeof AuthenticatedPublicAcuIndexRoute
   '/_authenticated/redemption-codes/': typeof AuthenticatedRedemptionCodesIndexRoute
   '/_authenticated/subscriptions/': typeof AuthenticatedSubscriptionsIndexRoute
   '/_authenticated/system-info/': typeof AuthenticatedSystemInfoIndexRoute
@@ -612,6 +622,7 @@ export interface FileRouteTypes {
     | '/playground/'
     | '/private-acu/'
     | '/profile/'
+    | '/public-acu/'
     | '/redemption-codes/'
     | '/subscriptions/'
     | '/system-info/'
@@ -670,6 +681,7 @@ export interface FileRouteTypes {
     | '/playground'
     | '/private-acu'
     | '/profile'
+    | '/public-acu'
     | '/redemption-codes'
     | '/subscriptions'
     | '/system-info'
@@ -731,6 +743,7 @@ export interface FileRouteTypes {
     | '/_authenticated/playground/'
     | '/_authenticated/private-acu/'
     | '/_authenticated/profile/'
+    | '/_authenticated/public-acu/'
     | '/_authenticated/redemption-codes/'
     | '/_authenticated/subscriptions/'
     | '/_authenticated/system-info/'
@@ -1027,6 +1040,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProfileIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/public-acu/': {
+      id: '/_authenticated/public-acu/'
+      path: '/public-acu'
+      fullPath: '/public-acu/'
+      preLoaderRoute: typeof AuthenticatedPublicAcuIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/redemption-codes/': {
       id: '/_authenticated/redemption-codes/'
       path: '/redemption-codes'
@@ -1290,6 +1310,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPlaygroundIndexRoute: typeof AuthenticatedPlaygroundIndexRoute
   AuthenticatedPrivateAcuIndexRoute: typeof AuthenticatedPrivateAcuIndexRoute
   AuthenticatedProfileIndexRoute: typeof AuthenticatedProfileIndexRoute
+  AuthenticatedPublicAcuIndexRoute: typeof AuthenticatedPublicAcuIndexRoute
   AuthenticatedRedemptionCodesIndexRoute: typeof AuthenticatedRedemptionCodesIndexRoute
   AuthenticatedSubscriptionsIndexRoute: typeof AuthenticatedSubscriptionsIndexRoute
   AuthenticatedSystemInfoIndexRoute: typeof AuthenticatedSystemInfoIndexRoute
@@ -1315,6 +1336,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPlaygroundIndexRoute: AuthenticatedPlaygroundIndexRoute,
   AuthenticatedPrivateAcuIndexRoute: AuthenticatedPrivateAcuIndexRoute,
   AuthenticatedProfileIndexRoute: AuthenticatedProfileIndexRoute,
+  AuthenticatedPublicAcuIndexRoute: AuthenticatedPublicAcuIndexRoute,
   AuthenticatedRedemptionCodesIndexRoute:
     AuthenticatedRedemptionCodesIndexRoute,
   AuthenticatedSubscriptionsIndexRoute: AuthenticatedSubscriptionsIndexRoute,

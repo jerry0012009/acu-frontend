@@ -32,6 +32,73 @@ func GetPrivateACUMemoryForUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
 }
 
+func GetPrivateACUUserConfig(c *gin.Context) {
+	result, err := service.GetPrivateACUUserConfig(c.Request.Context(), c.GetInt("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
+func GetPrivateACULearningRunsForUser(c *gin.Context) {
+	result, err := service.GetPrivateACULearningRunsForUser(
+		c.Request.Context(),
+		c.GetInt("id"),
+	)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
+func GetPrivateACULearningRunDetailForUser(c *gin.Context) {
+	runID := c.Param("run_id")
+	if runID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "run_id is required"})
+		return
+	}
+	result, err := service.GetPrivateACULearningRunDetailForUser(
+		c.Request.Context(),
+		c.GetInt("id"),
+		runID,
+	)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
+func GetPrivateACUUsageSummaryForUser(c *gin.Context) {
+	result, err := service.GetPrivateACUUsageSummaryForUser(
+		c.Request.Context(),
+		c.GetInt("id"),
+	)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
+func UpdatePrivateACUUserConfig(c *gin.Context) {
+	var input dto.ACUPrivateUserConfigRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	result, err := service.UpdatePrivateACUUserConfig(
+		c.Request.Context(), c.GetInt("id"), input,
+	)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
 func GetPrivateACUFilmForUser(c *gin.Context) {
 	result, err := service.GetPrivateACUFilmMemberView(c.Request.Context(), c.GetInt("id"))
 	if err != nil {

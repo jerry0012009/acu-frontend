@@ -1,15 +1,25 @@
 import { ChevronDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import {
+  preferenceDisplayText,
+  preferenceDocumentLabel,
+} from '@/features/private-acu/preference-display'
+
 import type { PrivateACUMemorySkill } from '../../private-acu-admin-api'
 
 export function PrivateACUSkillCatalog(props: {
   skills: PrivateACUMemorySkill[]
+  emptyLabel?: string
 }) {
   const { t } = useTranslation()
 
   if (!props.skills.length) {
-    return <div className='text-muted-foreground text-sm'>{t('No skills')}</div>
+    return (
+      <div className='text-muted-foreground text-sm'>
+        {props.emptyLabel || t('No skills')}
+      </div>
+    )
   }
 
   return (
@@ -23,10 +33,12 @@ export function PrivateACUSkillCatalog(props: {
             />
             <span className='min-w-0'>
               <span className='block font-medium break-words'>
-                {skill.name}
+                {preferenceDisplayText(skill.name)}
               </span>
               <span className='text-muted-foreground mt-0.5 block text-xs break-words'>
-                {skill.description || t('No description')}
+                {preferenceDisplayText(
+                  skill.description || t('No description')
+                )}
               </span>
             </span>
           </summary>
@@ -34,10 +46,10 @@ export function PrivateACUSkillCatalog(props: {
             {skill.files.map((file) => (
               <details key={file.path} className='bg-muted/30 rounded-md p-3'>
                 <summary className='cursor-pointer font-mono text-xs break-all'>
-                  {file.path}
+                  {preferenceDocumentLabel(file.path, t('Preference document'))}
                 </summary>
                 <pre className='mt-2 max-h-96 overflow-auto text-xs whitespace-pre-wrap'>
-                  {file.content || t('No content')}
+                  {preferenceDisplayText(file.content || t('No content'))}
                 </pre>
               </details>
             ))}

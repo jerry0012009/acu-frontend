@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html"
 	"net/mail"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -15,6 +16,45 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"gorm.io/gorm"
 )
+
+var (
+	privateACUPreferenceKeys = strings.NewReplacer(
+		"relevantSkillIds", "relevantPreferenceIds",
+		"skillCatalog", "preferenceCatalog",
+		"skillChangeCount", "preferenceChangeCount",
+		"skillChanges", "preferenceChanges",
+		"skillsBefore", "preferencesBefore",
+		"skillsAfter", "preferencesAfter",
+		"skillId", "preferenceId",
+	)
+	privateACUSkillLearnerPattern = regexp.MustCompile(`(?i)skill([ _-])learner`)
+	privateACUSkillWordPattern    = regexp.MustCompile(`(?i)(^|[^a-z0-9])(skills?)([^a-z0-9]|$)`)
+)
+
+func privateACUPreferenceDisplayText(value string) string {
+	value = privateACUPreferenceKeys.Replace(value)
+	value = privateACUSkillLearnerPattern.ReplaceAllStringFunc(value, func(match string) string {
+		separator := match[5:6]
+		if separator == " " {
+			return "Preference Writer"
+		}
+		return "preference" + separator + "writer"
+	})
+	return privateACUSkillWordPattern.ReplaceAllStringFunc(value, func(match string) string {
+		parts := privateACUSkillWordPattern.FindStringSubmatch(match)
+		word := parts[2]
+		replacement := "preference"
+		if strings.EqualFold(word, "skills") {
+			replacement = "preferences"
+		}
+		if word == strings.ToUpper(word) {
+			replacement = strings.ToUpper(replacement)
+		} else if word != strings.ToLower(word) {
+			replacement = strings.ToUpper(replacement[:1]) + replacement[1:]
+		}
+		return parts[1] + replacement + parts[3]
+	})
+}
 
 func advisorNotificationPreferences(setting dto.UserSetting, accountEmail string) dto.ACUAdvisorNotificationPreferences {
 	inApp := setting.AdvisorNotificationInAppEnabled == nil || *setting.AdvisorNotificationInAppEnabled
@@ -303,8 +343,8 @@ func sendPrivateACUAdvisorEmail(
 	subject := "Private ACU Advisor 发现一项需要关注的问题"
 	content := fmt.Sprintf(
 		"<p><strong>Private ACU Advisor</strong></p><p>问题：%s</p><p>参考建议：%s</p><p>状态：%s</p><p><a href=\"%s\">查看审计详情</a></p>",
-		html.EscapeString(notification.ProblemSummary),
-		html.EscapeString(notification.AdviceSummary),
+		html.EscapeString(privateACUPreferenceDisplayText(notification.ProblemSummary)),
+		html.EscapeString(privateACUPreferenceDisplayText(notification.AdviceSummary)),
 		html.EscapeString(notification.ReferenceStatus),
 		html.EscapeString(notification.TargetPath),
 	)

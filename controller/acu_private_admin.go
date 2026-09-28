@@ -42,6 +42,54 @@ func ResetPrivateACUPrompts(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
 }
 
+func GetPrivateACUUserConfigs(c *gin.Context) {
+	result, err := service.GetPrivateACUUserConfigs(c.Request.Context())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
+func SavePrivateACURuntime(c *gin.Context) {
+	var input dto.ACUPrivateRuntimeRequest
+	if err := c.ShouldBindJSON(&input); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	result, err := service.SavePrivateACURuntime(
+		c.Request.Context(),
+		input,
+		c.GetString("username"),
+	)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
+func UpdatePrivateACUUserConfigAdmin(c *gin.Context) {
+	var input struct {
+		UserID int `json:"userId" binding:"required"`
+		dto.ACUPrivateUserConfigRequest
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	result, err := service.UpdatePrivateACUUserConfig(
+		c.Request.Context(),
+		input.UserID,
+		input.ACUPrivateUserConfigRequest,
+	)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
 func GetPrivateACUMemory(c *gin.Context) {
 	result, err := service.GetPrivateACUMemory(
 		c.Request.Context(),

@@ -24,10 +24,12 @@ type LegacyComboboxProps = {
   options: ComboboxInputOption[]
   value?: string
   onValueChange?: (value: string | null) => void
+  onSearchValueChange?: (value: string) => void
   placeholder?: string
   searchPlaceholder?: string
   emptyText?: string
   allowCustomValue?: boolean
+  filterOptions?: boolean
   className?: string
   id?: string
   openOnFocus?: boolean
@@ -49,10 +51,12 @@ function Combobox(
         options={props.options}
         value={props.value ?? ''}
         onValueChange={(value) => props.onValueChange?.(value)}
+        onSearchValueChange={props.onSearchValueChange}
         placeholder={props.searchPlaceholder ?? props.placeholder}
         emptyText={props.emptyText}
         className={props.className}
         allowCustomValue={props.allowCustomValue}
+        filterOptions={props.filterOptions}
         openOnFocus={props.openOnFocus}
       />
     )

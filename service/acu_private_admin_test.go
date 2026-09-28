@@ -123,6 +123,28 @@ func TestPrivateACUAdminProxySavesPrompts(t *testing.T) {
 	}, payload)
 }
 
+func TestPrivateACUAdminProxyReadsUserConfigs(t *testing.T) {
+	var requestPath string
+	router := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		requestPath = request.URL.Path
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write([]byte(`{"configs":[{"newapiUserId":"3","observerEnabled":true,"advisorEnabled":false,"injectionEnabled":true,"observerInterval":null,"effectiveObserverInterval":20,"globalObserverInterval":20,"usesGlobalObserverInterval":true,"globalEnabled":true,"globalInjectionEnabled":true}]}`))
+	}))
+	defer router.Close()
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-private-acu-token")
+
+	result, err := GetPrivateACUUserConfigs(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "/internal/admin/private-acu/user-configs", requestPath)
+	require.Len(t, result.Configs, 1)
+	require.Equal(t, "3", result.Configs[0].NewAPIUserID)
+	require.True(t, result.Configs[0].ObserverEnabled)
+	require.True(t, result.Configs[0].InjectionEnabled)
+	require.Equal(t, 20, result.Configs[0].EffectiveObserverInterval)
+	require.True(t, result.Configs[0].UsesGlobalObserverInterval)
+}
+
 func TestPrivateACUExperienceDetailProxyForwardsUserAndExperience(t *testing.T) {
 	requests := make(chan *http.Request, 1)
 	router := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {

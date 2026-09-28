@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertTriangle,
   Check,
-  ChevronDown,
   CircleSlash,
   History,
   Lightbulb,
@@ -18,16 +17,19 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { preferenceDisplayText } from '@/features/private-acu/preference-display'
 import { cn } from '@/lib/utils'
 
 import {
   getPrivateACUMemory,
   getPrivateACUAdvisors,
+  getPrivateACUUserConfig,
   getPrivateACUAdvisorNotificationPreferences,
+  updatePrivateACUUserConfig,
   updatePrivateACUAdvisorNotificationPreferences,
   updatePrivateACUAdvisorFeedback,
   type PrivateACUAdvisor,
+  type PrivateACUUserConfig,
 } from '../../advisor-api'
 import { requestAdvisorBrowserNotificationPermission } from '../../lib/advisor-browser-notification'
 import type { PrivateACUMemorySkill } from '../../private-acu-admin-api'
@@ -124,7 +126,7 @@ function AdvisorCard(props: {
       : undefined)
   const advisorProblem = props.advisor.problem.trim()
   let referencedSkillsContent = (
-    <p className='text-muted-foreground text-sm'>{t('No skills')}</p>
+    <p className='text-muted-foreground text-sm'>{t('No preferences yet')}</p>
   )
   if (props.skillsLoading) {
     referencedSkillsContent = <Skeleton className='h-16 w-full rounded-md' />
@@ -167,7 +169,9 @@ function AdvisorCard(props: {
             <h3 className='text-muted-foreground text-xs font-medium uppercase'>
               {t('Observer observation')}
             </h3>
-            <p className='mt-1 text-sm leading-6'>{observerObservation}</p>
+            <p className='mt-1 text-sm leading-6'>
+              {preferenceDisplayText(observerObservation)}
+            </p>
           </div>
         ) : null}
         {advisorProblem && advisorProblem !== observerProblem ? (
@@ -175,7 +179,9 @@ function AdvisorCard(props: {
             <h3 className='text-muted-foreground text-xs font-medium uppercase'>
               {t('Observed problem')}
             </h3>
-            <p className='mt-1 text-sm leading-6'>{advisorProblem}</p>
+            <p className='mt-1 text-sm leading-6'>
+              {preferenceDisplayText(advisorProblem)}
+            </p>
           </div>
         ) : null}
         {props.advisor.advice && (
@@ -183,13 +189,15 @@ function AdvisorCard(props: {
             <h3 className='text-primary text-xs font-medium uppercase'>
               {t('Advisor suggestion')}
             </h3>
-            <p className='mt-1 text-sm leading-6'>{props.advisor.advice}</p>
+            <p className='mt-1 text-sm leading-6'>
+              {preferenceDisplayText(props.advisor.advice)}
+            </p>
           </div>
         )}
         {props.advisor.relevantSkillIds.length > 0 && (
           <div className='space-y-2'>
             <h3 className='text-muted-foreground text-xs font-medium uppercase'>
-              {t('Reference skills')}
+              {t('Reference preferences')}
             </h3>
             {referencedSkillsContent}
           </div>
@@ -411,32 +419,43 @@ function AdvisorNotificationPreferences() {
   )
 }
 
-function PrivateACUMemory() {
+export function PrivateACUUserSettings() {
   const { t } = useTranslation()
-  const memoryQuery = useQuery({
-    queryKey: ['dashboard', 'private-acu-memory'],
-    queryFn: getPrivateACUMemory,
+  const queryClient = useQueryClient()
+  const settingsQuery = useQuery({
+    queryKey: ['private-acu', 'user-settings'],
+    queryFn: getPrivateACUUserConfig,
+  })
+  const [intervalDraft, setIntervalDraft] = useState('')
+  const intervalValue = settingsQuery.data
+    ? (settingsQuery.data.observerInterval ??
+      settingsQuery.data.globalObserverInterval)
+    : 0
+  useEffect(() => {
+    if (settingsQuery.data) {
+      setIntervalDraft(String(intervalValue))
+    }
+  }, [intervalValue, settingsQuery.data])
+  const mutation = useMutation({
+    mutationFn: updatePrivateACUUserConfig,
+    onSuccess: (data) => {
+      queryClient.setQueryData(['private-acu', 'user-settings'], data)
+      toast.success(t('Private ACU settings saved'))
+    },
+    onError: () => toast.error(t('Failed to save Private ACU settings')),
   })
 
-  if (memoryQuery.isLoading) {
-    return (
-      <div className='space-y-3'>
-        <Skeleton className='h-24 w-full rounded-lg' />
-        <Skeleton className='h-24 w-full rounded-lg' />
-      </div>
-    )
+  if (settingsQuery.isLoading) {
+    return <Skeleton className='h-64 w-full rounded-lg' />
   }
-
-  if (memoryQuery.isError) {
+  if (settingsQuery.isError) {
     return (
       <div className='border-destructive/30 bg-destructive/5 flex flex-col items-start gap-3 rounded-lg border p-5'>
-        <p className='text-sm'>
-          {t('Unable to load preferences and experience')}
-        </p>
+        <p className='text-sm'>{t('Unable to load Private ACU settings')}</p>
         <Button
           variant='outline'
           size='sm'
-          onClick={() => void memoryQuery.refetch()}
+          onClick={() => void settingsQuery.refetch()}
         >
           <RefreshCw />
           {t('Retry')}
@@ -444,69 +463,146 @@ function PrivateACUMemory() {
       </div>
     )
   }
-
-  if (!memoryQuery.data?.enabled || memoryQuery.data.skills.length === 0) {
-    return (
-      <div className='text-muted-foreground border-border/70 rounded-lg border border-dashed p-8 text-center text-sm'>
-        {t('No preferences or experience yet')}
-      </div>
-    )
+  if (!settingsQuery.data) {
+    return <Skeleton className='h-64 w-full rounded-lg' />
   }
 
+  const settings = settingsQuery.data
+  const update = (patch: Partial<PrivateACUUserConfig>) =>
+    mutation.mutate({ ...settings, ...patch })
+  const privateEnabled =
+    settings.learningEnabled ||
+    settings.observerEnabled ||
+    settings.advisorEnabled ||
+    settings.injectionEnabled
+
   return (
-    <div className='space-y-3'>
-      {memoryQuery.data.skills.map((skill) => (
-        <details
-          key={skill.id}
-          className='border-border/70 bg-card rounded-lg border p-4'
-        >
-          <summary className='flex cursor-pointer list-none items-start gap-2 text-sm font-medium'>
-            <ChevronDown className='mt-0.5 size-4 shrink-0' />
-            <span className='min-w-0'>
-              <span className='block'>{skill.name}</span>
-              {skill.description && (
-                <span className='text-muted-foreground mt-1 block text-xs leading-5 font-normal'>
-                  {skill.description}
-                </span>
+    <section className='border-border/70 bg-card space-y-4 rounded-lg border p-4'>
+      <div>
+        <h3 className='text-sm font-semibold'>{t('Private ACU controls')}</h3>
+        <p className='text-muted-foreground mt-1 text-xs'>
+          {t('Choose which account learning and reference features to use.')}
+        </p>
+      </div>
+      <div className='space-y-3'>
+        <div className='bg-muted/25 flex items-center justify-between gap-4 rounded-md border p-3'>
+          <div>
+            <div className='text-sm font-medium'>{t('Enable Private ACU')}</div>
+            <div className='text-muted-foreground mt-0.5 text-xs'>
+              {t(
+                'Turn account learning, Observer, and Advisor on or off together.'
               )}
-            </span>
-          </summary>
-          <div className='mt-3 space-y-3'>
-            {skill.files.map((file) => (
-              <pre
-                key={file.path}
-                className='bg-muted/30 max-h-96 overflow-auto rounded-md p-3 text-xs whitespace-pre-wrap'
-              >
-                {file.content || t('No content')}
-              </pre>
-            ))}
+            </div>
           </div>
-        </details>
-      ))}
-    </div>
+          <Switch
+            aria-label={t('Enable Private ACU')}
+            checked={privateEnabled}
+            disabled={mutation.isPending || !settings.globalEnabled}
+            onCheckedChange={(checked) =>
+              update({
+                learningEnabled: checked,
+                observerEnabled: checked,
+                advisorEnabled: checked,
+                injectionEnabled: checked ? settings.injectionEnabled : false,
+              })
+            }
+          />
+        </div>
+        <div className='flex items-center justify-between gap-4'>
+          <span className='text-sm'>{t('Enable account learning')}</span>
+          <Switch
+            aria-label={t('Enable account learning')}
+            checked={settings.learningEnabled}
+            disabled={mutation.isPending || !settings.globalEnabled}
+            onCheckedChange={(checked) => update({ learningEnabled: checked })}
+          />
+        </div>
+        <div className='flex items-center justify-between gap-4'>
+          <span className='text-sm'>{t('Enable Observer')}</span>
+          <Switch
+            aria-label={t('Enable Observer')}
+            checked={settings.observerEnabled}
+            disabled={mutation.isPending || !settings.globalEnabled}
+            onCheckedChange={(checked) => update({ observerEnabled: checked })}
+          />
+        </div>
+        <div className='flex items-center justify-between gap-4'>
+          <span className='text-sm'>{t('Enable Advisor')}</span>
+          <Switch
+            aria-label={t('Enable Advisor')}
+            checked={settings.advisorEnabled}
+            disabled={mutation.isPending || !settings.globalEnabled}
+            onCheckedChange={(checked) => update({ advisorEnabled: checked })}
+          />
+        </div>
+        <div className='flex items-center justify-between gap-4'>
+          <span className='text-sm'>{t('Inject Advisor context')}</span>
+          <Switch
+            aria-label={t('Inject Advisor context')}
+            checked={settings.injectionEnabled}
+            disabled={mutation.isPending || !settings.globalEnabled}
+            onCheckedChange={(checked) => update({ injectionEnabled: checked })}
+          />
+        </div>
+      </div>
+      <div className='border-border/70 border-t pt-4'>
+        <label className='flex flex-wrap items-center gap-3'>
+          <span className='text-sm'>{t('Observer interval')}</span>
+          <Input
+            type='number'
+            min={1}
+            max={100000}
+            step={1}
+            className='w-28'
+            value={intervalDraft}
+            disabled={mutation.isPending || !settings.globalEnabled}
+            onChange={(event) => setIntervalDraft(event.target.value)}
+            onBlur={() => {
+              const value = Number(intervalDraft)
+              if (
+                Number.isInteger(value) &&
+                value >= 1 &&
+                value <= 100000 &&
+                value !== intervalValue
+              ) {
+                update({ observerInterval: value })
+                return
+              }
+              setIntervalDraft(String(intervalValue))
+            }}
+          />
+          <span className='text-muted-foreground text-xs'>
+            {settings.usesGlobalObserverInterval
+              ? t('Using administrator default')
+              : t('Using your custom interval')}
+          </span>
+        </label>
+        {!settings.usesGlobalObserverInterval && (
+          <Button
+            className='mt-3'
+            variant='outline'
+            size='sm'
+            disabled={mutation.isPending}
+            onClick={() => update({ observerInterval: null })}
+          >
+            {t('Use administrator default')}
+          </Button>
+        )}
+      </div>
+      {!settings.globalEnabled && (
+        <p className='text-muted-foreground text-xs'>
+          {t('Private ACU is currently disabled by the administrator.')}
+        </p>
+      )}
+    </section>
   )
 }
 
 export function PrivateACUAdvisor(props: { advisorId?: string }) {
-  const { t } = useTranslation()
   return (
-    <Tabs defaultValue='advisor'>
-      <TabsList>
-        <TabsTrigger value='advisor'>{t('Advisor')}</TabsTrigger>
-        <TabsTrigger value='memory'>
-          {t('Preferences and experience')}
-        </TabsTrigger>
-        <TabsTrigger value='settings'>{t('Notifications')}</TabsTrigger>
-      </TabsList>
-      <TabsContent value='advisor'>
-        <AdvisorList advisorId={props.advisorId} />
-      </TabsContent>
-      <TabsContent value='memory'>
-        <PrivateACUMemory />
-      </TabsContent>
-      <TabsContent value='settings'>
-        <AdvisorNotificationPreferences />
-      </TabsContent>
-    </Tabs>
+    <div className='space-y-5'>
+      <AdvisorList advisorId={props.advisorId} />
+      <AdvisorNotificationPreferences />
+    </div>
   )
 }

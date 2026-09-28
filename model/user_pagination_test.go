@@ -64,3 +64,36 @@ func TestSearchUsersSortsBeforePagination(t *testing.T) {
 	assert.Equal(t, int64(42), total)
 	assert.Equal(t, []int{21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40}, collectUserIDs(users))
 }
+
+func TestSearchUsersPrioritizesExactUsernameBeforePagination(t *testing.T) {
+	truncateTables(t)
+	insertUsersForPaginationTest(t, 42)
+
+	for id := 1; id <= 25; id++ {
+		require.NoError(t, DB.Model(&User{}).Where("id = ?", id).Update("username", fmt.Sprintf("x-user%02d", id)).Error)
+	}
+	require.NoError(t, DB.Model(&User{}).Where("id = ?", 42).Update("username", "x").Error)
+
+	users, total, err := SearchUsers("x", "", nil, nil, 0, 20, NewUserSortOptions("id", "asc"))
+	require.NoError(t, err)
+	assert.Equal(t, int64(42), total)
+	require.Len(t, users, 20)
+	assert.Equal(t, 42, users[0].Id)
+	assert.Equal(t, "x", users[0].Username)
+	assert.Equal(t, []int{42, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19}, collectUserIDs(users))
+}
+
+func TestSearchUsersPrioritizesExactIDBeforePagination(t *testing.T) {
+	truncateTables(t)
+	insertUsersForPaginationTest(t, 42)
+
+	for id := 1; id <= 25; id++ {
+		require.NoError(t, DB.Model(&User{}).Where("id = ?", id).Update("display_name", fmt.Sprintf("Match 42 %02d", id)).Error)
+	}
+
+	users, total, err := SearchUsers("42", "", nil, nil, 0, 20, NewUserSortOptions("id", "asc"))
+	require.NoError(t, err)
+	assert.Equal(t, int64(26), total)
+	require.Len(t, users, 20)
+	assert.Equal(t, 42, users[0].Id)
+}

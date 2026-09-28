@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Braces, Info, RotateCcw, Save } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import type { ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -18,8 +17,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import {
+  preferenceDisplayText,
+  preferenceDocumentLabel,
+} from '@/features/private-acu/preference-display'
 import { PromptExamples } from '@/features/private-acu/prompt-examples'
-import { getUsers } from '@/features/users/api'
+import { getAllUsers, searchUsers } from '@/features/users/api'
+import { useDebounce } from '@/hooks'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -29,6 +33,7 @@ import {
   getPrivateACUPrompts,
   resetPrivateACUPrompts,
   savePrivateACUPrompts,
+  savePrivateACURuntime,
   type PrivateACUMemory,
   type PrivateACUPromptCard,
   type PrivateACUPrompts,
@@ -36,6 +41,10 @@ import {
   getPrivateACUExperiences,
   getPrivateACUExperienceDetail,
   getPrivateACUAdvisors,
+  getPrivateACUUserConfigs,
+  updatePrivateACUUserConfig,
+  type PrivateACUUserConfig,
+  type PrivateACUUserConfigSummary,
 } from '../../private-acu-admin-api'
 import { PrivateACUFilmPOC } from './private-acu-film-poc'
 import { PrivateACULearningRuns } from './private-acu-learning-runs'
@@ -83,6 +92,146 @@ function AdvisorSettingHint(props: { label: string; children: ReactNode }) {
   )
 }
 
+function UserConfigStatus(props: { enabled: boolean }) {
+  const { t } = useTranslation()
+  return (
+    <Badge
+      variant={props.enabled ? 'default' : 'outline'}
+      className='text-[10px]'
+    >
+      {props.enabled ? t('Enabled') : t('Disabled')}
+    </Badge>
+  )
+}
+
+export function PrivateACUUserConfigTable(props: {
+  configs: PrivateACUUserConfigSummary[]
+  users: Array<{ id: number; username: string; display_name?: string }>
+  loading: boolean
+  error: boolean
+  onSelect: (userId: string) => void
+}) {
+  const { t } = useTranslation()
+  if (props.loading) {
+    return <div className='text-muted-foreground text-sm'>{t('Loading')}</div>
+  }
+  if (props.error) {
+    return (
+      <div className='text-muted-foreground text-sm'>
+        {t('Failed to load Private ACU user status')}
+      </div>
+    )
+  }
+  const enabledConfigs = props.configs.filter(
+    (config) =>
+      config.learningEnabled ||
+      config.observerEnabled ||
+      config.advisorEnabled ||
+      config.injectionEnabled
+  )
+  if (!enabledConfigs.length) {
+    return (
+      <div className='text-muted-foreground text-sm'>
+        {t('No users have enabled Private ACU supervision')}
+      </div>
+    )
+  }
+  const usersById = new Map(props.users.map((user) => [String(user.id), user]))
+  return (
+    <div className='border-border overflow-auto rounded-md border'>
+      <table className='w-full min-w-[42rem] text-left text-xs'>
+        <thead className='bg-muted/40'>
+          <tr>
+            <th className='p-2'>{t('User')}</th>
+            <th className='p-2'>{t('Account learning')}</th>
+            <th className='p-2'>{t('Observer')}</th>
+            <th className='p-2'>{t('Advisor')}</th>
+            <th className='p-2'>{t('Injected')}</th>
+            <th className='p-2'>{t('Observer interval')}</th>
+            <th className='p-2'>{t('Interval source')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {enabledConfigs.map((entry) => {
+            const user = usersById.get(entry.newapiUserId)
+            const label = user
+              ? `${user.username} · #${entry.newapiUserId}`
+              : `#${entry.newapiUserId}`
+            return (
+              <tr
+                key={entry.newapiUserId}
+                className='border-border border-t align-middle'
+              >
+                <td className='p-2'>
+                  <button
+                    type='button'
+                    className='text-primary text-left underline-offset-2 hover:underline'
+                    onClick={() => props.onSelect(entry.newapiUserId)}
+                  >
+                    {label}
+                  </button>
+                </td>
+                <td className='p-2'>
+                  <UserConfigStatus enabled={entry.learningEnabled} />
+                </td>
+                <td className='p-2'>
+                  <UserConfigStatus enabled={entry.observerEnabled} />
+                </td>
+                <td className='p-2'>
+                  <UserConfigStatus enabled={entry.advisorEnabled} />
+                </td>
+                <td className='p-2'>
+                  <UserConfigStatus enabled={entry.injectionEnabled} />
+                </td>
+                <td className='p-2 whitespace-nowrap'>
+                  {entry.effectiveObserverInterval}
+                </td>
+                <td className='p-2'>
+                  {entry.usesGlobalObserverInterval
+                    ? t('Global default')
+                    : t('User override')}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+type PrivateACUUserOption = {
+  value: string
+  label: string
+}
+
+export function PrivateACUUserSelector(props: {
+  options: PrivateACUUserOption[]
+  value: string
+  searchValue: string
+  loading: boolean
+  onSearchValueChange: (value: string) => void
+  onValueChange: (value: string) => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <Combobox
+      options={props.options}
+      value={props.value}
+      onValueChange={(value) => props.onValueChange(value ?? '')}
+      onSearchValueChange={props.onSearchValueChange}
+      placeholder={t('Select a user')}
+      emptyText={
+        props.loading && props.searchValue.trim()
+          ? t('Loading')
+          : t('No users found')
+      }
+      filterOptions={false}
+      className='max-w-md'
+    />
+  )
+}
+
 function MemorySection(props: { memory?: PrivateACUMemory; loading: boolean }) {
   const { t } = useTranslation()
   if (props.loading) {
@@ -105,7 +254,7 @@ function MemorySection(props: { memory?: PrivateACUMemory; loading: boolean }) {
   )
 }
 
-function AcontextSourceFiles(props: {
+export function AcontextSourceFiles(props: {
   files?: PrivateACUMemory['internalPrompts']
 }) {
   const { t } = useTranslation()
@@ -124,10 +273,10 @@ function AcontextSourceFiles(props: {
           className='border-border rounded-md border p-3'
         >
           <summary className='cursor-pointer font-mono text-xs'>
-            {file.path}
+            {preferenceDocumentLabel(file.path, t('Preference document'))}
           </summary>
           <pre className='bg-muted/30 mt-3 max-h-[32rem] overflow-auto rounded-md p-3 text-xs whitespace-pre-wrap'>
-            {file.content}
+            {preferenceDisplayText(file.content)}
           </pre>
         </details>
       ))}
@@ -182,7 +331,9 @@ function RuntimePromptCardsSection(props: {
                 {String(index + 1).padStart(2, '0')}
               </span>
               <div className='min-w-0'>
-                <h3 className='text-sm font-semibold'>{card.title}</h3>
+                <h3 className='text-sm font-semibold'>
+                  {preferenceDisplayText(card.title)}
+                </h3>
                 <p className='text-muted-foreground mt-1 text-xs'>
                   {promptStageLabel(card.stage, t)}
                 </p>
@@ -203,12 +354,14 @@ function RuntimePromptCardsSection(props: {
             </div>
           </div>
           <p className='text-muted-foreground text-xs leading-5'>
-            {card.description}
+            {preferenceDisplayText(card.description)}
           </p>
           <dl className='grid gap-2 text-xs sm:grid-cols-2'>
             <div>
               <dt className='text-muted-foreground'>{t('Source')}</dt>
-              <dd className='mt-1 break-all'>{card.source}</dd>
+              <dd className='mt-1 break-all'>
+                {promptStageLabel(card.stage, t)}
+              </dd>
             </div>
             <div>
               <dt className='text-muted-foreground'>{t('Runtime status')}</dt>
@@ -226,7 +379,7 @@ function RuntimePromptCardsSection(props: {
                   {t('View full prompt')}
                 </summary>
                 <pre className='bg-muted/30 mt-3 max-h-96 overflow-auto rounded-md p-3 text-xs leading-5 whitespace-pre-wrap'>
-                  {card.content}
+                  {preferenceDisplayText(card.content)}
                 </pre>
               </details>
             ) : (
@@ -235,7 +388,7 @@ function RuntimePromptCardsSection(props: {
                   {t('Full runtime prompt')}
                 </div>
                 <pre className='bg-muted/30 max-h-96 overflow-auto rounded-md p-3 text-xs leading-5 whitespace-pre-wrap'>
-                  {card.content}
+                  {preferenceDisplayText(card.content)}
                 </pre>
               </>
             )}
@@ -256,14 +409,38 @@ export function PrivateACUAdmin(
   const canEdit = userRole === ROLE.SUPER_ADMIN
   const [draft, setDraft] = useState<PrivateACUPrompts>()
   const [selectedUserId, setSelectedUserId] = useState('')
+  const [selectedUserOption, setSelectedUserOption] =
+    useState<PrivateACUUserOption>()
+  const [userSearch, setUserSearch] = useState('')
+  const debouncedUserSearch = useDebounce(userSearch, 300)
   const usersQuery = useQuery({
     queryKey: ['dashboard', 'private-acu-admin', 'users'],
+    queryFn: () => getAllUsers({ sort_by: 'id', sort_order: 'asc' }),
+  })
+  const userSearchQuery = useQuery({
+    queryKey: [
+      'dashboard',
+      'private-acu-admin',
+      'user-search',
+      debouncedUserSearch,
+    ],
     queryFn: () =>
-      getUsers({ page_size: 100, sort_by: 'id', sort_order: 'asc' }),
+      searchUsers({
+        keyword: debouncedUserSearch,
+        page_size: 20,
+        sort_by: 'id',
+        sort_order: 'asc',
+      }),
+    enabled: debouncedUserSearch.trim().length > 0,
+    staleTime: 30_000,
   })
   const promptsQuery = useQuery({
     queryKey: ['dashboard', 'private-acu-admin', 'prompts'],
     queryFn: getPrivateACUPrompts,
+  })
+  const userConfigsQuery = useQuery({
+    queryKey: ['dashboard', 'private-acu-admin', 'user-configs'],
+    queryFn: getPrivateACUUserConfigs,
   })
   const filmPromptsQuery = useQuery({
     queryKey: ['dashboard', 'private-acu-admin', 'film-prompts'],
@@ -309,6 +486,37 @@ export function PrivateACUAdmin(
     },
     onError: () => toast.error(t('Failed to reset Private ACU prompts')),
   })
+  const runtimeMutation = useMutation({
+    mutationFn: savePrivateACURuntime,
+    onSuccess: (data) => {
+      setDraft(data)
+      void queryClient.invalidateQueries({
+        queryKey: ['dashboard', 'private-acu-admin', 'prompts'],
+      })
+      toast.success(t('Private ACU system settings saved'))
+    },
+    onError: () => toast.error(t('Failed to save Private ACU system settings')),
+  })
+  const userConfigMutation = useMutation({
+    mutationFn: (input: {
+      userId: string
+      config: Pick<
+        PrivateACUUserConfig,
+        | 'learningEnabled'
+        | 'observerEnabled'
+        | 'advisorEnabled'
+        | 'injectionEnabled'
+        | 'observerInterval'
+      >
+    }) => updatePrivateACUUserConfig(input.userId, input.config),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['dashboard', 'private-acu-admin', 'user-configs'],
+      })
+      toast.success(t('Private ACU user settings saved'))
+    },
+    onError: () => toast.error(t('Failed to save Private ACU user settings')),
+  })
   const disabled = saveMutation.isPending || resetMutation.isPending
   const editable = draft
     ? {
@@ -320,10 +528,70 @@ export function PrivateACUAdmin(
         observerInterval: draft.observerInterval,
       }
     : undefined
-  const userOptions = (usersQuery.data?.data?.items ?? []).map((user) => ({
-    value: String(user.id),
-    label: `${user.username} · #${user.id}`,
-  }))
+  const userOptions = useMemo(() => {
+    const searchSettled = userSearch === debouncedUserSearch
+    let users = usersQuery.data?.data?.items ?? []
+    if (userSearch.trim()) {
+      users = searchSettled ? (userSearchQuery.data?.data?.items ?? []) : []
+    }
+    const options = users.map((user) => ({
+      value: String(user.id),
+      label: `${user.username} · #${user.id}`,
+    }))
+    if (
+      selectedUserOption &&
+      !options.some((option) => option.value === selectedUserOption.value)
+    ) {
+      options.unshift(selectedUserOption)
+    }
+    return options
+  }, [
+    debouncedUserSearch,
+    selectedUserOption,
+    userSearch,
+    userSearchQuery.data?.data?.items,
+    usersQuery.data?.data?.items,
+  ])
+  const selectUser = (userId: string) => {
+    setSelectedUserId(userId)
+    setSelectedUserOption(
+      userOptions.find((option) => option.value === userId) ??
+        (userId ? { value: userId, label: `#${userId}` } : undefined)
+    )
+    setUserSearch('')
+  }
+  const selectedConfig =
+    userConfigsQuery.data?.find(
+      (config) => config.newapiUserId === selectedUserId
+    ) ??
+    (draft
+      ? {
+          learningEnabled: false,
+          observerEnabled: false,
+          advisorEnabled: false,
+          injectionEnabled: false,
+          observerInterval: undefined,
+          effectiveObserverInterval: draft.observerInterval,
+          globalObserverInterval: draft.observerInterval,
+          usesGlobalObserverInterval: true,
+          globalEnabled: draft.enabled,
+          globalInjectionEnabled: draft.advisorReferenceEnabled,
+        }
+      : undefined)
+  const saveSelectedConfig = (patch: Partial<PrivateACUUserConfig>) => {
+    if (!selectedUserId || !selectedConfig) return
+    userConfigMutation.mutate({
+      userId: selectedUserId,
+      config: {
+        learningEnabled: selectedConfig.learningEnabled,
+        observerEnabled: selectedConfig.observerEnabled,
+        advisorEnabled: selectedConfig.advisorEnabled,
+        injectionEnabled: selectedConfig.injectionEnabled,
+        observerInterval: selectedConfig.observerInterval,
+        ...patch,
+      },
+    })
+  }
   const accountJudgeCard: PrivateACUPromptCard | undefined = promptsQuery.data
     ? {
         id: 'account-learning-judge',
@@ -418,19 +686,123 @@ export function PrivateACUAdmin(
           <h2 className='text-base font-semibold'>{t('Account learning')}</h2>
           <p className='text-muted-foreground mt-1 text-sm'>
             {t(
-              'Inspect one account from captured evidence through reusable preference Skills.'
+              'Inspect one account from captured evidence through reusable Preference MD.'
             )}
           </p>
         </div>
-        <Combobox
+        <PrivateACUUserSelector
           options={userOptions}
           value={selectedUserId}
-          onValueChange={(value) => setSelectedUserId(value ?? '')}
-          placeholder={t('Select a user')}
-          emptyText={t('No users found')}
-          allowCustomValue
-          className='max-w-md'
+          searchValue={userSearch}
+          loading={
+            userSearch !== debouncedUserSearch ||
+            userSearchQuery.isFetching ||
+            usersQuery.isLoading
+          }
+          onSearchValueChange={setUserSearch}
+          onValueChange={selectUser}
         />
+        {draft && (
+          <div className='border-border bg-muted/15 space-y-3 rounded-md border p-4'>
+            <div className='flex flex-wrap items-start justify-between gap-3'>
+              <div>
+                <h3 className='text-sm font-semibold'>
+                  {t('Private ACU system switch')}
+                </h3>
+                <p className='text-muted-foreground mt-1 text-xs'>
+                  {t('This switch controls Private ACU for every account.')}
+                </p>
+              </div>
+              <div className='flex flex-wrap items-center gap-4'>
+                <label className='flex items-center gap-2 text-sm'>
+                  <Switch
+                    checked={draft.enabled}
+                    disabled={runtimeMutation.isPending}
+                    onCheckedChange={(enabled) =>
+                      runtimeMutation.mutate({
+                        enabled,
+                        advisorReferenceEnabled: draft.advisorReferenceEnabled,
+                        observerInterval: draft.observerInterval,
+                      })
+                    }
+                  />
+                  {t('Global Private ACU')}
+                </label>
+                <label className='flex items-center gap-2 text-sm'>
+                  <Switch
+                    checked={draft.advisorReferenceEnabled}
+                    disabled={runtimeMutation.isPending}
+                    onCheckedChange={(advisorReferenceEnabled) =>
+                      runtimeMutation.mutate({
+                        enabled: draft.enabled,
+                        advisorReferenceEnabled,
+                        observerInterval: draft.observerInterval,
+                      })
+                    }
+                  />
+                  {t('Global Advisor reference')}
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+        {selectedUserId && selectedConfig && (
+          <div className='border-border space-y-3 rounded-md border p-4'>
+            <div>
+              <h3 className='text-sm font-semibold'>
+                {t('Manage selected user')}
+              </h3>
+              <p className='text-muted-foreground mt-1 text-xs'>
+                {t(
+                  'Administrators and the user edit the same account settings.'
+                )}
+              </p>
+            </div>
+            <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>
+              {(
+                [
+                  ['learningEnabled', t('Account learning')],
+                  ['observerEnabled', t('Observer')],
+                  ['advisorEnabled', t('Advisor')],
+                  ['injectionEnabled', t('Advisor reference')],
+                ] as const
+              ).map(([key, label]) => (
+                <label
+                  key={key}
+                  className='bg-muted/20 flex items-center justify-between gap-3 rounded-md border p-3 text-sm'
+                >
+                  {label}
+                  <Switch
+                    checked={selectedConfig[key]}
+                    disabled={userConfigMutation.isPending}
+                    onCheckedChange={(checked) =>
+                      saveSelectedConfig({ [key]: checked })
+                    }
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className='space-y-2'>
+          <div>
+            <h3 className='text-sm font-semibold'>
+              {t('Private ACU user status')}
+            </h3>
+            <p className='text-muted-foreground mt-1 text-xs'>
+              {t(
+                'Users shown here have at least one Private ACU feature enabled. Select a user to inspect the existing account view.'
+              )}
+            </p>
+          </div>
+          <PrivateACUUserConfigTable
+            configs={userConfigsQuery.data ?? []}
+            users={usersQuery.data?.data?.items ?? []}
+            loading={userConfigsQuery.isLoading}
+            error={userConfigsQuery.isError}
+            onSelect={selectUser}
+          />
+        </div>
         <div className='grid gap-3 sm:grid-cols-3'>
           <div className='border-border rounded-md border p-3'>
             <div className='text-muted-foreground text-xs'>
@@ -442,7 +814,7 @@ export function PrivateACUAdmin(
           </div>
           <div className='border-border rounded-md border p-3'>
             <div className='text-muted-foreground text-xs'>
-              {t('Current Skills')}
+              {t('Current Preference MD')}
             </div>
             <div className='mt-1 text-sm font-medium'>
               {memoryQuery.data?.skills.length ?? 0}
@@ -527,73 +899,97 @@ export function PrivateACUAdmin(
             </p>
           </div>
           {draft && (
-            <div className='flex flex-wrap items-center gap-4 text-sm'>
-              <div className='flex items-center gap-1.5'>
-                <label className='flex items-center gap-2'>
-                  <Switch
-                    checked={draft.enabled}
-                    disabled={disabled || !canEdit}
-                    onCheckedChange={(checked) =>
-                      setDraft((current) =>
-                        current ? { ...current, enabled: checked } : current
-                      )
-                    }
-                  />
-                  {t('Enable Advisor review')}
-                </label>
-                <AdvisorSettingHint label={t('Advisor review information')}>
+            <div className='border-border mt-4 rounded-md border p-3'>
+              <div>
+                <h3 className='text-sm font-semibold'>
+                  {t('Private ACU supervision settings')}
+                </h3>
+                <p className='text-muted-foreground mt-1 text-xs'>
                   {t(
-                    'Runs Observer and Advisor asynchronously to extract relevant user preferences and past experience. It does not change the task or execute actions.'
+                    'Observer and Advisor are enabled and configured together here. The Observer interval controls how often this background review starts.'
                   )}
-                </AdvisorSettingHint>
+                </p>
               </div>
-              <div className='flex items-center gap-1.5'>
-                <label className='flex items-center gap-2'>
-                  <Switch
-                    checked={draft.advisorReferenceEnabled}
-                    disabled={disabled || !canEdit}
-                    onCheckedChange={(checked) =>
-                      setDraft((current) =>
-                        current
-                          ? {
-                              ...current,
-                              advisorReferenceEnabled: checked,
-                            }
-                          : current
-                      )
-                    }
-                  />
-                  {t('Insert Advisor reference automatically')}
-                </label>
-                <AdvisorSettingHint label={t('Advisor reference information')}>
-                  {t(
-                    'Adds the Advisor result to the same session’s next LLM request as non-authoritative context. It reflects preferences and past experience, not instructions; the model decides how to use it.'
-                  )}
-                </AdvisorSettingHint>
+              <div className='mt-3 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm'>
+                <div className='flex items-center gap-1.5'>
+                  <label className='flex items-center gap-2'>
+                    <Switch
+                      checked={draft.enabled}
+                      disabled={disabled || !canEdit}
+                      onCheckedChange={(checked) =>
+                        setDraft((current) =>
+                          current ? { ...current, enabled: checked } : current
+                        )
+                      }
+                    />
+                    {t('Enable Observer and Advisor')}
+                  </label>
+                  <AdvisorSettingHint label={t('Advisor review information')}>
+                    {t(
+                      'Observer runs at the configured interval. Advisor runs only when Observer identifies a relevant issue. Both run asynchronously and do not change the task or execute actions.'
+                    )}
+                  </AdvisorSettingHint>
+                </div>
+                <div className='flex items-center gap-1.5'>
+                  <label className='flex items-center gap-2'>
+                    <Switch
+                      checked={draft.advisorReferenceEnabled}
+                      disabled={disabled || !canEdit}
+                      onCheckedChange={(checked) =>
+                        setDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                advisorReferenceEnabled: checked,
+                              }
+                            : current
+                        )
+                      }
+                    />
+                    {t('Insert Advisor reference automatically')}
+                  </label>
+                  <AdvisorSettingHint
+                    label={t('Advisor reference information')}
+                  >
+                    {t(
+                      'Adds the Advisor result to the same session’s next LLM request as non-authoritative context. It reflects preferences and past experience, not instructions; the model decides how to use it.'
+                    )}
+                  </AdvisorSettingHint>
+                </div>
+                <div className='flex items-center gap-1.5'>
+                  <label className='flex items-center gap-2'>
+                    <span className='text-muted-foreground'>
+                      {t('Observer interval')}
+                    </span>
+                    <Input
+                      type='number'
+                      min={1}
+                      max={100000}
+                      step={1}
+                      className='w-24'
+                      value={draft.observerInterval}
+                      disabled={disabled || !canEdit}
+                      onChange={(event) =>
+                        setDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                observerInterval: Number(event.target.value),
+                              }
+                            : current
+                        )
+                      }
+                    />
+                  </label>
+                  <AdvisorSettingHint
+                    label={t('Observer interval information')}
+                  >
+                    {t(
+                      'Starts one Observer review after this many completed model calls. The default is 20, and administrators can change it.'
+                    )}
+                  </AdvisorSettingHint>
+                </div>
               </div>
-              <label className='flex items-center gap-2'>
-                <span className='text-muted-foreground'>
-                  {t('Observer interval')}
-                </span>
-                <Input
-                  type='number'
-                  min={1}
-                  max={100000}
-                  className='w-24'
-                  value={draft.observerInterval}
-                  disabled={disabled || !canEdit}
-                  onChange={(event) =>
-                    setDraft((current) =>
-                      current
-                        ? {
-                            ...current,
-                            observerInterval: Number(event.target.value),
-                          }
-                        : current
-                    )
-                  }
-                />
-              </label>
             </div>
           )}
           {canEdit && (
@@ -634,7 +1030,7 @@ export function PrivateACUAdmin(
             </h3>
             <p className='text-muted-foreground mt-1 text-xs'>
               {t(
-                'The current path executes Learning Judge, dissatisfaction distillation, and Skill Learner in this order.'
+                'The current path executes Learning Judge, dissatisfaction distillation, and Preference MD learning in this order.'
               )}
             </p>
           </div>

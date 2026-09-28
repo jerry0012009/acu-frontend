@@ -34,6 +34,36 @@ export async function getUsers(
   return res.data
 }
 
+export async function getAllUsers(
+  params: Omit<GetUsersParams, 'p' | 'page_size'> = {}
+): Promise<GetUsersResponse> {
+  const pageSize = 100
+  const firstPage = await getUsers({ ...params, p: 1, page_size: pageSize })
+  if (!firstPage.data || firstPage.data.total <= firstPage.data.items.length) {
+    return firstPage
+  }
+
+  const items = [...firstPage.data.items]
+  const pageCount = Math.ceil(firstPage.data.total / pageSize)
+  for (let page = 2; page <= pageCount; page += 1) {
+    const nextPage = await getUsers({
+      ...params,
+      p: page,
+      page_size: pageSize,
+    })
+    if (!nextPage.data) break
+    items.push(...nextPage.data.items)
+  }
+
+  return {
+    ...firstPage,
+    data: {
+      ...firstPage.data,
+      items,
+    },
+  }
+}
+
 /**
  * Search users by keyword or group
  */

@@ -15,11 +15,13 @@ interface ComboboxInputProps {
   options: ComboboxInputOption[]
   value?: string
   onValueChange: (value: string) => void
+  onSearchValueChange?: (value: string) => void
   placeholder?: string
   emptyText?: string
   className?: string
   id?: string
   allowCustomValue?: boolean
+  filterOptions?: boolean
   openOnFocus?: boolean
 }
 
@@ -27,11 +29,13 @@ export function ComboboxInput({
   options,
   value = '',
   onValueChange,
+  onSearchValueChange,
   placeholder = 'Select or type...',
   emptyText = 'No option found.',
   className,
   id,
   allowCustomValue = false,
+  filterOptions = true,
   openOnFocus = true,
 }: ComboboxInputProps) {
   const { t } = useTranslation()
@@ -49,6 +53,7 @@ export function ComboboxInput({
   const displayValue = open ? searchValue : (selectedOption?.label ?? value)
 
   const filteredOptions = React.useMemo(() => {
+    if (!filterOptions) return options
     if (!searchValue.trim()) return options
     const search = searchValue.toLowerCase().trim()
     return options.filter(
@@ -56,7 +61,7 @@ export function ComboboxInput({
         option.label.toLowerCase().includes(search) ||
         option.value.toLowerCase().includes(search)
     )
-  }, [options, searchValue])
+  }, [filterOptions, options, searchValue])
 
   // Reset highlight when filtered options change
   React.useEffect(() => {
@@ -83,6 +88,7 @@ export function ComboboxInput({
 
   const handleSelect = (selectedValue: string) => {
     onValueChange(selectedValue)
+    onSearchValueChange?.('')
     setOpen(false)
     setSearchValue('')
     inputRef.current?.focus()
@@ -136,9 +142,7 @@ export function ComboboxInput({
     item?.scrollIntoView({ block: 'nearest' })
   }, [highlightedIndex])
 
-  const showDropdown =
-    open &&
-    (filteredOptions.length > 0 || (allowCustomValue && searchValue.trim()))
+  const showDropdown = open
 
   return (
     <div ref={containerRef} className='relative'>
@@ -156,6 +160,7 @@ export function ComboboxInput({
         onChange={(e) => {
           const nextValue = e.target.value
           setSearchValue(nextValue)
+          onSearchValueChange?.(nextValue)
           if (allowCustomValue) {
             onValueChange(nextValue)
           }
@@ -169,6 +174,9 @@ export function ComboboxInput({
         }}
         onFocus={() => {
           setSearchValue(allowCustomValue && !selectedOption ? value : '')
+          onSearchValueChange?.(
+            allowCustomValue && !selectedOption ? value : ''
+          )
           if (openOnFocus || pointerFocusRef.current) {
             setOpen(true)
           }

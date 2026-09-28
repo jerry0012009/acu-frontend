@@ -87,6 +87,52 @@ func ResetPrivateACUPrompts(ctx context.Context, updatedBy string) (dto.ACUPriva
 	return envelope.Prompts, nil
 }
 
+func GetPrivateACUUserConfigs(ctx context.Context) (dto.ACUPrivateUserConfigList, error) {
+	response, err := acuRouterAdminRequest(
+		ctx,
+		http.MethodGet,
+		"/internal/admin/private-acu/user-configs",
+		nil,
+	)
+	if err != nil {
+		return dto.ACUPrivateUserConfigList{}, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return dto.ACUPrivateUserConfigList{}, fmt.Errorf(
+			"Private ACU user config list request returned HTTP %d",
+			response.StatusCode,
+		)
+	}
+	var result dto.ACUPrivateUserConfigList
+	if err := common.DecodeJson(response.Body, &result); err != nil {
+		return dto.ACUPrivateUserConfigList{}, err
+	}
+	return result, nil
+}
+
+func SavePrivateACURuntime(
+	ctx context.Context,
+	input dto.ACUPrivateRuntimeRequest,
+	updatedBy string,
+) (dto.ACUPrivatePrompts, error) {
+	current, err := GetPrivateACUPrompts(ctx)
+	if err != nil {
+		return dto.ACUPrivatePrompts{}, err
+	}
+	enabled := input.Enabled
+	referenceEnabled := input.AdvisorReferenceEnabled
+	interval := input.ObserverInterval
+	return SavePrivateACUPrompts(ctx, dto.ACUPrivatePromptsRequest{
+		ObserverPrompt:          current.ObserverPrompt,
+		AdvisorPrompt:           current.AdvisorPrompt,
+		LearningPrompt:          current.LearningPrompt,
+		Enabled:                 &enabled,
+		AdvisorReferenceEnabled: &referenceEnabled,
+		ObserverInterval:        &interval,
+	}, updatedBy)
+}
+
 func GetPrivateACUMemory(ctx context.Context, userID string) (dto.ACUPrivateMemory, error) {
 	query := url.Values{}
 	if strings.TrimSpace(userID) != "" {

@@ -51,7 +51,7 @@ await i18n
 
 after(() => domWindow.close())
 
-test('shows referenced Skill names and Markdown without exposing call counts', async () => {
+test('shows referenced preference names and Markdown without exposing call counts', async () => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
@@ -132,7 +132,7 @@ test('shows referenced Skill names and Markdown without exposing call counts', a
   await act(async () => skillSummary.click())
 
   assert.equal(skillDetails.open, true)
-  assert.match(container.textContent ?? '', /SKILL\.md/)
+  assert.match(container.textContent ?? '', /Preference document/)
   assert.match(container.textContent ?? '', /Verify the real user path/)
 
   await act(async () => root.unmount())

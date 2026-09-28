@@ -50,6 +50,53 @@ type ACUAdvisorNotificationPreferences struct {
 	EmailTarget    string `json:"emailTarget,omitempty"`
 }
 
+type ACUPrivateUserConfig struct {
+	ObserverEnabled            bool   `json:"observerEnabled"`
+	AdvisorEnabled             bool   `json:"advisorEnabled"`
+	InjectionEnabled           bool   `json:"injectionEnabled"`
+	LearningEnabled            bool   `json:"learningEnabled"`
+	ObserverInterval           *int   `json:"observerInterval"`
+	EffectiveObserverInterval  int    `json:"effectiveObserverInterval"`
+	GlobalObserverInterval     int    `json:"globalObserverInterval"`
+	UsesGlobalObserverInterval bool   `json:"usesGlobalObserverInterval"`
+	GlobalEnabled              bool   `json:"globalEnabled"`
+	GlobalInjectionEnabled     bool   `json:"globalInjectionEnabled"`
+	UpdatedAt                  string `json:"updatedAt,omitempty"`
+}
+
+type ACUPrivateUserConfigRequest struct {
+	ObserverEnabled  bool `json:"observerEnabled"`
+	AdvisorEnabled   bool `json:"advisorEnabled"`
+	InjectionEnabled bool `json:"injectionEnabled"`
+	LearningEnabled  bool `json:"learningEnabled"`
+	ObserverInterval *int `json:"observerInterval"`
+}
+
+type ACUPrivateUserConfigSummary struct {
+	NewAPIUserID               string `json:"newapiUserId"`
+	ObserverEnabled            bool   `json:"observerEnabled"`
+	AdvisorEnabled             bool   `json:"advisorEnabled"`
+	InjectionEnabled           bool   `json:"injectionEnabled"`
+	LearningEnabled            bool   `json:"learningEnabled"`
+	ObserverInterval           *int   `json:"observerInterval"`
+	EffectiveObserverInterval  int    `json:"effectiveObserverInterval"`
+	GlobalObserverInterval     int    `json:"globalObserverInterval"`
+	UsesGlobalObserverInterval bool   `json:"usesGlobalObserverInterval"`
+	GlobalEnabled              bool   `json:"globalEnabled"`
+	GlobalInjectionEnabled     bool   `json:"globalInjectionEnabled"`
+	UpdatedAt                  string `json:"updatedAt,omitempty"`
+}
+
+type ACUPrivateUserConfigList struct {
+	Configs []ACUPrivateUserConfigSummary `json:"configs"`
+}
+
+type ACUPrivateRuntimeRequest struct {
+	Enabled                 bool `json:"enabled"`
+	AdvisorReferenceEnabled bool `json:"advisorReferenceEnabled"`
+	ObserverInterval        int  `json:"observerInterval" binding:"required,min=1,max=100000"`
+}
+
 type ACUAdvisorNotificationEvent struct {
 	EventType                  string `json:"eventType"`
 	AdvisorID                  string `json:"advisorId" binding:"required"`
@@ -270,6 +317,49 @@ type ACUPrivateLearningRuns struct {
 	Runs []ACUPrivateLearningRun `json:"runs"`
 }
 
+type ACUPrivateLearningRunSelf struct {
+	RunID                 string `json:"runId"`
+	LearningKind          string `json:"learningKind"`
+	Status                string `json:"status"`
+	ElementCount          int64  `json:"elementCount"`
+	SkillChangeCount      int64  `json:"skillChangeCount"`
+	PreferenceChangeCount int64  `json:"preferenceChangeCount"`
+	ReceivedAt            string `json:"receivedAt"`
+	CompletedAt           string `json:"completedAt,omitempty"`
+}
+
+type ACUPrivateLearningRunsSelf struct {
+	Runs []ACUPrivateLearningRunSelf `json:"runs"`
+}
+
+type ACUPrivateLearningRunSelfDetail struct {
+	RunID            string                   `json:"runId"`
+	LearningKind     string                   `json:"learningKind"`
+	Status           string                   `json:"status"`
+	ElementCount     int64                    `json:"elementCount"`
+	SkillChangeCount int64                    `json:"skillChangeCount"`
+	ReceivedAt       string                   `json:"receivedAt"`
+	CompletedAt      string                   `json:"completedAt,omitempty"`
+	Distillation     map[string]interface{}   `json:"distillation"`
+	SkillChanges     []map[string]interface{} `json:"skillChanges"`
+}
+
+type ACUPrivateUsageWindow struct {
+	Window             string            `json:"window"`
+	Calls              int64             `json:"calls"`
+	UserChargeCNY      string            `json:"userChargeCny"`
+	ByStage            map[string]string `json:"byStage"`
+	ByStageCalls       map[string]int64  `json:"byStageCalls"`
+	TotalUserChargeCNY string            `json:"totalUserChargeCny"`
+	PlatformChargeCNY  string            `json:"platformChargeCny"`
+	AdviceCount        int64             `json:"adviceCount"`
+	HelpfulAdviceCount int64             `json:"helpfulAdviceCount"`
+}
+
+type ACUPrivateUsageSummary struct {
+	Windows []ACUPrivateUsageWindow `json:"windows"`
+}
+
 type ACUPrivateLearningRunMedia struct {
 	MediaID    string                 `json:"mediaId"`
 	ImageIndex int                    `json:"imageIndex"`
@@ -329,6 +419,19 @@ type ACUPrivateUsageTotal struct {
 }
 
 type ACUPrivateUsage struct {
-	Entries []ACUPrivateUsageEntry `json:"entries"`
-	Totals  []ACUPrivateUsageTotal `json:"totals"`
+	Entries []ACUPrivateUsageEntry       `json:"entries"`
+	Totals  []ACUPrivateUsageTotal       `json:"totals"`
+	Summary ACUPrivateUsageSummaryResult `json:"summary"`
+}
+
+type ACUPrivateUsageSummaryResult struct {
+	Windows []ACUPrivateUsageSummaryWindow `json:"windows"`
+}
+
+type ACUPrivateUsageSummaryWindow struct {
+	Window             string `json:"window"`
+	UserChargeCNY      string `json:"userChargeCny"`
+	PlatformChargeCNY  string `json:"platformChargeCny"`
+	AdviceCount        int64  `json:"adviceCount"`
+	HelpfulAdviceCount int64  `json:"helpfulAdviceCount"`
 }
