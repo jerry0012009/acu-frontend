@@ -84,7 +84,8 @@ export function ACUExecutionProfileManager() {
     setEditingId(profile?.executionProfileId ?? null)
     setProbeProtocol(next.protocols[0] ?? 'responses')
     setProbeResult(null)
-    const connection = profileQuery.data?.data?.channels?.[next.channelId || next.channel]
+    const connection =
+      profileQuery.data?.data?.channels?.[next.channelId || next.channel]
     setChannelBaseUrl(connection?.baseUrl ?? '')
     setChannelFallbackUrls(connection?.fallbackBaseUrls.join('\n') ?? '')
     setChannelApiKey('')
@@ -126,11 +127,15 @@ export function ACUExecutionProfileManager() {
       toast.error(error instanceof Error ? error.message : t('Probe failed')),
   })
   const saveChannel = useMutation({
-    mutationFn: () => updateACUChannelConnection(draft.channelId || draft.channel, {
-      baseUrl: channelBaseUrl,
-      fallbackBaseUrls: channelFallbackUrls.split('\n').map((url) => url.trim()).filter(Boolean),
-      ...(channelApiKey.trim() ? { apiKey: channelApiKey.trim() } : {}),
-    }),
+    mutationFn: () =>
+      updateACUChannelConnection(draft.channelId || draft.channel, {
+        baseUrl: channelBaseUrl,
+        fallbackBaseUrls: channelFallbackUrls
+          .split('\n')
+          .map((url) => url.trim())
+          .filter(Boolean),
+        ...(channelApiKey.trim() ? { apiKey: channelApiKey.trim() } : {}),
+      }),
     onSuccess: async () => {
       setChannelApiKey('')
       await Promise.all([
@@ -154,7 +159,9 @@ export function ACUExecutionProfileManager() {
         <div className='flex flex-wrap items-center justify-between gap-2'>
           <div>
             <h3 className='text-sm font-semibold'>{t('Execution Profiles')}</h3>
-            <p className='text-muted-foreground text-xs'>{t('Changes take effect immediately')}</p>
+            <p className='text-muted-foreground text-xs'>
+              {t('Changes take effect immediately')}
+            </p>
           </div>
           <div className='flex flex-wrap gap-2'>
             <ACUProviderQuickAdd />
@@ -249,15 +256,21 @@ export function ACUExecutionProfileManager() {
                   />
                 </label>
                 <label className='block space-y-1'>
-                  <span className='text-muted-foreground'>{t('Fallback URLs (one per line)')}</span>
+                  <span className='text-muted-foreground'>
+                    {t('Fallback URLs (one per line)')}
+                  </span>
                   <textarea
                     className='bg-background min-h-16 w-full rounded border px-2 py-1'
                     value={channelFallbackUrls}
-                    onChange={(event) => setChannelFallbackUrls(event.target.value)}
+                    onChange={(event) =>
+                      setChannelFallbackUrls(event.target.value)
+                    }
                   />
                 </label>
                 <label className='block space-y-1'>
-                  <span className='text-muted-foreground'>{t('Replace API Key (leave blank to keep current)')}</span>
+                  <span className='text-muted-foreground'>
+                    {t('Replace API Key (leave blank to keep current)')}
+                  </span>
                   <input
                     type='password'
                     autoComplete='new-password'

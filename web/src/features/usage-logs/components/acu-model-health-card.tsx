@@ -24,12 +24,12 @@ import {
 } from './acu-channel-health-model'
 import { modelAccessFor } from './acu-global-routing-policy'
 import { StatusTimeline } from './acu-health-timeline'
-import { ACUTokenProfileWeight } from './acu-token-profile-weight'
 import {
   monitorStateLabel,
   profileLatencyDisplay,
   protocolShortLabel,
 } from './acu-monitor-presentation'
+import { ACUTokenProfileWeight } from './acu-token-profile-weight'
 
 const stateVariant = {
   healthy: 'success',
@@ -180,12 +180,7 @@ function ModelProfile(props: {
   const globallyAllowed = profile.routingEnabled
   const modelAccess =
     policy &&
-    modelAccessFor(
-      policy,
-      profile.canonicalModel,
-      true,
-      profile.routingEnabled
-    )
+    modelAccessFor(policy, profile.canonicalModel, true, profile.routingEnabled)
   const modelExposed = modelAccess !== 'disabled'
   let globalRoutingStatus = t('Loading...')
   if (policy) {

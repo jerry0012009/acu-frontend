@@ -21,13 +21,13 @@ import {
 } from './acu-channel-health-model'
 import { modelAccessFor } from './acu-global-routing-policy'
 import { StatusTimeline } from './acu-health-timeline'
-import { ACUTokenProfileWeight } from './acu-token-profile-weight'
 import {
   monitorReason,
   monitorStateLabel,
   protocolLabel,
   protocolShortLabel,
 } from './acu-monitor-presentation'
+import { ACUTokenProfileWeight } from './acu-token-profile-weight'
 
 function milliseconds(value?: number | null) {
   if (!value) return 'n/a'
@@ -288,12 +288,7 @@ function ChannelProfile(props: {
   const globallyAllowed = profile.routingEnabled
   const modelAccess =
     policy &&
-    modelAccessFor(
-      policy,
-      profile.canonicalModel,
-      true,
-      profile.routingEnabled
-    )
+    modelAccessFor(policy, profile.canonicalModel, true, profile.routingEnabled)
   const modelExposed = modelAccess !== 'disabled'
   const firstProtocol = profile.protocol[0]
   const togglePending =

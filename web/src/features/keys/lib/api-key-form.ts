@@ -35,10 +35,9 @@ export function getApiKeyFormSchema(t: TFunction) {
         z.string(),
         z.number().min(0).max(200)
       ),
-      acu_profile_preference_scores: z.record(
-        z.string(),
-        z.number().min(0).max(200)
-      ).optional(),
+      acu_profile_preference_scores: z
+        .record(z.string(), z.number().min(0).max(200))
+        .optional(),
       allow_ips: z.string().optional(),
       group: z.string().optional(),
       cross_group_retry: z.boolean().optional(),
@@ -236,8 +235,7 @@ export function transformApiKeyToFormDefaults(
     acu_allowed_candidate_ids: apiKey.acu_allowed_candidate_ids ?? [],
     acu_candidate_preference_scores:
       apiKey.acu_candidate_preference_scores ?? {},
-    acu_profile_preference_scores:
-      apiKey.acu_profile_preference_scores ?? {},
+    acu_profile_preference_scores: apiKey.acu_profile_preference_scores ?? {},
     allow_ips: apiKey.allow_ips || '',
     group: apiKey.group || DEFAULT_GROUP,
     cross_group_retry: !!apiKey.cross_group_retry,

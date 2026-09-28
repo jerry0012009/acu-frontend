@@ -1357,7 +1357,7 @@ function RouterConfigurationTab(props: {
   )
 }
 
-function RoutingUtilityEditor(props: {
+export function RoutingUtilityEditor(props: {
   value: ACURoutingUtilityConfig
   modelPool: ACUModelPoolEntry[]
   profiles: ACUChannelMonitorProfile[]
@@ -1444,6 +1444,12 @@ function RoutingUtilityEditor(props: {
       </summary>
       <div className='mt-3 space-y-4'>
         <div className='grid gap-3 sm:grid-cols-2 lg:grid-cols-4'>
+          <div className='space-y-1 text-xs'>
+            <div className='text-muted-foreground'>{t('Formula')}</div>
+            <div className='flex h-8 items-center font-medium'>
+              {t('Active Utility')}
+            </div>
+          </div>
           {(['economy', 'balanced', 'quality'] as const).map((preset) =>
             numberField(
               `${preset} quality bias`,

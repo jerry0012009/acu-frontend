@@ -27,7 +27,7 @@ function profile(
     protocol: ['responses'],
     provider: 'lucen',
     channel: 'cx006',
-    enabled: true,
+    routingEnabled: true,
     routingEligible: true,
     channelState: 'healthy',
     channelStateRaw: 'healthy',

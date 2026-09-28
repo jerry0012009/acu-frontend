@@ -246,9 +246,7 @@ export function ACUProbeResultPanel(props: {
             disabled={props.savePending}
             onClick={props.onSaveCalibration}
           >
-            {props.savePending
-              ? t('Saving')
-              : t('Save cost and global weight')}
+            {props.savePending ? t('Saving') : t('Save cost and global weight')}
           </Button>
           {props.saveMessage ? (
             <span className='text-muted-foreground ml-2'>
