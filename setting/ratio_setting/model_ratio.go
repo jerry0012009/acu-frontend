@@ -97,7 +97,7 @@ var defaultModelRatio = map[string]float64{
 	"gpt-5-nano":                                0.025,
 	"gpt-5-nano-2025-08-07":                     0.025,
 	"gpt-5.5":                                   2.5,  // $5 / 1M tokens
-	"gpt-5.6-sol":                               2,    // $4 / 1M input tokens
+	"gpt-5.6-sol":                               2.5,  // $5 / 1M input tokens
 	"gpt-5.6-terra":                             1,    // $2 / 1M input tokens
 	"gpt-5.6-luna":                              0.1,  // $0.2 / 1M input tokens
 	"gpt-6-sol":                                 1,    // $2 / 1M input tokens
@@ -511,9 +511,9 @@ func getHardcodedCompletionModelRatio(name string) (float64, bool) {
 
 	if strings.HasPrefix(name, "gpt-") {
 		switch name {
-		case "gpt-5.6-sol", "gpt-6-sol":
+		case "gpt-6-sol":
 			return 5, false
-		case "gpt-5.6-terra", "gpt-5.6-luna":
+		case "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna":
 			return 6, false
 		case "gpt-6-luna":
 			return 5, false

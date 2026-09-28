@@ -16,7 +16,7 @@ export async function getACUSelectionCorridor(
   inputTokens: number,
   outputTokens: number,
   tokenId?: number,
-  protocol: 'responses' | 'messages' = 'responses'
+  protocol: 'responses' | 'messages' | 'chat_completions' = 'responses'
 ): Promise<ACUSelectionCorridor> {
   const path =
     tokenId == null

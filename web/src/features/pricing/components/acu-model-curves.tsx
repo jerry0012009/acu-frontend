@@ -67,7 +67,7 @@ function positiveInteger(value: string, fallback: number): number {
 }
 
 type CurveSortMode = 'price' | 'ability'
-type PricingProtocol = 'all' | 'responses' | 'messages'
+type PricingProtocol = 'all' | 'responses' | 'messages' | 'chat_completions'
 
 const CORRIDOR_PREFERENCES: Array<{
   id: CorridorPreference
@@ -157,8 +157,11 @@ export function ACUModelCurves(props: {
     // The corridor contains recommended candidates, not the complete
     // protocol inventory. Keep every curve-capable model for the selected
     // protocol and use corridor eligibility only for the all-protocol view.
-    const protocolLabel =
-      pricingProtocol === 'messages' ? 'Messages' : 'Responses'
+    const protocolLabel = {
+      messages: 'Messages',
+      responses: 'Responses',
+      chat_completions: 'Chat Completions',
+    }[pricingProtocol]
     return allCurveModels.filter((model) =>
       model.acu_protocol
         ?.split('+')
@@ -746,6 +749,7 @@ export function ACUModelCurves(props: {
                   [
                     ['all', t('Default')],
                     ['responses', t('Responses')],
+                    ['chat_completions', t('Chat Completions')],
                     ['messages', t('Messages')],
                   ] as const
                 ).map(([protocol, label]) => (

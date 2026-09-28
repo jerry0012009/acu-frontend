@@ -116,3 +116,9 @@ Router 增加按用户及时间窗聚合的 calls/byStage/byStageCalls；Fronten
 15 条旧 installer 分支是同一发布链的重复/连续快照，目录来自 Router `tools/codex-acu`，非独立产品实现。采用目前 Router 已有更晚的 GPT-6 Luna/Sol、长上下文、独立 npm 更新前缀和保留用户状态的源码，更新 Frontend 镜像内脚本/模型目录。重新构建并收录缺失 Windows x64、macOS x64/arm64 和 DMG 下载文件，附 `web/public/codex-acu-assets.json` 来源、Go 版本和 SHA256 清单。历史二进制留在恢复引用中。
 
 Go bootstrapper 测试及 Router 安装器 4 项回归通过，shell 语法检查通过。此 Linux 环境完成交叉编译及 DMG 打包，未声称在真实 macOS/Windows 上完成 GUI 安装验收；macOS 包仍沿用现有未公证分发方式。新资产尚未同步生产直接下载目录。
+
+## 最终交叉核对
+
+完整前端 391 项测试、强制类型检查、生产构建和 Go 全量测试通过。恢复 Chat Completions 价格筛选与该协议专属价格计算，保留 latestTargetedProbeAt DTO 字段。安装器模型目录是来自 Router 的带哈希资产，不由前端格式工具重写。
+
+早期 stash 的 GPT-5.6 Sol 草稿价格为 $4/$20，但完整 Router 生产基线及其现行 catalog 是 $5/$30（每百万输入/输出 token）。最终保持已核实生产值，修正上一批默认值恢复时对此模型的错误推断，增加两端回归；其他恢复模型价格不变。不写生产数据库价格。旧草稿保留，独立评估。

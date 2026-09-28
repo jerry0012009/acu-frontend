@@ -85,6 +85,7 @@ type ACURoutingCatalogProfile struct {
 }
 
 type ACUChannelMonitorProfile struct {
+	LatestTargetedProbeAt           string                   `json:"latestTargetedProbeAt"`
 	RawCostUtility                  *float64                 `json:"rawCostUtility"`
 	RawSpeedUtility                 *float64                 `json:"rawSpeedUtility"`
 	RawReliabilityUtility           *float64                 `json:"rawReliabilityUtility"`

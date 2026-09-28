@@ -28,7 +28,12 @@ export function estimatedPricingCost(
 
 export function defaultACUPricingProtocol(
   payableByProtocol: PricingModel['payable_by_protocol']
-): 'responses' | 'messages' | 'chat_completions' | undefined {
+):
+  | 'responses'
+  | 'messages'
+  | 'chat_completions'
+  | 'chat_completions'
+  | undefined {
   if (payableByProtocol?.responses) return 'responses'
   if (payableByProtocol?.messages) return 'messages'
   if (payableByProtocol?.chat_completions) return 'chat_completions'
@@ -49,7 +54,7 @@ export function displayedPricingCost(
   _mode: PricingDisplayMode,
   inputTokens: number,
   outputTokens: number,
-  protocol: 'all' | 'responses' | 'messages' = 'all'
+  protocol: 'all' | 'responses' | 'messages' | 'chat_completions' = 'all'
 ): number {
   const selectedProtocol =
     protocol === 'all'

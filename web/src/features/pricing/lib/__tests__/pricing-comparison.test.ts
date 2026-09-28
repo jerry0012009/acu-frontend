@@ -268,3 +268,27 @@ test('includes execution preset display costs in the shared price range', () => 
     maximum: 0.8,
   })
 })
+
+test('Chat Completions comparison uses its own protocol price', () => {
+  const chatModel = {
+    ...model,
+    payable_by_protocol: {
+      ...model.payable_by_protocol,
+      chat_completions: {
+        ...model.payable,
+        input_cny_per_million: 8,
+        output_cny_per_million: 12,
+      },
+    },
+  }
+  assert.equal(
+    displayedPricingCost(
+      chatModel,
+      'comparison',
+      1_000_000,
+      100_000,
+      'chat_completions'
+    ),
+    9.2
+  )
+})
