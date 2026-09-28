@@ -1,4 +1,4 @@
-import type { PricingDisplayMode, PricingModel } from '../types'
+import type { PricingDisplayMode, PricingModel, PricingPayable } from '../types'
 
 export type PricingCostDatum = {
   modelId: string
@@ -26,6 +26,24 @@ export function estimatedPricingCost(
   return (inputTokens * inputPrice + outputTokens * outputPrice) / 1_000_000
 }
 
+export function defaultACUPricingProtocol(
+  payableByProtocol: PricingModel['payable_by_protocol']
+): 'responses' | 'messages' | 'chat_completions' | undefined {
+  if (payableByProtocol?.responses) return 'responses'
+  if (payableByProtocol?.messages) return 'messages'
+  if (payableByProtocol?.chat_completions) return 'chat_completions'
+  return undefined
+}
+
+export function selectedACUPricingPayable(
+  model: Pick<PricingModel, 'payable' | 'payable_by_protocol'>
+): PricingPayable | undefined {
+  const protocol = defaultACUPricingProtocol(model.payable_by_protocol)
+  return protocol
+    ? (model.payable_by_protocol?.[protocol] ?? model.payable)
+    : model.payable
+}
+
 export function displayedPricingCost(
   model: PricingModel,
   _mode: PricingDisplayMode,
@@ -33,10 +51,14 @@ export function displayedPricingCost(
   outputTokens: number,
   protocol: 'all' | 'responses' | 'messages' = 'all'
 ): number {
-  const protocolPrice =
+  const selectedProtocol =
     protocol === 'all'
+      ? defaultACUPricingProtocol(model.payable_by_protocol)
+      : protocol
+  const protocolPrice =
+    selectedProtocol === undefined
       ? model.payable
-      : (model.payable_by_protocol?.[protocol] ?? model.payable)
+      : (model.payable_by_protocol?.[selectedProtocol] ?? model.payable)
   return (
     estimatedPricingCost(
       protocolPrice?.input_cny_per_million,

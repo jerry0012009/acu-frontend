@@ -744,9 +744,9 @@ export function ACUModelCurves(props: {
               >
                 {(
                   [
-                    ['all', 'ALL'],
-                    ['responses', 'OpenAI'],
-                    ['messages', 'Claude'],
+                    ['all', t('Default')],
+                    ['responses', t('Responses')],
+                    ['messages', t('Messages')],
                   ] as const
                 ).map(([protocol, label]) => (
                   <Button

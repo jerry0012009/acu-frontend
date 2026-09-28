@@ -95,18 +95,24 @@ export function sortModels(
   sortBy: string
 ): PricingModel[] {
   const sorted = [...models]
+  const byName = (a: PricingModel, b: PricingModel) =>
+    (a.model_name || '').localeCompare(b.model_name || '')
 
   switch (sortBy) {
     case SORT_OPTIONS.NAME:
-      sorted.sort((a, b) =>
-        (a.model_name || '').localeCompare(b.model_name || '')
-      )
+      sorted.sort(byName)
       break
     case SORT_OPTIONS.PRICE_LOW:
-      sorted.sort((a, b) => getModelPrice(a) - getModelPrice(b))
+      sorted.sort((a, b) => {
+        const difference = getModelPrice(a) - getModelPrice(b)
+        return difference || byName(a, b)
+      })
       break
     case SORT_OPTIONS.PRICE_HIGH:
-      sorted.sort((a, b) => getModelPrice(b) - getModelPrice(a))
+      sorted.sort((a, b) => {
+        const difference = getModelPrice(b) - getModelPrice(a)
+        return difference || byName(a, b)
+      })
       break
   }
 
@@ -165,7 +171,7 @@ export function extractAllTags(models: PricingModel[]): string[] {
     }
   })
 
-  return Array.from(tagSet).sort((a, b) => a.localeCompare(b))
+  return [...tagSet].sort((a, b) => a.localeCompare(b))
 }
 
 /**

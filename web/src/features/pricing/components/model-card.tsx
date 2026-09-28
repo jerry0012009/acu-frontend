@@ -26,6 +26,10 @@ import {
   formatPublicReferenceSource,
   formatRequestPrice,
 } from '../lib/price'
+import {
+  defaultACUPricingProtocol,
+  selectedACUPricingPayable,
+} from '../lib/pricing-comparison'
 import type {
   PricingDisplayMode,
   PricingModel,
@@ -50,9 +54,41 @@ export interface ModelCardProps {
 
 function ACUPricingTooltip(props: {
   payable?: PricingPayable
+  payableByProtocol?: Record<string, PricingPayable>
   reference?: PricingReference
 }) {
   const { t } = useTranslation()
+  const protocolPrices = [
+    {
+      key: 'responses',
+      label: t('OpenAI Responses (Codex)'),
+    },
+    {
+      key: 'messages',
+      label: t('Anthropic Messages (Claude protocol)'),
+    },
+    {
+      key: 'chat_completions',
+      label: t('OpenAI Chat Completions'),
+    },
+  ]
+    .map((protocol) => ({
+      ...protocol,
+      price: props.payableByProtocol?.[protocol.key],
+    }))
+    .filter(
+      (protocol): protocol is typeof protocol & { price: PricingPayable } =>
+        protocol.price !== undefined
+    )
+  const defaultProtocol = defaultACUPricingProtocol(props.payableByProtocol)
+  const protocolLabels = {
+    responses: t('Responses'),
+    messages: t('Messages'),
+    chat_completions: t('Chat Completions'),
+  }
+  const defaultProtocolLabel = defaultProtocol
+    ? protocolLabels[defaultProtocol]
+    : undefined
   return (
     <TooltipProvider delay={100}>
       <Tooltip>
@@ -66,7 +102,10 @@ function ACUPricingTooltip(props: {
         <TooltipContent className='block max-w-80 space-y-3 p-3 leading-relaxed'>
           {props.payable && (
             <div>
-              <p className='font-semibold'>{t('Current platform estimate')}</p>
+              <p className='font-semibold'>
+                {t('Current platform estimate')}
+                {defaultProtocolLabel ? ` · ${defaultProtocolLabel}` : ''}
+              </p>
               <p>
                 {t('Input')}:{' '}
                 {formatACUCNY(props.payable.input_cny_per_million)} / 1M Tokens
@@ -87,6 +126,19 @@ function ACUPricingTooltip(props: {
                   {t('Price status')}: {t('Estimated')}
                 </p>
               )}
+            </div>
+          )}
+          {protocolPrices.length > 1 && (
+            <div className='border-background/20 border-t pt-2'>
+              {protocolPrices.map((protocol) => (
+                <p key={protocol.key}>
+                  {protocol.label}: {t('Input')}{' '}
+                  {formatACUCNY(protocol.price.input_cny_per_million)} /{' '}
+                  {t('Output')}{' '}
+                  {formatACUCNY(protocol.price.output_cny_per_million)} / 1M
+                  Tokens
+                </p>
+              ))}
             </div>
           )}
           {props.reference ? (
@@ -174,6 +226,18 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
     Math.max(groups.length - 1, 0) +
     Math.max(endpoints.length - 2, 0) +
     Math.max(tags.length - 2, 0)
+  const defaultProtocol = defaultACUPricingProtocol(
+    props.model.payable_by_protocol
+  )
+  const protocolLabels = {
+    responses: t('Responses'),
+    messages: t('Messages'),
+    chat_completions: t('Chat Completions'),
+  }
+  const defaultProtocolLabel = defaultProtocol
+    ? protocolLabels[defaultProtocol]
+    : undefined
+  const displayedACUPayable = selectedACUPricingPayable(props.model)
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -187,14 +251,16 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
         {props.model.pricing_label || t('Dynamic Pricing')}
       </span>
     )
-  } else if (props.model.payable) {
-    const displayed = props.model.payable
+  } else if (displayedACUPayable) {
+    const displayed = displayedACUPayable
     priceSummary = (
       <div className='flex min-w-0 flex-col gap-1'>
         <div className='text-muted-foreground flex items-center gap-1 text-xs font-medium'>
           {t('Current routed estimate')}
+          {defaultProtocolLabel ? ` · ${defaultProtocolLabel}` : ''}
           <ACUPricingTooltip
-            payable={props.model.payable}
+            payable={displayedACUPayable}
+            payableByProtocol={props.model.payable_by_protocol}
             reference={props.model.reference}
           />
         </div>

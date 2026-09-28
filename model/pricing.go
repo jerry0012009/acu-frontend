@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"sync"
@@ -225,6 +226,12 @@ func appendPricingEndpoint(endpoints []string, endpoint string) []string {
 		return endpoints
 	}
 	return append(endpoints, endpoint)
+}
+
+func sortPricingModels(pricing []Pricing) {
+	sort.SliceStable(pricing, func(i, j int) bool {
+		return pricing[i].ModelName < pricing[j].ModelName
+	})
 }
 
 func updatePricing() {
@@ -458,6 +465,7 @@ func updatePricing() {
 		}
 		pricingMap = append(pricingMap, pricing)
 	}
+	sortPricingModels(pricingMap)
 
 	// 防止大更新后数据不通用
 	if len(pricingMap) > 0 {

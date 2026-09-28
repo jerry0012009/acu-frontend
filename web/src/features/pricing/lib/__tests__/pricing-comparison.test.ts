@@ -6,9 +6,11 @@ import {
   buildPricingBarSeries,
   buildPricingCostSpec,
   compareDisplayedCostsDescending,
+  defaultACUPricingProtocol,
   displayedPricingCost,
   estimatedPricingCost,
   pricingCostRange,
+  selectedACUPricingPayable,
 } from '../pricing-comparison.ts'
 
 const specOptions = {
@@ -184,17 +186,20 @@ test('comparison keeps the payable bar when a model has no reference', () => {
 })
 
 test('all display modes sort by routed payable estimates', () => {
-  assert.equal(displayedPricingCost(model, 'comparison', 1_000_000, 100_000), 3)
+  assert.equal(
+    displayedPricingCost(model, 'comparison', 1_000_000, 100_000),
+    1.5
+  )
   assert.equal(
     displayedPricingCost(model, 'reference_only', 1_000_000, 100_000),
-    3
+    1.5
   )
 })
 
-test('protocol views select backend payable prices while all keeps the backend compatibility price', () => {
+test('default and protocol views select the Responses-first public price', () => {
   assert.equal(
     displayedPricingCost(model, 'comparison', 1_000_000, 100_000, 'all'),
-    3
+    1.5
   )
   assert.equal(
     displayedPricingCost(model, 'comparison', 1_000_000, 100_000, 'responses'),
@@ -203,6 +208,38 @@ test('protocol views select backend payable prices while all keeps the backend c
   assert.equal(
     displayedPricingCost(model, 'comparison', 1_000_000, 100_000, 'messages'),
     6
+  )
+})
+
+test('default protocol falls back from Responses to Messages then Chat Completions', () => {
+  assert.equal(
+    defaultACUPricingProtocol(model.payable_by_protocol),
+    'responses'
+  )
+  assert.equal(
+    defaultACUPricingProtocol({ messages: model.payable_by_protocol.messages }),
+    'messages'
+  )
+  assert.equal(
+    defaultACUPricingProtocol({
+      chat_completions: model.payable_by_protocol.messages,
+    }),
+    'chat_completions'
+  )
+  assert.equal(defaultACUPricingProtocol(undefined), undefined)
+})
+
+test('model cards use the Responses payable price before other protocols', () => {
+  assert.deepEqual(
+    selectedACUPricingPayable(model),
+    model.payable_by_protocol.responses
+  )
+  assert.deepEqual(
+    selectedACUPricingPayable({
+      payable: model.payable,
+      payable_by_protocol: { messages: model.payable_by_protocol.messages },
+    }),
+    model.payable_by_protocol.messages
   )
 })
 
