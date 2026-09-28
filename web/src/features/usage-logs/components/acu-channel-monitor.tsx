@@ -74,6 +74,7 @@ import {
   type ACUMonitorProtocol,
   type ACUMonitorSort,
 } from './acu-monitor-presentation'
+import { ACUMonitorQuickCalibration } from './acu-monitor-quick-calibration'
 import { ACUProfileProbeInspector } from './acu-profile-probe-inspector'
 import { ACUVeridropInspector } from './acu-veridrop-inspector'
 
@@ -660,6 +661,7 @@ export function ACUChannelMonitor(
           <RefreshCw className='size-4' />
         </Button>
       </div>
+      {isRoot && <ACUMonitorQuickCalibration />}
       <div className='bg-card/50 rounded-lg border p-3 sm:p-4'>
         <div className='grid gap-3 lg:grid-cols-[minmax(18rem,1.35fr)_minmax(16rem,1fr)]'>
           <label className='min-w-0 space-y-1 text-xs'>

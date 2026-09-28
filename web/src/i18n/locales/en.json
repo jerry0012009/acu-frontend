@@ -6139,5 +6139,14 @@
   "Global weight": "Global weight",
   "Global weight / Routing score": "Global weight / Routing score",
   "Model-local routing rank": "Model-local routing rank",
-  "Availability first (recommended)": "Availability first (recommended)"
+  "Availability first (recommended)": "Availability first (recommended)",
+  "Quick Profile configuration": "Quick Profile configuration",
+  "Filter Profiles": "Filter Profiles",
+  "Select a Profile": "Select a Profile",
+  "Recharge conversion (credits per RMB)": "Recharge conversion (credits per RMB)",
+  "Conversion belongs to provider {{provider}} and affects {{count}} Profiles.": "Conversion belongs to provider {{provider}} and affects {{count}} Profiles.",
+  "This conversion is shared by {{count}} Profiles. Save for all of them?": "This conversion is shared by {{count}} Profiles. Save for all of them?",
+  "Enter valid positive values; Profile weight must be from 0 to 500": "Enter valid positive values; Profile weight must be from 0 to 500",
+  "Profile configuration could not be loaded": "Profile configuration could not be loaded",
+  "Calibration saved": "Calibration saved"
 }

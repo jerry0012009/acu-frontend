@@ -6139,5 +6139,14 @@
   "Global weight": "全局权重",
   "Global weight / Routing score": "全局权重 / 路由评分",
   "Model-local routing rank": "模型内路由排名",
-  "Availability first (recommended)": "可用性优先（推荐）"
+  "Availability first (recommended)": "可用性优先（推荐）",
+  "Quick Profile configuration": "快捷配置 Profile",
+  "Filter Profiles": "筛选 Profile",
+  "Select a Profile": "选择 Profile",
+  "Recharge conversion (credits per RMB)": "充值换算（每人民币元获得的 credits）",
+  "Conversion belongs to provider {{provider}} and affects {{count}} Profiles.": "充值换算属于供应商 {{provider}}，影响 {{count}} 个 Profile。",
+  "This conversion is shared by {{count}} Profiles. Save for all of them?": "此充值换算由 {{count}} 个 Profile 共用，确定保存并影响全部吗？",
+  "Enter valid positive values; Profile weight must be from 0 to 500": "请输入有效正数；Profile 权重须在 0 到 500 之间",
+  "Profile configuration could not be loaded": "无法加载 Profile 配置",
+  "Calibration saved": "配置已保存"
 }
