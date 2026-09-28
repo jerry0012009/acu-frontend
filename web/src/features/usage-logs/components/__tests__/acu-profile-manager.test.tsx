@@ -104,6 +104,7 @@ test('editing provider conversion retains channel controls and saves through DB 
           authMode: 'bearer',
           billingPrice: { inputPricePerMillion: 2, outputPricePerMillion: 10 },
           observedBillingMultiplier: 0.5,
+          routingWeight: 175,
         },
       ],
       channels: {
@@ -122,6 +123,11 @@ test('editing provider conversion retains channel controls and saves through DB 
       ],
       retailMarkupMultiplier: 1.25,
     },
+  })
+  const tokenRoutingKey = ['acu-token-profile-routing', 42]
+  queryClient.setQueryData(tokenRoutingKey, {
+    success: true,
+    data: { globalWeights: { 'fixture:responses': 100 } },
   })
   const host = document.createElement('div')
   document.body.append(host)
@@ -176,6 +182,10 @@ test('editing provider conversion retains channel controls and saves through DB 
       '/api/log/acu-execution-profiles/fixture%3Aresponses/calibration'
     )
     assert.deepEqual(writes[1].data, { creditsPerCny: 4 })
+    assert.equal(
+      queryClient.getQueryState(tokenRoutingKey)?.isInvalidated,
+      true
+    )
   } finally {
     await act(async () => root.unmount())
     queryClient.clear()

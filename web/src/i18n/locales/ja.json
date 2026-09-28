@@ -6035,5 +6035,9 @@
   "Full Pool": "Full Pool",
   "Targeted": "Targeted",
   "Normalized reliability utility": "Normalized reliability utility",
-  "Scores use the current routing policy and recorded evidence. The latency source above identifies the observations used; unavailable measurements are not zero.": "Scores use the current routing policy and recorded evidence. The latency source above identifies the observations used; unavailable measurements are not zero."
+  "Scores use the current routing policy and recorded evidence. The latency source above identifies the observations used; unavailable measurements are not zero.": "Scores use the current routing policy and recorded evidence. The latency source above identifies the observations used; unavailable measurements are not zero.",
+  "Global weight": "全体の重み",
+  "Global weight / Routing score": "全体の重み / ルーティングスコア",
+  "Model-local routing rank": "モデル内ルーティング順位",
+  "Availability first (recommended)": "可用性優先（推奨）"
 }

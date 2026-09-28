@@ -13,6 +13,7 @@ export type ACUMonitorProtocol =
   | 'chat_completions'
 export type ACUMonitorSort =
   | 'recommended'
+  | 'routing_rank'
   | 'usage'
   | 'cost'
   | 'reliability'
@@ -160,6 +161,13 @@ export function sortMonitorProfiles(
 ): ACUChannelMonitorProfile[] {
   const rows = [...profiles]
   return rows.sort((left, right) => {
+    if (sort === 'routing_rank') {
+      return (
+        (left.profileRank ?? Number.POSITIVE_INFINITY) -
+          (right.profileRank ?? Number.POSITIVE_INFINITY) ||
+        left.executionProfileId.localeCompare(right.executionProfileId)
+      )
+    }
     if (sort === 'usage') {
       return (
         (right.requestCount ?? 0) - (left.requestCount ?? 0) ||

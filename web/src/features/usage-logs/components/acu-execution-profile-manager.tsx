@@ -175,6 +175,9 @@ export function ACUExecutionProfileManager() {
           queryKey: ['acu-global-routing-policy'],
         }),
         queryClient.invalidateQueries({ queryKey: ['acu-channel-monitor'] }),
+        queryClient.invalidateQueries({
+          queryKey: ['acu-token-profile-routing'],
+        }),
         queryClient.invalidateQueries({ queryKey: ['pricing'] }),
       ])
       setOpen(false)

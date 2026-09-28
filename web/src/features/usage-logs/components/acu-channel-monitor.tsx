@@ -203,6 +203,7 @@ export function ACUChannelMonitor(
     if (!props.focus) return
     setProtocol(props.focus.protocol)
     setActiveTab('overview')
+    setSort((current) => (current === 'routing_rank' ? 'recommended' : current))
     setOverviewLayout('model')
   }, [props.focus])
   const query = useQuery({
@@ -423,6 +424,9 @@ export function ACUChannelMonitor(
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['acu-channel-monitor'] }),
         queryClient.invalidateQueries({ queryKey: ['acu-execution-profiles'] }),
+        queryClient.invalidateQueries({
+          queryKey: ['acu-token-profile-routing'],
+        }),
       ])
       setCalibrationMessage(t('Saved'))
     },
@@ -613,7 +617,8 @@ export function ACUChannelMonitor(
     : undefined
   const summary = summarizeMonitorProfiles(protocolProfiles)
   const sortLabel = {
-    recommended: t('Recommended'),
+    recommended: t('Availability first (recommended)'),
+    routing_rank: t('Model-local routing rank'),
     usage: t('Usage high to low'),
     cost: t('Estimated cost low to high'),
     reliability: t('Reliability high to low'),
@@ -777,7 +782,14 @@ export function ACUChannelMonitor(
                     setSort(event.target.value as ACUMonitorSort)
                   }
                 >
-                  <option value='recommended'>{t('Recommended')}</option>
+                  <option value='recommended'>
+                    {t('Availability first (recommended)')}
+                  </option>
+                  {activeTab === 'current' && (
+                    <option value='routing_rank'>
+                      {t('Model-local routing rank')}
+                    </option>
+                  )}
                   <option value='usage'>{t('Usage high to low')}</option>
                   <option value='cost'>
                     {t('Estimated cost low to high')}
@@ -872,7 +884,18 @@ export function ACUChannelMonitor(
           </div>
         ))}
       </div>
-      <Tabs value={activeTab} onValueChange={setActiveTab} className='min-w-0'>
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => {
+          setActiveTab(value)
+          if (value !== 'current') {
+            setSort((current) =>
+              current === 'routing_rank' ? 'recommended' : current
+            )
+          }
+        }}
+        className='min-w-0'
+      >
         <div className='max-w-full overflow-x-auto pb-1'>
           <TabsList className='min-w-max'>
             <TabsTrigger value='overview'>{t('Overview')}</TabsTrigger>
@@ -2095,7 +2118,7 @@ function MonitorLatencyCell(props: {
   return <span className='text-muted-foreground'>{props.t('No samples')}</span>
 }
 
-function MonitorTable(props: {
+export function MonitorTable(props: {
   profiles: ACUChannelMonitorProfile[]
   canPause: boolean
   onPause: (channel: string, duration: 30 | 120) => void
@@ -2103,7 +2126,7 @@ function MonitorTable(props: {
   const { t } = useTranslation()
   return (
     <div className='max-w-full overflow-x-auto rounded border'>
-      <table className='w-full min-w-[1060px] text-left text-xs'>
+      <table className='w-full min-w-[1140px] text-left text-xs'>
         <thead className='bg-muted/50'>
           <tr>
             {[
@@ -2111,6 +2134,7 @@ function MonitorTable(props: {
               'Protocol',
               'Provider / Channel',
               'Current status',
+              'Global weight / Routing score',
               'Production usage',
               'Estimated cost',
               'Response speed',
@@ -2135,12 +2159,6 @@ function MonitorTable(props: {
                   <div className='mt-1 space-y-1 break-words'>
                     <div className='font-mono text-[10px]'>
                       {profile.executionProfileId}
-                    </div>
-                    <div>
-                      {t('Routing score')}:{' '}
-                      {profile.profileUtility == null
-                        ? t('Not scored')
-                        : `${profile.profileUtility.toFixed(3)} · #${profile.profileRank}/${profile.profileCandidateCount}`}
                     </div>
                     <div>
                       {t('Profile Preference')}:{' '}
@@ -2212,6 +2230,22 @@ function MonitorTable(props: {
                     monitorReason(profile.statusReason || profile.lastError, t)
                       .title
                   }
+                </div>
+              </td>
+              <td className='px-3 py-2 tabular-nums'>
+                <div>
+                  <span className='text-muted-foreground'>
+                    {t('Global weight')}:{' '}
+                  </span>
+                  <span className='font-medium'>{profile.routingWeight}</span>
+                </div>
+                <div className='mt-1'>
+                  <span className='text-muted-foreground'>
+                    {t('Routing score')}:{' '}
+                  </span>
+                  {profile.profileUtility == null
+                    ? t('Not scored')
+                    : `${profile.profileUtility.toFixed(3)} · #${profile.profileRank ?? '?'}/${profile.profileCandidateCount ?? '?'}`}
                 </div>
               </td>
               <td className='px-3 py-2'>

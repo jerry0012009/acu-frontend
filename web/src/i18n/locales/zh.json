@@ -6135,5 +6135,9 @@
   "Full Pool": "Full Pool",
   "Targeted": "Targeted",
   "Normalized reliability utility": "归一化可靠性效用",
-  "Scores use the current routing policy and recorded evidence. The latency source above identifies the observations used; unavailable measurements are not zero.": "评分使用当前路由策略和已记录证据。上方延迟来源标明实际采用的观测；缺失数据不等于零。"
+  "Scores use the current routing policy and recorded evidence. The latency source above identifies the observations used; unavailable measurements are not zero.": "评分使用当前路由策略和已记录证据。上方延迟来源标明实际采用的观测；缺失数据不等于零。",
+  "Global weight": "全局权重",
+  "Global weight / Routing score": "全局权重 / 路由评分",
+  "Model-local routing rank": "模型内路由排名",
+  "Availability first (recommended)": "可用性优先（推荐）"
 }

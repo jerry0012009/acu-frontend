@@ -6135,5 +6135,9 @@
   "Full Pool": "Full Pool",
   "Targeted": "Targeted",
   "Normalized reliability utility": "Normalized reliability utility",
-  "Scores use the current routing policy and recorded evidence. The latency source above identifies the observations used; unavailable measurements are not zero.": "Scores use the current routing policy and recorded evidence. The latency source above identifies the observations used; unavailable measurements are not zero."
+  "Scores use the current routing policy and recorded evidence. The latency source above identifies the observations used; unavailable measurements are not zero.": "Scores use the current routing policy and recorded evidence. The latency source above identifies the observations used; unavailable measurements are not zero.",
+  "Global weight": "Global weight",
+  "Global weight / Routing score": "Global weight / Routing score",
+  "Model-local routing rank": "Model-local routing rank",
+  "Availability first (recommended)": "Availability first (recommended)"
 }

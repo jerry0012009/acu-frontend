@@ -98,6 +98,39 @@ test('sorts production usage and puts unknown prices last', () => {
   )
 })
 
+test('recommended order is independent of weight while routing rank orders scored profiles first', () => {
+  const popular = profile({
+    executionProfileId: 'popular',
+    requestCount: 20,
+    routingWeight: 10,
+    profileRank: 3,
+  })
+  const preferred = profile({
+    executionProfileId: 'preferred',
+    requestCount: 0,
+    routingWeight: 200,
+    profileRank: 1,
+  })
+  const unscored = profile({
+    executionProfileId: 'unscored',
+    requestCount: 0,
+    routingWeight: 150,
+    profileRank: null,
+  })
+  assert.deepEqual(
+    sortMonitorProfiles([preferred, popular], 'recommended').map(
+      (item) => item.executionProfileId
+    ),
+    ['popular', 'preferred']
+  )
+  assert.deepEqual(
+    sortMonitorProfiles([unscored, popular, preferred], 'routing_rank').map(
+      (item) => item.executionProfileId
+    ),
+    ['preferred', 'popular', 'unscored']
+  )
+})
+
 test('sorts Overview channel and model groups with the selected monitor order', () => {
   const lowUsage = profile({
     executionProfileId: 'low:gpt-5.6-luna:responses',

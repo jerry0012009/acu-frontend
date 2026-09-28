@@ -6035,5 +6035,9 @@
   "Full Pool": "Full Pool",
   "Targeted": "Targeted",
   "Normalized reliability utility": "Normalized reliability utility",
-  "Scores use the current routing policy and recorded evidence. The latency source above identifies the observations used; unavailable measurements are not zero.": "Scores use the current routing policy and recorded evidence. The latency source above identifies the observations used; unavailable measurements are not zero."
+  "Scores use the current routing policy and recorded evidence. The latency source above identifies the observations used; unavailable measurements are not zero.": "Scores use the current routing policy and recorded evidence. The latency source above identifies the observations used; unavailable measurements are not zero.",
+  "Global weight": "Trọng số toàn cục",
+  "Global weight / Routing score": "Trọng số toàn cục / Điểm định tuyến",
+  "Model-local routing rank": "Thứ hạng định tuyến trong mô hình",
+  "Availability first (recommended)": "Ưu tiên tính sẵn sàng (đề xuất)"
 }
