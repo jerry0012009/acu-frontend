@@ -167,6 +167,7 @@ export const STATIC_I18N_KEYS = [
   'Chat Completions',
   'OpenClaw',
   'Hermes',
+  'WorkBuddy',
   'Base URL',
   'API Key',
   'Model',

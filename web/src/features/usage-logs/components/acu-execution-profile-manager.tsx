@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Clipboard, Pencil, Play, Plus, Save } from 'lucide-react'
+import { Calculator, Clipboard, Pencil, Play, Plus, Save } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -19,14 +19,17 @@ import {
   getACUExecutionProfiles,
   probeACUExecutionProfile,
   updateACUChannelConnection,
+  reconcileACUExecutionProfileCalibration,
   updateACUExecutionProfile,
   type ACUExecutionProfile,
   type ACUExecutionProfileProbeResult,
 } from '../api'
+import { estimateProfileCost, type CostInputs } from './acu-profile-cost'
 import { ACUProviderQuickAdd } from './acu-provider-quick-add'
 
 const PROTOCOLS = ['responses', 'messages', 'chat_completions'] as const
 type Protocol = (typeof PROTOCOLS)[number]
+
 
 function emptyProfile(): ACUExecutionProfile {
   return {
@@ -76,12 +79,30 @@ export function ACUExecutionProfileManager() {
   const [channelBaseUrl, setChannelBaseUrl] = useState('')
   const [channelFallbackUrls, setChannelFallbackUrls] = useState('')
   const [channelApiKey, setChannelApiKey] = useState('')
-  const profiles = profileQuery.data?.data?.profiles ?? []
+  const [creditsPerCny, setCreditsPerCny] = useState('')
+  const [costInputs, setCostInputs] = useState<CostInputs>({
+    inputTokens: '100000',
+    outputTokens: '10000',
+    cachedInputTokens: '0',
+    cachedOutputTokens: '0',
+  })
+  const savedState = profileQuery.data?.data
+  const profiles = savedState?.profiles ?? []
 
   const openEditor = (profile?: ACUExecutionProfile) => {
     const next = profileWithDefaults(profile)
     setDraft(next)
     setEditingId(profile?.executionProfileId ?? null)
+    const providerId = next.economicsProviderId ?? next.provider
+    const economics = savedState?.providerEconomics?.find(
+      (item) => item.providerId === providerId
+    )
+    setCreditsPerCny(
+      economics?.creditsPerCny === null ||
+        economics?.creditsPerCny === undefined
+        ? ''
+        : String(economics.creditsPerCny)
+    )
     setProbeProtocol(next.protocols[0] ?? 'responses')
     setProbeResult(null)
     const connection =
@@ -94,13 +115,58 @@ export function ACUExecutionProfileManager() {
   const update = <K extends keyof ACUExecutionProfile>(
     key: K,
     value: ACUExecutionProfile[K]
-  ) => setDraft((current) => ({ ...current, [key]: value }))
+  ) => {
+    setDraft((current) => ({ ...current, [key]: value }))
+    if (key === 'economicsProviderId' || key === 'provider') {
+      const nextProviderId = String(value)
+      const economics = savedState?.providerEconomics?.find(
+        (item) => item.providerId === nextProviderId
+      )
+      setCreditsPerCny(
+        economics?.creditsPerCny === null ||
+          economics?.creditsPerCny === undefined
+          ? ''
+          : String(economics.creditsPerCny)
+      )
+    }
+  }
 
   const save = useMutation({
-    mutationFn: async () =>
-      editingId
-        ? updateACUExecutionProfile(editingId, draft)
-        : createACUExecutionProfile(draft),
+    mutationFn: async () => {
+      if (
+        creditsPerCny.trim() &&
+        (!Number.isFinite(Number(creditsPerCny)) || Number(creditsPerCny) <= 0)
+      ) {
+        throw new Error(t('Enter a positive balance conversion'))
+      }
+      const response = editingId
+        ? await updateACUExecutionProfile(editingId, draft)
+        : await createACUExecutionProfile(draft)
+      const providerId = draft.economicsProviderId ?? draft.provider
+      const currentEconomics = savedState?.providerEconomics?.find(
+        (item) => item.providerId === providerId
+      )
+      const nextCreditsPerCny = Number(creditsPerCny)
+      const savedProfileId =
+        editingId ??
+        (response.data?.profile &&
+        typeof response.data.profile === 'object' &&
+        response.data.profile !== null &&
+        'executionProfileId' in response.data.profile
+          ? String(response.data.profile.executionProfileId)
+          : draft.executionProfileId)
+      if (
+        savedProfileId &&
+        Number.isFinite(nextCreditsPerCny) &&
+        nextCreditsPerCny > 0 &&
+        nextCreditsPerCny !== currentEconomics?.creditsPerCny
+      ) {
+        await reconcileACUExecutionProfileCalibration(savedProfileId, {
+          creditsPerCny: nextCreditsPerCny,
+        })
+      }
+      return response
+    },
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({
@@ -110,6 +176,7 @@ export function ACUExecutionProfileManager() {
           queryKey: ['acu-global-routing-policy'],
         }),
         queryClient.invalidateQueries({ queryKey: ['acu-channel-monitor'] }),
+        queryClient.invalidateQueries({ queryKey: ['pricing'] }),
       ])
       setOpen(false)
       toast.success(t('Execution profile configuration saved'))
@@ -141,6 +208,7 @@ export function ACUExecutionProfileManager() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['acu-execution-profiles'] }),
         queryClient.invalidateQueries({ queryKey: ['acu-channel-monitor'] }),
+        queryClient.invalidateQueries({ queryKey: ['pricing'] }),
       ])
       toast.success(t('Channel connection saved'))
     },
@@ -152,6 +220,35 @@ export function ACUExecutionProfileManager() {
     await navigator.clipboard.writeText(JSON.stringify(probeResult, null, 2))
     toast.success(t('Probe result copied'))
   }
+
+  const providerId = draft.economicsProviderId ?? draft.provider
+  const providerEconomics = savedState?.providerEconomics?.find(
+    (item) => item.providerId === providerId
+  )
+  const channelMultiplier =
+    draft.observedBillingMultiplier ??
+    providerEconomics?.observedBillingMultiplier ??
+    1
+  const creditsPerCnyValue = Number(creditsPerCny)
+  const retailMarkupMultiplier = savedState?.retailMarkupMultiplier ?? 1.25
+  const inputAccountingMode =
+    draft.inputTokenAccountingMode ??
+    (draft.protocols[0] === 'messages' ? 'excludes_cached' : 'includes_cached')
+  const {
+    nominalCostUsd,
+    platformDebitCredits,
+    providerCostCny,
+    userChargeCny,
+  } = estimateProfileCost(
+    draft.billingPrice,
+    costInputs,
+    inputAccountingMode,
+    channelMultiplier,
+    creditsPerCnyValue,
+    retailMarkupMultiplier
+  )
+  const updateCostInput = (key: keyof CostInputs, value: string) =>
+    setCostInputs((current) => ({ ...current, [key]: value }))
 
   return (
     <>
@@ -331,26 +428,6 @@ export function ACUExecutionProfileManager() {
               </label>
               <label className='space-y-1'>
                 <span className='text-muted-foreground'>
-                  {t('observedBillingMultiplier')}
-                </span>
-                <input
-                  className='bg-background h-8 w-full rounded border px-2'
-                  type='number'
-                  min='0.0001'
-                  step='0.0001'
-                  value={inputValue(draft.observedBillingMultiplier)}
-                  onChange={(event) =>
-                    update(
-                      'observedBillingMultiplier',
-                      event.target.value === ''
-                        ? undefined
-                        : Number(event.target.value)
-                    )
-                  }
-                />
-              </label>
-              <label className='space-y-1'>
-                <span className='text-muted-foreground'>
                   {t('inputTokenAccountingMode')}
                 </span>
                 <select
@@ -375,6 +452,93 @@ export function ACUExecutionProfileManager() {
                   </option>
                 </select>
               </label>
+            </div>
+            <div className='space-y-3 rounded border p-3'>
+              <div className='flex items-start gap-2'>
+                <Calculator className='text-muted-foreground mt-0.5 size-4' />
+                <div>
+                  <div className='font-medium'>{t('Profile economics')}</div>
+                  <p className='text-muted-foreground mt-1 text-[11px]'>
+                    {t(
+                      'Balance conversion and channel multiplier are used by the cost calculator below.'
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className='grid gap-3 sm:grid-cols-2'>
+                <label className='space-y-1'>
+                  <span className='text-muted-foreground'>
+                    {t('USD credits per RMB')}
+                  </span>
+                  <input
+                    className='bg-background h-8 w-full rounded border px-2'
+                    type='number'
+                    min='0.000001'
+                    step='0.000001'
+                    value={creditsPerCny}
+                    onChange={(event) => setCreditsPerCny(event.target.value)}
+                  />
+                  <span className='text-muted-foreground block text-[10px]'>
+                    {providerEconomics?.balanceCurrency ||
+                      'USD-denominated credits'}
+                    {providerEconomics?.rechargeCashCny !== null &&
+                    providerEconomics?.rechargeCashCny !== undefined &&
+                    providerEconomics?.creditsReceivedUsd !== null &&
+                    providerEconomics?.creditsReceivedUsd !== undefined
+                      ? ` · ¥${providerEconomics.rechargeCashCny} = ${providerEconomics.creditsReceivedUsd} credits`
+                      : ''}
+                    {Number.isFinite(creditsPerCnyValue) &&
+                    creditsPerCnyValue > 0
+                      ? ` · 1 credit = ¥${(1 / creditsPerCnyValue).toFixed(8)}`
+                      : ''}
+                  </span>
+                </label>
+                <label className='space-y-1'>
+                  <span className='text-muted-foreground'>
+                    {t('Channel billing multiplier')}
+                  </span>
+                  <input
+                    className='bg-background h-8 w-full rounded border px-2'
+                    type='number'
+                    min='0.0001'
+                    step='0.0001'
+                    value={inputValue(draft.observedBillingMultiplier)}
+                    onChange={(event) =>
+                      update(
+                        'observedBillingMultiplier',
+                        event.target.value === ''
+                          ? undefined
+                          : Number(event.target.value)
+                      )
+                    }
+                  />
+                  <span className='text-muted-foreground block text-[10px]'>
+                    {t('Provider default')}:{' '}
+                    {providerEconomics?.observedBillingMultiplier ?? 'n/a'}x
+                  </span>
+                </label>
+              </div>
+              <div className='bg-muted/40 grid gap-2 rounded p-2 text-[11px] sm:grid-cols-2'>
+                <div>
+                  <span className='text-muted-foreground'>
+                    {t('Retail markup')}
+                  </span>
+                  <div className='font-mono'>
+                    {retailMarkupMultiplier.toFixed(4)}x
+                  </div>
+                </div>
+                <div>
+                  <span className='text-muted-foreground'>
+                    {t('Effective cash multiplier')}
+                  </span>
+                  <div className='font-mono'>
+                    {Number.isFinite(creditsPerCnyValue) &&
+                    creditsPerCnyValue > 0
+                      ? `${(channelMultiplier / creditsPerCnyValue).toFixed(8)} CNY / nominal USD`
+                      : 'n/a'}
+                  </div>
+                </div>
+              </div>
             </div>
             <div className='space-y-2'>
               <div className='text-muted-foreground'>{t('protocols')}</div>
@@ -427,7 +591,7 @@ export function ACUExecutionProfileManager() {
                     ['inputPricePerMillion', 'input'],
                     ['outputPricePerMillion', 'output'],
                     ['cachedInputPricePerMillion', 'cached input'],
-                    ['cacheWritePricePerMillion', 'cache write'],
+                    ['cacheWritePricePerMillion', 'cache output / write'],
                     ['source', 'source'],
                     ['observedAt', 'observedAt'],
                   ] as Array<[string, string]>
@@ -487,6 +651,86 @@ export function ACUExecutionProfileManager() {
                 />
                 {t('Store profile billing price')}
               </label>
+            </div>
+            <div className='space-y-3 rounded border p-3'>
+              <div className='flex items-center gap-2 font-medium'>
+                <Calculator className='size-4' />
+                {t('Cost calculator')}
+              </div>
+              <p className='text-muted-foreground text-[11px]'>
+                {t(
+                  'Enter token usage to compare upstream cost with the expected user charge.'
+                )}
+              </p>
+              <div className='grid gap-3 sm:grid-cols-2'>
+                {(
+                  [
+                    ['inputTokens', 'Input tokens'],
+                    ['outputTokens', 'Output tokens'],
+                    ['cachedInputTokens', 'Cached input tokens'],
+                    ['cachedOutputTokens', 'Cache write tokens'],
+                  ] as Array<[keyof CostInputs, string]>
+                ).map(([key, label]) => (
+                  <label key={key} className='space-y-1'>
+                    <span className='text-muted-foreground'>{t(label)}</span>
+                    <input
+                      className='bg-background h-8 w-full rounded border px-2 font-mono'
+                      type='number'
+                      min='0'
+                      step='1'
+                      value={costInputs[key]}
+                      onChange={(event) =>
+                        updateCostInput(key, event.target.value)
+                      }
+                    />
+                  </label>
+                ))}
+              </div>
+              <div className='grid gap-2 border-t pt-3 text-[11px] sm:grid-cols-2'>
+                <div>
+                  <span className='text-muted-foreground'>
+                    {t('Nominal upstream cost')}
+                  </span>
+                  <div className='font-mono'>
+                    {nominalCostUsd === undefined
+                      ? t('n/a')
+                      : `$${nominalCostUsd.toFixed(8)} USD credits`}
+                  </div>
+                  <span className='text-muted-foreground block text-[10px]'>
+                    {t('Input accounting')}: {inputAccountingMode}
+                  </span>
+                </div>
+                <div>
+                  <span className='text-muted-foreground'>
+                    {t('Platform balance debit')}
+                  </span>
+                  <div className='font-mono'>
+                    {platformDebitCredits === undefined
+                      ? t('n/a')
+                      : `${platformDebitCredits.toFixed(8)} credits`}
+                  </div>
+                </div>
+                <div>
+                  <span className='text-muted-foreground'>
+                    {t('Final provider cost')}
+                  </span>
+                  <div className='font-mono'>
+                    {providerCostCny === undefined
+                      ? 'n/a'
+                      : `¥${providerCostCny.toFixed(8)}`}
+                  </div>
+                </div>
+                <div>
+                  <span className='text-muted-foreground'>
+                    {t('Expected user charge')}
+                  </span>
+                  <div className='font-mono font-semibold'>
+                    {userChargeCny === undefined
+                      ? 'n/a'
+                      : `¥${userChargeCny.toFixed(8)}`}
+                  </div>
+                </div>
+              </div>
             </div>
             <div className='space-y-3 rounded border p-3'>
               <div className='flex flex-wrap items-center justify-between gap-2'>

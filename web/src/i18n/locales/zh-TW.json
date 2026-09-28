@@ -6007,5 +6007,7 @@
     "Image \"{{filename}}\" exceeds the {{limit}} MB upload limit.": "图片“{{filename}}”超过 {{limit}} MB 上传限制。",
     "Image \"{{filename}}\" could not be compressed below {{limit}} MB.": "图片“{{filename}}”无法压缩至 {{limit}} MB 以下。",
     "Estimated difficulty": "估算難度"
-  }
+  },
+  "Enter a positive balance conversion": "请输入大于零的余额换算比例",
+  "Cache write tokens": "缓存写入 Tokens"
 }

@@ -96,3 +96,9 @@ Router 增加按用户及时间窗聚合的 calls/byStage/byStageCalls；Fronten
 来源 `3f32545e5`，GPT-5.6 / GPT-6 的输入、输出与缓存回退比率与当前 Router `src/models.ts` 的对应价格一致。恢复旧源码遗漏的默认值；不覆盖数据库中用户已保存的自定义比率，ACU 请求继续使用数据库 Profile 及 Router 计费。
 
 旧价格回归先失败，恢复后 ratio_setting 全包通过。此处是已有模型的历史配置恢复，不引入新模型供应或生产价格写入。
+
+## 批次十一：Profile 成本计算器与数据库校准
+
+恢复 `3f32545e5` 的编辑器成本计算及 Provider 余额换算，改接现行 `/calibration` 数据库接口；保留渠道连接编辑、全局 Profile 权重与即时保存。保存后同时刷新监控和 pricing 查询。Router 现有 API 已提供数据库 Provider economics 和 markup，无需恢复文件读写或 apply/restart。
+
+计算器覆盖 Responses 缓存包含口径、Messages 缓存分离口径；缺少价格/换算或无效 token 数据显示不可用，不误算免费请求。组件交互测试验证读取保存值、编辑换算、实际请求路径与 payload。完整前端 389 项通过，强制类型检查、受影响 lint、格式、构建通过。生产配置未修改。

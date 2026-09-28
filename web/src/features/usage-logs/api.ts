@@ -559,6 +559,16 @@ export type ACUExecutionProfile = {
 }
 
 export type ACUExecutionProfilesResponse = {
+  providerEconomics?: Array<{
+    providerId: string
+    balanceCurrency?: string
+    rechargeCashCny: number | null
+    creditsReceivedUsd: number | null
+    creditsPerCny: number | null
+    observedBillingMultiplier: number
+    effectiveCostStatus?: string
+  }>
+  retailMarkupMultiplier?: number
   profiles: ACUExecutionProfile[]
   channels?: Record<
     string,

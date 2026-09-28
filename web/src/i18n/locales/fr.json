@@ -6002,5 +6002,7 @@
     "Image \"{{filename}}\" exceeds the {{limit}} MB upload limit.": "Image \"{{filename}}\" exceeds the {{limit}} MB upload limit.",
     "Image \"{{filename}}\" could not be compressed below {{limit}} MB.": "Image \"{{filename}}\" could not be compressed below {{limit}} MB.",
     "Estimated difficulty": "Estimated difficulty"
-  }
+  },
+  "Enter a positive balance conversion": "Enter a positive balance conversion",
+  "Cache write tokens": "Cache write tokens"
 }
