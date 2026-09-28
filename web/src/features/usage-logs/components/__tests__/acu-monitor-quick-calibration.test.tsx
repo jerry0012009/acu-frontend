@@ -156,6 +156,10 @@ test('selecting a Profile permits a weight-only save without running a Probe', a
     assert.ok(save)
     assert.equal(save.disabled, false)
     await act(async () => save.click())
+    assert.match(
+      host.querySelector('[role="status"]')?.textContent ?? '',
+      /Profiles updated|Calibration saved/
+    )
     assert.deepEqual(
       requests
         .filter((request) => request.url?.endsWith('/calibration'))

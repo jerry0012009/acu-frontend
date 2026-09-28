@@ -34,6 +34,7 @@ export function ACUMonitorQuickCalibration() {
     creditsPerCny: '',
   })
   const [error, setError] = useState('')
+  const [saveMessage, setSaveMessage] = useState('')
   const profiles = useMemo(
     () =>
       [...(data?.profiles ?? [])].sort((a, b) =>
@@ -71,6 +72,7 @@ export function ACUMonitorQuickCalibration() {
   useEffect(() => {
     setDraft(initial)
     setError('')
+    setSaveMessage('')
     // A changed selection begins a new draft; background refetches preserve edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectionKey])
@@ -143,6 +145,7 @@ export function ACUMonitorQuickCalibration() {
         queryClient.invalidateQueries({ queryKey: ['pricing'] }),
       ])
       if (result.failed.length > 0) {
+        setSaveMessage('')
         setError(
           `${t('{{saved}} saved; {{failed}} failed. Review and retry.', {
             saved: result.saved,
@@ -152,16 +155,19 @@ export function ACUMonitorQuickCalibration() {
         return
       }
       setError('')
-      toast.success(
+      const message =
         result.saved === 1 && selectedProfiles.length > 1
           ? t('Calibration saved')
           : t('{{count}} Profiles updated', { count: result.saved })
-      )
+      setSaveMessage(message)
+      toast.success(message)
     },
-    onError: (reason) =>
+    onError: (reason) => {
+      setSaveMessage('')
       setError(
         reason instanceof Error ? reason.message : t('Calibration failed')
-      ),
+      )
+    },
   })
 
   const save = () => {
@@ -214,6 +220,7 @@ export function ACUMonitorQuickCalibration() {
       return
     }
     setError('')
+    setSaveMessage('')
     mutation.mutate({
       ids: selectedProfiles.map((profile) => profile.executionProfileId),
       values: {
@@ -415,6 +422,15 @@ export function ACUMonitorQuickCalibration() {
               {error && (
                 <p role='alert' className='text-destructive text-xs'>
                   {error}
+                </p>
+              )}
+              {saveMessage && (
+                <p
+                  role='status'
+                  aria-live='polite'
+                  className='text-xs text-emerald-700 dark:text-emerald-400'
+                >
+                  {saveMessage}
                 </p>
               )}
             </div>
