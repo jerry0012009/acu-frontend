@@ -8,7 +8,10 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CacheStatsDialog } from '@/features/system-settings/general/channel-affinity/cache-stats-dialog'
 import { useSidebarConfig } from '@/hooks/use-sidebar-config'
 
-import { ACUChannelMonitor } from './components/acu-channel-monitor'
+import {
+  ACUChannelMonitor,
+  type ACUChannelMonitorFocus,
+} from './components/acu-channel-monitor'
 import { ACUWorkTimeline } from './components/acu-work-timeline'
 import { UserInfoDialog } from './components/dialogs/user-info-dialog'
 import {
@@ -45,6 +48,7 @@ function UsageLogsContent() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const params = route.useParams()
+  const search = route.useSearch()
   const activeCategory: UsageLogsSectionId =
     params.section && isUsageLogsSectionId(params.section)
       ? params.section
@@ -112,7 +116,15 @@ function UsageLogsContent() {
   if (activeCategory === 'timeline') {
     sectionContent = <ACUWorkTimeline />
   } else if (activeCategory === 'channel-monitor') {
-    sectionContent = <ACUChannelMonitor />
+    const monitorFocus: ACUChannelMonitorFocus | undefined =
+      search.monitorLine && search.monitorModel && search.monitorProtocol
+        ? {
+            line: search.monitorLine,
+            model: search.monitorModel,
+            protocol: search.monitorProtocol,
+          }
+        : undefined
+    sectionContent = <ACUChannelMonitor focus={monitorFocus} />
   } else {
     sectionContent = <UsageLogsTable logCategory={activeCategory} />
   }

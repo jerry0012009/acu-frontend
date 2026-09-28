@@ -273,6 +273,8 @@ export type ACUChannelMonitorProfile = {
   effectivePriceMultiplier: number | null
   effectiveCostStatus: string
   routingEnabled: boolean
+  explicitRoutingEligible?: boolean
+  explicitRoutingEligibility?: string
   routingEligible: boolean
   routingEligibility: string
   state: string
@@ -330,6 +332,8 @@ export type ACUChannelMonitorProfile = {
   supportedReasoningEfforts?: string[]
   reasoningControlMode?: string
   profileUtility: number | null
+  profilePreferenceScore?: number | null
+  profilePreferenceMultiplier?: number | null
   profileRank: number | null
   profileCandidateCount: number | null
   profileCost: number | null
@@ -602,6 +606,26 @@ export type ACUExecutionProfileProbeResult = {
   errorDetail?: string
   savedConfigurationChanged: boolean
   productionRoutingChanged: boolean
+}
+
+export type ACUVeridropResult = {
+  supported: boolean
+  status: 'done' | 'unsupported'
+  protocol: string
+  mode?: 'quick' | 'standard' | 'full'
+  requestedModel?: string
+  targetModel?: string | null
+  actualModel?: string | null
+  verdict?: string
+  score?: number | null
+  detectors?: Array<Record<string, unknown>>
+  performance?: Record<string, unknown>
+  selfReportedIdentity?: string | null
+  detectedBrands?: string[]
+  summary?: string | null
+  completedAt?: string
+  reason?: string
+  routingImpact: 'none'
 }
 
 export type ACUQuickAddConnection = {
@@ -1022,6 +1046,23 @@ export async function quickAddACUProviderSave(input: {
         createdCount: number
         skippedDuplicateCount: number
       }
+    }
+  )
+}
+
+export async function runACUProfileVeridrop(
+  executionProfileId: string,
+  protocol: ACUExecutionProfile['protocols'][number]
+) {
+  const res = await api.post('/api/log/acu-channel-monitor/veridrop', {
+    executionProfileId,
+    protocol,
+  })
+  return requireACUSuccess(
+    res.data as {
+      success: boolean
+      message?: string
+      data?: ACUVeridropResult
     }
   )
 }

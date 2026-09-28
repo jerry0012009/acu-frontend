@@ -1,3 +1,4 @@
+import { useNavigate } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { GitBranch, Sparkles, KeyRound, Route } from 'lucide-react'
 import { useState } from 'react'
@@ -17,6 +18,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { publicChannelAlias } from '@/features/acu/lib/public-channel-alias'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
 import {
@@ -287,6 +289,40 @@ function buildTypeDetailSegments(
 
 export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
   const { t } = useTranslation()
+  const navigate = useNavigate()
+  const openMonitor = (
+    breakdown: ReturnType<typeof acuBreakdownForView>,
+    log: UsageLog
+  ) => {
+    const attempt = acuSuccessfulAttempt(breakdown)
+    const provider = attempt?.provider ?? breakdown?.actual_provider
+    const channel =
+      attempt?.channel_id ?? attempt?.channel ?? breakdown?.channel_id
+    const line = publicChannelAlias(provider, channel)
+    const model =
+      breakdown?.canonical_model ?? breakdown?.selected_model ?? log.model_name
+    const protocol = breakdown?.protocol
+    if (
+      line === 'ACU 线路' ||
+      !model ||
+      !protocol ||
+      !['responses', 'messages', 'chat_completions'].includes(protocol)
+    ) {
+      return
+    }
+    void navigate({
+      to: '/usage-logs/$section',
+      params: { section: 'channel-monitor' },
+      search: {
+        monitorLine: line,
+        monitorModel: model,
+        monitorProtocol: protocol as
+          | 'responses'
+          | 'messages'
+          | 'chat_completions',
+      },
+    })
+  }
   const columns: ColumnDef<UsageLog>[] = [
     {
       accessorKey: 'created_at',
@@ -321,6 +357,46 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
     },
   ]
 
+  if (!isAdmin) {
+    columns.push({
+      id: 'channel',
+      header: t('ACU Route'),
+      accessorFn: (row) => row.channel,
+      cell: ({ row }) => {
+        const log = row.original
+        if (!isDisplayableLogType(log.type)) return null
+
+        const other = parseLogOther(log.other)
+        if (!isFinalizedAcuUsageLog(log, other)) return null
+
+        const acuBreakdown = acuBreakdownForView(other, false)
+        const finalAcuAttempt = acuSuccessfulAttempt(acuBreakdown)
+        const route = publicChannelAlias(
+          finalAcuAttempt?.provider ?? acuBreakdown?.actual_provider,
+          finalAcuAttempt?.channel_id ??
+            finalAcuAttempt?.channel ??
+            acuBreakdown?.channel_id
+        )
+
+        return (
+          <StatusBadge
+            label={route}
+            autoColor={route}
+            copyText={route}
+            size='sm'
+            showDot={false}
+            copyable={false}
+            role='button'
+            tabIndex={0}
+            className='cursor-pointer'
+            aria-label={t('Open Model Supply Monitor')}
+            onClick={() => openMonitor(acuBreakdown, log)}
+          />
+        )
+      },
+    })
+  }
+
   if (isAdmin) {
     columns.push(
       {
@@ -347,6 +423,9 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
             finalAcuAttempt?.channel_name ?? acuBreakdown?.channel_name
           const acuRecovered = acuHasRecovery(acuBreakdown)
           const isAcuFinalized = isFinalizedAcuUsageLog(log, other)
+          const publicRoute = isAcuFinalized
+            ? publicChannelAlias(acuProvider, acuChannelId)
+            : undefined
           const affinity = other?.admin_info?.channel_affinity
           const rawUseChannel = other?.admin_info?.use_channel ?? []
           const useChannel = Array.isArray(rawUseChannel)
@@ -364,6 +443,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
           let channelDisplay = `#${log.channel}`
           if (isAcuFinalized) {
             channelDisplay = [
+              publicRoute,
               acuProvider,
               `#${displayChannelId}`,
               displayChannelName,
@@ -373,7 +453,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
           } else if (log.channel_name) {
             channelDisplay = `${log.channel_name} #${log.channel}`
           }
-          const channelIdDisplay = `#${displayChannelId}`
+          const channelIdDisplay = publicRoute ?? `#${displayChannelId}`
           const channelName = sensitiveVisible ? displayChannelName : '••••'
           const multiKeyIndex = other?.admin_info?.multi_key_index
           const showMultiKeyIndex =
@@ -392,11 +472,24 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
                   <div className='relative inline-flex w-fit items-center gap-1'>
                     <StatusBadge
                       label={channelIdDisplay}
-                      autoColor={displayChannelId}
+                      autoColor={channelIdDisplay}
                       copyText={displayChannelId}
                       size='sm'
                       showDot={false}
-                      className='font-mono'
+                      copyable={false}
+                      className={isAcuFinalized ? undefined : 'font-mono'}
+                      role={isAcuFinalized ? 'button' : undefined}
+                      tabIndex={isAcuFinalized ? 0 : undefined}
+                      aria-label={
+                        isAcuFinalized
+                          ? t('Open Model Supply Monitor')
+                          : undefined
+                      }
+                      onClick={
+                        isAcuFinalized
+                          ? () => openMonitor(acuBreakdown, log)
+                          : undefined
+                      }
                     />
                     {showMultiKeyIndex && (
                       <StatusBadge

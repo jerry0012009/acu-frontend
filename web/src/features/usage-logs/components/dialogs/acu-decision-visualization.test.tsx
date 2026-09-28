@@ -137,7 +137,11 @@ before(() => {
       configurable: true,
       value: window.cancelAnimationFrame.bind(window),
     },
-    IS_REACT_ACT_ENVIRONMENT: { configurable: true, value: true },
+    IS_REACT_ACT_ENVIRONMENT: {
+      configurable: true,
+      writable: true,
+      value: true,
+    },
   })
   Object.assign(window, { ResizeObserver: resizeObserver })
   Object.defineProperty(window.HTMLElement.prototype, 'getBoundingClientRect', {

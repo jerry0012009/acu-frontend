@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { StatusBadge } from '@/components/status-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { publicChannelAlias } from '@/features/acu/lib/public-channel-alias'
 import { formatMultiplier } from '@/lib/format'
 
 import type {
@@ -14,7 +15,6 @@ import type {
   ACUTokenProfileRoutingScope,
 } from '../api'
 import {
-  anonymousACULineId,
   classifyHistoryBucket,
   classifyModelProbeBucket,
   classifyProbeBucket,
@@ -25,6 +25,7 @@ import {
 import { modelAccessFor } from './acu-global-routing-policy'
 import { StatusTimeline } from './acu-health-timeline'
 import {
+  monitorProfileEligible,
   monitorStateLabel,
   profileLatencyDisplay,
   protocolShortLabel,
@@ -41,6 +42,7 @@ const stateVariant = {
 
 export function ACUModelHealthCard(props: {
   model: ACUModelOverview
+  focusedLine?: string
   showDiagnostics?: boolean
   probeRange?: ACUProbeTimelineRange
   tokenProfileActions?: {
@@ -66,10 +68,29 @@ export function ACUModelHealthCard(props: {
     ) => void
     onProbe: (profile: ACUChannelMonitorProfile, protocol: string) => void
   }
+  veridropActions?: {
+    isPending: (profileId: string) => boolean
+    onCheck: (profile: ACUChannelMonitorProfile, protocol: string) => void
+  }
 }) {
   const { t } = useTranslation()
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(() =>
+    props.focusedLine
+      ? props.model.profiles.some(
+          (profile) =>
+            publicChannelAlias(profile.provider, profile.channel) ===
+            props.focusedLine
+        )
+      : false
+  )
   const probeRange = props.probeRange ?? '48h'
+  const visibleProfiles = props.focusedLine
+    ? props.model.profiles.filter(
+        (profile) =>
+          publicChannelAlias(profile.provider, profile.channel) ===
+          props.focusedLine
+      )
+    : props.model.profiles
   return (
     <section className='bg-background min-w-0 overflow-hidden rounded-lg border'>
       <button
@@ -127,7 +148,7 @@ export function ACUModelHealthCard(props: {
       </div>
       {expanded && (
         <div className='bg-muted/20 space-y-2 border-t p-3'>
-          {props.model.profiles.map((profile, index) => (
+          {visibleProfiles.map((profile, index) => (
             <ModelProfile
               key={profile.executionProfileId}
               index={index + 1}
@@ -135,6 +156,7 @@ export function ACUModelHealthCard(props: {
               showDiagnostics={props.showDiagnostics}
               probeRange={probeRange}
               actions={props.profileActions}
+              veridropActions={props.veridropActions}
               tokenActions={props.tokenProfileActions}
               noteActions={props.profileNoteActions}
             />
@@ -173,6 +195,10 @@ function ModelProfile(props: {
     ) => void
     onProbe: (profile: ACUChannelMonitorProfile, protocol: string) => void
   }
+  veridropActions?: {
+    isPending: (profileId: string) => boolean
+    onCheck: (profile: ACUChannelMonitorProfile, protocol: string) => void
+  }
 }) {
   const { t } = useTranslation()
   const profile = props.profile
@@ -196,6 +222,8 @@ function ModelProfile(props: {
     props.actions?.isTogglePending(profile.executionProfileId) ?? false
   const probePending =
     props.actions?.isProbePending(profile.executionProfileId) ?? false
+  const veridropPending =
+    props.veridropActions?.isPending(profile.executionProfileId) ?? false
   const tokenScope = props.tokenActions?.scope
   const tokenActions = props.tokenActions
   const globallyAvailableForToken =
@@ -215,7 +243,7 @@ function ModelProfile(props: {
         <div className='min-w-0'>
           <div className='font-medium'>
             #{props.index} {t('ACU Route')}{' '}
-            {anonymousACULineId(profile.executionProfileId)}
+            {publicChannelAlias(profile.provider, profile.channel)}
           </div>
           {props.showDiagnostics ? (
             <div className='text-muted-foreground mt-1 font-mono text-[11px] break-all'>
@@ -252,11 +280,13 @@ function ModelProfile(props: {
         </div>
         <StatusBadge
           label={monitorStateLabel(
-            profile.routingEligible ? 'eligible' : profile.state,
+            monitorProfileEligible(profile) ? 'eligible' : profile.state,
             t
           )}
           variant={
-            stateVariant[profile.routingEligible ? 'healthy' : 'unavailable']
+            stateVariant[
+              monitorProfileEligible(profile) ? 'healthy' : 'unavailable'
+            ]
           }
           copyable={false}
         />
@@ -287,38 +317,60 @@ function ModelProfile(props: {
           />
         ) : null}
       </div>
-      {props.actions ? (
+      {props.actions || props.veridropActions ? (
         <div className='mt-3 flex flex-wrap items-center gap-2 border-t pt-3'>
-          <span className='text-muted-foreground'>
-            {t('Global routing')}: {globalRoutingStatus}
-          </span>
-          <Button
-            size='sm'
-            variant='outline'
-            disabled={!policy || togglePending || !modelExposed}
-            onClick={() => {
-              if (!policy) return
-              if (
-                globallyAllowed &&
-                !window.confirm(t('Disable this Profile from global routing?'))
-              ) {
-                return
-              }
-              props.actions?.onToggleRouting(profile, !globallyAllowed)
-            }}
-          >
-            {globallyAllowed ? t('Disable routing') : t('Enable routing')}
-          </Button>
-          <Button
-            size='sm'
-            variant='outline'
-            disabled={!firstProtocol || probePending}
-            onClick={() => {
-              if (firstProtocol) props.actions?.onProbe(profile, firstProtocol)
-            }}
-          >
-            {t('Probe test')}
-          </Button>
+          {props.actions ? (
+            <>
+              <span className='text-muted-foreground'>
+                {t('Global routing')}: {globalRoutingStatus}
+              </span>
+              <Button
+                size='sm'
+                variant='outline'
+                disabled={!policy || togglePending || !modelExposed}
+                onClick={() => {
+                  if (!policy) return
+                  if (
+                    globallyAllowed &&
+                    !window.confirm(
+                      t('Disable this Profile from global routing?')
+                    )
+                  ) {
+                    return
+                  }
+                  props.actions?.onToggleRouting(profile, !globallyAllowed)
+                }}
+              >
+                {globallyAllowed ? t('Disable routing') : t('Enable routing')}
+              </Button>
+              <Button
+                size='sm'
+                variant='outline'
+                disabled={!firstProtocol || probePending}
+                onClick={() => {
+                  if (firstProtocol) {
+                    props.actions?.onProbe(profile, firstProtocol)
+                  }
+                }}
+              >
+                {t('Probe test')}
+              </Button>
+            </>
+          ) : null}
+          {props.veridropActions ? (
+            <Button
+              size='sm'
+              variant='outline'
+              disabled={!firstProtocol || veridropPending}
+              onClick={() => {
+                if (firstProtocol) {
+                  props.veridropActions?.onCheck(profile, firstProtocol)
+                }
+              }}
+            >
+              {veridropPending ? t('Checking...') : t('Veridrop')}
+            </Button>
+          ) : null}
           {tokenActions?.onSetWeight &&
           tokenActions.onInheritWeight &&
           tokenScope &&

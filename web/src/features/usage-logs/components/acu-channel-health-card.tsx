@@ -22,6 +22,7 @@ import {
 import { modelAccessFor } from './acu-global-routing-policy'
 import { StatusTimeline } from './acu-health-timeline'
 import {
+  monitorProfileEligible,
   monitorReason,
   monitorStateLabel,
   protocolLabel,
@@ -87,6 +88,10 @@ export function ACUChannelHealthCard(props: {
       enabled: boolean
     ) => void
     onProbe: (profile: ACUChannelMonitorProfile, protocol: string) => void
+  }
+  veridropActions?: {
+    isPending: (profileId: string) => boolean
+    onCheck: (profile: ACUChannelMonitorProfile, protocol: string) => void
   }
 }) {
   const { t, i18n } = useTranslation()
@@ -246,6 +251,7 @@ export function ACUChannelHealthCard(props: {
               key={profile.executionProfileId}
               profile={profile}
               actions={props.profileActions}
+              veridropActions={props.veridropActions}
               noteActions={props.profileNoteActions}
               tokenActions={props.tokenProfileActions}
             />
@@ -281,6 +287,10 @@ function ChannelProfile(props: {
     ) => void
     onProbe: (profile: ACUChannelMonitorProfile, protocol: string) => void
   }
+  veridropActions?: {
+    isPending: (profileId: string) => boolean
+    onCheck: (profile: ACUChannelMonitorProfile, protocol: string) => void
+  }
 }) {
   const { t, i18n } = useTranslation()
   const profile = props.profile
@@ -295,6 +305,8 @@ function ChannelProfile(props: {
     props.actions?.isTogglePending(profile.executionProfileId) ?? false
   const probePending =
     props.actions?.isProbePending(profile.executionProfileId) ?? false
+  const veridropPending =
+    props.veridropActions?.isPending(profile.executionProfileId) ?? false
   const notePending =
     props.noteActions?.isPending(profile.executionProfileId) ?? false
   const tokenScope = props.tokenActions?.scope
@@ -329,12 +341,12 @@ function ChannelProfile(props: {
           <div className='flex items-center gap-2'>
             <StatusBadge
               label={monitorStateLabel(
-                profile.routingEligible ? 'eligible' : profile.state,
+                monitorProfileEligible(profile) ? 'eligible' : profile.state,
                 t
               )}
               variant={
                 stateVariant[
-                  profile.routingEligible ? 'healthy' : 'unavailable'
+                  monitorProfileEligible(profile) ? 'healthy' : 'unavailable'
                 ]
               }
               copyable={false}
@@ -373,43 +385,63 @@ function ChannelProfile(props: {
           ) : null}
         </div>
       ) : null}
-      {props.actions && (
+      {(props.actions || props.veridropActions) && (
         <div className='mt-3 flex flex-wrap items-center gap-2 border-t pt-3'>
-          <span className='text-muted-foreground'>
-            {t('Global routing')}: {globalRoutingStatus}
-          </span>
-          <Button
-            size='sm'
-            variant='outline'
-            disabled={!policy || togglePending || !modelExposed}
-            onClick={() => {
-              if (!policy) return
-              if (globallyAllowed) {
-                if (
-                  !window.confirm(
-                    t('Disable this Profile from global routing?')
-                  )
-                ) {
-                  return
+          {props.actions ? (
+            <>
+              <span className='text-muted-foreground'>
+                {t('Global routing')}: {globalRoutingStatus}
+              </span>
+              <Button
+                size='sm'
+                variant='outline'
+                disabled={!policy || togglePending || !modelExposed}
+                onClick={() => {
+                  if (!policy) return
+                  if (globallyAllowed) {
+                    if (
+                      !window.confirm(
+                        t('Disable this Profile from global routing?')
+                      )
+                    ) {
+                      return
+                    }
+                    props.actions?.onToggleRouting(profile, false)
+                    return
+                  }
+                  props.actions?.onToggleRouting(profile, true)
+                }}
+              >
+                {globallyAllowed ? t('Disable routing') : t('Enable routing')}
+              </Button>
+              <Button
+                size='sm'
+                variant='outline'
+                disabled={!firstProtocol || probePending}
+                onClick={() => {
+                  if (firstProtocol) {
+                    props.actions?.onProbe(profile, firstProtocol)
+                  }
+                }}
+              >
+                {t('Probe test')}
+              </Button>
+            </>
+          ) : null}
+          {props.veridropActions ? (
+            <Button
+              size='sm'
+              variant='outline'
+              disabled={!firstProtocol || veridropPending}
+              onClick={() => {
+                if (firstProtocol) {
+                  props.veridropActions?.onCheck(profile, firstProtocol)
                 }
-                props.actions?.onToggleRouting(profile, false)
-                return
-              }
-              props.actions?.onToggleRouting(profile, true)
-            }}
-          >
-            {globallyAllowed ? t('Disable routing') : t('Enable routing')}
-          </Button>
-          <Button
-            size='sm'
-            variant='outline'
-            disabled={!firstProtocol || probePending}
-            onClick={() => {
-              if (firstProtocol) props.actions?.onProbe(profile, firstProtocol)
-            }}
-          >
-            {t('Probe test')}
-          </Button>
+              }}
+            >
+              {veridropPending ? t('Checking...') : t('Veridrop')}
+            </Button>
+          ) : null}
           {tokenActions?.onSetWeight &&
           tokenActions.onInheritWeight &&
           tokenScope &&
@@ -525,6 +557,17 @@ function ChannelProfile(props: {
             }))}
           />
         </div>
+        <ProfileField
+          label={t('Profile Preference')}
+          value={
+            profile.profilePreferenceScore == null
+              ? 'n/a'
+              : `${profile.profilePreferenceScore} · ${
+                  formatMultiplier(profile.profilePreferenceMultiplier, '×') ??
+                  'n/a'
+                }`
+          }
+        />
         <ProfileField
           label={t('Contributions')}
           value={

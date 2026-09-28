@@ -326,6 +326,7 @@ func SetApiRouter(router *gin.Engine) {
 		logRoute.GET("/self/acu-session-trace/:identifier", middleware.UserAuth(), middleware.DisableCache(), controller.GetACUSessionTrace)
 		logRoute.GET("/self/acu-work-timeline", middleware.UserAuth(), middleware.DisableCache(), controller.GetACUWorkTimeline)
 		logRoute.GET("/acu-channel-monitor", middleware.UserAuth(), middleware.DisableCache(), controller.GetACUChannelMonitor)
+		logRoute.POST("/acu-channel-monitor/veridrop", middleware.UserAuth(), middleware.CriticalRateLimit(), middleware.DisableCache(), controller.RunACUProfileVeridrop)
 		logRoute.POST("/acu-channel-monitor/pause", middleware.AdminAuth(), controller.PauseACUChannel)
 		logRoute.PUT("/acu-channel-monitor/profile-note", middleware.AdminAuth(), middleware.DisableCache(), controller.UpdateACUProfilePublicNote)
 		executionProfileRoute := apiRouter.Group("/log/acu-execution-profiles")

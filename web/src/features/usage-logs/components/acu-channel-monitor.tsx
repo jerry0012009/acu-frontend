@@ -30,6 +30,7 @@ import {
   getACUGlobalRoutingPolicy,
   getACURoutingUtilityConfig,
   getACUTokenProfileRouting,
+  runACUProfileVeridrop,
   probeACUExecutionProfileById,
   reconcileACUExecutionProfileCalibration,
   updateACUGlobalProfileRouting,
@@ -40,6 +41,7 @@ import {
   pauseACUChannel,
   type ACUChannelMonitorProfile,
   type ACUExecutionProfileProbeResult,
+  type ACUVeridropResult,
   type ACUModelPoolEntry,
   type ACUProbeHistoryRow,
   type ACUMonitorRange,
@@ -62,6 +64,7 @@ import { ACUModelHealthCard } from './acu-model-health-card'
 import {
   filterProfilesByProtocol,
   monitorReason,
+  monitorProfileEligible,
   monitorStateLabel,
   protocolLabel,
   sortMonitorChannels,
@@ -72,6 +75,7 @@ import {
   type ACUMonitorSort,
 } from './acu-monitor-presentation'
 import { ACUProfileProbeInspector } from './acu-profile-probe-inspector'
+import { ACUVeridropInspector } from './acu-veridrop-inspector'
 
 const MONITOR_REFRESH_MS = 30 * 60_000
 
@@ -79,6 +83,13 @@ type ProbeInspectorState = {
   profile: ACUChannelMonitorProfile
   protocol: 'responses' | 'messages' | 'chat_completions'
   result: ACUExecutionProfileProbeResult | null
+  requestError?: string
+}
+
+type VeridropInspectorState = {
+  profile: ACUChannelMonitorProfile
+  protocol: string
+  result: ACUVeridropResult | null
   requestError?: string
 }
 
@@ -100,6 +111,12 @@ const EMPTY_PROFILE_FILTERS: ProfileFilters = {
   provider: '',
   protocol: '',
   state: '',
+}
+
+export type ACUChannelMonitorFocus = {
+  line: string
+  model: string
+  protocol: Exclude<ACUMonitorProtocol, 'all'>
 }
 
 function buildAvailableModelEntries(
@@ -152,7 +169,9 @@ function profileFilterValues(
   return profiles.map((item) => item[key])
 }
 
-export function ACUChannelMonitor() {
+export function ACUChannelMonitor(
+  props: { focus?: ACUChannelMonitorFocus } = {}
+) {
   const { t } = useTranslation()
   const isAdmin = useIsAdmin()
   const isRoot = useAuthStore(
@@ -176,8 +195,16 @@ export function ACUChannelMonitor() {
   )
   const [probeInspector, setProbeInspector] =
     useState<ProbeInspectorState | null>(null)
+  const [veridropInspector, setVeridropInspector] =
+    useState<VeridropInspectorState | null>(null)
   const [calibrationMessage, setCalibrationMessage] = useState('')
   const [selectedTokenId, setSelectedTokenId] = useState<number | null>(null)
+  useEffect(() => {
+    if (!props.focus) return
+    setProtocol(props.focus.protocol)
+    setActiveTab('overview')
+    setOverviewLayout('model')
+  }, [props.focus])
   const query = useQuery({
     queryKey: [
       'acu-channel-monitor',
@@ -346,6 +373,40 @@ export function ACUChannelMonitor() {
           : current
       ),
   })
+  const veridropMutation = useMutation({
+    mutationFn: ({
+      executionProfileId,
+      protocol,
+    }: {
+      executionProfileId: string
+      protocol: 'responses' | 'messages' | 'chat_completions'
+    }) => runACUProfileVeridrop(executionProfileId, protocol),
+    onSuccess: (result) => {
+      setVeridropInspector((current) =>
+        current
+          ? {
+              ...current,
+              result: result.data ?? null,
+              requestError: result.data
+                ? undefined
+                : result.message || t('Veridrop check failed'),
+            }
+          : current
+      )
+    },
+    onError: (error) =>
+      setVeridropInspector((current) =>
+        current
+          ? {
+              ...current,
+              requestError:
+                error instanceof Error
+                  ? error.message
+                  : t('Veridrop check failed'),
+            }
+          : current
+      ),
+  })
   const calibrationMutation = useMutation({
     mutationFn: (input: {
       executionProfileId: string
@@ -419,7 +480,7 @@ export function ACUChannelMonitor() {
     if (activeTab !== 'overview' || (isAdmin && overviewLayout !== 'model')) {
       return []
     }
-    return sortMonitorModels(
+    const groups = sortMonitorModels(
       groupACUModels(
         protocolProfiles,
         query.data?.data?.history ?? [],
@@ -430,6 +491,8 @@ export function ACUChannelMonitor() {
       ),
       sort
     )
+    if (!props.focus) return groups
+    return groups.filter((group) => group.modelId === props.focus?.model)
   }, [
     activeTab,
     isAdmin,
@@ -439,6 +502,7 @@ export function ACUChannelMonitor() {
     query.data?.data?.history,
     query.data?.data?.probeHistory,
     probeRange,
+    props.focus,
     range,
     sort,
   ])
@@ -477,6 +541,25 @@ export function ACUChannelMonitor() {
         },
       }
     : undefined
+  const veridropActions = {
+    isPending: (profileId: string) =>
+      veridropMutation.isPending &&
+      veridropMutation.variables?.executionProfileId === profileId,
+    onCheck: (profile: ACUChannelMonitorProfile, checkProtocol: string) => {
+      setVeridropInspector({
+        profile,
+        protocol: checkProtocol,
+        result: null,
+      })
+      veridropMutation.mutate({
+        executionProfileId: profile.executionProfileId,
+        protocol: checkProtocol as
+          | 'responses'
+          | 'messages'
+          | 'chat_completions',
+      })
+    },
+  }
   const tokenProfileActions =
     selectedToken && selectedTokenId != null
       ? {
@@ -891,6 +974,7 @@ export function ACUChannelMonitor() {
                     channel={channel}
                     generatedAt={query.data?.data?.generatedAt ?? ''}
                     profileActions={profileActions}
+                    veridropActions={veridropActions}
                     profileNoteActions={profileNoteActions}
                     tokenProfileActions={tokenProfileActions}
                   />
@@ -899,9 +983,11 @@ export function ACUChannelMonitor() {
                   <ACUModelHealthCard
                     key={model.modelId}
                     model={model}
+                    focusedLine={props.focus?.line}
                     showDiagnostics={isAdmin}
                     probeRange={probeRange}
                     profileActions={profileActions}
+                    veridropActions={veridropActions}
                     tokenProfileActions={tokenProfileActions}
                     profileNoteActions={profileNoteActions}
                   />
@@ -1060,6 +1146,17 @@ export function ACUChannelMonitor() {
             executionProfileId: probeInspector.profile.executionProfileId,
             ...input,
           })
+        }}
+      />
+      <ACUVeridropInspector
+        open={veridropInspector !== null}
+        profile={veridropInspector?.profile ?? null}
+        protocol={veridropInspector?.protocol ?? null}
+        loading={veridropMutation.isPending}
+        result={veridropInspector?.result ?? null}
+        requestError={veridropInspector?.requestError}
+        onOpenChange={(open) => {
+          if (!open) setVeridropInspector(null)
         }}
       />
     </div>
@@ -2046,6 +2143,17 @@ function MonitorTable(props: {
                         : `${profile.profileUtility.toFixed(3)} · #${profile.profileRank}/${profile.profileCandidateCount}`}
                     </div>
                     <div>
+                      {t('Profile Preference')}:{' '}
+                      {profile.profilePreferenceScore == null
+                        ? t('n/a')
+                        : `${profile.profilePreferenceScore} · ${
+                            formatMultiplier(
+                              profile.profilePreferenceMultiplier,
+                              '×'
+                            ) ?? t('n/a')
+                          }`}
+                    </div>
+                    <div>
                       {t('Multiplier')}:{' '}
                       {formatMultiplier(profile.multiplier) ?? t('n/a')}
                     </div>
@@ -2089,11 +2197,13 @@ function MonitorTable(props: {
               <td className='px-3 py-2'>
                 <Badge
                   variant={stateTone(
-                    profile.routingEligible ? 'healthy' : profile.state
+                    monitorProfileEligible(profile) ? 'healthy' : profile.state
                   )}
                 >
                   {monitorStateLabel(
-                    profile.routingEligible ? 'eligible' : profile.state,
+                    monitorProfileEligible(profile)
+                      ? 'eligible'
+                      : profile.state,
                     t
                   )}
                 </Badge>

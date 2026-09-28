@@ -118,7 +118,7 @@ test('ordinary users get only the anonymous Model Overview presentation', () => 
       new URL('../acu-model-health-card.tsx', import.meta.url),
       'utf8'
     ),
-    /anonymousACULineId\(profile\.executionProfileId\)/
+    /publicChannelAlias\(profile\.provider,\s*profile\.channel\)/
   )
 })
 

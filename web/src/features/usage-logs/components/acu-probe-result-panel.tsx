@@ -155,7 +155,7 @@ export function ACUProbeResultPanel(props: {
                 ? 'n/a'
                 : `${estimatedPlatformDebit.toFixed(8)} credits`}
             </span>
-            <span>{t('Credits per CNY')}</span>
+            <span>{t('USD credits per RMB')}</span>
             <span>
               {creditsPerCny === undefined
                 ? 'n/a'

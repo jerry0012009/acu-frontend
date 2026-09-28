@@ -116,8 +116,14 @@ export function filterProfilesByProtocol(
   return profiles.filter((profile) => profile.protocol.includes(protocol))
 }
 
+export function monitorProfileEligible(
+  profile: ACUChannelMonitorProfile
+): boolean {
+  return profile.explicitRoutingEligible ?? profile.routingEligible
+}
+
 export function summarizeMonitorProfiles(profiles: ACUChannelMonitorProfile[]) {
-  const eligible = profiles.filter((profile) => profile.routingEligible)
+  const eligible = profiles.filter(monitorProfileEligible)
   const recovering = profiles.filter((profile) =>
     [
       profile.effectiveState,
@@ -194,7 +200,8 @@ export function sortMonitorProfiles(
       )
     }
     return (
-      Number(right.routingEligible) - Number(left.routingEligible) ||
+      Number(monitorProfileEligible(right)) -
+        Number(monitorProfileEligible(left)) ||
       Number(left.state !== 'healthy') - Number(right.state !== 'healthy') ||
       Number((right.requestCount ?? 0) > 0) -
         Number((left.requestCount ?? 0) > 0) ||
@@ -248,9 +255,7 @@ function overviewCostValue(profiles: ACUChannelMonitorProfile[]): number {
 
 function overviewSpeedValue(profiles: ACUChannelMonitorProfile[]): number {
   return Math.min(
-    ...profiles
-      .filter((profile) => profile.routingEligible)
-      .map(profileSpeedValue),
+    ...profiles.filter(monitorProfileEligible).map(profileSpeedValue),
     Number.POSITIVE_INFINITY
   )
 }
@@ -258,7 +263,7 @@ function overviewSpeedValue(profiles: ACUChannelMonitorProfile[]): number {
 function overviewRankValue(profiles: ACUChannelMonitorProfile[]): number {
   return Math.min(
     ...profiles
-      .filter((profile) => profile.routingEligible)
+      .filter(monitorProfileEligible)
       .map((profile) => profile.profileRank ?? Number.POSITIVE_INFINITY),
     Number.POSITIVE_INFINITY
   )

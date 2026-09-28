@@ -6,6 +6,7 @@ import type {
   ACUProbeBucket,
   ACUProbeHistoryRow,
 } from '../api'
+import { monitorProfileEligible } from './acu-monitor-presentation'
 
 export type ACUChannelState =
   | 'healthy'
@@ -405,9 +406,7 @@ export function groupACUModels(
         requestCount,
         successCount,
         availability: requestCount > 0 ? successCount / requestCount : null,
-        eligibleCount: modelProfiles.filter(
-          (profile) => profile.routingEligible
-        ).length,
+        eligibleCount: modelProfiles.filter(monitorProfileEligible).length,
         totalCount: modelProfiles.length,
       }
     })
@@ -449,9 +448,7 @@ export function groupACUChannels(
       const enabledProfiles = channelProfiles.filter(
         (profile) => profile.routingEnabled
       )
-      const eligibleProfiles = enabledProfiles.filter(
-        (profile) => profile.routingEligible
-      )
+      const eligibleProfiles = enabledProfiles.filter(monitorProfileEligible)
       let state: ACUChannelState = 'degraded'
       if (
         channelProfiles.some((profile) =>

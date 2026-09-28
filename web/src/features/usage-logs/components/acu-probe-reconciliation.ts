@@ -2,6 +2,7 @@ export function recommendedProbeMultiplier(
   nominalCostUsd: number | undefined,
   actualDebit: string | undefined
 ): number | undefined {
+  if (!actualDebit?.trim()) return undefined
   const debit = Number(actualDebit)
   return nominalCostUsd !== undefined &&
     nominalCostUsd > 0 &&

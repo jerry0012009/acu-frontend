@@ -116,7 +116,7 @@ test('renders anonymous model lines and isolates user-facing supply evidence', a
   )
   const text = container.textContent ?? ''
   assert.match(text, /gpt-5\.6-luna/)
-  assert.match(text, /ACU Route \d{4}/)
+  assert.match(text, /ACU Route ACU 线路 \d{4}/)
   assert.match(text, /0\.030×/)
   assert.match(text, /Price factor/)
   assert.match(text, /Response latency/)
@@ -294,6 +294,81 @@ test('toggles only the selected API key profile from the profile row', async () 
     noteButton.dispatchEvent(new MouseEvent('click', { bubbles: true }))
   )
   assert.deepEqual(editedNotes, ['cx006:gpt-5.6-luna:responses'])
+  await act(async () => root.unmount())
+  container.remove()
+})
+
+test('focused anonymous route opens directly and Veridrop only checks the selected profile', async () => {
+  const { publicChannelAlias } =
+    await import('@/features/acu/lib/public-channel-alias')
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  const calls: string[] = []
+  const profile = {
+    executionProfileId: 'fixture:responses',
+    canonicalModel: 'gpt-6-luna',
+    provider: 'fixture',
+    channel: 'selected',
+    protocol: ['responses'],
+    state: 'healthy',
+    routingEligible: true,
+    probeBuckets: [],
+  } as never
+  const model = {
+    modelId: 'gpt-6-luna',
+    eligibleCount: 2,
+    totalCount: 2,
+    requestCount: 0,
+    successCount: 0,
+    availability: null,
+    buckets: [],
+    probeBuckets: [],
+    profiles: [
+      profile,
+      {
+        ...(profile as object),
+        executionProfileId: 'other',
+        channel: 'other',
+      } as never,
+    ],
+  }
+  const render = async (pending: boolean) =>
+    act(async () => {
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <ACUModelHealthCard
+            showDiagnostics={false}
+            model={model}
+            focusedLine={publicChannelAlias('fixture', 'selected')}
+            veridropActions={{
+              isPending: () => pending,
+              onCheck: (target, protocol) =>
+                calls.push(`${target.executionProfileId}/${protocol}`),
+            }}
+          />
+        </I18nextProvider>
+      )
+    })
+  await render(false)
+  const buttons = [...container.querySelectorAll('button')].filter(
+    (button) => button.textContent === 'Veridrop'
+  )
+  assert.equal(buttons.length, 1)
+  await act(async () => buttons[0].click())
+  assert.deepEqual(calls, ['fixture:responses/responses'])
+  assert.doesNotMatch(
+    container.textContent ?? '',
+    /Enable routing|Disable routing|Probe test/
+  )
+  await render(true)
+  const pending = [...container.querySelectorAll('button')].find(
+    (button) => button.textContent === 'Checking...'
+  )
+  assert.ok(pending)
+  assert.equal(pending.disabled, true)
+  await act(async () => pending.click())
+  assert.equal(calls.length, 1)
   await act(async () => root.unmount())
   container.remove()
 })

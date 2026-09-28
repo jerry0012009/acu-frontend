@@ -29,6 +29,12 @@ const usageLogsSearchSchema = z.object({
   username: z.string().optional().catch(''),
   requestId: z.string().optional().catch(''),
   upstreamRequestId: z.string().optional().catch(''),
+  monitorLine: z.string().optional().catch(''),
+  monitorModel: z.string().optional().catch(''),
+  monitorProtocol: z
+    .enum(['responses', 'messages', 'chat_completions'])
+    .optional()
+    .catch(undefined),
   startTime: z.number().optional(),
   endTime: z.number().optional(),
 })
