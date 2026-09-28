@@ -11,8 +11,8 @@
     },
     {
       "file": "codex-acu-install.ps1",
-      "bytes": 26537,
-      "sha256": "da0a18cb6e8b8a2055ddd77d75f3bc199cf9ad220ea381874d49c25643ac3729"
+      "bytes": 25935,
+      "sha256": "359b9e949d41329a28e68a2af3195e96e3339abd2f0452facf56821f00a8790c"
     },
     {
       "file": "codex-acu-install.sh",
