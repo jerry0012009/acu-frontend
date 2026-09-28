@@ -49,7 +49,7 @@ test('timeline and trace cache keys are scoped by target user and selection rese
   )
   assert.match(
     timelineSource,
-    /<ACUSessionTracePanel[\s\S]*targetUserId=\{targetUserId\}/
+    /<ACUSessionTracePanel[\s\S]*targetUserId=\{traceTargetUserId \?\? targetUserId\}/
   )
 })
 
@@ -64,4 +64,12 @@ test('timeline zero state identifies direct model calls and uses an empty zero r
     timelineSource,
     /Direct model calls do not create routing traces or Session Trace\./
   )
+})
+
+test('administrator all-users mode is explicit, bounded, and keeps trace ownership', () => {
+  assert.match(apiSource, /params\.set\('scope', 'all'\)/)
+  assert.match(timelineSource, /All-users range cannot exceed 24 hours\./)
+  assert.match(timelineSource, /data\?\.itemLimit \?\? 500/)
+  assert.match(timelineSource, /traceTargetUserId \?\? targetUserId/)
+  assert.match(apiSource, /allUsers = false/)
 })

@@ -17,6 +17,8 @@ func TestPublicACUWorkTimelineOmitsInternalRoutingAndCostsButKeepsFinalUserCharg
 			ActualTotalCostCNY:     0.5,
 		},
 		Items: []dto.ACUWorkTimelineItem{{
+			UserID:                    7,
+			Username:                  "private-user",
 			Provider:                  "lucen",
 			Channel:                   "lucen-cx006",
 			JudgeModel:                "mimo-v2.5-pro",
@@ -55,6 +57,8 @@ func TestPublicACUWorkTimelineOmitsInternalRoutingAndCostsButKeepsFinalUserCharg
 	require.Contains(t, body, `"difficultyRecorded":true`)
 	require.Contains(t, body, `"provider":"lucen"`)
 	require.Contains(t, body, `"channel":"lucen-cx006"`)
+	require.NotContains(t, body, `"userId":7`)
+	require.NotContains(t, body, `"username":"private-user"`)
 	for _, internalKey := range []string{
 		`"judgeModel":"mimo-v2.5-pro"`,
 		`"executionProfileId":"judge-profile"`,

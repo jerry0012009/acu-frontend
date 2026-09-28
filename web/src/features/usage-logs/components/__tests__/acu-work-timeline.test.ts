@@ -5,6 +5,7 @@ import { test } from 'node:test'
 import { publicChannelAlias } from '@/features/acu/lib/public-channel-alias'
 
 import type { ACUWorkTimelineItem } from '../../api'
+import { addExplicitDifficulty } from '../../lib/explicit-difficulty'
 import {
   ACU_TIMELINE_INSIDE_ZOOM_ID,
   buildTimelineChannelOptions,
@@ -122,6 +123,23 @@ test('missing difficulty stays absent instead of producing a y=0 point', () => {
   const difficulty = series.find((entry) => entry.id === 'difficulty-segment-1')
   assert.equal(difficulty?.connectNulls, false)
   assert.ok(Number.isNaN(difficulty?.data?.[0]?.value[1]))
+})
+
+test('admin display adds explicit difficulty while public display leaves it absent', () => {
+  const explicit = item({
+    requestedModel: 'gpt-5.6-terra',
+    actualModel: 'gpt-5.6-terra',
+    judgeCalled: false,
+    difficulty: 0,
+    difficultyRecorded: false,
+  })
+  const adminItem = addExplicitDifficulty([explicit], true)[0]
+  const publicItem = addExplicitDifficulty([explicit], false)[0]
+
+  assert.equal(adminItem?.displayDifficultyInferred, true)
+  assert.equal(typeof adminItem?.displayDifficulty, 'number')
+  assert.equal(publicItem?.displayDifficultyInferred, undefined)
+  assert.equal(publicItem?.displayDifficulty, undefined)
 })
 
 test('difficulty points use an interactive scatter layer for Judge and Execution', () => {

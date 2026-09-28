@@ -18,6 +18,7 @@ import {
   Route,
   Scale,
   Search,
+  Users,
   X,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -45,6 +46,11 @@ import { useAuthStore } from '@/stores/auth-store'
 import { searchUsers } from '../../users/api'
 import type { User } from '../../users/types'
 import { getACUWorkTimeline, type ACUWorkTimelineItem } from '../api'
+import {
+  addExplicitDifficulty,
+  timelineDisplayDifficulty,
+  type ACUWorkTimelineDisplayItem,
+} from '../lib/explicit-difficulty'
 import {
   ACU_TIMELINE_INSIDE_ZOOM_ID,
   buildTimelineChannelOptions,
@@ -130,8 +136,8 @@ function judgeMode(item: ACUWorkTimelineItem) {
   return item.judgeModel ? `Judge · ${item.judgeModel}` : 'Judge unavailable'
 }
 
-function difficultyText(item: ACUWorkTimelineItem, digits = 0) {
-  return item.difficultyRecorded ? item.difficulty.toFixed(digits) : '—'
+function difficultyText(item: ACUWorkTimelineDisplayItem, digits = 0) {
+  return timelineDisplayDifficulty(item)?.toFixed(digits) ?? '—'
 }
 
 function timelineRouteLabel(
@@ -148,8 +154,8 @@ function timelineRouteLabel(
 }
 
 function StepDetailContent(props: {
-  item: ACUWorkTimelineItem
-  onTrace: (id: string) => void
+  item: ACUWorkTimelineDisplayItem
+  onTrace: (id: string, userId?: number) => void
   onOpen?: (id: string) => void
   showDetails?: boolean
   isAdmin: boolean
@@ -259,7 +265,10 @@ function StepDetailContent(props: {
           </span>
           <span className='text-muted-foreground mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:grid-cols-4'>
             <span>
-              {t('Difficulty')} {difficultyText(item)}
+              {item.displayDifficultyInferred
+                ? t('Estimated difficulty')
+                : t('Difficulty')}{' '}
+              {difficultyText(item)}
             </span>
             {item.pointType === 'execution' ? (
               <span>
@@ -314,6 +323,16 @@ function StepDetailContent(props: {
                 {item.resolvedReasoningEffort || t('default')}
               </div>
               <div>{item.reasoningMappingStatus || t('model_default')}</div>
+            </div>
+          ) : null}
+          {props.isAdmin && item.displayDifficultyInferred ? (
+            <div className='text-muted-foreground lg:col-span-2'>
+              <div className='mb-1 text-[11px]'>{t('Difficulty source')}</div>
+              <div className='text-[11px]'>
+                {t(
+                  'Inferred from the model and work phase. Judge was not invoked for this explicit request.'
+                )}
+              </div>
             </div>
           ) : null}
           {item.pointType === 'judge' ? (
@@ -405,7 +424,7 @@ function StepDetailContent(props: {
             <button
               type='button'
               className='text-primary underline-offset-2 hover:underline'
-              onClick={() => props.onTrace(item.logicalRequestId)}
+              onClick={() => props.onTrace(item.logicalRequestId, item.userId)}
             >
               {t('View full Session Trace')}
             </button>
@@ -520,7 +539,7 @@ function StepDetailContent(props: {
 }
 
 function TimelineStep(props: {
-  item: ACUWorkTimelineItem
+  item: ACUWorkTimelineDisplayItem
   onOpen: (id: string) => void
   isAdmin: boolean
 }) {
@@ -558,9 +577,13 @@ export function ACUWorkTimeline() {
   const [selectedUser, setSelectedUser] = useState<TimelineTargetUser | null>(
     null
   )
+  const [allUsersSelected, setAllUsersSelected] = useState(false)
   const [userSearch, setUserSearch] = useState('')
   const [debouncedUserSearch, setDebouncedUserSearch] = useState('')
   const [traceId, setTraceId] = useState('')
+  const [traceTargetUserId, setTraceTargetUserId] = useState<
+    number | undefined
+  >()
   const [selectedPointId, setSelectedPointId] = useState('')
   const [trendOpen, setTrendOpen] = useState(true)
   const [search, setSearch] = useState('')
@@ -582,14 +605,15 @@ export function ACUWorkTimeline() {
     end: 1,
   })
   const targetUserId =
-    selectedUser?.id && selectedUser.id !== currentUser?.id
+    !allUsersSelected && selectedUser?.id && selectedUser.id !== currentUser?.id
       ? selectedUser.id
       : undefined
-  const targetUserScope = targetUserId ?? 'self'
+  const targetUserScope = allUsersSelected ? 'all' : (targetUserId ?? 'self')
   const userSearchQuery = useQuery({
     queryKey: ['acu-timeline-user-search', debouncedUserSearch],
     queryFn: () => searchUsers({ keyword: debouncedUserSearch, page_size: 10 }),
-    enabled: isAdmin && debouncedUserSearch.trim().length > 0,
+    enabled:
+      isAdmin && !allUsersSelected && debouncedUserSearch.trim().length > 0,
     staleTime: 30_000,
   })
   const selectableUsers = useMemo(
@@ -613,8 +637,9 @@ export function ACUWorkTimeline() {
 
   useEffect(() => {
     setTraceId('')
+    setTraceTargetUserId(undefined)
     setSelectedPointId('')
-  }, [targetUserId])
+  }, [allUsersSelected, targetUserId])
 
   let userSearchContent = (
     <div className='text-muted-foreground px-3 py-2 text-xs'>
@@ -637,6 +662,7 @@ export function ACUWorkTimeline() {
             className='hover:bg-muted flex w-full flex-col px-3 py-2 text-left text-xs'
             onClick={() => {
               setSelectedUser(user)
+              setAllUsersSelected(false)
               setUserSearch('')
               setDebouncedUserSearch('')
             }}
@@ -665,35 +691,52 @@ export function ACUWorkTimeline() {
     queryFn: () => {
       const range =
         rangeMode === 'rolling' ? rollingTimelineRange(hours) : customRange
-      return getACUWorkTimeline(range.from, range.to, targetUserId)
+      return getACUWorkTimeline(
+        range.from,
+        range.to,
+        targetUserId,
+        allUsersSelected
+      )
     },
+    enabled: !allUsersSelected || isAdmin,
     refetchInterval: 60_000,
   })
   const data = query.data?.data
   const items = useMemo(() => data?.items ?? [], [data])
+  const displayItems = useMemo(
+    () => addExplicitDifficulty(items, isAdmin),
+    [isAdmin, items]
+  )
   const supplyItems = useMemo(
     () =>
       filterTimelineBySupply(
-        items,
+        displayItems,
         protocolFilter,
         channelFilter,
         pointTypeFilter,
         resultFilter
       ),
-    [channelFilter, items, pointTypeFilter, protocolFilter, resultFilter]
+    [channelFilter, displayItems, pointTypeFilter, protocolFilter, resultFilter]
   )
   const channelOptions = useMemo(
-    () => buildTimelineChannelOptions(items),
-    [items]
+    () => buildTimelineChannelOptions(displayItems),
+    [displayItems]
   )
   const selectedPoint = useMemo(
-    () => items.find((item) => item.pointId === selectedPointId),
-    [items, selectedPointId]
+    () => displayItems.find((item) => item.pointId === selectedPointId),
+    [displayItems, selectedPointId]
   )
 
   useEffect(() => {
     setVisibleOrderRange({ start: 1, end: Math.max(1, supplyItems.length) })
-  }, [customRange.from, customRange.to, hours, rangeMode, supplyItems.length])
+  }, [
+    allUsersSelected,
+    customRange.from,
+    customRange.to,
+    hours,
+    rangeMode,
+    supplyItems.length,
+  ])
 
   const applyCustomRange = () => {
     const from = Math.floor(new Date(customStart).getTime() / 1000)
@@ -707,8 +750,13 @@ export function ACUWorkTimeline() {
       setRangeError(t('End time must be after start time.'))
       return
     }
-    if (to - from > 7 * 24 * 3600) {
-      setRangeError(t('Custom range cannot exceed 7 days.'))
+    const maxRangeSeconds = allUsersSelected ? 24 * 3600 : 7 * 24 * 3600
+    if (to - from > maxRangeSeconds) {
+      setRangeError(
+        allUsersSelected
+          ? t('All-users range cannot exceed 24 hours.')
+          : t('Custom range cannot exceed 7 days.')
+      )
       return
     }
     if (to > now) {
@@ -736,9 +784,10 @@ export function ACUWorkTimeline() {
     const groups = new Map<string, ACUWorkTimelineItem[]>()
     for (const item of visibleItems) {
       const task = item.taskId || 'unassigned'
-      const group = groups.get(task) ?? []
+      const groupKey = `${item.userId ?? 'self'}:${task}`
+      const group = groups.get(groupKey) ?? []
       group.push(item)
-      groups.set(task, group)
+      groups.set(groupKey, group)
     }
     return [...groups.entries()]
   }, [visibleItems])
@@ -863,6 +912,12 @@ export function ACUWorkTimeline() {
     supplyItems.length > 0
       ? Math.min(visibleOrderRange.end, supplyItems.length)
       : 0
+  let userScopeInputValue = userSearch
+  if (allUsersSelected) {
+    userScopeInputValue = t('All users')
+  } else if (selectedUser) {
+    userScopeInputValue = timelineTargetUserLabel(selectedUser)
+  }
   let chartContent = (
     <div className='text-muted-foreground rounded border p-8 text-center text-sm'>
       {items.length === 0 ? (
@@ -950,19 +1005,37 @@ export function ACUWorkTimeline() {
             </span>
             <div className='flex'>
               <Input
-                value={
-                  selectedUser
-                    ? timelineTargetUserLabel(selectedUser)
-                    : userSearch
-                }
+                value={userScopeInputValue}
+                disabled={allUsersSelected}
                 onChange={(event) => {
                   setSelectedUser(null)
+                  setAllUsersSelected(false)
                   setUserSearch(event.target.value)
                 }}
                 placeholder={t('My calls', { defaultValue: '我的调用' })}
                 className='h-8 min-w-56'
               />
-              {selectedUser ? (
+              {isAdmin && !allUsersSelected ? (
+                <Button
+                  type='button'
+                  size='icon'
+                  variant='outline'
+                  className='ml-1 size-8'
+                  title={t('All users')}
+                  aria-label={t('All users')}
+                  onClick={() => {
+                    setAllUsersSelected(true)
+                    setSelectedUser(null)
+                    setUserSearch('')
+                    setDebouncedUserSearch('')
+                    setRangeMode('rolling')
+                    setRangeError('')
+                  }}
+                >
+                  <Users className='size-3.5' />
+                </Button>
+              ) : null}
+              {selectedUser || allUsersSelected ? (
                 <Button
                   type='button'
                   size='icon'
@@ -972,6 +1045,7 @@ export function ACUWorkTimeline() {
                   aria-label={t('My calls', { defaultValue: '我的调用' })}
                   onClick={() => {
                     setSelectedUser(null)
+                    setAllUsersSelected(false)
                     setUserSearch('')
                     setDebouncedUserSearch('')
                   }}
@@ -980,7 +1054,9 @@ export function ACUWorkTimeline() {
                 </Button>
               ) : null}
             </div>
-            {!selectedUser && debouncedUserSearch.trim() ? (
+            {!selectedUser &&
+            !allUsersSelected &&
+            debouncedUserSearch.trim() ? (
               <div className='bg-popover absolute top-full z-20 mt-1 max-h-56 w-full overflow-y-auto rounded border shadow-sm'>
                 {userSearchContent}
               </div>
@@ -1080,6 +1156,15 @@ export function ACUWorkTimeline() {
         ) : null}
       </div>
       <div className='text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs'>
+        {allUsersSelected ? (
+          <span>
+            {t(
+              'All-users view is limited to the latest {{count}} matching log entries.',
+              { count: data?.itemLimit ?? 500 }
+            )}{' '}
+            {data?.truncated ? t('Older entries are omitted.') : null}
+          </span>
+        ) : null}
         <span>
           {t('Visible requests #{{start}}–#{{end}} of {{total}}', {
             start: visibleRequestStart,
@@ -1180,24 +1265,41 @@ export function ACUWorkTimeline() {
           <span aria-hidden='true' />
         </div>
         {taskGroups.length ? (
-          taskGroups.map(([taskId, taskItems]) => (
-            <div key={taskId}>
-              <div className='bg-muted/40 border-b px-4 py-2 text-xs font-medium'>
-                {t('Task')}{' '}
-                <span className='font-mono break-all select-all' title={taskId}>
-                  {taskId}
-                </span>
+          taskGroups.map(([groupKey, taskItems]) => {
+            const firstItem = taskItems[0]
+            const taskId = firstItem?.taskId || 'unassigned'
+            return (
+              <div key={groupKey}>
+                <div className='bg-muted/40 border-b px-4 py-2 text-xs font-medium'>
+                  {allUsersSelected && firstItem?.userId ? (
+                    <>
+                      {t('User')}{' '}
+                      <span className='font-mono'>
+                        {firstItem.username || `#${firstItem.userId}`}
+                      </span>
+                      {firstItem.username ? ` · #${firstItem.userId}` : ''}{' '}
+                      ·{' '}
+                    </>
+                  ) : null}
+                  {t('Task')}{' '}
+                  <span
+                    className='font-mono break-all select-all'
+                    title={taskId}
+                  >
+                    {taskId}
+                  </span>
+                </div>
+                {taskItems.map((item) => (
+                  <TimelineStep
+                    key={item.pointId}
+                    item={item}
+                    onOpen={setSelectedPointId}
+                    isAdmin={isAdmin}
+                  />
+                ))}
               </div>
-              {taskItems.map((item) => (
-                <TimelineStep
-                  key={item.pointId}
-                  item={item}
-                  onOpen={setSelectedPointId}
-                  isAdmin={isAdmin}
-                />
-              ))}
-            </div>
-          ))
+            )
+          })
         ) : (
           <div className='text-muted-foreground p-8 text-center text-sm'>
             {t('No route steps match the current filters.')}
@@ -1217,7 +1319,10 @@ export function ACUWorkTimeline() {
           {selectedPoint ? (
             <StepDetailContent
               item={selectedPoint}
-              onTrace={setTraceId}
+              onTrace={(id, userId) => {
+                setTraceId(id)
+                setTraceTargetUserId(userId)
+              }}
               showDetails
               isAdmin={isAdmin}
             />
@@ -1243,7 +1348,7 @@ export function ACUWorkTimeline() {
           {traceId && (
             <ACUSessionTracePanel
               identifier={traceId}
-              targetUserId={targetUserId}
+              targetUserId={traceTargetUserId ?? targetUserId}
               isAdmin={isAdmin}
             />
           )}

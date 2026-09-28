@@ -2,6 +2,7 @@ package service
 
 import (
 	"sort"
+	"strconv"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
@@ -35,6 +36,24 @@ func GetOwnedACUWorkTimelineAccurateTiming(userID int, from, to int64, allowAdmi
 	return timeline, nil
 }
 
+func GetAllUsersACUWorkTimelineAccurateTiming(from, to int64) (dto.ACUWorkTimeline, error) {
+	logs, truncated, err := model.GetAllUsersACUTimelineLogs(from, to)
+	if err != nil {
+		return dto.ACUWorkTimeline{}, err
+	}
+	timeline := buildACUWorkTimeline(logs, from, to, true)
+	timeline.Scope = "all"
+	timeline.Truncated = truncated
+	timeline.ItemLimit = model.AllUsersACUTimelineLogLimit
+	for index := range timeline.Items {
+		item := &timeline.Items[index]
+		userPrefix := strconv.Itoa(item.UserID) + ":"
+		item.PointID = userPrefix + item.PointID
+	}
+	applyACUWorkTimelineLatencySemantics(&timeline, logs)
+	return timeline, nil
+}
+
 func applyACUWorkTimelineLatencySemantics(timeline *dto.ACUWorkTimeline, logs []*model.Log) {
 	if timeline == nil {
 		return
@@ -52,7 +71,7 @@ func applyACUWorkTimelineLatencySemantics(timeline *dto.ACUWorkTimeline, logs []
 			continue
 		}
 
-		row := evidence[item.LogicalRequestID]
+		row := evidence[timelineRequestKey(item.UserID, item.LogicalRequestID)]
 		item.ProviderFirstModelEventLatencyMs = firstPositiveInt(
 			row.providerFirstModelEventMs,
 			item.FirstModelEventLatencyMs,
@@ -88,6 +107,7 @@ func acuTimelineLatencyEvidenceByRequest(logs []*model.Log) map[string]acuTimeli
 		if logicalID == "" || breakdown == nil {
 			continue
 		}
+		logicalID = timelineRequestKey(log.UserId, logicalID)
 		attempts, _ := breakdown["channel_attempts"].([]interface{})
 		providerFirst, _, _, _ := attemptFields(attempts)
 		endToEnd, _ := reportedLatency(breakdown)

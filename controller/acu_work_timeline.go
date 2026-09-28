@@ -7,14 +7,32 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 )
 
 func GetACUWorkTimeline(c *gin.Context) {
-	targetUserID, ok := resolveACUTraceTargetUserID(c)
-	if !ok {
+	if scope := c.Query("scope"); scope != "" && scope != "all" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "scope must be all when provided"})
 		return
+	}
+	allUsers := c.Query("scope") == "all"
+	if allUsers && c.GetInt("role") < common.RoleAdminUser {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "permission denied"})
+		return
+	}
+	if allUsers && c.Query("user_id") != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "scope=all cannot be combined with user_id"})
+		return
+	}
+	targetUserID := c.GetInt("id")
+	if !allUsers {
+		var ok bool
+		targetUserID, ok = resolveACUTraceTargetUserID(c)
+		if !ok {
+			return
+		}
 	}
 	now := time.Now().Unix()
 	from, to, err := parseACUTimelineRange(c.Query("from"), c.Query("to"), now)
@@ -23,7 +41,16 @@ func GetACUWorkTimeline(c *gin.Context) {
 		return
 	}
 	isAdmin := c.GetInt("role") >= common.RoleAdminUser
-	timeline, err := service.GetOwnedACUWorkTimelineAccurateTiming(targetUserID, from, to, isAdmin)
+	var timeline dto.ACUWorkTimeline
+	if allUsers {
+		if to-from > 24*3600 {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "all-users time range must not exceed 24 hours"})
+			return
+		}
+		timeline, err = service.GetAllUsersACUWorkTimelineAccurateTiming(from, to)
+	} else {
+		timeline, err = service.GetOwnedACUWorkTimelineAccurateTiming(targetUserID, from, to, isAdmin)
+	}
 	if err != nil {
 		common.ApiError(c, err)
 		return

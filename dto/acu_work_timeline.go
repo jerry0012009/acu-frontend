@@ -1,10 +1,13 @@
 package dto
 
 type ACUWorkTimeline struct {
-	From    int64                  `json:"from"`
-	To      int64                  `json:"to"`
-	Summary ACUWorkTimelineSummary `json:"summary"`
-	Items   []ACUWorkTimelineItem  `json:"items"`
+	From      int64                  `json:"from"`
+	To        int64                  `json:"to"`
+	Scope     string                 `json:"scope,omitempty"`
+	Truncated bool                   `json:"truncated,omitempty"`
+	ItemLimit int                    `json:"itemLimit,omitempty"`
+	Summary   ACUWorkTimelineSummary `json:"summary"`
+	Items     []ACUWorkTimelineItem  `json:"items"`
 }
 
 type ACUWorkTimelineSummary struct {
@@ -36,6 +39,8 @@ type ACUWorkTimelineItem struct {
 	PointType          string  `json:"pointType"`
 	Timestamp          int64   `json:"timestamp"`
 	Sequence           int     `json:"sequence"`
+	UserID             int     `json:"userId,omitempty"`
+	Username           string  `json:"username,omitempty"`
 	LogicalRequestID   string  `json:"logicalRequestId"`
 	SessionID          string  `json:"sessionId"`
 	TaskID             string  `json:"taskId"`

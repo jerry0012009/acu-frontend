@@ -6100,6 +6100,7 @@
     "ACU setup tutorial saved": "ACU setup tutorial saved",
     "Step {{number}}": "Step {{number}}",
     "Image \"{{filename}}\" exceeds the {{limit}} MB upload limit.": "Image \"{{filename}}\" exceeds the {{limit}} MB upload limit.",
-    "Image \"{{filename}}\" could not be compressed below {{limit}} MB.": "Image \"{{filename}}\" could not be compressed below {{limit}} MB."
+    "Image \"{{filename}}\" could not be compressed below {{limit}} MB.": "Image \"{{filename}}\" could not be compressed below {{limit}} MB.",
+    "Estimated difficulty": "Estimated difficulty"
   }
 }

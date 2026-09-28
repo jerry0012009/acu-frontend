@@ -50,3 +50,39 @@ func TestACUTraceQueriesEnforceUserOwnership(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "req_user_b", logicalRequestID)
 }
+
+func TestGetAllUsersACUTimelineLogsUsesBoundedFilteredQuery(t *testing.T) {
+	previousDB, previousLogDB := DB, LOG_DB
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", t.Name())
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&Log{}))
+	DB, LOG_DB = db, db
+	t.Cleanup(func() {
+		DB, LOG_DB = previousDB, previousLogDB
+	})
+
+	require.NoError(t, db.Create(&Log{
+		Id: 1, UserId: 2, CreatedAt: 110, Type: LogTypeConsume,
+		Other: `{"acu_logical_request_id":"included-later"}`,
+	}).Error)
+	require.NoError(t, db.Create(&Log{
+		Id: 2, UserId: 1, CreatedAt: 100, Type: LogTypeError,
+		Other: `{"acu_logical_request_id":"included-first"}`,
+	}).Error)
+	require.NoError(t, db.Create(&Log{
+		Id: 3, UserId: 3, CreatedAt: 105, Type: LogTypeManage,
+		Other: `{"acu_logical_request_id":"excluded-type"}`,
+	}).Error)
+	require.NoError(t, db.Create(&Log{
+		Id: 4, UserId: 4, CreatedAt: 115, Type: LogTypeConsume,
+		Other: `{"request_id":"excluded-non-acu"}`,
+	}).Error)
+
+	logs, truncated, err := GetAllUsersACUTimelineLogs(90, 120)
+	require.NoError(t, err)
+	require.False(t, truncated)
+	require.Len(t, logs, 2)
+	require.Contains(t, logs[0].Other, `"acu_logical_request_id":"included-first"`)
+	require.Equal(t, int64(110), logs[1].CreatedAt)
+}

@@ -4,6 +4,11 @@ import { t } from 'i18next'
 import { publicChannelAlias } from '@/features/acu/lib/public-channel-alias'
 
 import type { ACUWorkTimelineItem } from '../api'
+import {
+  hasTimelineDisplayDifficulty,
+  timelineDisplayDifficulty,
+  type ACUWorkTimelineDisplayItem,
+} from '../lib/explicit-difficulty'
 
 export type TimelineProtocolFilter = 'all' | 'responses' | 'messages'
 
@@ -79,14 +84,14 @@ const MODEL_COLORS: Record<string, string> = {
 
 export type TimelineChartDatum = {
   value: [number, number]
-  timelineItem: ACUWorkTimelineItem
+  timelineItem: ACUWorkTimelineDisplayItem
   chartOrder: number
   symbolSize?: number
   itemStyle?: Record<string, unknown>
 }
 
 type TimelineChartOptions = {
-  items: ACUWorkTimelineItem[]
+  items: ACUWorkTimelineDisplayItem[]
   dark: boolean
 }
 
@@ -248,7 +253,10 @@ export function judgeLabel(item: ACUWorkTimelineItem): string {
   return item.judgeModel ? `Judge · ${item.judgeModel}` : 'Judge unavailable'
 }
 
-function tooltipHtml(item: ACUWorkTimelineItem, chartOrder: number): string {
+function tooltipHtml(
+  item: ACUWorkTimelineDisplayItem,
+  chartOrder: number
+): string {
   const judgeAttempts = item.judgeAttempts ?? []
   const backup = judgeAttempts.some(
     (attempt) => attempt.attemptRole === 'backup'
@@ -270,10 +278,13 @@ function tooltipHtml(item: ACUWorkTimelineItem, chartOrder: number): string {
   )
   return [
     `<div style="font-weight:600;margin-bottom:6px">${escapeHtml(item.pointType === 'judge' ? item.judgeModel : item.actualModel || item.requestedModel)}</div>`,
+    item.userId
+      ? `<div>${escapeHtml(t('User'))} ${escapeHtml(item.username || `#${item.userId}`)}${item.username ? ` · #${item.userId}` : ''}</div>`
+      : '',
     `<div>${escapeHtml(t('Request'))} #${chartOrder} · ${escapeHtml(t('Task step'))} ${item.sequence}</div>`,
     `<div>${escapeHtml(t('Time'))} ${escapeHtml(formatTimelineTimestamp(item.timestamp))}</div>`,
     `<div>${escapeHtml(t('Thinking effort'))} ${escapeHtml(thinkingEffort(item))}</div>`,
-    `<div>${escapeHtml(t('Difficulty'))} ${item.difficultyRecorded ? item.difficulty.toFixed(1) : '—'}</div>`,
+    `<div>${escapeHtml(item.displayDifficultyInferred ? t('Estimated difficulty') : t('Difficulty'))} ${timelineDisplayDifficulty(item)?.toFixed(1) ?? '—'}</div>`,
     `<div>${escapeHtml(item.pointType === 'judge' ? t('Target phase') : t('Work phase'))} ${escapeHtml(timelineWorkPhase(item))}</div>`,
     `<div>${escapeHtml(t('Phase adjustment'))} ${escapeHtml(timelinePhaseAdjustment(item.workPhaseQualityTargetOffset))}</div>`,
     item.routingQualityTarget != null
@@ -307,14 +318,17 @@ function timelineDatumFromTooltip(
 }
 
 function difficultyDatum(
-  item: ACUWorkTimelineItem,
+  item: ACUWorkTimelineDisplayItem,
   chartOrder: number,
   dark: boolean
 ): TimelineChartDatum {
   let fill = dark ? '#0f172a' : '#ffffff'
-  if (item.judgeCalled) fill = modelColor(item)
+  if (item.judgeCalled || item.displayDifficultyInferred) {
+    fill = modelColor(item)
+  }
+  const difficulty = timelineDisplayDifficulty(item)
   return {
-    value: [chartOrder, item.difficultyRecorded ? item.difficulty : Number.NaN],
+    value: [chartOrder, difficulty ?? Number.NaN],
     timelineItem: item,
     chartOrder,
     symbolSize: item.pointType === 'judge' ? 13 : 10,
@@ -427,7 +441,7 @@ export function buildACUWorkTimelineChartOption({
     symbol: 'circle',
     z: 3,
     data: orderedItems
-      .filter(({ item }) => item.difficultyRecorded)
+      .filter(({ item }) => hasTimelineDisplayDifficulty(item))
       .map(({ item, chartOrder }) => difficultyDatum(item, chartOrder, dark)),
     emphasis: { focus: 'self' as const, scale: 1.3 },
     animation: false,
@@ -584,11 +598,13 @@ export function buildACUWorkTimelineChartOption({
         symbol: 'circle',
         symbolSize: 19,
         data: orderedItems
-          .filter(
-            ({ item }) => item.pointType === 'judge' && item.difficultyRecorded
-          )
+          .filter(({ item }) => {
+            return (
+              item.pointType === 'judge' && hasTimelineDisplayDifficulty(item)
+            )
+          })
           .map(({ item, chartOrder }) => ({
-            value: [chartOrder, item.difficulty],
+            value: [chartOrder, timelineDisplayDifficulty(item) ?? Number.NaN],
             chartOrder,
             timelineItem: item,
             itemStyle: {

@@ -6100,6 +6100,7 @@
     "ACU setup tutorial saved": "ACU 接入教程已保存",
     "Step {{number}}": "步骤 {{number}}",
     "Image \"{{filename}}\" exceeds the {{limit}} MB upload limit.": "图片“{{filename}}”超过 {{limit}} MB 上传限制。",
-    "Image \"{{filename}}\" could not be compressed below {{limit}} MB.": "图片“{{filename}}”无法压缩至 {{limit}} MB 以下。"
+    "Image \"{{filename}}\" could not be compressed below {{limit}} MB.": "图片“{{filename}}”无法压缩至 {{limit}} MB 以下。",
+    "Estimated difficulty": "估算难度"
   }
 }

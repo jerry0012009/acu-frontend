@@ -661,6 +661,33 @@ func GetUserACUTimelineLogs(userID int, from, to int64) (logs []*Log, err error)
 	return logs, err
 }
 
+const AllUsersACUTimelineLogLimit = 500
+
+func GetAllUsersACUTimelineLogs(from, to int64) (logs []*Log, truncated bool, err error) {
+	order := "created_at desc, id desc"
+	if common.UsingLogDatabase(common.DatabaseTypeClickHouse) {
+		order = clickHouseLogOrder("")
+	}
+	err = LOG_DB.Where(
+		"created_at >= ? AND created_at <= ? AND type IN ? AND other LIKE ?",
+		from,
+		to,
+		[]int{LogTypeConsume, LogTypeError},
+		"%acu_logical_request_id%",
+	).Order(order).Limit(AllUsersACUTimelineLogLimit + 1).Find(&logs).Error
+	if err != nil {
+		return nil, false, err
+	}
+	if len(logs) > AllUsersACUTimelineLogLimit {
+		logs = logs[:AllUsersACUTimelineLogLimit]
+		truncated = true
+	}
+	for left, right := 0, len(logs)-1; left < right; left, right = left+1, right-1 {
+		logs[left], logs[right] = logs[right], logs[left]
+	}
+	return logs, truncated, nil
+}
+
 type Stat struct {
 	Quota int `json:"quota"`
 	Rpm   int `json:"rpm"`

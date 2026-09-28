@@ -58,3 +58,13 @@
 模型列表不再使用旧 Claude 白名单或只接受 Chat Completions 的条件。新的 `routingEnabled` 字段优先，显式 false 不得被旧 enabled=true 覆盖；旧 payload 兼容 enabled，管理员禁用仍生效。ACU 模型定价由 Router 负责，不要求重复填写 legacy ratio 才能发现模型。回归覆盖 Opus 5.5 Messages、GPT-6 Responses、旧格式和禁用状态。
 
 价格页 Tool Call / Reasoning 标签改为仅显示 catalog 实际报告的能力，不再无条件添加。回归覆盖无能力、单能力及双能力。完整 Controller 测试通过。
+
+## 批次五：管理员跨用户时间线
+
+来源：`3f32545e5` 的 Controller/Model/Service/DTO/UI 增量及新增难度展示工具。
+
+恢复管理员显式 `scope=all` 时间线，最多 24 小时 / 500 条日志并返回截断状态；普通用户不能查询跨用户数据，Trace 仍保持本人范围。请求去重和阶段序号纳入 userId，避免不同用户的相同请求 ID 混淆。公共投影删除账号身份字段。
+
+旧版管理员显式请求难度是模型/阶段推算值，已明确标为“估算难度”，并补测试保证不会覆盖实际记录的难度；普通用户不启用推算。未将推算值写回数据库或计费数据。
+
+验证：完整前端 379 项通过；Controller、Model、Service 包通过；权限、窗口、截断、跨账号去重与公共字段投影测试通过；类型、lint、格式与构建通过。

@@ -122,6 +122,51 @@ func TestACUWorkTimelineTargetUserAuthorization(t *testing.T) {
 		assert.Equal(t, http.StatusOK, recorder.Code)
 		assert.Contains(t, recorder.Body.String(), `"items":[]`)
 	})
+
+	t.Run("regular user cannot request all users", func(t *testing.T) {
+		context, recorder := acuTraceTargetTestContext(
+			"/api/log/self/acu-work-timeline?from=1&to=200&scope=all",
+			1,
+			common.RoleCommonUser,
+		)
+		GetACUWorkTimeline(context)
+		assert.Equal(t, http.StatusForbidden, recorder.Code)
+		assert.Contains(t, recorder.Body.String(), "permission denied")
+	})
+
+	t.Run("administrator can request all users without mixing same logical ids", func(t *testing.T) {
+		require.NoError(t, model.LOG_DB.Create(&model.Log{
+			UserId: 1, CreatedAt: 120, Type: model.LogTypeConsume,
+			Other: `{"acu_logical_request_id":"shared","acu_cost_breakdown":{"task_id":"same-task","requested_model":"claude-opus-5"}}`,
+		}).Error)
+		require.NoError(t, model.LOG_DB.Create(&model.Log{
+			UserId: 2, CreatedAt: 121, Type: model.LogTypeConsume,
+			Other: `{"acu_logical_request_id":"shared","acu_cost_breakdown":{"task_id":"same-task","requested_model":"claude-fable-5"}}`,
+		}).Error)
+		context, recorder := acuTraceTargetTestContext(
+			"/api/log/self/acu-work-timeline?from=1&to=200&scope=all",
+			3,
+			common.RoleAdminUser,
+		)
+		GetACUWorkTimeline(context)
+		assert.Equal(t, http.StatusOK, recorder.Code)
+		assert.Contains(t, recorder.Body.String(), `"scope":"all"`)
+		assert.Contains(t, recorder.Body.String(), `"userId":1`)
+		assert.Contains(t, recorder.Body.String(), `"userId":2`)
+		assert.Contains(t, recorder.Body.String(), `"pointId":"1:shared:execution"`)
+		assert.Contains(t, recorder.Body.String(), `"pointId":"2:shared:execution"`)
+	})
+
+	t.Run("all-users scope rejects ranges above one day", func(t *testing.T) {
+		context, recorder := acuTraceTargetTestContext(
+			"/api/log/self/acu-work-timeline?from=1&to=90000&scope=all",
+			4,
+			common.RoleRootUser,
+		)
+		GetACUWorkTimeline(context)
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
+		assert.Contains(t, recorder.Body.String(), "all-users time range")
+	})
 }
 
 func TestACUSessionTraceTargetUserAuthorization(t *testing.T) {

@@ -91,6 +91,8 @@ export type ACUWorkTimelineItem = {
   pointType: 'judge' | 'execution'
   timestamp: number
   sequence: number
+  userId?: number
+  username?: string
   logicalRequestId: string
   sessionId: string
   taskId: string
@@ -213,6 +215,9 @@ export type ACUWorkTimelineItem = {
 export type ACUWorkTimeline = {
   from: number
   to: number
+  scope?: 'all'
+  truncated?: boolean
+  itemLimit?: number
   summary: {
     apiSteps: number
     executionSteps: number
@@ -238,12 +243,14 @@ export type ACUWorkTimeline = {
 export async function getACUWorkTimeline(
   from: number,
   to: number,
-  targetUserId?: number
+  targetUserId?: number,
+  allUsers = false
 ) {
   const params = new URLSearchParams({
     from: String(from),
     to: String(to),
   })
+  if (allUsers) params.set('scope', 'all')
   if (targetUserId != null) params.set('user_id', String(targetUserId))
   const res = await api.get(`/api/log/self/acu-work-timeline?${params}`)
   return res.data as {

@@ -171,6 +171,7 @@ func buildACUWorkTimeline(
 		difficulty, difficultyRecorded := numberValueOf(breakdown["difficulty"])
 		item := dto.ACUWorkTimelineItem{
 			Timestamp: log.CreatedAt, LogicalRequestID: logicalID,
+			UserID: log.UserId, Username: log.Username,
 			SessionID: stringValue(breakdown, "session_id"), TaskID: stringValue(breakdown, "task_id"), SegmentID: stringValue(breakdown, "segment_id"),
 			JudgeCalled: numberValue(breakdown, "judge_calls") > 0, JudgeReused: boolValue(breakdown, "judge_reused"),
 			PointID: logicalID + ":execution", PointType: "execution",
@@ -231,8 +232,9 @@ func buildACUWorkTimeline(
 			RouteRefreshReason:     firstTimelineValue(stringValue(decision, "route_refresh_reason"), stringValue(breakdown, "route_refresh_reason")),
 			TopCandidates:          timelineCandidates(decision), ProviderAttempts: timelineAttempts(attempts),
 		}
-		if previous, exists := byRequest[logicalID]; !exists || timelineItemIsMoreFinal(item, previous, log.Type) {
-			byRequest[logicalID] = item
+		requestKey := timelineRequestKey(log.UserId, logicalID)
+		if previous, exists := byRequest[requestKey]; !exists || timelineItemIsMoreFinal(item, previous, log.Type) {
+			byRequest[requestKey] = item
 		}
 	}
 	items := make([]dto.ACUWorkTimelineItem, 0, len(byRequest)*2)
@@ -302,8 +304,9 @@ func buildACUWorkTimeline(
 	totalInput, totalCached := int64(0), int64(0)
 	sequenceByTask := map[string]int{}
 	for i := range items {
-		sequenceByTask[items[i].TaskID]++
-		items[i].Sequence = sequenceByTask[items[i].TaskID]
+		taskKey := strconv.Itoa(items[i].UserID) + ":" + items[i].TaskID
+		sequenceByTask[taskKey]++
+		items[i].Sequence = sequenceByTask[taskKey]
 		if items[i].PointType == "execution" {
 			legacyTotalCost += items[i].ActualCostCNY
 		}
@@ -361,11 +364,17 @@ func buildACUWorkTimeline(
 	}}
 }
 
+func timelineRequestKey(userID int, logicalRequestID string) string {
+	return strconv.Itoa(userID) + ":" + logicalRequestID
+}
+
 // PublicACUWorkTimeline projects the internally built timeline for a regular
 // user's /self response. Ownership is enforced before this projection.
 func PublicACUWorkTimeline(timeline dto.ACUWorkTimeline) dto.ACUWorkTimeline {
 	for index := range timeline.Items {
 		item := &timeline.Items[index]
+		item.UserID = 0
+		item.Username = ""
 		item.JudgeModel = ""
 		item.ActualCashCostCNY = nil
 		item.ActualCostCNY = 0
