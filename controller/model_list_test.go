@@ -488,7 +488,7 @@ func TestListModelsExposesOnlyPublicACUCanonicalModels(t *testing.T) {
 	}
 }
 
-func TestListModelsFiltersBillingConfiguredACUModelsByProtocolCapability(t *testing.T) {
+func TestListModelsUsesProfileVisibilityAcrossProtocolsAndHonorsDisabledProfiles(t *testing.T) {
 	withSelfUseModeDisabled(t)
 	withTieredBillingConfig(t, map[string]string{
 		"zz-response-only-acu-model": "tiered_expr",
@@ -525,6 +525,7 @@ func TestListModelsFiltersBillingConfiguredACUModelsByProtocolCapability(t *test
 	}).Error)
 
 	modelNames := []string{
+		"claude-opus-5-5", "gpt-6-astra", "disabled-routing-acu", "disabled-admin-acu",
 		"zz-response-only-acu-model",
 		"zz-messages-only-acu-model",
 		"zz-chat-acu-model",
@@ -562,6 +563,10 @@ func TestListModelsFiltersBillingConfiguredACUModelsByProtocolCapability(t *test
 	profileServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"profiles":[
+{"modelId":"claude-opus-5-5","protocols":["messages"],"routingEnabled":true},
+{"modelId":"gpt-6-astra","protocols":["responses"],"routingEnabled":true},
+{"modelId":"disabled-routing-acu","protocols":["chat_completions"],"routingEnabled":false,"enabled":true},
+{"modelId":"disabled-admin-acu","protocols":["chat_completions"],"enabled":true,"administratorAllowed":false},
 			{"modelId":"zz-response-only-acu-model","protocols":["responses"],"enabled":true},
 			{"modelId":"zz-messages-only-acu-model","protocols":["messages"],"enabled":true},
 			{"modelId":"zz-chat-acu-model","protocols":["responses","chat_completions"],"enabled":true},
@@ -586,8 +591,12 @@ func TestListModelsFiltersBillingConfiguredACUModelsByProtocolCapability(t *test
 	ListModels(ctx, constant.ChannelTypeOpenAI)
 
 	ids := decodeListModelsResponse(t, recorder)
-	require.NotContains(t, ids, "zz-response-only-acu-model")
-	require.NotContains(t, ids, "zz-messages-only-acu-model")
+	require.Contains(t, ids, "claude-opus-5-5")
+	require.Contains(t, ids, "gpt-6-astra")
+	require.NotContains(t, ids, "disabled-routing-acu")
+	require.NotContains(t, ids, "disabled-admin-acu")
+	require.Contains(t, ids, "zz-response-only-acu-model")
+	require.Contains(t, ids, "zz-messages-only-acu-model")
 	require.Contains(t, ids, "zz-chat-acu-model")
 	for _, modelName := range []string{
 		"claude-opus-4-8",

@@ -234,7 +234,7 @@ func hasPublicACURouterModel(ownerGroups []string, modelName string) bool {
 	return false
 }
 
-func filterPublicACUModelsByChatCapability(
+func filterPublicACUModelsByProfileVisibility(
 	ctx context.Context,
 	modelNames []string,
 	ownerGroups []string,
@@ -251,26 +251,27 @@ func filterPublicACUModelsByChatCapability(
 	}
 
 	profilePayload, err := service.GetACUExecutionProfiles(ctx)
-	chatModels := make(map[string]struct{})
-	messagesModels := make(map[string]struct{})
+	visibleModels := make(map[string]struct{})
 	if err != nil {
 		common.SysError("failed to load ACU execution profiles for model discovery: " + err.Error())
 	} else if profiles, ok := profilePayload["profiles"].([]interface{}); ok {
 		for _, item := range profiles {
 			profile, ok := item.(map[string]interface{})
-			if !ok || profile["enabled"] != true {
+			if !ok {
+				continue
+			}
+			// Database profiles expose routingEnabled. Only legacy payloads
+			// fall back to enabled; an explicit false always takes precedence.
+			enabled, hasRoutingEnabled := profile["routingEnabled"].(bool)
+			if !hasRoutingEnabled {
+				enabled = profile["enabled"] == true
+			}
+			if !enabled || profile["administratorAllowed"] == false {
 				continue
 			}
 			modelID, _ := profile["modelId"].(string)
-			protocols, _ := profile["protocols"].([]interface{})
-			for _, protocol := range protocols {
-				if protocol == "chat_completions" && modelID != "" {
-					chatModels[modelID] = struct{}{}
-					break
-				}
-				if protocol == "messages" && modelID != "" {
-					messagesModels[modelID] = struct{}{}
-				}
+			if modelID != "" {
+				visibleModels[modelID] = struct{}{}
 			}
 		}
 	} else {
@@ -284,13 +285,7 @@ func filterPublicACUModelsByChatCapability(
 			continue
 		}
 		if hasPublicACURouterModel(ownerGroups, modelName) {
-			_, hasChatCapability := chatModels[modelName]
-			_, hasClaudeMessagesCapability := messagesModels[modelName]
-			isClaudeMessagesAllowlisted := modelName == "claude-opus-4-8" ||
-				modelName == "claude-opus-5" ||
-				modelName == "claude-sonnet-5" ||
-				modelName == "claude-fable-5"
-			if !hasChatCapability && !(isClaudeMessagesAllowlisted && hasClaudeMessagesCapability) {
+			if _, visible := visibleModels[modelName]; !visible {
 				continue
 			}
 		}
@@ -335,7 +330,7 @@ func ListModels(c *gin.Context, modelType int) {
 				!service.IsACUGlobalModelExposed(allowModel) {
 				continue
 			}
-			if !acceptUnsetRatioModel {
+			if !acceptUnsetRatioModel && !hasPublicACURouterModel(ownerGroups, allowModel) {
 				if !helper.HasModelBillingConfig(allowModel) && !hasPublicACURouterChatModel(ownerGroups, allowModel) {
 					continue
 				}
@@ -349,7 +344,7 @@ func ListModels(c *gin.Context, modelType int) {
 				!service.IsACUGlobalModelExposed(modelName) {
 				continue
 			}
-			if !acceptUnsetRatioModel {
+			if !acceptUnsetRatioModel && !hasPublicACURouterModel(ownerGroups, modelName) {
 				if !helper.HasModelBillingConfig(modelName) && !hasPublicACURouterChatModel(ownerGroups, modelName) {
 					continue
 				}
@@ -358,13 +353,11 @@ func ListModels(c *gin.Context, modelType int) {
 		}
 	}
 
-	if modelType == constant.ChannelTypeOpenAI {
-		userModelNames = filterPublicACUModelsByChatCapability(
-			c.Request.Context(),
-			userModelNames,
-			ownerGroups,
-		)
-	}
+	userModelNames = filterPublicACUModelsByProfileVisibility(
+		c.Request.Context(),
+		userModelNames,
+		ownerGroups,
+	)
 
 	ownerByModel := map[string]string{}
 	if len(ownerGroups) > 0 {

@@ -50,3 +50,11 @@
 恢复两条教程媒体 API、管理员上传/排序/配置、WorkBuddy 接入说明及媒体展示、邮箱域名黑名单配置与校验。当前 Compose 已有对应持久化卷。媒体按内容识别类型、限制大小、校验文件名；新增错误信息接入后端多语言。保留当前 Profile 和密码校验，未恢复过时的 formulaMode 写入。
 
 验证：完整前端 371 项通过；Controller、Model、Console Settings 包通过；类型、受影响 lint（0 error）、格式、构建通过。旧测试禁止所有 Chat Completions 文案与已部署的 WorkBuddy 接入说明冲突，已更新为验证 WorkBuddy 与 Hermes 接入共存。未部署或修改生产配置。
+
+## 批次四：模型可见性与能力标签
+
+来源：旧 new-api stash `a4e06f0fa7`；按现行数据库 Profile 契约适配。
+
+模型列表不再使用旧 Claude 白名单或只接受 Chat Completions 的条件。新的 `routingEnabled` 字段优先，显式 false 不得被旧 enabled=true 覆盖；旧 payload 兼容 enabled，管理员禁用仍生效。ACU 模型定价由 Router 负责，不要求重复填写 legacy ratio 才能发现模型。回归覆盖 Opus 5.5 Messages、GPT-6 Responses、旧格式和禁用状态。
+
+价格页 Tool Call / Reasoning 标签改为仅显示 catalog 实际报告的能力，不再无条件添加。回归覆盖无能力、单能力及双能力。完整 Controller 测试通过。

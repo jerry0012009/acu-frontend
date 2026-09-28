@@ -513,8 +513,16 @@ func overlayACUPricing(catalog *acuPricingCatalog, current []model.Pricing) []mo
 		item := byName[source.ModelID]
 		item.ModelName = source.ModelID
 		item.DisplayName = source.DisplayName
-		item.Description = source.Role + " · " + source.Protocol + " · Tool Call · Reasoning · ACU Auto · " + source.Status
-		item.Tags = strings.Join([]string{source.Role, source.Protocol, "Tool Call", "Reasoning", "ACU Auto", source.Status}, ",")
+		capabilities := []string{source.Role, source.Protocol}
+		if source.ToolCall {
+			capabilities = append(capabilities, "Tool Call")
+		}
+		if source.Reasoning {
+			capabilities = append(capabilities, "Reasoning")
+		}
+		capabilities = append(capabilities, "ACU Auto", source.Status)
+		item.Description = strings.Join(capabilities, " · ")
+		item.Tags = strings.Join(capabilities, ",")
 		// Public compatibility fields always represent the routed/payable
 		// estimate. Reference pricing remains comparison metadata only and
 		// must never flow back into a public ACU model's effective price.
