@@ -7,6 +7,7 @@ import { Dialog } from '@/components/dialog'
 import { PasswordInput } from '@/components/password-input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { newPasswordSchema } from '@/lib/password'
 
 import { updateUserProfile } from '../../api'
 
@@ -51,8 +52,9 @@ export function ChangePasswordDialog({
       return
     }
 
-    if (formData.newPassword.length < 8) {
-      toast.error(t('Password must be at least 8 characters'))
+    const passwordValidation = newPasswordSchema.safeParse(formData.newPassword)
+    if (!passwordValidation.success) {
+      toast.error(t(passwordValidation.error.issues[0].message))
       return
     }
 
@@ -84,7 +86,7 @@ export function ChangePasswordDialog({
       } else {
         toast.error(response.message || t('Failed to change password'))
       }
-    } catch (_error) {
+    } catch {
       toast.error(t('Failed to change password'))
     } finally {
       setLoading(false)
@@ -148,7 +150,7 @@ export function ChangePasswordDialog({
             autoComplete='new-password'
           />
           <p className='text-muted-foreground text-xs'>
-            {t('Must be at least 8 characters')}
+            {t('At least 8 characters, up to 72 bytes')}
           </p>
         </div>
 

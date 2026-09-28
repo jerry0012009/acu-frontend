@@ -1,5 +1,8 @@
 {
   "translation": {
+    "Password must be at most 72 bytes": "Le mot de passe ne doit pas dépasser 72 octets",
+    "At least 8 characters, up to 72 bytes": "Au moins 8 caractères, au plus 72 octets",
+    "Enter password (8+ characters, max 72 bytes)": "Mot de passe (8 caractères min., 72 octets max.)",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

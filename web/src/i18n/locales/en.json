@@ -1,5 +1,8 @@
 {
   "translation": {
+    "Password must be at most 72 bytes": "Password must be at most 72 bytes",
+    "At least 8 characters, up to 72 bytes": "At least 8 characters, up to 72 bytes",
+    "Enter password (8+ characters, max 72 bytes)": "Enter password (8+ characters, max 72 bytes)",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

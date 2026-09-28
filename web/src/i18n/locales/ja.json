@@ -1,5 +1,8 @@
 {
   "translation": {
+    "Password must be at most 72 bytes": "パスワードは72バイト以内にしてください",
+    "At least 8 characters, up to 72 bytes": "8文字以上、72バイト以内",
+    "Enter password (8+ characters, max 72 bytes)": "パスワードを入力（8文字以上、72バイト以内）",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

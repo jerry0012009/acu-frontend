@@ -1,5 +1,9 @@
 import { z } from 'zod'
 
+import { newPasswordSchema } from '@/lib/password'
+
+export { PASSWORD_MIN_LENGTH, PASSWORD_MAX_BYTES } from '@/lib/password'
+
 // ============================================================================
 // Form Schemas
 // ============================================================================
@@ -13,11 +17,7 @@ export const registerFormSchema = z
   .object({
     username: z.string().min(1, 'Please enter your username'),
     email: z.string().optional(),
-    password: z
-      .string()
-      .min(1, 'Please enter your password')
-      .min(8, 'Password must be between 8 and 20 characters')
-      .max(20, 'Password must be at most 20 characters long'),
+    password: newPasswordSchema,
     confirmPassword: z.string().min(1, 'Please confirm your password'),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -39,8 +39,6 @@ export const otpFormSchema = z.object({
 // Validation Constants
 // ============================================================================
 
-export const PASSWORD_MIN_LENGTH = 8
-export const PASSWORD_MAX_LENGTH = 20
 export const OTP_LENGTH = 6
 export const BACKUP_CODE_LENGTH = 9 // XXXX-XXXX format
 export const BACKUP_CODE_REGEX = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/i

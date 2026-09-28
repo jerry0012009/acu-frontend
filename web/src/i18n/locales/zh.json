@@ -1,5 +1,8 @@
 {
   "translation": {
+    "Password must be at most 72 bytes": "密码不能超过72字节",
+    "At least 8 characters, up to 72 bytes": "至少8个字符，最多72字节",
+    "Enter password (8+ characters, max 72 bytes)": "输入密码（至少8个字符，最多72字节）",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

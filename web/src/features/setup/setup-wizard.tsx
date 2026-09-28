@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/card'
 import { Form } from '@/components/ui/form'
 import { BRAND_DOCUMENT_TITLE, BRAND_NAME_ZH } from '@/lib/brand'
+import { newPasswordSchema } from '@/lib/password'
 import { cn } from '@/lib/utils'
 
 import { buildSetupPayload, getSetupStatus, submitSetup } from './api'
@@ -189,8 +190,8 @@ export function SetupWizard() {
     if (setupStatus?.root_init) return true
 
     const username = form.getValues('username')?.trim()
-    const password = form.getValues('password')?.trim()
-    const confirmPassword = form.getValues('confirmPassword')?.trim()
+    const password = form.getValues('password')
+    const confirmPassword = form.getValues('confirmPassword')
 
     if (!username) {
       form.setError('username', {
@@ -201,12 +202,13 @@ export function SetupWizard() {
       return false
     }
 
-    if (!password || password.length < 8) {
+    const passwordValidation = newPasswordSchema.safeParse(password ?? '')
+    if (!passwordValidation.success) {
       form.setError('password', {
         type: 'manual',
-        message: t('Password must be at least 8 characters'),
+        message: t(passwordValidation.error.issues[0].message),
       })
-      toast.error(t('Password must be at least 8 characters'))
+      toast.error(t(passwordValidation.error.issues[0].message))
       return false
     }
 
@@ -298,24 +300,20 @@ export function SetupWizard() {
                 return (
                   <li
                     key={step.titleKey}
-                    className={cn(
-                      'rounded-xl border p-3',
-                      isActive
-                        ? 'border-primary ring-primary/20 ring-2'
-                        : isCompleted
-                          ? 'border-primary/40 bg-primary/5'
-                          : 'border-muted bg-card'
-                    )}
+                    className={cn('rounded-xl border p-3', {
+                      'border-primary ring-primary/20 ring-2': isActive,
+                      'border-primary/40 bg-primary/5':
+                        isCompleted && !isActive,
+                      'border-muted bg-card': !isActive && !isCompleted,
+                    })}
                   >
                     <div className='flex items-start gap-3'>
                       <span
                         className={cn(
                           'flex size-6 items-center justify-center rounded-md border text-xs font-semibold',
-                          isActive
+                          isActive || isCompleted
                             ? 'border-primary bg-primary text-primary-foreground'
-                            : isCompleted
-                              ? 'border-primary bg-primary text-primary-foreground'
-                              : 'border-muted-foreground/40 text-muted-foreground'
+                            : 'border-muted-foreground/40 text-muted-foreground'
                         )}
                       >
                         {index + 1}
@@ -334,14 +332,14 @@ export function SetupWizard() {
               })}
             </ol>
 
-            {isLoading ? (
-              <LoadingState message={t('Loading setup status…')} />
-            ) : isError ? (
+            {isLoading && <LoadingState message={t('Loading setup status…')} />}
+            {!isLoading && isError && (
               <ErrorState
                 title={t('We could not load the setup status.')}
                 onRetry={() => refetch()}
               />
-            ) : (
+            )}
+            {!isLoading && !isError && (
               <Form {...form}>
                 <form
                   className='space-y-6'

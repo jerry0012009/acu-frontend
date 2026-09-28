@@ -1,5 +1,8 @@
 {
   "translation": {
+    "Password must be at most 72 bytes": "Пароль должен содержать не более 72 байт",
+    "At least 8 characters, up to 72 bytes": "Не менее 8 символов, не более 72 байт",
+    "Enter password (8+ characters, max 72 bytes)": "Введите пароль (от 8 символов, до 72 байт)",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"unicode/utf8"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -18,6 +19,14 @@ func GenerateHMAC(data string) string {
 	h := hmac.New(sha256.New, []byte(CryptoSecret))
 	h.Write([]byte(data))
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+const MinPasswordCharacters = 8
+const MaxPasswordBytes = 72
+
+// IsValidNewPassword follows bcrypt's byte limit without restricting existing logins.
+func IsValidNewPassword(password string) bool {
+	return utf8.RuneCountInString(password) >= MinPasswordCharacters && len(password) <= MaxPasswordBytes
 }
 
 func Password2Hash(password string) (string, error) {

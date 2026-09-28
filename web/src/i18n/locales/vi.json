@@ -1,5 +1,8 @@
 {
   "translation": {
+    "Password must be at most 72 bytes": "Mật khẩu không được vượt quá 72 byte",
+    "At least 8 characters, up to 72 bytes": "Ít nhất 8 ký tự, tối đa 72 byte",
+    "Enter password (8+ characters, max 72 bytes)": "Nhập mật khẩu (ít nhất 8 ký tự, tối đa 72 byte)",
     "360": "360",
     "1000": "1000",
     "10000": "10000",
