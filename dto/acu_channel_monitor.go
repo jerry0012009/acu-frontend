@@ -98,6 +98,7 @@ type ACUChannelMonitorProfile struct {
 	Enabled                     bool                     `json:"enabled"`
 	AdministratorAllowed        bool                     `json:"administratorAllowed"`
 	AutoRouteEnabled            bool                     `json:"autoRouteEnabled"`
+	RoutingEnabled              bool                     `json:"routingEnabled"`
 	RoutingEligible             bool                     `json:"routingEligible"`
 	RoutingEligibility          string                   `json:"routingEligibility"`
 	ExplicitRoutingEligible     bool                     `json:"explicitRoutingEligible"`
@@ -182,6 +183,9 @@ func (profile *ACUChannelMonitorProfile) UnmarshalJSON(data []byte) error {
 	if _, ok := fields["autoRouteEnabled"]; !ok {
 		decoded.AutoRouteEnabled = true
 	}
+	if _, ok := fields["routingEnabled"]; !ok {
+		decoded.RoutingEnabled = decoded.Enabled && decoded.AdministratorAllowed && decoded.AutoRouteEnabled
+	}
 	if _, ok := fields["explicitRoutingEligible"]; !ok {
 		decoded.ExplicitRoutingEligible = decoded.RoutingEligible
 	}
@@ -205,16 +209,21 @@ type ACUChannelPauseResult struct {
 }
 
 type ACUTokenProfileRoutingScope struct {
-	TokenID              int      `json:"tokenId"`
-	Custom               bool     `json:"custom"`
-	GlobalProfileIDs     []string `json:"globalProfileIds"`
-	ConfiguredProfileIDs []string `json:"configuredProfileIds"`
-	EffectiveProfileIDs  []string `json:"effectiveProfileIds"`
+	TokenID              int                `json:"tokenId"`
+	Custom               bool               `json:"custom"`
+	GlobalProfileIDs     []string           `json:"globalProfileIds"`
+	ConfiguredProfileIDs []string           `json:"configuredProfileIds"`
+	EffectiveProfileIDs  []string           `json:"effectiveProfileIds"`
+	GlobalWeights        map[string]float64 `json:"globalWeights"`
+	ConfiguredWeights    map[string]float64 `json:"configuredWeights"`
+	EffectiveWeights     map[string]float64 `json:"effectiveWeights"`
 }
 
 type ACUTokenProfileRoutingUpdate struct {
-	ExecutionProfileID string `json:"executionProfileId" binding:"required"`
-	Enabled            bool   `json:"enabled"`
+	ExecutionProfileID string   `json:"executionProfileId" binding:"required"`
+	Enabled            *bool    `json:"enabled"`
+	Weight             *float64 `json:"weight"`
+	InheritWeight      bool     `json:"inheritWeight"`
 }
 
 type ACUProfilePublicNoteUpdate struct {
