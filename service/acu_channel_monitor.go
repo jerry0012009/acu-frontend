@@ -235,8 +235,12 @@ func GetACURoutingCatalog(ctx context.Context) (dto.ACURoutingCatalog, error) {
 	}
 	models := make([]dto.ACURoutingCatalogModel, 0, len(monitor.ModelPool))
 	for _, value := range monitor.ModelPool {
+		autoRouteEnabled, hasRoutingFlag := value["routingEnabled"].(bool)
+		if !hasRoutingFlag {
+			autoRouteEnabled = boolValue(value, "autoRouteEnabled")
+		}
 		if stringValue(value, "modelCategory") != "text_agent" ||
-			(!boolValue(value, "autoRouteEnabled") &&
+			(!autoRouteEnabled &&
 				!hasConfiguredModel(configuredModels, stringValue(value, "modelId"))) {
 			continue
 		}
@@ -248,7 +252,7 @@ func GetACURoutingCatalog(ctx context.Context) (dto.ACURoutingCatalog, error) {
 			CapabilityTier:     stringValue(value, "capabilityTier"),
 			Protocols:          stringSlice(value["protocols"]),
 			VerificationStatus: stringValue(value, "verificationStatus"),
-			AutoRouteEnabled:   boolValue(value, "autoRouteEnabled"),
+			AutoRouteEnabled:   autoRouteEnabled,
 			ToolCallSupport:    boolValue(value, "toolCallSupport"),
 			CurveProfile:       stringValue(value, "curveProfile"),
 			ProfileConfidence:  stringValue(value, "profileConfidence"),
@@ -266,6 +270,7 @@ func GetACURoutingCatalog(ctx context.Context) (dto.ACURoutingCatalog, error) {
 			ExecutionProfileID:        profile.ExecutionProfileID,
 			CanonicalModel:            profile.CanonicalModel,
 			Protocol:                  append([]string(nil), profile.Protocol...),
+			AutoRouteEnabled:          profile.RoutingEnabled,
 			SupportedReasoningEfforts: append([]string(nil), profile.SupportedReasoningEfforts...),
 		})
 	}

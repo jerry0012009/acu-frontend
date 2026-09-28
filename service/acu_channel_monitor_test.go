@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -216,8 +217,14 @@ func TestGetACURoutingCatalogOmitsSupplyTelemetry(t *testing.T) {
 	}
 	require.ElementsMatch(t, []string{"gpt-5.6-luna", "discovered-auto", "mimo-v2.5"}, modelIDs)
 	require.Len(t, result.Profiles, 2)
-	require.True(t, result.Models[0].AutoRouteEnabled)
-	require.False(t, result.Models[1].AutoRouteEnabled)
+	routingByModel := make(map[string]bool)
+	for _, model := range result.Models {
+		routingByModel[model.ModelID] = model.AutoRouteEnabled
+	}
+	assert.Equal(t, map[string]bool{
+		"gpt-5.6-luna": true, "discovered-auto": true, "mimo-v2.5": false,
+	}, routingByModel)
+	assert.True(t, result.Profiles[0].AutoRouteEnabled)
 	require.Equal(t, "lucen:luna:responses", result.Profiles[0].ExecutionProfileID)
 	require.Equal(t, []string{"default", "max"}, result.Profiles[0].SupportedReasoningEfforts)
 	require.Equal(t, "go:mimo-v2.5:chat_completions", result.Profiles[1].ExecutionProfileID)
@@ -226,12 +233,38 @@ func TestGetACURoutingCatalogOmitsSupplyTelemetry(t *testing.T) {
 }
 
 func TestRoutingCatalogPrefersExplicitRoutingFlag(t *testing.T) {
-	require.False(t, routingCatalogAutoRouteEnabled(map[string]interface{}{
-		"routingEnabled": false, "autoRouteEnabled": true,
-	}))
-	require.True(t, routingCatalogAutoRouteEnabled(map[string]interface{}{
-		"autoRouteEnabled": true,
-	}))
+	previous := common.OptionMap
+	common.OptionMap = map[string]string{}
+	t.Cleanup(func() { common.OptionMap = previous; clearACUChannelMonitorCache() })
+	for _, tc := range []struct {
+		name    string
+		flags   string
+		visible bool
+	}{
+		{"explicit false overrides legacy true", `"routingEnabled":false,"autoRouteEnabled":true`, false},
+		{"explicit true overrides legacy false", `"routingEnabled":true,"autoRouteEnabled":false`, true},
+		{"legacy flag remains supported", `"autoRouteEnabled":true`, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			clearACUChannelMonitorCache()
+			router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"profiles":[],"modelPool":[{"modelId":"test-model","modelCategory":"text_agent",` + tc.flags + `}]}`))
+			}))
+			defer router.Close()
+			t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
+			t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
+			catalog, err := GetACURoutingCatalog(context.Background())
+			require.NoError(t, err)
+			if !tc.visible {
+				assert.Empty(t, catalog.Models)
+				return
+			}
+			require.Len(t, catalog.Models, 1)
+			assert.Equal(t, "test-model", catalog.Models[0].ModelID)
+			assert.True(t, catalog.Models[0].AutoRouteEnabled)
+		})
+	}
 }
 
 func mustMarshalTestJSON(t *testing.T, value interface{}) []byte {

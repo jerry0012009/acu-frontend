@@ -671,12 +671,7 @@ func GetACUTokenProfileRoutingScope(
 	globalWeights := make(map[string]float64, len(globalProfileIDs))
 	for _, profile := range monitor.Profiles {
 		if containsACUID(globalProfileIDs, profile.ExecutionProfileID) {
-			// Use ProfilePreferenceMultiplier if available, otherwise default to 1.0
-			weight := 1.0
-			if profile.ProfilePreferenceMultiplier != nil {
-				weight = *profile.ProfilePreferenceMultiplier
-			}
-			globalWeights[profile.ExecutionProfileID] = weight
+			globalWeights[profile.ExecutionProfileID] = profile.RoutingWeight
 		}
 	}
 	configuredWeights, err := NormalizeACUProfilePreferenceScores(token.ACUProfilePreferenceScores)

@@ -93,6 +93,7 @@ type ACUChannelMonitorProfile struct {
 	PublicNote                  string                   `json:"publicNote"`
 	EndpointHost                string                   `json:"endpointHost"`
 	Multiplier                  float64                  `json:"multiplier"`
+	RoutingWeight               float64                  `json:"routingWeight"`
 	EffectivePriceMultiplier    *float64                 `json:"effectivePriceMultiplier"`
 	EffectiveCostStatus         string                   `json:"effectiveCostStatus"`
 	Enabled                     bool                     `json:"enabled"`
@@ -185,6 +186,9 @@ func (profile *ACUChannelMonitorProfile) UnmarshalJSON(data []byte) error {
 	}
 	if _, ok := fields["routingEnabled"]; !ok {
 		decoded.RoutingEnabled = decoded.Enabled && decoded.AdministratorAllowed && decoded.AutoRouteEnabled
+	}
+	if _, ok := fields["routingWeight"]; !ok {
+		decoded.RoutingWeight = 100
 	}
 	if _, ok := fields["explicitRoutingEligible"]; !ok {
 		decoded.ExplicitRoutingEligible = decoded.RoutingEligible
