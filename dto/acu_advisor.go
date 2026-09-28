@@ -429,9 +429,12 @@ type ACUPrivateUsageSummaryResult struct {
 }
 
 type ACUPrivateUsageSummaryWindow struct {
-	Window             string `json:"window"`
-	UserChargeCNY      string `json:"userChargeCny"`
-	PlatformChargeCNY  string `json:"platformChargeCny"`
-	AdviceCount        int64  `json:"adviceCount"`
-	HelpfulAdviceCount int64  `json:"helpfulAdviceCount"`
+	Calls              *int64            `json:"calls,omitempty"`
+	ByStage            map[string]string `json:"byStage,omitempty"`
+	ByStageCalls       map[string]int64  `json:"byStageCalls,omitempty"`
+	Window             string            `json:"window"`
+	UserChargeCNY      string            `json:"userChargeCny"`
+	PlatformChargeCNY  string            `json:"platformChargeCny"`
+	AdviceCount        int64             `json:"adviceCount"`
+	HelpfulAdviceCount int64             `json:"helpfulAdviceCount"`
 }

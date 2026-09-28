@@ -225,6 +225,11 @@ func GetPrivateACUUsageSummaryForUser(
 			if summaryWindow.Window != window.name {
 				continue
 			}
+			if summaryWindow.Calls != nil {
+				calls = *summaryWindow.Calls
+				formattedStages = summaryWindow.ByStage
+				byStageCalls = summaryWindow.ByStageCalls
+			}
 			summaryUserChargeCNY = summaryWindow.UserChargeCNY
 			platformChargeCNY = summaryWindow.PlatformChargeCNY
 			adviceCount = summaryWindow.AdviceCount

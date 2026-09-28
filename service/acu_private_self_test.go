@@ -8,8 +8,11 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/model"
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestPrivateACUUserSettingsForwardsAuthenticatedUserAndExplicitFalse(t *testing.T) {
@@ -71,4 +74,27 @@ func TestPrivateACULearningListScopesUserAndReportsUpstreamFailure(t *testing.T)
 	status = http.StatusServiceUnavailable
 	_, err = GetPrivateACULearningRunsForUser(context.Background(), 42)
 	require.ErrorContains(t, err, "503")
+}
+
+func TestPrivateUsageSummaryPrefersCompleteRouterCountersOverLimitedEntries(t *testing.T) {
+	previousDB := model.DB
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.ACUUsageFinalize{}))
+	model.DB = db
+	t.Cleanup(func() { model.DB = previousDB })
+	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "42", r.URL.Query().Get("newapiUserId"))
+		_, _ = w.Write([]byte(`{"entries":[],"totals":[],"summary":{"windows":[{"window":"24h","calls":502,"userChargeCny":"5.21","byStage":{"learning":"5.01","observer":"0.20","advisor":"0"},"byStageCalls":{"learning":501,"observer":0,"advisor":0}}]}}`))
+	}))
+	t.Cleanup(router.Close)
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
+	result, err := GetPrivateACUUsageSummaryForUser(context.Background(), 42)
+	require.NoError(t, err)
+	require.Len(t, result.Windows, 3)
+	assert.Equal(t, int64(502), result.Windows[0].Calls)
+	assert.Equal(t, int64(501), result.Windows[0].ByStageCalls["learning"])
+	assert.Equal(t, "5.01", result.Windows[0].ByStage["learning"])
+	assert.Equal(t, "5.21", result.Windows[0].UserChargeCNY)
 }
