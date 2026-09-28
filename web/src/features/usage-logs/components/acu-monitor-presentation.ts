@@ -58,17 +58,17 @@ const ERROR_KEYS: Record<string, { title: string; description: string }> = {
   actual_model_missing: {
     title: 'Actual model was not returned',
     description:
-      'The upstream responded without a verifiable actual model. This Profile is paused from routing until an automatic Probe verifies it again.',
+      'The latest upstream observation did not include a verifiable actual model.',
   },
   actual_model_mismatch: {
     title: 'Actual model does not match configuration',
     description:
-      'The upstream actual model differs from the configured model, so this Profile cannot currently take production traffic.',
+      'The latest upstream observation reports an actual model that differs from the configured model.',
   },
   usage_untrusted: {
     title: 'Usage could not be verified',
     description:
-      'Trusted token usage was not returned, so accurate billing is unavailable and this Profile is excluded from production routing.',
+      'The latest upstream observation did not include trusted token usage, so usage-based billing could not be verified.',
   },
   protocol_incompatible: {
     title: 'Protocol response is incompatible',
@@ -83,7 +83,7 @@ const ERROR_KEYS: Record<string, { title: string; description: string }> = {
   channel_half_open_probe_only: {
     title: 'Channel is undergoing recovery validation',
     description:
-      'Only Probe traffic is currently allowed. Production routing resumes automatically after validation succeeds.',
+      'The latest channel observation reports Probe-only traffic; check the current routing status for production eligibility.',
   },
   profile_disabled: {
     title: 'Execution Profile is disabled',

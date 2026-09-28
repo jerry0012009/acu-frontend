@@ -98,6 +98,40 @@ test('renders when the ACU model pool arrives asynchronously', async () => {
               },
             ],
           },
+          {
+            modelId: 'gpt-5.6-discovered',
+            vendor: 'OpenAI',
+            modelCategory: 'text_agent',
+            capabilityTier: 'LUNA',
+            protocols: ['responses'],
+            verificationStatus: 'discovered',
+            autoRouteEnabled: true,
+            routingCandidates: [
+              {
+                candidateId: 'gpt-5.6-discovered',
+                modelId: 'gpt-5.6-discovered',
+                displayName: 'GPT-5.6 Discovered',
+                kind: 'base',
+              },
+            ],
+          },
+          {
+            modelId: 'gpt-5.6-explicit',
+            vendor: 'OpenAI',
+            modelCategory: 'text_agent',
+            capabilityTier: 'LUNA',
+            protocols: ['responses'],
+            verificationStatus: 'verified',
+            autoRouteEnabled: false,
+            routingCandidates: [
+              {
+                candidateId: 'gpt-5.6-explicit',
+                modelId: 'gpt-5.6-explicit',
+                displayName: 'GPT-5.6 Explicit',
+                kind: 'base',
+              },
+            ],
+          },
         ],
       },
     })
@@ -112,7 +146,7 @@ test('renders when the ACU model pool arrives asynchronously', async () => {
     ...document.body.querySelectorAll('[role="switch"]'),
   ].find((element) =>
     element.parentElement?.textContent?.includes(
-      'All verified routing candidates'
+      'All available routing candidates'
     )
   ) as HTMLElement | undefined
   assert.ok(candidateScopeSwitch)
@@ -122,6 +156,13 @@ test('renders when the ACU model pool arrives asynchronously', async () => {
     '[id="acu-candidate-gpt-5.6-sol@high"]'
   ) as HTMLElement | null
   assert.ok(presetCheckbox)
+  assert.ok(
+    document.body.querySelector('[id="acu-candidate-gpt-5.6-discovered"]')
+  )
+  assert.equal(
+    document.body.querySelector('[id="acu-candidate-gpt-5.6-explicit"]'),
+    null
+  )
   await act(async () => presetCheckbox.click())
   const preferenceInput = document.body.querySelector(
     '[aria-label="gpt-5.6-sol@high Candidate preference"]'

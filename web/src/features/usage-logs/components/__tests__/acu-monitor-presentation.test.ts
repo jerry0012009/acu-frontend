@@ -195,13 +195,51 @@ test('localizes states and human-readable failure evidence', async () => {
   const tEn = await translator('en')
   assert.equal(monitorStateLabel('open', tZh), '冷却中')
   assert.equal(monitorStateLabel('open', tEn), 'Cooldown')
+  assert.equal(monitorStateLabel('stale', tZh), '探针结果已过期')
+  assert.equal(monitorStateLabel('stale', tEn), 'Probe result is stale')
   assert.equal(
     monitorReason('probe_failed: actual_model_missing', tZh).title,
     '未返回实际模型'
   )
   assert.match(
     monitorReason('actual_model_missing', tZh).description,
-    /自动探针重新验证/
+    /最近一次上游观测/
+  )
+  assert.match(
+    monitorReason('actual_model_missing', tEn).description,
+    /latest upstream observation/
+  )
+  assert.doesNotMatch(
+    monitorReason('actual_model_missing', tEn).description,
+    /paused from routing|production traffic|excluded from production routing/
+  )
+  assert.match(
+    monitorReason('actual_model_mismatch', tZh).description,
+    /最近一次上游观测/
+  )
+  assert.doesNotMatch(
+    monitorReason('actual_model_mismatch', tEn).description,
+    /cannot currently take production traffic/
+  )
+  assert.match(
+    monitorReason('usage_untrusted', tZh).description,
+    /最近一次上游观测/
+  )
+  assert.doesNotMatch(
+    monitorReason('usage_untrusted', tEn).description,
+    /excluded from production routing/
+  )
+  assert.match(
+    monitorReason('channel_half_open_probe_only', tZh).description,
+    /最近一次通道观测/
+  )
+  assert.match(
+    monitorReason('channel_half_open_probe_only', tEn).description,
+    /latest channel observation/
+  )
+  assert.doesNotMatch(
+    monitorReason('channel_half_open_probe_only', tEn).description,
+    /Only Probe traffic is currently allowed|Production routing resumes/
   )
   assert.equal(tZh('Model Supply Monitor'), '模型供给监控')
   assert.equal(tEn('Model Supply Monitor'), 'Model Supply Monitor')

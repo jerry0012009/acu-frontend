@@ -380,7 +380,11 @@ export type ACURoutingCatalog = {
     modelCategory: 'text_agent'
     capabilityTier: 'LUNA' | 'TERRA' | 'SOL' | 'FRONTIER'
     protocols: string[]
-    verificationStatus: 'discovered' | 'verified_provisional' | 'verified'
+    verificationStatus:
+      | 'discovered'
+      | 'verified_provisional'
+      | 'verified'
+      | 'rejected'
     autoRouteEnabled: boolean
     routingCandidates: Array<{
       candidateId: string

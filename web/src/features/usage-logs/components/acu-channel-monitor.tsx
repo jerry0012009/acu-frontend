@@ -1370,11 +1370,7 @@ function RoutingUtilityEditor(props: {
     const groups = props.modelPool
       .filter(
         (model) =>
-          model.modelCategory === 'text_agent' &&
-          model.autoRouteEnabled &&
-          ['verified', 'verified_provisional'].includes(
-            model.verificationStatus
-          )
+          model.modelCategory === 'text_agent' && model.autoRouteEnabled
       )
       .map((model) => ({
         modelId: model.modelId,
