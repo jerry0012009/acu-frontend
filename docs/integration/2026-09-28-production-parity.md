@@ -110,3 +110,9 @@ Router 增加按用户及时间窗聚合的 calls/byStage/byStageCalls；Fronten
 评分抽屉展示真实成本/速度/可靠性分项、样本与倍率，补齐原先被 Go DTO 丢弃的 Router 评分字段；没有照搬旧组件错误的固定 80/20 延迟说明。缺失测量保留为空。`b8f9f6c39` 的已配置 Profile 在 modelPool 刷新期间仍可发现的回退按现行 routingEnabled 契约恢复，不凭空启用 Auto。
 
 验证：完整前端 390 项通过；Service/Controller/DTO/Router Go 包通过，新增字段序列化契约和 catalog 刷新回归通过；Router gateway 36 项通过；类型/lint/格式/构建通过。
+
+## 批次十三：安装器发布资产
+
+15 条旧 installer 分支是同一发布链的重复/连续快照，目录来自 Router `tools/codex-acu`，非独立产品实现。采用目前 Router 已有更晚的 GPT-6 Luna/Sol、长上下文、独立 npm 更新前缀和保留用户状态的源码，更新 Frontend 镜像内脚本/模型目录。重新构建并收录缺失 Windows x64、macOS x64/arm64 和 DMG 下载文件，附 `web/public/codex-acu-assets.json` 来源、Go 版本和 SHA256 清单。历史二进制留在恢复引用中。
+
+Go bootstrapper 测试及 Router 安装器 4 项回归通过，shell 语法检查通过。此 Linux 环境完成交叉编译及 DMG 打包，未声称在真实 macOS/Windows 上完成 GUI 安装验收；macOS 包仍沿用现有未公证分发方式。新资产尚未同步生产直接下载目录。

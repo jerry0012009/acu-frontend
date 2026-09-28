@@ -196,6 +196,8 @@ asset_is_current() {
   case "$asset_kind" in
     launcher)
       grep -Fq "gpt-6-astra" "$asset_path" &&
+        grep -Fq "gpt-6-luna" "$asset_path" &&
+        grep -Fq "gpt-6-sol" "$asset_path" &&
         grep -Fq "allowed_model" "$asset_path"
       ;;
     catalog)
@@ -239,7 +241,7 @@ download_asset() {
     fi
     rm -f "$output"
   done
-  echo "failed to download current $public_name (gpt-6-astra support required)" >&2
+  echo "failed to download current $public_name (GPT-6 Astra/Luna/Sol support required)" >&2
   return 1
 }
 
@@ -276,24 +278,34 @@ trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
 
 managed_codex=$(find_managed_codex || true)
 native_codex=$managed_codex
+runtime_refreshed=0
 npm_attempted=0
 if [ "$update_codex" != "0" ] && [ "$prefer_npm" != "0" ]; then
   npm_attempted=1
   if install_codex_npm; then
-    native_codex=$(find_managed_codex || true)
+    native_codex="$acu_home/npm/bin/codex"
+    runtime_refreshed=1
   fi
 fi
 if [ -z "$native_codex" ]; then native_codex=$(find_system_codex || true); fi
 if [ -z "$native_codex" ] && [ "$npm_attempted" = "0" ] && [ "$prefer_npm" != "0" ]; then
   npm_attempted=1
   if install_codex_npm; then
-    native_codex=$(find_managed_codex || true)
+    native_codex="$acu_home/npm/bin/codex"
+    runtime_refreshed=1
   fi
 fi
-if [ -z "$native_codex" ]; then
-  install_codex_official "$tmp_dir/codex-install.sh" "$tmp_dir/codex-install-patched.sh" || true
-  native_codex=$(find_managed_codex || true)
+if [ -z "$native_codex" ] || { [ "$update_codex" != "0" ] && [ "$runtime_refreshed" = "0" ]; }; then
+  if install_codex_official "$tmp_dir/codex-install.sh" "$tmp_dir/codex-install-patched.sh" &&
+    usable_codex "$native_bin_dir/codex"; then
+    native_codex="$native_bin_dir/codex"
+    runtime_refreshed=1
+  fi
 fi
+[ -z "$managed_codex" ] || [ "$update_codex" = "0" ] || [ "$runtime_refreshed" = "1" ] || {
+  echo "Codex update failed; existing ACU runtime and configuration were retained. Close Codex and retry." >&2
+  exit 1
+}
 [ -n "$native_codex" ] || { echo "Codex installation completed but no usable codex binary was found" >&2; exit 1; }
 
 script_dir=
@@ -380,7 +392,56 @@ env_key = "ACU_API_KEY"
 wire_api = "responses"
 EOF
 chmod 600 "$config_tmp"
-mv "$config_tmp" "$acu_home/config.toml"
+if [ -f "$acu_home/config.toml" ]; then
+  migrated_config="$acu_home/config.toml.migrated"
+  awk -v catalog_path="$acu_home/model-catalog.json" '
+    function emit_missing(    line) {
+      if (emitted) return
+      if (!context) print "model_context_window = 1050000"
+      if (!compact) print "model_auto_compact_token_limit = 922000"
+      if (!scope) print "model_auto_compact_token_limit_scope = \"total\""
+      if (!catalog) print "model_catalog_json = \"" catalog_path "\""
+      emitted=1
+    }
+    BEGIN { context=0; compact=0; scope=0; catalog=0; emitted=0 }
+    /^\[/ {
+      emit_missing()
+      print
+      next
+    }
+    !emitted && /^model_context_window[[:space:]]*=/ {
+      print "model_context_window = 1050000"
+      context=1
+      next
+    }
+    !emitted && /^model_auto_compact_token_limit[[:space:]]*=/ {
+      print "model_auto_compact_token_limit = 922000"
+      compact=1
+      next
+    }
+    !emitted && /^model_auto_compact_token_limit_scope[[:space:]]*=/ {
+      print "model_auto_compact_token_limit_scope = \"total\""
+      scope=1
+      next
+    }
+    !emitted && /^model_catalog_json[[:space:]]*=/ {
+      print "model_catalog_json = \"" catalog_path "\""
+      catalog=1
+      next
+    }
+    { print }
+    END { emit_missing() }
+  ' "$acu_home/config.toml" > "$migrated_config"
+  if cmp -s "$migrated_config" "$acu_home/config.toml"; then
+    rm -f "$migrated_config"
+  else
+    chmod 600 "$migrated_config"
+    mv "$migrated_config" "$acu_home/config.toml"
+  fi
+  rm -f "$config_tmp"
+else
+  mv "$config_tmp" "$acu_home/config.toml"
+fi
 
 printf '%s\n' "$native_codex" > "$acu_home/native-codex-path"
 chmod 600 "$acu_home/native-codex-path"
@@ -418,3 +479,4 @@ case ":${PATH}:" in
   *":${bin_dir}:"*) ;;
   *) echo "Open a new terminal or run: export PATH=\"$bin_dir:\$PATH\"" ;;
 esac
+exit 0

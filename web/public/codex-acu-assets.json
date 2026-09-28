@@ -1,0 +1,48 @@
+{
+  "router_source_commit": "c61e509c2dd2bf61cce1048de1d9752d24496bfb",
+  "bootstrapper_source_tree": "927ca70743f0cc3a80c36ab3815ddd371ee0e109",
+  "build_command": "sh tools/codex-acu/build-bootstrapper.sh",
+  "go_version": "go version go1.22.2 linux/amd64",
+  "assets": [
+    {
+      "file": "codex-acu",
+      "bytes": 9516,
+      "sha256": "987a8961c62adb007fcbaff57535b0aeac374e51fbf9456d64cafe1f7de62bf1"
+    },
+    {
+      "file": "codex-acu-install.ps1",
+      "bytes": 26537,
+      "sha256": "da0a18cb6e8b8a2055ddd77d75f3bc199cf9ad220ea381874d49c25643ac3729"
+    },
+    {
+      "file": "codex-acu-install.sh",
+      "bytes": 14242,
+      "sha256": "a66664f42de64562fd7ba2eadb5ba9d13a79d6dc5d498a3137428305e9af4cee"
+    },
+    {
+      "file": "codex-acu-macos-arm64",
+      "bytes": 5317570,
+      "sha256": "0104614a1283f0672d370555b57c7e561abf5bcd22d39ead51908c6126209be6"
+    },
+    {
+      "file": "codex-acu-macos-x86_64",
+      "bytes": 5538496,
+      "sha256": "4a4baf08cd9a3272b51b8e38f627ff4e943ecea5684df3dd3123e74619dd3d99"
+    },
+    {
+      "file": "codex-acu-macos.dmg",
+      "bytes": 4995951,
+      "sha256": "4802dfbabf993863ca39e3b74f9a1b7708fa043ce875f9932dc801849c2e5b78"
+    },
+    {
+      "file": "codex-acu-model-catalog.json",
+      "bytes": 323280,
+      "sha256": "787732c2f22b5f2a99db7d1c622cbf8426fc0fbc128ef1689513260128115c25"
+    },
+    {
+      "file": "codex-acu-windows-x86_64.exe",
+      "bytes": 5579776,
+      "sha256": "5dd4b310d4478f376ca663bc8f606626a54eb6827bda7e882197e7b73653707d"
+    }
+  ]
+}

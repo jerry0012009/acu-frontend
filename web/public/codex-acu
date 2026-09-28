@@ -80,7 +80,7 @@ validate_model_args() {
         selected_model=$2
         allowed_model "$selected_model" || {
           echo "unsupported ACU model: $selected_model" >&2
-          echo "allowed models: acu-auto, gpt-5.6-luna, gpt-5.6-terra, gpt-5.6-sol, gpt-6-astra" >&2
+          echo "allowed models: acu-auto, gpt-5.6-luna, gpt-5.6-terra, gpt-5.6-sol, gpt-6-astra, gpt-6-luna, gpt-6-sol" >&2
           exit 2
         }
         shift 2
@@ -89,7 +89,7 @@ validate_model_args() {
         selected_model=${1#--model=}
         allowed_model "$selected_model" || {
           echo "unsupported ACU model: $selected_model" >&2
-          echo "allowed models: acu-auto, gpt-5.6-luna, gpt-5.6-terra, gpt-5.6-sol, gpt-6-astra" >&2
+          echo "allowed models: acu-auto, gpt-5.6-luna, gpt-5.6-terra, gpt-5.6-sol, gpt-6-astra, gpt-6-luna, gpt-6-sol" >&2
           exit 2
         }
         shift
@@ -191,6 +191,15 @@ case "$ACU_API_KEY" in sk-?*) ;; *) echo "invalid ACU credential" >&2; exit 1 ;;
 export CODEX_HOME="$acu_home"
 export ACU_API_KEY
 
+# Keep Codex's built-in npm self-update inside the ACU-managed runtime.
+codex_npm_prefix="$acu_home/npm"
+case "$native_codex" in
+  "$codex_npm_prefix"/*)
+    export NPM_CONFIG_PREFIX="$codex_npm_prefix"
+    export npm_config_prefix="$codex_npm_prefix"
+    ;;
+esac
+
 configured_base_url=$(sed -n 's/^base_url = "\(https:\/\/.*\/v1\)"$/\1/p' "$acu_home/config.toml")
 test -n "$configured_base_url" || { echo "invalid Base URL" >&2; exit 1; }
 effective_base_url=$(resolve_endpoint "$configured_base_url")
@@ -209,7 +218,7 @@ case "${1:-}" in
     catalog_file=$(sed -n 's/^model_catalog_json = "\([^"]*\)"$/\1/p' "$acu_home/config.toml")
     test -r "$catalog_file" || { echo "model catalog is not readable" >&2; exit 1; }
     grep -q '"slug": "acu-auto"' "$catalog_file" || { echo "acu-auto model metadata is missing" >&2; exit 1; }
-    for model in gpt-5.6-luna gpt-5.6-terra gpt-5.6-sol gpt-6-astra; do
+    for model in gpt-5.6-luna gpt-5.6-terra gpt-5.6-sol gpt-6-astra gpt-6-luna gpt-6-sol; do
       grep -q "\"slug\": \"$model\"" "$catalog_file" || {
         echo "$model model metadata is missing" >&2
         exit 1
@@ -247,13 +256,7 @@ esac
 validate_model_args "$@"
 provider_config='model_provider="acu-founder-alpha"'
 base_url_config="model_providers.acu-founder-alpha.base_url=\"$effective_base_url\""
-if [ -n "$selected_model" ]; then
-  exec "$native_codex" \
-    -c "$provider_config" \
-    -c "$base_url_config" \
-    -c 'model_providers.acu-founder-alpha.wire_api="responses"' \
-    "$@"
-fi
+effective_model=${selected_model:-$configured_model}
 exec "$native_codex" \
   -c "$provider_config" \
   -c "$base_url_config" \
