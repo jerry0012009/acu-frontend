@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 
 import {
   getACUExecutionProfiles,
@@ -26,7 +27,7 @@ export function ACUMonitorQuickCalibration() {
   })
   const data = query.data?.data
   const [search, setSearch] = useState('')
-  const [selectedId, setSelectedId] = useState('')
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [draft, setDraft] = useState<Draft>({
     weight: '',
     multiplier: '',
@@ -45,60 +46,94 @@ export function ACUMonitorQuickCalibration() {
       .toLowerCase()
       .includes(search.toLowerCase().trim())
   )
-  useEffect(() => {
-    if (!selectedId && profiles[0]) {
-      setSelectedId(profiles[0].executionProfileId)
-    }
-  }, [profiles, selectedId])
-  const selected = profiles.find(
-    (profile) => profile.executionProfileId === selectedId
+  const selectedProfiles = profiles.filter((profile) =>
+    selectedIds.includes(profile.executionProfileId)
   )
+  const selected =
+    selectedProfiles.length === 1 ? selectedProfiles[0] : undefined
   const providerId = selected?.economicsProviderId ?? selected?.provider
   const economics = data?.providerEconomics?.find(
     (item) => item.providerId === providerId
   )
   const initial: Draft = {
-    weight: String(selected?.routingWeight ?? 100),
-    multiplier: String(
-      selected?.observedBillingMultiplier ??
-        economics?.observedBillingMultiplier ??
-        1
-    ),
+    weight: selected ? String(selected.routingWeight ?? 100) : '',
+    multiplier: selected
+      ? String(
+          selected.observedBillingMultiplier ??
+            economics?.observedBillingMultiplier ??
+            1
+        )
+      : '',
     creditsPerCny:
       economics?.creditsPerCny == null ? '' : String(economics.creditsPerCny),
   }
+  const selectionKey = selectedIds.join('\0')
   useEffect(() => {
     setDraft(initial)
     setError('')
-    // A new selection or saved server snapshot resets the edit form.
+    // A changed selection begins a new draft; background refetches preserve edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    selectedId,
-    selected?.routingWeight,
-    selected?.observedBillingMultiplier,
-    economics?.observedBillingMultiplier,
-    economics?.creditsPerCny,
-  ])
+  }, [selectionKey])
 
-  const weightChanged = selected && draft.weight !== initial.weight
-  const multiplierChanged = selected && draft.multiplier !== initial.multiplier
+  const bulk = selectedProfiles.length > 1
+  const weightChanged =
+    selectedProfiles.length > 0 &&
+    (bulk ? draft.weight.trim() !== '' : draft.weight !== initial.weight)
+  const multiplierChanged =
+    selectedProfiles.length > 0 &&
+    (bulk
+      ? draft.multiplier.trim() !== ''
+      : draft.multiplier !== initial.multiplier)
   const conversionChanged =
-    selected && draft.creditsPerCny !== initial.creditsPerCny
+    selectedProfiles.length > 0 &&
+    (bulk
+      ? draft.creditsPerCny.trim() !== ''
+      : draft.creditsPerCny !== initial.creditsPerCny)
   const changed = weightChanged || multiplierChanged || conversionChanged
-  const sharedCount = profiles.filter(
-    (profile) =>
-      (profile.economicsProviderId ?? profile.provider) === providerId
+  const affectedProviders = new Set(
+    selectedProfiles.map(
+      (profile) => profile.economicsProviderId ?? profile.provider
+    )
+  )
+  const sharedCount = profiles.filter((profile) =>
+    affectedProviders.has(profile.economicsProviderId ?? profile.provider)
   ).length
   const mutation = useMutation({
-    mutationFn: (input: {
-      id: string
+    mutationFn: async (input: {
+      ids: string[]
       values: {
         routingWeight?: number
         observedBillingMultiplier?: number
         creditsPerCny?: number
       }
-    }) => reconcileACUExecutionProfileCalibration(input.id, input.values),
-    onSuccess: async () => {
+    }) => {
+      const savedProviders = new Set<string>()
+      const failed: string[] = []
+      let saved = 0
+      for (const id of input.ids) {
+        const profile = profiles.find((item) => item.executionProfileId === id)
+        if (!profile) continue
+        const provider = profile.economicsProviderId ?? profile.provider
+        const values = {
+          ...input.values,
+          ...(savedProviders.has(provider) ? { creditsPerCny: undefined } : {}),
+        }
+        if (Object.values(values).every((value) => value === undefined)) {
+          continue
+        }
+        try {
+          await reconcileACUExecutionProfileCalibration(id, values)
+          saved++
+          if (values.creditsPerCny !== undefined) savedProviders.add(provider)
+        } catch (reason) {
+          failed.push(
+            `${id}: ${reason instanceof Error ? reason.message : t('Calibration failed')}`
+          )
+        }
+      }
+      return { saved, failed }
+    },
+    onSuccess: async (result) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['acu-execution-profiles'] }),
         queryClient.invalidateQueries({ queryKey: ['acu-channel-monitor'] }),
@@ -107,7 +142,21 @@ export function ACUMonitorQuickCalibration() {
         }),
         queryClient.invalidateQueries({ queryKey: ['pricing'] }),
       ])
-      toast.success(t('Calibration saved'))
+      if (result.failed.length > 0) {
+        setError(
+          `${t('{{saved}} saved; {{failed}} failed. Review and retry.', {
+            saved: result.saved,
+            failed: result.failed.length,
+          })} ${result.failed.join('; ')}`
+        )
+        return
+      }
+      setError('')
+      toast.success(
+        result.saved === 1 && selectedProfiles.length > 1
+          ? t('Calibration saved')
+          : t('{{count}} Profiles updated', { count: result.saved })
+      )
     },
     onError: (reason) =>
       setError(
@@ -116,7 +165,7 @@ export function ACUMonitorQuickCalibration() {
   })
 
   const save = () => {
-    if (!selected || !changed || mutation.isPending) return
+    if (!selectedProfiles.length || !changed || mutation.isPending) return
     const weight = Number(draft.weight)
     const multiplier = Number(draft.multiplier)
     const conversion = Number(draft.creditsPerCny)
@@ -140,7 +189,17 @@ export function ACUMonitorQuickCalibration() {
       )
       return
     }
-    if (
+    if (bulk) {
+      const prompt = conversionChanged
+        ? t(
+            'Update {{selected}} selected Profiles? Recharge conversion affects {{affected}} Profiles across shared providers.',
+            { selected: selectedProfiles.length, affected: sharedCount }
+          )
+        : t('Update {{count}} selected Profiles?', {
+            count: selectedProfiles.length,
+          })
+      if (!window.confirm(prompt)) return
+    } else if (
       conversionChanged &&
       sharedCount > 1 &&
       !window.confirm(
@@ -156,7 +215,7 @@ export function ACUMonitorQuickCalibration() {
     }
     setError('')
     mutation.mutate({
-      id: selected.executionProfileId,
+      ids: selectedProfiles.map((profile) => profile.executionProfileId),
       values: {
         ...(weightChanged ? { routingWeight: weight } : {}),
         ...(multiplierChanged ? { observedBillingMultiplier: multiplier } : {}),
@@ -192,7 +251,7 @@ export function ACUMonitorQuickCalibration() {
         </p>
       ) : (
         <>
-          <div className='grid min-w-0 gap-2 sm:grid-cols-[minmax(10rem,1fr)_minmax(14rem,2fr)]'>
+          <div className='space-y-2'>
             <label className='min-w-0 space-y-1 text-xs'>
               <span className='text-muted-foreground'>
                 {t('Filter Profiles')}
@@ -204,41 +263,92 @@ export function ACUMonitorQuickCalibration() {
                 onChange={(event) => setSearch(event.target.value)}
               />
             </label>
-            <label className='min-w-0 space-y-1 text-xs'>
-              <span className='text-muted-foreground'>{t('Profile')}</span>
-              <select
-                className='bg-background h-9 w-full min-w-0 rounded-md border px-2.5 text-sm'
-                value={selectedId}
-                disabled={
-                  query.isLoading || profiles.length === 0 || mutation.isPending
-                }
-                onChange={(event) => setSelectedId(event.target.value)}
+            <div className='flex flex-wrap items-center justify-between gap-2 text-xs'>
+              <span className='text-muted-foreground'>
+                {t('{{count}} Profiles selected', {
+                  count: selectedProfiles.length,
+                })}
+              </span>
+              <Button
+                size='sm'
+                variant='ghost'
+                disabled={matchingProfiles.length === 0 || mutation.isPending}
+                onClick={() => {
+                  const matchingIds = matchingProfiles.map(
+                    (profile) => profile.executionProfileId
+                  )
+                  const allSelected = matchingIds.every((id) =>
+                    selectedIds.includes(id)
+                  )
+                  setSelectedIds((current) =>
+                    allSelected
+                      ? current.filter((id) => !matchingIds.includes(id))
+                      : [...new Set([...current, ...matchingIds])]
+                  )
+                }}
               >
-                <option value=''>{t('Select a Profile')}</option>
-                {matchingProfiles.map((profile) => (
-                  <option
-                    key={profile.executionProfileId}
-                    value={profile.executionProfileId}
-                  >
-                    {profile.modelId} · {profile.channel} ·{' '}
-                    {profile.executionProfileId}
-                  </option>
-                ))}
-                {selected && !matchingProfiles.includes(selected) ? (
-                  <option value={selectedId}>
-                    {selected.modelId} · {selected.channel} ·{' '}
-                    {selected.executionProfileId}
-                  </option>
-                ) : null}
-              </select>
-            </label>
+                {matchingProfiles.length > 0 &&
+                matchingProfiles.every((profile) =>
+                  selectedIds.includes(profile.executionProfileId)
+                )
+                  ? t('Deselect filtered')
+                  : t('Select filtered')}
+              </Button>
+            </div>
+            <div
+              role='group'
+              aria-label={t('Profiles')}
+              className='bg-background max-h-44 min-w-0 space-y-0.5 overflow-y-auto rounded-md border p-1'
+            >
+              {matchingProfiles.map((profile) => (
+                <label
+                  key={profile.executionProfileId}
+                  className='hover:bg-muted/50 flex min-w-0 cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs'
+                >
+                  <Checkbox
+                    checked={selectedIds.includes(profile.executionProfileId)}
+                    disabled={mutation.isPending}
+                    onCheckedChange={(checked) =>
+                      setSelectedIds((current) =>
+                        checked
+                          ? [...current, profile.executionProfileId]
+                          : current.filter(
+                              (id) => id !== profile.executionProfileId
+                            )
+                      )
+                    }
+                    aria-label={profile.executionProfileId}
+                  />
+                  <span className='min-w-0 truncate'>
+                    <span className='font-medium'>{profile.modelId}</span>
+                    {' · '}
+                    {profile.channel}
+                    <span className='text-muted-foreground'>
+                      {' '}
+                      · {profile.executionProfileId}
+                    </span>
+                  </span>
+                </label>
+              ))}
+              {!query.isLoading && matchingProfiles.length === 0 && (
+                <p className='text-muted-foreground px-2 py-3 text-xs'>
+                  {t('No matching Profiles')}
+                </p>
+              )}
+            </div>
           </div>
-          {selected && (
+          {selectedProfiles.length > 0 && (
             <div className='space-y-2 border-t pt-3'>
-              <div className='text-muted-foreground min-w-0 text-xs break-all'>
-                {selected.provider} / {selected.channel} ·{' '}
-                {selected.executionProfileId}
-              </div>
+              {selected ? (
+                <div className='text-muted-foreground min-w-0 text-xs break-all'>
+                  {selected.provider} / {selected.channel} ·{' '}
+                  {selected.executionProfileId}
+                </div>
+              ) : (
+                <p className='text-muted-foreground text-xs'>
+                  {t('Only filled values are applied to selected Profiles.')}
+                </p>
+              )}
               <div className='grid gap-3 sm:grid-cols-3'>
                 <CalibrationField
                   label={t('Global Profile weight')}
@@ -276,15 +386,23 @@ export function ACUMonitorQuickCalibration() {
                 />
               </div>
               <div className='flex flex-wrap items-center justify-between gap-2'>
-                <span className='text-muted-foreground text-xs'>
-                  {t(
-                    'Conversion belongs to provider {{provider}} and affects {{count}} Profiles.',
-                    {
-                      provider: providerId,
-                      count: sharedCount,
-                    }
-                  )}
-                </span>
+                {selected ? (
+                  <span className='text-muted-foreground text-xs'>
+                    {t(
+                      'Conversion belongs to provider {{provider}} and affects {{count}} Profiles.',
+                      { provider: providerId, count: sharedCount }
+                    )}
+                  </span>
+                ) : (
+                  <span className='text-muted-foreground text-xs'>
+                    {t(
+                      'Recharge conversion affects {{count}} Profiles across selected providers.',
+                      {
+                        count: sharedCount,
+                      }
+                    )}
+                  </span>
+                )}
                 <Button
                   size='sm'
                   disabled={!changed || mutation.isPending}

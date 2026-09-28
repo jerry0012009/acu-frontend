@@ -84,12 +84,21 @@ const response = {
 
 test('selecting a Profile permits a weight-only save without running a Probe', async () => {
   const previous = api.defaults.adapter
+  const confirmWindow = globalThis.window as unknown as {
+    confirm: (message?: string) => boolean
+  }
+  const previousConfirm = confirmWindow.confirm
   const requests: Array<{ url?: string; data?: string }> = []
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
   client.setQueryData(['acu-execution-profiles'], response)
   client.setQueryData(['acu-token-profile-routing', 17], { success: true })
+  confirmWindow.confirm = () => {
+    throw new Error(
+      'Single-Profile weight change must not ask for confirmation'
+    )
+  }
   api.defaults.adapter = async (config) => {
     requests.push({ url: config.url, data: config.data })
     return {
@@ -113,12 +122,21 @@ test('selecting a Profile permits a weight-only save without running a Probe', a
         </QueryClientProvider>
       )
     )
-    const select = host.querySelector<HTMLSelectElement>('select')
-    assert.ok(select)
+    const search = host.querySelector<HTMLInputElement>('input[type="search"]')
+    assert.ok(search)
     await act(async () => {
-      select.value = 'fixture:first'
-      select.dispatchEvent(new Event('change', { bubbles: true }))
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value'
+      )?.set?.call(search, 'fixture:first')
+      search.dispatchEvent(new Event('input', { bubbles: true }))
+      search.dispatchEvent(new Event('change', { bubbles: true }))
     })
+    const selectFiltered = [...host.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Select filtered'
+    )
+    assert.ok(selectFiltered)
+    await act(async () => selectFiltered.click())
     const weight = [...host.querySelectorAll<HTMLInputElement>('input')].find(
       (input) => input.closest('label')?.textContent === 'Global Profile weight'
     )
@@ -155,6 +173,7 @@ test('selecting a Profile permits a weight-only save without running a Probe', a
   } finally {
     await act(async () => root.unmount())
     api.defaults.adapter = previous
+    confirmWindow.confirm = previousConfirm
     client.clear()
     host.remove()
   }
@@ -195,12 +214,21 @@ test('shared conversion requires confirmation and invalid input does not reach t
         </QueryClientProvider>
       )
     )
-    const select = host.querySelector<HTMLSelectElement>('select')
-    assert.ok(select)
+    const search = host.querySelector<HTMLInputElement>('input[type="search"]')
+    assert.ok(search)
     await act(async () => {
-      select.value = 'fixture:first'
-      select.dispatchEvent(new Event('change', { bubbles: true }))
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value'
+      )?.set?.call(search, 'fixture:first')
+      search.dispatchEvent(new Event('input', { bubbles: true }))
+      search.dispatchEvent(new Event('change', { bubbles: true }))
     })
+    const selectFiltered = [...host.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Select filtered'
+    )
+    assert.ok(selectFiltered)
+    await act(async () => selectFiltered.click())
     const conversion = [
       ...host.querySelectorAll<HTMLInputElement>('input'),
     ].find(
@@ -240,6 +268,163 @@ test('shared conversion requires confirmation and invalid input does not reach t
     await act(async () => root.unmount())
     api.defaults.adapter = previous
     confirmWindow.confirm = previousConfirm
+    client.clear()
+    host.remove()
+  }
+})
+
+test('selecting multiple Profiles deduplicates shared recharge conversion', async () => {
+  const previous = api.defaults.adapter
+  const previousConfirm = (
+    globalThis.window as unknown as { confirm: (message?: string) => boolean }
+  ).confirm
+  const requests: Array<{ url?: string; data?: string }> = []
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+  })
+  client.setQueryData(['acu-execution-profiles'], response)
+  ;(
+    globalThis.window as unknown as { confirm: (message?: string) => boolean }
+  ).confirm = () => true
+  api.defaults.adapter = async (config) => {
+    requests.push({ url: config.url, data: config.data })
+    return {
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      data: { success: true, data: {} },
+    }
+  }
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  try {
+    await act(async () =>
+      root.render(
+        <QueryClientProvider client={client}>
+          <I18nextProvider i18n={i18n}>
+            <ACUMonitorQuickCalibration />
+          </I18nextProvider>
+        </QueryClientProvider>
+      )
+    )
+    const selectFiltered = [...host.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Select filtered'
+    )
+    assert.ok(selectFiltered)
+    await act(async () => selectFiltered.click())
+    const conversion = [
+      ...host.querySelectorAll<HTMLInputElement>('input'),
+    ].find(
+      (input) =>
+        input.closest('label')?.textContent ===
+        'Recharge conversion (credits per RMB)'
+    )
+    assert.ok(conversion)
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value'
+    )?.set
+    await act(async () => {
+      setter?.call(conversion, '8')
+      conversion.dispatchEvent(new Event('input', { bubbles: true }))
+      conversion.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    const save = [...host.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Save configuration'
+    )
+    assert.ok(save)
+    await act(async () => save.click())
+    assert.deepEqual(
+      requests
+        .filter((request) => request.url?.endsWith('/calibration'))
+        .map((request) => JSON.parse(request.data ?? '')),
+      [{ creditsPerCny: 8 }]
+    )
+  } finally {
+    await act(async () => root.unmount())
+    api.defaults.adapter = previous
+    ;(
+      globalThis.window as unknown as {
+        confirm: (message?: string) => boolean
+      }
+    ).confirm = previousConfirm
+    client.clear()
+    host.remove()
+  }
+})
+
+test('batch weight updates submit once per selected Profile', async () => {
+  const previous = api.defaults.adapter
+  const previousConfirm = (
+    globalThis.window as unknown as { confirm: (message?: string) => boolean }
+  ).confirm
+  const requests: string[] = []
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+  })
+  client.setQueryData(['acu-execution-profiles'], response)
+  ;(
+    globalThis.window as unknown as { confirm: (message?: string) => boolean }
+  ).confirm = () => true
+  api.defaults.adapter = async (config) => {
+    if (config.url?.endsWith('/calibration')) requests.push(config.data ?? '')
+    return {
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+      data: response,
+    }
+  }
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  try {
+    await act(async () =>
+      root.render(
+        <QueryClientProvider client={client}>
+          <I18nextProvider i18n={i18n}>
+            <ACUMonitorQuickCalibration />
+          </I18nextProvider>
+        </QueryClientProvider>
+      )
+    )
+    const selectFiltered = [...host.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Select filtered'
+    )
+    assert.ok(selectFiltered)
+    await act(async () => selectFiltered.click())
+    const weight = [...host.querySelectorAll<HTMLInputElement>('input')].find(
+      (input) => input.closest('label')?.textContent === 'Global Profile weight'
+    )
+    assert.ok(weight)
+    Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value'
+    )?.set?.call(weight, '125')
+    await act(async () => {
+      weight.dispatchEvent(new Event('input', { bubbles: true }))
+      weight.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    const save = [...host.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Save configuration'
+    )
+    assert.ok(save)
+    await act(async () => save.click())
+    assert.deepEqual(
+      requests.map((value) => JSON.parse(value)),
+      [{ routingWeight: 125 }, { routingWeight: 125 }]
+    )
+  } finally {
+    await act(async () => root.unmount())
+    api.defaults.adapter = previous
+    ;(
+      globalThis.window as unknown as {
+        confirm: (message?: string) => boolean
+      }
+    ).confirm = previousConfirm
     client.clear()
     host.remove()
   }

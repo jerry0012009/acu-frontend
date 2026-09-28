@@ -6148,5 +6148,15 @@
   "This conversion is shared by {{count}} Profiles. Save for all of them?": "此充值换算由 {{count}} 个 Profile 共用，确定保存并影响全部吗？",
   "Enter valid positive values; Profile weight must be from 0 to 500": "请输入有效正数；Profile 权重须在 0 到 500 之间",
   "Profile configuration could not be loaded": "无法加载 Profile 配置",
-  "Calibration saved": "配置已保存"
+  "Calibration saved": "配置已保存",
+  "{{count}} Profiles selected": "已选择 {{count}} 个 Profile",
+  "Select filtered": "全选筛选结果",
+  "Deselect filtered": "取消选择筛选结果",
+  "No matching Profiles": "没有匹配的 Profile",
+  "Only filled values are applied to selected Profiles.": "仅将填写的值应用于已选 Profile。",
+  "Recharge conversion affects {{count}} Profiles across selected providers.": "充值换算将影响已选供应商的 {{count}} 个 Profile。",
+  "Update {{count}} selected Profiles?": "确定更新选中的 {{count}} 个 Profile 吗？",
+  "Update {{selected}} selected Profiles? Recharge conversion affects {{affected}} Profiles across shared providers.": "确定更新选中的 {{selected}} 个 Profile 吗？共享的充值换算将影响 {{affected}} 个 Profile。",
+  "{{saved}} saved; {{failed}} failed. Review and retry.": "成功 {{saved}} 个，失败 {{failed}} 个。请检查后重试。",
+  "{{count}} Profiles updated": "已更新 {{count}} 个 Profile"
 }

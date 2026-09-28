@@ -6148,5 +6148,15 @@
   "This conversion is shared by {{count}} Profiles. Save for all of them?": "This conversion is shared by {{count}} Profiles. Save for all of them?",
   "Enter valid positive values; Profile weight must be from 0 to 500": "Enter valid positive values; Profile weight must be from 0 to 500",
   "Profile configuration could not be loaded": "Profile configuration could not be loaded",
-  "Calibration saved": "Calibration saved"
+  "Calibration saved": "Calibration saved",
+  "{{count}} Profiles selected": "{{count}} Profiles selected",
+  "Select filtered": "Select filtered",
+  "Deselect filtered": "Deselect filtered",
+  "No matching Profiles": "No matching Profiles",
+  "Only filled values are applied to selected Profiles.": "Only filled values are applied to selected Profiles.",
+  "Recharge conversion affects {{count}} Profiles across selected providers.": "Recharge conversion affects {{count}} Profiles across selected providers.",
+  "Update {{count}} selected Profiles?": "Update {{count}} selected Profiles?",
+  "Update {{selected}} selected Profiles? Recharge conversion affects {{affected}} Profiles across shared providers.": "Update {{selected}} selected Profiles? Recharge conversion affects {{affected}} Profiles across shared providers.",
+  "{{saved}} saved; {{failed}} failed. Review and retry.": "{{saved}} saved; {{failed}} failed. Review and retry.",
+  "{{count}} Profiles updated": "{{count}} Profiles updated"
 }
