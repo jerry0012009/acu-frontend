@@ -28,6 +28,7 @@ import {
   protocolLabel,
   protocolShortLabel,
 } from './acu-monitor-presentation'
+import { ACUProfileScoreDetails } from './acu-profile-score-details'
 import { ACUTokenProfileWeight } from './acu-token-profile-weight'
 
 function milliseconds(value?: number | null) {
@@ -359,6 +360,7 @@ function ChannelProfile(props: {
           </div>
         </div>
       </summary>
+      <ACUProfileScoreDetails profile={profile} />
       {profile.publicNote || props.noteActions ? (
         <div className='mt-2 flex min-w-0 items-center gap-1 text-[11px]'>
           <span className='text-muted-foreground shrink-0'>

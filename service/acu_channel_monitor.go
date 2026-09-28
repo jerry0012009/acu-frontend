@@ -261,6 +261,30 @@ func GetACURoutingCatalog(ctx context.Context) (dto.ACURoutingCatalog, error) {
 			RoutingCandidates:  routingCatalogCandidates(value["routingCandidates"]),
 		})
 	}
+	seenModels := make(map[string]bool, len(models))
+	for _, item := range models {
+		seenModels[item.ModelID] = true
+	}
+	for _, profile := range monitor.Profiles {
+		if !profile.RoutingEnabled || profile.CanonicalModel == "" || seenModels[profile.CanonicalModel] {
+			continue
+		}
+		protocols := make([]string, 0)
+		seenProtocols := make(map[string]bool)
+		for _, candidate := range monitor.Profiles {
+			if !candidate.RoutingEnabled || candidate.CanonicalModel != profile.CanonicalModel {
+				continue
+			}
+			for _, protocol := range candidate.Protocol {
+				if protocol != "" && !seenProtocols[protocol] {
+					protocols = append(protocols, protocol)
+					seenProtocols[protocol] = true
+				}
+			}
+		}
+		models = append(models, dto.ACURoutingCatalogModel{ModelID: profile.CanonicalModel, ModelCategory: "text_agent", Protocols: protocols, VerificationStatus: "discovered", AutoRouteEnabled: false})
+		seenModels[profile.CanonicalModel] = true
+	}
 	profiles := make([]dto.ACURoutingCatalogProfile, 0, len(monitor.Profiles))
 	for _, profile := range monitor.Profiles {
 		if !profile.RoutingEnabled {
@@ -618,6 +642,17 @@ func ProbeACUExecutionProfile(
 		"/internal/admin/execution-profiles/probe",
 		input,
 	)
+}
+
+func TriggerACUFullPoolProbe(ctx context.Context) error {
+	_, err := acuExecutionProfileRequestWithTimeout(
+		ctx,
+		120*time.Second,
+		http.MethodPost,
+		"/internal/admin/execution-profiles/probe-all",
+		nil,
+	)
+	return err
 }
 
 func ReconcileACUExecutionProfileCalibration(

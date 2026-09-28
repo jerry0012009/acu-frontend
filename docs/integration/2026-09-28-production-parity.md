@@ -102,3 +102,11 @@ Router 增加按用户及时间窗聚合的 calls/byStage/byStageCalls；Fronten
 恢复 `3f32545e5` 的编辑器成本计算及 Provider 余额换算，改接现行 `/calibration` 数据库接口；保留渠道连接编辑、全局 Profile 权重与即时保存。保存后同时刷新监控和 pricing 查询。Router 现有 API 已提供数据库 Provider economics 和 markup，无需恢复文件读写或 apply/restart。
 
 计算器覆盖 Responses 缓存包含口径、Messages 缓存分离口径；缺少价格/换算或无效 token 数据显示不可用，不误算免费请求。组件交互测试验证读取保存值、编辑换算、实际请求路径与 payload。完整前端 389 项通过，强制类型检查、受影响 lint、格式、构建通过。生产配置未修改。
+
+## 批次十二：完整探测管理、评分明细与 catalog 兼容
+
+旧 new-api 恢复快照 `f744b4b619` 中的全池探测 API 和未挂载评分组件已接通；Root 用户才能触发全池探测，Router 202 异步受理并继续沿用既有 Worker 预算/锁。没有新增自动探测，也没有执行生产收费探针。
+
+评分抽屉展示真实成本/速度/可靠性分项、样本与倍率，补齐原先被 Go DTO 丢弃的 Router 评分字段；没有照搬旧组件错误的固定 80/20 延迟说明。缺失测量保留为空。`b8f9f6c39` 的已配置 Profile 在 modelPool 刷新期间仍可发现的回退按现行 routingEnabled 契约恢复，不凭空启用 Auto。
+
+验证：完整前端 390 项通过；Service/Controller/DTO/Router Go 包通过，新增字段序列化契约和 catalog 刷新回归通过；Router gateway 36 项通过；类型/lint/格式/构建通过。

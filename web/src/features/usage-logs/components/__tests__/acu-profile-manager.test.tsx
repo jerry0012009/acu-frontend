@@ -36,8 +36,11 @@ Object.defineProperty(globalThis, 'matchMedia', {
 
 const React = await import('react')
 const { act } = React
-;(globalThis as typeof globalThis & { React?: unknown }).React =
-  React.default ?? React
+Object.defineProperty(globalThis, 'React', {
+  configurable: true,
+  writable: true,
+  value: React.default ?? React,
+})
 const { createRoot } = await import('react-dom/client')
 const { createInstance } = await import('i18next')
 const { I18nextProvider, initReactI18next } = await import('react-i18next')

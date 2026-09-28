@@ -365,3 +365,41 @@ func TestGetACUSelectionCorridorDoesNotRetryUnrelatedRouter503(t *testing.T) {
 	require.EqualError(t, err, "ACU selection corridor returned HTTP 503")
 	require.Equal(t, 1, requests)
 }
+
+func TestFullPoolProbeForwardsOnlyTheAdministrativeTrigger(t *testing.T) {
+	requests := make(chan *http.Request, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests <- r.Clone(r.Context())
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = w.Write([]byte(`{"status":"accepted"}`))
+	}))
+	defer server.Close()
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", server.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
+	require.NoError(t, TriggerACUFullPoolProbe(context.Background()))
+	request := <-requests
+	assert.Equal(t, http.MethodPost, request.Method)
+	assert.Equal(t, "/internal/admin/execution-profiles/probe-all", request.URL.Path)
+}
+
+func TestRoutingCatalogRetainsEnabledProfileWhileModelPoolRefreshes(t *testing.T) {
+	clearACUChannelMonitorCache()
+	previous := common.OptionMap
+	common.OptionMap = map[string]string{}
+	t.Cleanup(func() { common.OptionMap = previous; clearACUChannelMonitorCache() })
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"profiles":[{"executionProfileId":"fixture:responses","canonicalModel":"gpt-6-luna","routingEnabled":true,"protocol":["responses"]},{"executionProfileId":"disabled","canonicalModel":"hidden","routingEnabled":false,"protocol":["messages"]}],"modelPool":[]}`))
+	}))
+	defer server.Close()
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", server.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
+	result, err := GetACURoutingCatalog(context.Background())
+	require.NoError(t, err)
+	require.Len(t, result.Models, 1)
+	assert.Equal(t, "gpt-6-luna", result.Models[0].ModelID)
+	assert.Equal(t, []string{"responses"}, result.Models[0].Protocols)
+	assert.False(t, result.Models[0].AutoRouteEnabled, "missing pool evidence must not manufacture an Auto candidate")
+	require.Len(t, result.Profiles, 1)
+}

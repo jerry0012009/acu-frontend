@@ -28,6 +28,17 @@ func GetACUChannelMonitor(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
 }
 
+func TriggerACUFullPoolProbe(c *gin.Context) {
+	if err := service.TriggerACUFullPoolProbe(c.Request.Context()); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusAccepted, gin.H{
+		"success": true,
+		"message": "Full pool probe triggered",
+	})
+}
+
 func RunACUProfileVeridrop(c *gin.Context) {
 	var input map[string]interface{}
 	if err := c.ShouldBindJSON(&input); err != nil {

@@ -261,6 +261,17 @@ export async function getACUWorkTimeline(
 }
 
 export type ACUChannelMonitorProfile = {
+  rawCostUtility?: number | null
+  rawSpeedUtility?: number | null
+  rawReliabilityUtility?: number | null
+  scoredProbeLatencyP50Ms?: number | null
+  scoredProbeLatencyP90Ms?: number | null
+  scoredProbeLatencySampleCount?: number | null
+  fullPoolProbeLatencySampleCount?: number | null
+  productionReliabilitySamples?: number | null
+  productionReliabilitySuccesses?: number | null
+  scoredProbeCount?: number | null
+  scoredProbeSuccessCount?: number | null
   executionProfileId: string
   canonicalModel: string
   protocol: string[]
