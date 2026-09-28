@@ -57,6 +57,7 @@ func TestApplyACUTrustedIdentityReplacesForgedHeadersAndBindsBody(t *testing.T) 
 	require.Equal(t, `{"gpt-5.6-luna@max":150,"gpt-5.6-sol@high":70.5}`, req.Header.Get("X-ACU-Candidate-Preference-Scores"))
 	require.Equal(t, `{"managed:gpt-5.6-sol:responses":100}`, req.Header.Get("X-ACU-Profile-Preference-Scores"))
 	require.NotEmpty(t, req.Header.Get("X-ACU-Routing-Policy-Version"))
+	require.Empty(t, req.Header.Get("X-ACU-Formula-Mode"))
 	require.Empty(t, req.Header.Get("X-ACU-Unrecognized-Internal"))
 
 	digest := sha256.Sum256(body)
