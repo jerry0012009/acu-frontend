@@ -1,5 +1,24 @@
 # AGENTS.md — Project Conventions for new-api
 
+## ACU workspace ownership
+
+- The canonical clone for this repository is `/root/jerry/acu-frontend`.
+  `/root/jerry/new-api` and `/root/jerry/acu-frontend-release-20260914` are
+  historical recovery sources; do not develop or deploy from them by accident.
+- Keep canonical `main` clean. Each agent uses its own task branch and worktree
+  under `/root/jerry/.worktrees/`; do not switch, stash or rebase another agent's
+  working directory.
+- `archive/*`, `recovery/*` and stashes contain unreviewed historical work.
+  Check current behavior and tests before selecting changes; do not merge them
+  wholesale. Recovery locations and dispositions are recorded in
+  `/root/jerry/acu-repo-management/README.md`.
+- The Docker service is named `new-api`, but its effective build context must
+  be verified through Compose. Use the Router repository's
+  `deploy/alpha/deploy-production.sh --check new-api` before release preparation.
+- Repository maintenance must not stop services. A container restart does not
+  load a new image, and `up --no-deps` can still interrupt users. Prepare an
+  independent rollout/rollback executor before replacing live services.
+
 DO NOT send optional commentary
 
 ## Overview
@@ -42,10 +61,12 @@ web/           — Frontend (React 19, Rsbuild, Base UI, Tailwind)
 ## Internationalization (i18n)
 
 ### Backend (`i18n/`)
+
 - Library: `nicksnyder/go-i18n/v2`
 - Languages: en, zh
 
 ### Frontend (`web/src/i18n/`)
+
 - Library: `i18next` + `react-i18next` + `i18next-browser-languagedetector`
 - Languages: en (base), zh (fallback), zh-TW, fr, ru, ja, vi
 - Translation files: `web/src/i18n/locales/{lang}.json` — flat JSON, keys are English source strings
