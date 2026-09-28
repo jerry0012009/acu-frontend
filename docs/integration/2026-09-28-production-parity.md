@@ -90,3 +90,9 @@ Router 增加按用户及时间窗聚合的 calls/byStage/byStageCalls；Fronten
 来源 `3f32545e5`。从已固定旧生产镜像的 Go 函数表定位 RefreshLoginSession，函数机器码内包含 3 天纳秒常量、没有 30 天常量；与历史滑动会话源码吻合。恢复每次合法 refresh 将有效期顺延 3 天，保留并发单赢家、重放检测、未知 secret 不撤销会话等保护。没有修改密码哈希、密码长度规则、数据库实例或已有 session 记录。
 
 恢复客户端断开日志中的请求/首事件/末事件耗时、协议和渠道诊断；不记录凭据或消息内容。回归先失败后通过，Model/Service/Controller/Relay helper 全包通过；另验证新会话 3 天有效期。上线后现有会话在正常 refresh 时采用新到期规则。
+
+## 批次十：legacy 模型默认价格修正
+
+来源 `3f32545e5`，GPT-5.6 / GPT-6 的输入、输出与缓存回退比率与当前 Router `src/models.ts` 的对应价格一致。恢复旧源码遗漏的默认值；不覆盖数据库中用户已保存的自定义比率，ACU 请求继续使用数据库 Profile 及 Router 计费。
+
+旧价格回归先失败，恢复后 ratio_setting 全包通过。此处是已有模型的历史配置恢复，不引入新模型供应或生产价格写入。
