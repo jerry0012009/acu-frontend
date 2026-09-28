@@ -193,6 +193,14 @@ func UpdateOption(c *gin.Context) {
 			})
 			return
 		}
+	case "EmailDomainBlacklistEnabled":
+		if option.Value == "true" && len(common.EmailDomainBlacklist) == 0 {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": i18n.T(c, i18n.MsgEmailBlacklistEmpty),
+			})
+			return
+		}
 	case "WeChatAuthEnabled":
 		if option.Value == "true" && common.WeChatServerAddress == "" {
 			c.JSON(http.StatusOK, gin.H{
@@ -334,6 +342,15 @@ func UpdateOption(c *gin.Context) {
 			})
 			return
 		}
+	case "console_setting.acu_quick_start_media":
+		err = console_setting.ValidateConsoleSettings(option.Value.(string), "AcuQuickStartMedia")
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": err.Error(),
+			})
+			return
+		}
 	case "console_setting.uptime_kuma_groups":
 		err = console_setting.ValidateConsoleSettings(option.Value.(string), "UptimeKumaGroups")
 		if err != nil {
@@ -348,6 +365,11 @@ func UpdateOption(c *gin.Context) {
 	if err != nil {
 		common.ApiError(c, err)
 		return
+	}
+	if option.Key == "console_setting.acu_quick_start_media" {
+		if err := pruneAcuQuickStartMediaFiles(option.Value.(string)); err != nil {
+			common.SysError("failed to prune ACU quick-start media files: " + err.Error())
+		}
 	}
 	// 出于安全考虑只记录被修改的配置项名称，不记录配置值（可能含密钥等敏感信息）。
 	recordManageAudit(c, "option.update", map[string]interface{}{

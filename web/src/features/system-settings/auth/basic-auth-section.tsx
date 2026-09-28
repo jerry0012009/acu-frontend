@@ -34,6 +34,8 @@ const basicAuthSchema = z.object({
   EmailDomainRestrictionEnabled: z.boolean(),
   EmailAliasRestrictionEnabled: z.boolean(),
   EmailDomainWhitelist: z.string(),
+  EmailDomainBlacklistEnabled: z.boolean(),
+  EmailDomainBlacklist: z.string(),
 })
 
 type BasicAuthFormValues = z.infer<typeof basicAuthSchema>
@@ -53,6 +55,10 @@ export function BasicAuthSection({ defaultValues }: BasicAuthSectionProps) {
         .map((domain) => domain.trim())
         .filter(Boolean)
         .join('\n'),
+      EmailDomainBlacklist: defaultValues.EmailDomainBlacklist.split(',')
+        .map((domain) => domain.trim())
+        .filter(Boolean)
+        .join('\n'),
     }),
     [defaultValues]
   )
@@ -68,7 +74,7 @@ export function BasicAuthSection({ defaultValues }: BasicAuthSectionProps) {
     const updates: Array<{ key: string; value: string | boolean }> = []
 
     Object.entries(data).forEach(([key, value]) => {
-      if (key === 'EmailDomainWhitelist') {
+      if (key === 'EmailDomainWhitelist' || key === 'EmailDomainBlacklist') {
         if (typeof value !== 'string') return
         const domains = value
           .split('\n')
@@ -238,6 +244,50 @@ export function BasicAuthSection({ defaultValues }: BasicAuthSectionProps) {
                 <FormDescription>
                   {t(
                     'One domain per line (only used when domain restriction is enabled)'
+                  )}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name='EmailDomainBlacklistEnabled'
+            render={({ field }) => (
+              <SettingsSwitchItem>
+                <SettingsSwitchContent>
+                  <FormLabel>{t('Email Domain Blacklist')}</FormLabel>
+                  <FormDescription>
+                    {t('Block registration from specific email domains')}
+                  </FormDescription>
+                </SettingsSwitchContent>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+              </SettingsSwitchItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name='EmailDomainBlacklist'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('Email Domain Blacklist')}</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder={t('example.com&#10;company.com')}
+                    rows={4}
+                    {...field}
+                  />
+                </FormControl>
+                <FormDescription>
+                  {t(
+                    'One domain per line (only used when domain blacklist is enabled)'
                   )}
                 </FormDescription>
                 <FormMessage />

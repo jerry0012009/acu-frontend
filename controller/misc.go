@@ -135,6 +135,9 @@ func GetStatus(c *gin.Context) {
 	if cs.FAQEnabled {
 		data["faq"] = console_setting.GetFAQ()
 	}
+	if cs.AcuQuickStartEnabled {
+		data["acu_quick_start_media"] = console_setting.GetAcuQuickStartMedia()
+	}
 
 	// Add enabled custom OAuth providers
 	customProviders := oauth.GetEnabledCustomProviders()
@@ -290,6 +293,17 @@ func SendEmailVerification(c *gin.Context) {
 				"message": "The administrator has enabled the email domain name whitelist, and your email address is not allowed due to special symbols or it's not in the whitelist.",
 			})
 			return
+		}
+	}
+	if common.EmailDomainBlacklistEnabled {
+		for _, domain := range common.EmailDomainBlacklist {
+			if domainPart == strings.ToLower(strings.TrimSpace(domain)) {
+				c.JSON(http.StatusOK, gin.H{
+					"success": false,
+					"message": i18n.T(c, i18n.MsgEmailDomainBlocked),
+				})
+				return
+			}
 		}
 	}
 	if common.EmailAliasRestrictionEnabled {

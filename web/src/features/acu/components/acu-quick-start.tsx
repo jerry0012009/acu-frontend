@@ -6,10 +6,13 @@ import {
   ChevronDown,
   CircleCheck,
   Code2,
+  Download,
   ExternalLink,
+  Image as ImageIcon,
   Settings2,
   TableProperties,
   Terminal,
+  Video,
 } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -17,11 +20,19 @@ import { useTranslation } from 'react-i18next'
 import { CopyButton } from '@/components/copy-button'
 import { Button } from '@/components/ui/button'
 import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from '@/components/ui/carousel'
+import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useStatus } from '@/hooks/use-status'
 import { cn } from '@/lib/utils'
 
 import {
@@ -31,6 +42,8 @@ import {
   CC_SWITCH_CLAUDE_API_BASE_URL,
   CC_SWITCH_CODEX_API_BASE_URL,
   CC_SWITCH_MODEL_MAPPINGS,
+  WORKBUDDY_CHAT_COMPLETIONS_ENDPOINT,
+  WORKBUDDY_PROVIDER,
   buildApiCurl,
   buildHermesConfig,
   buildManualConfig,
@@ -43,8 +56,11 @@ import {
   displayCredentialValue,
   buildWindowsCommandPromptInstall,
   getLaunchCommand,
+  getCodexBootstrapperUrl,
   getProtocolEndpoint,
+  normalizeAcuQuickStartMedia,
   normalizeApiKey,
+  type AcuQuickStartMedia,
   type AcuQuickStartMode,
   type AcuApiProtocol,
   type AcuClient,
@@ -52,7 +68,7 @@ import {
 
 export type AcuQuickStartTab = 'codex' | 'claude' | 'ccswitch' | 'api' | 'agent'
 type Platform = 'unix' | 'windows'
-type Agent = 'openclaw' | 'hermes'
+type Agent = 'openclaw' | 'hermes' | 'workbuddy'
 type ClientConnectionMode = 'install' | 'manual'
 
 type AcuQuickStartProps = {
@@ -222,6 +238,27 @@ function ClientQuickStart(props: {
             number='01'
             label={t(platform === 'windows' ? 'Windows PowerShell' : 'Install')}
           >
+            {props.client === 'codex' && props.mode === 'credentialed' ? (
+              <div className='mb-3 flex flex-wrap items-center gap-2'>
+                <a
+                  className='bg-secondary text-secondary-foreground hover:bg-secondary/80 inline-flex h-8 items-center justify-center gap-2 rounded-md px-3 text-xs font-medium transition-colors'
+                  href={getCodexBootstrapperUrl(
+                    platform === 'windows' ? 'windows' : 'macos'
+                  )}
+                  download
+                >
+                  <Download className='size-4' />
+                  {t(
+                    platform === 'windows'
+                      ? 'Download Codex ACU for Windows'
+                      : 'Download Codex ACU for macOS'
+                  )}
+                </a>
+                <span className='text-[11px] text-slate-500'>
+                  {t('The installer will ask for this API key once.')}
+                </span>
+              </div>
+            ) : null}
             <CodePanel
               value={canonicalCommand}
               displayValue={displayCanonicalCommand}
@@ -615,7 +652,33 @@ function ApiQuickStart(props: {
 
 function AgentQuickStart(props: { copyKey: string; mode: AcuQuickStartMode }) {
   const { t } = useTranslation()
+  const { status } = useStatus()
   const [agent, setAgent] = useState<Agent>('openclaw')
+  const tutorialMedia = normalizeAcuQuickStartMedia(
+    status?.acu_quick_start_media
+  )
+
+  if (agent === 'workbuddy') {
+    return (
+      <div className='p-4 sm:p-5'>
+        <SecondarySelector
+          value={agent}
+          onChange={(value) => setAgent(value as Agent)}
+          items={[
+            { value: 'openclaw', label: 'OpenClaw' },
+            { value: 'hermes', label: 'Hermes' },
+            { value: 'workbuddy', label: 'WorkBuddy' },
+          ]}
+        />
+        <WorkBuddyQuickStart
+          copyKey={props.copyKey}
+          mode={props.mode}
+          media={tutorialMedia}
+        />
+      </div>
+    )
+  }
+
   const config =
     agent === 'openclaw'
       ? buildOpenClawConfig(props.copyKey)
@@ -631,6 +694,7 @@ function AgentQuickStart(props: { copyKey: string; mode: AcuQuickStartMode }) {
         items={[
           { value: 'openclaw', label: 'OpenClaw' },
           { value: 'hermes', label: 'Hermes' },
+          { value: 'workbuddy', label: 'WorkBuddy' },
         ]}
       />
 
@@ -662,6 +726,143 @@ function AgentQuickStart(props: { copyKey: string; mode: AcuQuickStartMode }) {
           'This config makes the agent itself use ACU Auto as its model provider.'
         )}
       </p>
+    </div>
+  )
+}
+
+function WorkBuddyQuickStart(props: {
+  copyKey: string
+  mode: AcuQuickStartMode
+  media: AcuQuickStartMedia[]
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <div className='mt-5 space-y-5'>
+      <div className='flex items-start gap-3'>
+        <div className='flex size-9 shrink-0 items-center justify-center rounded-lg border border-sky-300/20 bg-sky-300/10 text-xs font-bold text-sky-200'>
+          WB
+        </div>
+        <div className='min-w-0'>
+          <h3 className='text-sm font-semibold text-white'>
+            {t('WorkBuddy connection')}
+          </h3>
+          <p className='mt-1 text-[11px] leading-relaxed text-slate-500'>
+            {t('Add ACU as a custom OpenAI-compatible model in WorkBuddy.')}
+          </p>
+        </div>
+      </div>
+
+      <ol className='space-y-3'>
+        {[
+          'Open the model dropdown on the left side of the chat box.',
+          'Scroll to the bottom and select Configure custom models.',
+          'Choose Custom as the provider and enter the values below.',
+          'Keep the other settings unchanged, save, then select the model from Custom Models.',
+        ].map((label, index) => (
+          <li key={label} className='flex items-start gap-3'>
+            <span className='flex size-6 shrink-0 items-center justify-center rounded-full border border-sky-300/20 bg-sky-300/[0.08] font-mono text-[10px] text-sky-200'>
+              {index + 1}
+            </span>
+            <span className='pt-0.5 text-xs leading-relaxed text-slate-300'>
+              {t(label)}
+            </span>
+          </li>
+        ))}
+      </ol>
+
+      <div className='divide-y divide-white/[0.06] border-y border-white/[0.06]'>
+        <ConnectionRow label='Provider' value={WORKBUDDY_PROVIDER} />
+        <ConnectionRow
+          label='Endpoint'
+          value={WORKBUDDY_CHAT_COMPLETIONS_ENDPOINT}
+          copyValue={WORKBUDDY_CHAT_COMPLETIONS_ENDPOINT}
+        />
+        <ConnectionRow
+          label='API Key'
+          value={displayCredentialValue(props.copyKey, props.mode)}
+          copyValue={props.copyKey}
+        />
+        <ConnectionRow label='Model name' value={ACU_DEFAULT_MODEL} />
+        <ConnectionRow label='Protocol' value='OpenAI Chat Completions' />
+      </div>
+
+      <div className='rounded-lg border border-sky-300/15 bg-sky-300/[0.06] px-3 py-2.5 text-[11px] leading-relaxed text-slate-300'>
+        {t(
+          'Use acu-auto for automatic routing. If you prefer one fixed model, enter its ACU model name, such as gpt-5.6-sol.'
+        )}
+      </div>
+
+      {props.media.length > 0 ? (
+        <WorkBuddyMediaCarousel media={props.media} />
+      ) : null}
+    </div>
+  )
+}
+
+function WorkBuddyMediaCarousel(props: { media: AcuQuickStartMedia[] }) {
+  const { t } = useTranslation()
+
+  return (
+    <div className='border-t border-white/[0.06] pt-4'>
+      <div className='mb-3 flex items-center gap-2'>
+        <ImageIcon className='size-3.5 text-sky-300/80' />
+        <span className='text-xs font-medium text-slate-300'>
+          {t('Visual setup guide')}
+        </span>
+      </div>
+      <Carousel className='px-8' opts={{ loop: props.media.length > 1 }}>
+        <CarouselContent>
+          {props.media.map((item, index) => (
+            <CarouselItem key={item.id ?? `${item.url}-${index}`}>
+              <figure className='overflow-hidden rounded-lg border border-white/[0.07] bg-black/25'>
+                <div className='flex aspect-video items-center justify-center bg-black/40'>
+                  {item.type === 'video' ? (
+                    <video
+                      controls
+                      preload='metadata'
+                      poster={item.poster || undefined}
+                      className='h-full w-full object-contain'
+                    >
+                      <source src={item.url} />
+                    </video>
+                  ) : (
+                    <img
+                      src={item.url}
+                      alt={item.title || t('WorkBuddy setup step')}
+                      loading='lazy'
+                      className='h-full w-full object-contain'
+                    />
+                  )}
+                </div>
+                {item.title || item.description ? (
+                  <figcaption className='space-y-1 px-3 py-2.5'>
+                    {item.title ? (
+                      <div className='flex items-center gap-1.5 text-xs font-medium text-slate-200'>
+                        {item.type === 'video' ? (
+                          <Video className='size-3.5 text-sky-300/80' />
+                        ) : null}
+                        {item.title}
+                      </div>
+                    ) : null}
+                    {item.description ? (
+                      <p className='text-[11px] leading-relaxed text-slate-500'>
+                        {item.description}
+                      </p>
+                    ) : null}
+                  </figcaption>
+                ) : null}
+              </figure>
+            </CarouselItem>
+          ))}
+        </CarouselContent>
+        {props.media.length > 1 ? (
+          <>
+            <CarouselPrevious className='left-0 border-white/[0.08] bg-black/40 text-slate-300 hover:bg-white/[0.08]' />
+            <CarouselNext className='right-0 border-white/[0.08] bg-black/40 text-slate-300 hover:bg-white/[0.08]' />
+          </>
+        ) : null}
+      </Carousel>
     </div>
   )
 }

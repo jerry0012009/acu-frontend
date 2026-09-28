@@ -1,5 +1,6 @@
 import type { ContentSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
+import { AcuQuickStartMediaSection } from './acu-quick-start-media-section'
 import { AnnouncementsSection } from './announcements-section'
 import { ApiInfoSection } from './api-info-section'
 import { ChatSettingsSection } from './chat-settings-section'
@@ -42,6 +43,16 @@ const CONTENT_SECTIONS = [
       <AnnouncementsSection
         enabled={settings['console_setting.announcements_enabled']}
         data={settings['console_setting.announcements']}
+      />
+    ),
+  },
+  {
+    id: 'acu-quick-start',
+    titleKey: 'ACU Setup Tutorial',
+    build: (settings: ContentSettings) => (
+      <AcuQuickStartMediaSection
+        enabled={settings['console_setting.acu_quick_start_enabled']}
+        data={settings['console_setting.acu_quick_start_media']}
       />
     ),
   },

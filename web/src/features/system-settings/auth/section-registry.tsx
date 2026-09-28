@@ -20,6 +20,8 @@ const AUTH_SECTIONS = [
           EmailDomainRestrictionEnabled: settings.EmailDomainRestrictionEnabled,
           EmailAliasRestrictionEnabled: settings.EmailAliasRestrictionEnabled,
           EmailDomainWhitelist: settings.EmailDomainWhitelist,
+          EmailDomainBlacklistEnabled: settings.EmailDomainBlacklistEnabled,
+          EmailDomainBlacklist: settings.EmailDomainBlacklist,
         }}
       />
     ),

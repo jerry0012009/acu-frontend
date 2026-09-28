@@ -22,6 +22,7 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/setup", controller.GetSetup)
 		apiRouter.POST("/setup", anonymousRequestBodyLimit, controller.PostSetup)
 		apiRouter.GET("/status", controller.GetStatus)
+		apiRouter.GET("/acu-quick-start/media/:filename", controller.GetAcuQuickStartMedia)
 		apiRouter.GET("/uptime/status", controller.GetUptimeKumaStatus)
 		apiRouter.GET("/models", middleware.UserAuth(), controller.DashboardListModels)
 		apiRouter.GET("/status/test", middleware.AdminAuth(), controller.TestStatus)
@@ -231,6 +232,7 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			optionRoute.GET("/", controller.GetOptions)
 			optionRoute.PUT("/", controller.UpdateOption)
+			optionRoute.POST("/acu-quick-start-media", controller.UploadAcuQuickStartMedia)
 			optionRoute.GET("/acu-routing-policy", controller.GetACUGlobalRoutingPolicy)
 			optionRoute.PUT("/acu-routing-policy", controller.UpdateACUGlobalRoutingPolicy)
 			optionRoute.PUT("/acu-routing-policy/profile", controller.UpdateACUGlobalProfileRouting)

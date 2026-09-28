@@ -1,6 +1,7 @@
 import { api } from '@/lib/api'
 
 import type {
+  AcuQuickStartMediaUploadResponse,
   ConfirmPaymentComplianceResponse,
   FetchUpstreamRatiosRequest,
   LogCleanupTask,
@@ -20,6 +21,16 @@ export async function getSystemOptions() {
 
 export async function updateSystemOption(request: UpdateOptionRequest) {
   const res = await api.put<UpdateOptionResponse>('/api/option/', request)
+  return res.data
+}
+
+export async function uploadAcuQuickStartMedia(file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await api.post<AcuQuickStartMediaUploadResponse>(
+    '/api/option/acu-quick-start-media',
+    formData
+  )
   return res.data
 }
 

@@ -254,8 +254,9 @@ test('ACU Quick Start and CC Switch expose no Gemini user entry', () => {
   assert.doesNotMatch(ccSwitchSource, /gemini/i)
 })
 
-test('ACU Quick Start keeps Chat Completions hidden and exposes verified Hermes configuration', () => {
-  assert.doesNotMatch(quickStartComponentSource, /Chat Completions/)
+test('ACU Quick Start exposes verified WorkBuddy and Hermes configuration', () => {
+  assert.match(quickStartComponentSource, /WorkBuddyQuickStart/)
+  assert.match(quickStartComponentSource, /OpenAI Chat Completions/)
   assert.match(quickStartSource, /"api": "openai-responses"/)
   assert.match(quickStartComponentSource, /Hermes/)
   assert.match(quickStartSource, /buildHermesConfig/)

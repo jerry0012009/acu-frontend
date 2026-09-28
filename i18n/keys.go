@@ -334,3 +334,14 @@ const (
 	MsgCustomOAuthBindingNotFound   = "custom_oauth.binding_not_found"
 	MsgCustomOAuthProviderIdInvalid = "custom_oauth.provider_id_field_invalid"
 )
+
+// Restored console configuration messages.
+const (
+	MsgEmailDomainBlocked   = "user.email_domain_blocked"
+	MsgEmailBlacklistEmpty  = "option.email_blacklist_empty"
+	MsgMediaReadFailed      = "media.read_failed"
+	MsgMediaOpenFailed      = "media.open_failed"
+	MsgMediaTypeUnsupported = "media.type_unsupported"
+	MsgMediaTooLarge        = "media.too_large"
+	MsgMediaStoreFailed     = "media.store_failed"
+)

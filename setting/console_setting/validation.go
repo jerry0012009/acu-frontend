@@ -71,6 +71,8 @@ func ValidateConsoleSettings(settingsStr string, settingType string) error {
 		return validateAnnouncements(settingsStr)
 	case "FAQ":
 		return validateFAQ(settingsStr)
+	case "AcuQuickStartMedia":
+		return validateAcuQuickStartMedia(settingsStr)
 	case "UptimeKumaGroups":
 		return validateUptimeKumaGroups(settingsStr)
 	default:
@@ -232,6 +234,66 @@ func GetAnnouncements() []map[string]interface{} {
 
 func GetFAQ() []map[string]interface{} {
 	return getJSONList(GetConsoleSetting().FAQ)
+}
+
+func validateAcuQuickStartMedia(mediaStr string) error {
+	list, err := parseJSONArray(mediaStr, "ACU接入教程媒体")
+	if err != nil {
+		return err
+	}
+	if len(list) > 20 {
+		return fmt.Errorf("ACU接入教程媒体数量不能超过20个")
+	}
+	validTypes := map[string]bool{"image": true, "video": true}
+	for i, media := range list {
+		mediaType, ok := media["type"].(string)
+		if !ok || !validTypes[mediaType] {
+			return fmt.Errorf("第%d个ACU接入教程媒体的类型必须是image或video", i+1)
+		}
+		urlStr, ok := media["url"].(string)
+		if !ok || urlStr == "" {
+			return fmt.Errorf("第%d个ACU接入教程媒体缺少URL字段", i+1)
+		}
+		if err := validateURL(urlStr, i+1, "ACU接入教程媒体"); err != nil {
+			return err
+		}
+		if len(urlStr) > 2000 {
+			return fmt.Errorf("第%d个ACU接入教程媒体的URL长度不能超过2000字符", i+1)
+		}
+		for _, field := range []string{"title", "description", "poster"} {
+			if value, exists := media[field]; exists {
+				text, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("第%d个ACU接入教程媒体的%s字段格式错误", i+1, field)
+				}
+				if len(text) > 500 {
+					return fmt.Errorf("第%d个ACU接入教程媒体的%s字段长度不能超过500字符", i+1, field)
+				}
+				if field == "poster" && text != "" {
+					if err := validateURL(text, i+1, "ACU接入教程媒体封面"); err != nil {
+						return err
+					}
+				}
+				if err := checkDangerousContent(text, i+1, "ACU接入教程媒体"); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func GetAcuQuickStartMedia() []map[string]interface{} {
+	list := getJSONList(GetConsoleSetting().AcuQuickStartMedia)
+	sort.SliceStable(list, func(i, j int) bool {
+		left, _ := list[i]["sortOrder"].(float64)
+		right, _ := list[j]["sortOrder"].(float64)
+		if left == right {
+			return fmt.Sprint(list[i]["id"]) < fmt.Sprint(list[j]["id"])
+		}
+		return left < right
+	})
+	return list
 }
 
 func validateUptimeKumaGroups(groupsStr string) error {

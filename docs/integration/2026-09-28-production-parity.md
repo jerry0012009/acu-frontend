@@ -42,3 +42,11 @@
 - 对正常 EOF 但缺少 finish_reason 的 Chat Completions 补齐 stop/tool_calls；已有结束标记不重复，读取失败不补成功结束标记。
 - 验证：完整前端 368 项通过；相关 Go 六个包全部通过；额外验证数据库/缓存渠道过滤、读取错误和图片显示；类型、受影响 lint（0 error）、格式和构建通过。
 - 本批次未操作生产推理、上传媒体或替换生产服务。
+
+## 批次三：教程媒体、WorkBuddy 接入与邮箱域名设置
+
+来源：`3f32545e5` 及第三父提交。基线二进制中核实存在 `acu_quick_start_media` 与 `EmailDomainBlacklistEnabled`，不是新增的产品策略。
+
+恢复两条教程媒体 API、管理员上传/排序/配置、WorkBuddy 接入说明及媒体展示、邮箱域名黑名单配置与校验。当前 Compose 已有对应持久化卷。媒体按内容识别类型、限制大小、校验文件名；新增错误信息接入后端多语言。保留当前 Profile 和密码校验，未恢复过时的 formulaMode 写入。
+
+验证：完整前端 371 项通过；Controller、Model、Console Settings 包通过；类型、受影响 lint（0 error）、格式、构建通过。旧测试禁止所有 Chat Completions 文案与已部署的 WorkBuddy 接入说明冲突，已更新为验证 WorkBuddy 与 Hermes 接入共存。未部署或修改生产配置。

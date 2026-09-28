@@ -283,3 +283,11 @@ custom_oauth.binding_not_found: "OAuth 綁定不存在"
 custom_oauth.provider_id_field_invalid: "無法從供應者響應中提取使用者 ID"
 
 user.password_length_invalid: "密碼至少為8個字元，且不能超過72位元組"
+
+user.email_domain_blocked: "该邮箱域名不允许注册，请更换其他邮箱后重试。"
+option.email_blacklist_empty: "无法启用邮箱域名黑名单，请先填入禁止的邮箱域名！"
+media.read_failed: "无法读取上传的文件。"
+media.open_failed: "无法打开上传的文件。"
+media.type_unsupported: "仅支持 PNG、JPEG、WebP、GIF、MP4、WebM 和 MOV 文件。"
+media.too_large: "媒体文件不得超过 {{.Limit}} MiB。"
+media.store_failed: "无法保存上传的文件。"

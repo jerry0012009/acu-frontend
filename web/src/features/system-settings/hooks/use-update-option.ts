@@ -20,6 +20,8 @@ const STATUS_RELATED_KEYS = [
   'general_setting.custom_currency_exchange_rate',
   'console_setting.announcements',
   'console_setting.announcements_enabled',
+  'console_setting.acu_quick_start_media',
+  'console_setting.acu_quick_start_enabled',
 ]
 
 export function useUpdateOption() {

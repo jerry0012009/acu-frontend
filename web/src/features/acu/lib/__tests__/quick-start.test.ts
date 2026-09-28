@@ -8,6 +8,8 @@ import {
   CC_SWITCH_CLAUDE_API_BASE_URL,
   CC_SWITCH_CODEX_API_BASE_URL,
   CC_SWITCH_MODEL_MAPPINGS,
+  WORKBUDDY_CHAT_COMPLETIONS_ENDPOINT,
+  WORKBUDDY_PROVIDER,
   buildApiCurl,
   buildHermesConfig,
   buildOpenClawConfig,
@@ -17,7 +19,9 @@ import {
   buildWindowsCommandPromptInstall,
   displayCredentialText,
   displayCredentialValue,
+  getCodexBootstrapperUrl,
   maskCredentialText,
+  normalizeAcuQuickStartMedia,
 } from '../quick-start.ts'
 
 const secret = 'sk-test-secret-123'
@@ -69,6 +73,17 @@ test('fallback commands retain direct and GitHub sources', () => {
   assert.match(
     command,
     /&& export PATH="\$\{CLAUDE_ACU_BIN_DIR:-\$HOME\/\.local\/bin\}:\$PATH"/
+  )
+})
+
+test('Codex bootstrapper downloads use the native Windows installer and universal Mac DMG', () => {
+  assert.equal(
+    getCodexBootstrapperUrl('windows'),
+    'https://api.acucompute.com/codex-acu-windows-x86_64.exe'
+  )
+  assert.equal(
+    getCodexBootstrapperUrl('macos'),
+    'https://api.acucompute.com/codex-acu-macos.dmg'
   )
 })
 
@@ -172,5 +187,34 @@ test('CC Switch setup exposes canonical endpoints and the Codex model mapping', 
       ['gpt-5.5', 'gpt-5.5', 1050000],
       ['gpt-5.4-mini', 'gpt-5.4-mini', 1048576],
     ]
+  )
+})
+
+test('WorkBuddy setup uses the OpenAI-compatible chat completions endpoint', () => {
+  assert.equal(WORKBUDDY_PROVIDER, 'Custom')
+  assert.equal(
+    WORKBUDDY_CHAT_COMPLETIONS_ENDPOINT,
+    'https://api.acucompute.com/v1/chat/completions'
+  )
+})
+
+test('tutorial media ignores invalid entries and follows administrator order', () => {
+  assert.deepEqual(
+    normalizeAcuQuickStartMedia([
+      {
+        id: 2,
+        type: 'video',
+        url: 'https://cdn.example.com/step-2.mp4',
+        sortOrder: 20,
+      },
+      { type: 'image', url: '' },
+      {
+        id: 1,
+        type: 'image',
+        url: 'https://cdn.example.com/step-1.png',
+        sortOrder: 10,
+      },
+    ]).map((item) => item.id),
+    [1, 2]
   )
 })

@@ -3,6 +3,9 @@ export const ACU_DEFAULT_MODEL = 'acu-auto'
 export const ACU_MASKED_API_KEY = 'sk-••••••'
 export const CC_SWITCH_CODEX_API_BASE_URL = ACU_API_BASE_URL
 export const CC_SWITCH_CLAUDE_API_BASE_URL = 'https://api.acucompute.com'
+export const WORKBUDDY_CHAT_COMPLETIONS_ENDPOINT =
+  'https://api.acucompute.com/v1/chat/completions'
+export const WORKBUDDY_PROVIDER = 'Custom'
 
 export const CC_SWITCH_MODEL_MAPPINGS = [
   {
@@ -54,6 +57,7 @@ export const CC_SWITCH_MODEL_MAPPINGS = [
 
 const ACU_INSTALL_BASE_URL = 'https://api.acucompute.com'
 const ACU_DIRECT_INSTALL_BASE_URL = 'https://acu-api-direct.jerrypsy.top'
+const ACU_BOOTSTRAPPER_BASE_URL = 'https://api.acucompute.com/codex-acu'
 const CODEX_GITHUB_INSTALL_BASE_URL =
   'https://raw.githubusercontent.com/jerry0012009/ClawRouter/main/tools/codex-acu'
 const CLAUDE_GITHUB_INSTALL_BASE_URL =
@@ -62,6 +66,44 @@ const CLAUDE_GITHUB_INSTALL_BASE_URL =
 export type AcuClient = 'codex' | 'claude'
 export type AcuApiProtocol = 'responses' | 'messages'
 export type AcuQuickStartMode = 'preview' | 'credentialed'
+
+export type AcuQuickStartMedia = {
+  id?: number | string
+  type: 'image' | 'video'
+  title?: string
+  description?: string
+  url: string
+  poster?: string
+  sortOrder?: number
+}
+
+export function normalizeAcuQuickStartMedia(
+  value: unknown
+): AcuQuickStartMedia[] {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .filter((item): item is AcuQuickStartMedia =>
+      Boolean(
+        item &&
+        typeof item === 'object' &&
+        'type' in item &&
+        (item.type === 'image' || item.type === 'video') &&
+        'url' in item &&
+        typeof item.url === 'string' &&
+        item.url.trim()
+      )
+    )
+    .sort(
+      (left, right) =>
+        Number(left.sortOrder ?? 0) - Number(right.sortOrder ?? 0)
+    )
+}
+
+export function getCodexBootstrapperUrl(platform: 'windows' | 'macos'): string {
+  const suffix = platform === 'windows' ? 'windows-x86_64.exe' : 'macos.dmg'
+  return `${ACU_BOOTSTRAPPER_BASE_URL}-${suffix}`
+}
 
 export function normalizeApiKey(value: string): string {
   if (!value) return ACU_MASKED_API_KEY

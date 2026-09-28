@@ -118,6 +118,15 @@ export interface SystemStatus {
     password_login_enabled?: boolean
     password_register_enabled?: boolean
     custom_oauth_providers?: CustomOAuthProviderInfo[]
+    acu_quick_start_media?: Array<{
+      id?: number | string
+      type?: 'image' | 'video'
+      title?: string
+      description?: string
+      url?: string
+      poster?: string
+      sortOrder?: number
+    }>
     [key: string]: unknown
   }
   // Allow direct access to common properties
@@ -162,6 +171,15 @@ export interface SystemStatus {
   password_login_enabled?: boolean
   password_register_enabled?: boolean
   custom_oauth_providers?: CustomOAuthProviderInfo[]
+  acu_quick_start_media?: Array<{
+    id?: number | string
+    type?: 'image' | 'video'
+    title?: string
+    description?: string
+    url?: string
+    poster?: string
+    sortOrder?: number
+  }>
   [key: string]: unknown
 }
 

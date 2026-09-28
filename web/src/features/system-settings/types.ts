@@ -21,6 +21,17 @@ export type UpdateOptionResponse = {
   message: string
 }
 
+export type AcuQuickStartMediaUploadResponse = {
+  success: boolean
+  message: string
+  data?: {
+    filename: string
+    size: number
+    type: 'image' | 'video'
+    url: string
+  }
+}
+
 export type ConfirmPaymentComplianceResponse = {
   success: boolean
   message: string
@@ -110,6 +121,8 @@ export type AuthSettings = {
   EmailDomainRestrictionEnabled: boolean
   EmailAliasRestrictionEnabled: boolean
   EmailDomainWhitelist: string
+  EmailDomainBlacklistEnabled: boolean
+  EmailDomainBlacklist: string
   ServerAddress: string
   GitHubOAuthEnabled: boolean
   GitHubClientId: string
@@ -152,10 +165,12 @@ export type ContentSettings = {
   'console_setting.announcements': string
   'console_setting.faq': string
   'console_setting.uptime_kuma_groups': string
+  'console_setting.acu_quick_start_media': string
   'console_setting.api_info_enabled': boolean
   'console_setting.announcements_enabled': boolean
   'console_setting.faq_enabled': boolean
   'console_setting.uptime_kuma_enabled': boolean
+  'console_setting.acu_quick_start_enabled': boolean
   DataExportEnabled: boolean
   DataExportDefaultTime: string
   DataExportInterval: number

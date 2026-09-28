@@ -282,3 +282,11 @@ custom_oauth.binding_not_found: "OAuth binding not found"
 custom_oauth.provider_id_field_invalid: "Could not extract user ID from provider response"
 
 user.password_length_invalid: "Password must contain at least 8 characters and at most 72 bytes"
+
+user.email_domain_blocked: "This email domain is not allowed for registration. Please use another email address."
+option.email_blacklist_empty: "Add blocked email domains before enabling the blacklist."
+media.read_failed: "Unable to read the uploaded file."
+media.open_failed: "Unable to open the uploaded file."
+media.type_unsupported: "Only PNG, JPEG, WebP, GIF, MP4, WebM, and MOV files are supported."
+media.too_large: "Media files must not exceed {{.Limit}} MiB."
+media.store_failed: "Unable to store the uploaded file."
