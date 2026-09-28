@@ -38,9 +38,6 @@ func TestNewAPIV5HeadersVerifyWithClawRouter(t *testing.T) {
 	t.Cleanup(func() { common.OptionMap = previousOptions })
 	config, err := service.GetACURoutingUtilityConfig()
 	require.NoError(t, err)
-	config.DefaultProfilePreferenceScores = map[string]float64{
-		"cockpit-codex-pool-01:gpt-5.6-sol:responses": 125.5,
-	}
 	rawConfig, err := common.Marshal(config)
 	require.NoError(t, err)
 	common.OptionMap = map[string]string{"ACURoutingUtilityConfig": string(rawConfig)}
@@ -50,6 +47,9 @@ func TestNewAPIV5HeadersVerifyWithClawRouter(t *testing.T) {
 		ctx.Request.Header.Set("User-Agent", "codex_exec/0.145.0")
 		ctx.Set("acu_allowed_candidate_ids", candidates)
 		ctx.Set("acu_candidate_preference_scores", scores)
+		ctx.Set("acu_profile_preference_scores", map[string]float64{
+			"cockpit-codex-pool-01:gpt-5.6-sol:responses": 125.5,
+		})
 		body := `{"model":"acu-auto","input":"contract"}`
 		req := httptest.NewRequest(http.MethodPost, "http://acu-router/v1/responses", nil)
 		info := &relaycommon.RelayInfo{IsACUChannel: true, UserId: 17, TokenId: 29, RequestId: requestID}

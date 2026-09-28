@@ -16,7 +16,7 @@ func TestGetACUChannelMonitorValidatesAndForwardsViewParameters(t *testing.T) {
 	previous := common.OptionMap
 	t.Cleanup(func() { common.OptionMap = previous })
 	common.OptionMap = map[string]string{
-		"ACURoutingUtilityConfig": `{"schemaVersion":"acu-routing-utility-config-v1","formulaMode":"active","qualityPresets":{"economy":-10,"balanced":20,"quality":70},"acuHighBiasOffset":40,"modelCostLogScale":0.75,"supplyPresets":{"lowest_cost":{"cost":100,"speed":0,"reliability":0},"balanced":{"cost":40,"speed":25,"reliability":35},"low_latency":{"cost":10,"speed":80,"reliability":10},"high_reliability":{"cost":10,"speed":10,"reliability":80}},"profileCostLogScale":7,"profileSpeedLogScale":2.5,"latency":{"windowHours":24,"longContextThresholdTokens":100000,"minimumSamples":17,"unknownLatencyMultiplier":1.2},"reliability":{"windowHours":24,"minimumSamples":5,"unknownDefault":0.75,"degradedMultiplier":0.85},"workPhaseBiasOffsets":{"inspection":-10,"general":0,"implementation":0,"verification":0,"planning":10,"recovery":20}}`,
+		"ACURoutingUtilityConfig": `{"schemaVersion":"acu-routing-utility-config-v1","qualityPresets":{"economy":-10,"balanced":20,"quality":70},"acuHighBiasOffset":40,"modelCostLogScale":0.75,"supplyPresets":{"lowest_cost":{"cost":100,"speed":0,"reliability":0},"balanced":{"cost":40,"speed":25,"reliability":35},"low_latency":{"cost":10,"speed":80,"reliability":10},"high_reliability":{"cost":10,"speed":10,"reliability":80}},"profileCostLogScale":7,"profileSpeedLogScale":2.5,"latency":{"windowHours":24,"longContextThresholdTokens":100000,"minimumSamples":17,"unknownLatencyMultiplier":1.2},"reliability":{"windowHours":24,"minimumSamples":5,"unknownDefault":0.75,"degradedMultiplier":0.85},"workPhaseBiasOffsets":{"inspection":-10,"general":0,"implementation":0,"verification":0,"planning":10,"recovery":20}}`,
 	}
 	requests := make(chan *http.Request, 3)
 	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
@@ -126,13 +126,13 @@ func TestExecutionProfileManagementForwardsOnlyTargetedRouterOperations(t *testi
 		"executionProfileId": "test:model:responses", "protocol": "responses",
 	})
 	require.NoError(t, err)
-	_, err = ReconcileACUExecutionProfileEconomics(
+	_, err = ReconcileACUExecutionProfileCalibration(
 		context.Background(),
 		"test:model:responses",
 		map[string]interface{}{"observedBillingMultiplier": 0.06},
 	)
 	require.NoError(t, err)
-	_, err = ApplyACUExecutionProfiles(context.Background())
+	_, err = UpdateACUExecutionProfileRouting(context.Background(), "test:model:responses", false)
 	require.NoError(t, err)
 
 	expected := []struct {
@@ -143,8 +143,8 @@ func TestExecutionProfileManagementForwardsOnlyTargetedRouterOperations(t *testi
 		{http.MethodPost, "/internal/admin/execution-profiles"},
 		{http.MethodPut, "/internal/admin/execution-profiles/test:model:responses"},
 		{http.MethodPost, "/internal/admin/execution-profiles/probe"},
-		{http.MethodPatch, "/internal/admin/execution-profiles/test:model:responses/economics"},
-		{http.MethodPost, "/internal/admin/execution-profiles/apply"},
+		{http.MethodPatch, "/internal/admin/execution-profiles/test:model:responses/calibration"},
+		{http.MethodPatch, "/internal/admin/execution-profiles/test:model:responses/routing"},
 	}
 	for _, item := range expected {
 		actual := <-requests
@@ -164,22 +164,22 @@ func TestGetACURoutingCatalogOmitsSupplyTelemetry(t *testing.T) {
 			"profiles":[{
 				"executionProfileId":"lucen:luna:responses","canonicalModel":"gpt-5.6-luna",
 				"protocol":["responses"],"provider":"lucen","channel":"cx014",
-				"enabled":true,"administratorAllowed":true,"autoRouteEnabled":true,
+				"routingEnabled":true,
 				"supportedReasoningEfforts":["default","max"],"probeCostCny":12.5,
 				"state":"healthy"
 			},{
 				"executionProfileId":"disabled:profile","canonicalModel":"gpt-5.6-sol",
 				"protocol":["responses"],"provider":"secret-provider","channel":"secret-channel",
-				"enabled":false,"administratorAllowed":true,"autoRouteEnabled":true
+				"routingEnabled":false
 			},{
 				"executionProfileId":"go:mimo-v2.5:chat_completions","canonicalModel":"mimo-v2.5",
 				"protocol":["chat_completions"],"provider":"opencode","channel":"go",
-				"enabled":true,"administratorAllowed":true,"autoRouteEnabled":false
+				"routingEnabled":true
 			}],
 			"modelPool":[{
 				"modelId":"gpt-5.6-luna","vendor":"OpenAI","modelCategory":"text_agent",
 				"capabilityTier":"LUNA","protocols":["responses"],
-				"verificationStatus":"verified","autoRouteEnabled":true,
+				"verificationStatus":"verified","routingEnabled":true,
 				"currentBestChannel":"secret-channel",
 				"routingCandidates":[{
 					"candidateId":"gpt-5.6-luna","modelId":"gpt-5.6-luna",
@@ -207,44 +207,22 @@ func TestGetACURoutingCatalogOmitsSupplyTelemetry(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, result.Models, 2)
 	require.Len(t, result.Profiles, 2)
+	require.True(t, result.Models[0].AutoRouteEnabled)
+	require.False(t, result.Models[1].AutoRouteEnabled)
 	require.Equal(t, "lucen:luna:responses", result.Profiles[0].ExecutionProfileID)
 	require.Equal(t, []string{"default", "max"}, result.Profiles[0].SupportedReasoningEfforts)
 	require.Equal(t, "go:mimo-v2.5:chat_completions", result.Profiles[1].ExecutionProfileID)
-	require.False(t, result.Profiles[1].AutoRouteEnabled)
 	require.NotContains(t, string(mustMarshalTestJSON(t, result)), "secret-channel")
 	require.NotContains(t, string(mustMarshalTestJSON(t, result)), "probeCostCny")
 }
 
-func TestGetACURoutingCatalogTreatsLegacyProfileFlagsAsEnabled(t *testing.T) {
-	clearACUChannelMonitorCache()
-	t.Cleanup(clearACUChannelMonitorCache)
-	previous := common.OptionMap
-	t.Cleanup(func() { common.OptionMap = previous })
-	common.OptionMap = map[string]string{}
-	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{
-			"profiles":[{
-				"executionProfileId":"legacy:gpt-5.6-luna:responses",
-				"canonicalModel":"gpt-5.6-luna",
-				"protocol":["responses"]
-			}],
-			"modelPool":[{
-				"modelId":"gpt-5.6-luna","vendor":"OpenAI",
-				"modelCategory":"text_agent","capabilityTier":"LUNA",
-				"protocols":["responses"],"verificationStatus":"verified"
-			}]
-		}`))
+func TestRoutingCatalogPrefersExplicitRoutingFlag(t *testing.T) {
+	require.False(t, routingCatalogAutoRouteEnabled(map[string]interface{}{
+		"routingEnabled": false, "autoRouteEnabled": true,
 	}))
-	t.Cleanup(router.Close)
-	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
-	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
-
-	result, err := GetACURoutingCatalog(context.Background())
-	require.NoError(t, err)
-	require.Len(t, result.Models, 1)
-	require.Len(t, result.Profiles, 1)
-	require.True(t, result.Profiles[0].AutoRouteEnabled)
+	require.True(t, routingCatalogAutoRouteEnabled(map[string]interface{}{
+		"autoRouteEnabled": true,
+	}))
 }
 
 func mustMarshalTestJSON(t *testing.T, value interface{}) []byte {

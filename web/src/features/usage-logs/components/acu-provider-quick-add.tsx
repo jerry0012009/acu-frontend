@@ -37,7 +37,7 @@ type QuickModel = ACUQuickAddDiscoveredModel & {
   protocols: Protocol[]
   price?: PriceDraft
   observedBillingMultiplier?: number
-  activeInAcuAuto: boolean
+  routingEnabled: boolean
   existingProtocols: Protocol[]
 }
 
@@ -130,7 +130,7 @@ export function ACUProviderQuickAdd() {
               existingProtocols.length > 0
                 ? existingProtocols
                 : defaultProtocols,
-            activeInAcuAuto: model.catalogKnown,
+            routingEnabled: true,
             existingProtocols: [...new Set(existingProtocols)],
           }
         })
@@ -220,7 +220,7 @@ export function ACUProviderQuickAdd() {
             ...(model.observedBillingMultiplier
               ? { observedBillingMultiplier: model.observedBillingMultiplier }
               : {}),
-            ...(model.activeInAcuAuto ? { activeInAcuAuto: true } : {}),
+            routingEnabled: model.routingEnabled,
           },
         ]
       })
@@ -272,7 +272,7 @@ export function ACUProviderQuickAdd() {
         catalogKnown: false,
         selected: true,
         protocols: [...PROTOCOLS],
-        activeInAcuAuto: false,
+        routingEnabled: true,
         existingProtocols: [],
       },
     ])
@@ -546,19 +546,6 @@ export function ACUProviderQuickAdd() {
                               </label>
                             ))}
                           </div>
-                          <label className='flex items-center gap-2'>
-                            <input
-                              type='checkbox'
-                              checked={model.activeInAcuAuto}
-                              disabled={!model.catalogKnown}
-                              onChange={(event) =>
-                                updateModel(model.providerModelId, {
-                                  activeInAcuAuto: event.target.checked,
-                                })
-                              }
-                            />
-                            {t('Add to ACU Auto')}
-                          </label>
                         </>
                       )}
                     </div>

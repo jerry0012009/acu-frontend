@@ -164,7 +164,9 @@ function Test-AcuAsset([string]$Path, [string]$Kind) {
         'gpt-5.6-luna',
         'gpt-5.6-terra',
         'gpt-5.6-sol',
-        'gpt-6-astra'
+        'gpt-6-astra',
+        'gpt-6-luna',
+        'gpt-6-sol'
       )) {
         if ($slugs -notcontains $required) { return $false }
       }
@@ -286,8 +288,8 @@ $config = @"
 model = "acu-auto"
 model_provider = "acu-founder-alpha"
 model_reasoning_effort = "medium"
-model_context_window = 272000
-model_auto_compact_token_limit = 258400
+model_context_window = 1050000
+model_auto_compact_token_limit = 922000
 model_auto_compact_token_limit_scope = "total"
 model_catalog_json = "$catalogTomlPath"
 
@@ -309,7 +311,7 @@ $NativeCodexPath = [System.IO.File]::ReadAllText((Join-Path $AcuHome 'native-cod
 if (-not (Test-Path $NativeCodexPath)) { throw 'Native Codex binary is missing; rerun the installer.' }
 
 function Test-AllowedModel([string]$Model) {
-  return $Model -in @('acu-auto', 'gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol', 'gpt-6-astra')
+  return $Model -in @('acu-auto', 'gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol', 'gpt-6-astra', 'gpt-6-luna', 'gpt-6-sol')
 }
 
 if ($args.Count -gt 0 -and @('--version', '-V') -contains $args[0]) {

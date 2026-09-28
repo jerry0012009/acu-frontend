@@ -30,7 +30,7 @@ func UpdateACUGlobalRoutingPolicy(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": err.Error()})
 		return
 	}
-	normalized, removedProfileIDs, err := service.SanitizeACUGlobalRoutingScopeAgainstPool(
+	normalized, err = service.ApplyACUGlobalRoutingScope(
 		c.Request.Context(),
 		normalized,
 	)
@@ -38,23 +38,41 @@ func UpdateACUGlobalRoutingPolicy(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	raw, err := common.Marshal(normalized)
+	model.RecordOperationAuditLog(c.GetInt("id"), "Updated ACU global routing policy", c.ClientIP(), "acu_routing_policy.update", map[string]interface{}{"model_count": len(normalized.AllowedModelIDs)}, auditOperatorInfo(c), nil)
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": normalized})
+}
+
+func UpdateACUGlobalProfileRouting(c *gin.Context) {
+	var input struct {
+		ExecutionProfileID string `json:"executionProfileId"`
+		Enabled            bool   `json:"enabled"`
+	}
+	if err := common.DecodeJson(c.Request.Body, &input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid ACU Profile routing update"})
+		return
+	}
+	policy, err := service.UpdateACUGlobalProfileRouting(
+		c.Request.Context(),
+		input.ExecutionProfileID,
+		input.Enabled,
+	)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	if err := model.UpdateOptionsBulk(map[string]string{
-		"ACUGlobalRoutingPolicy": string(raw),
-	}); err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	model.RecordOperationAuditLog(c.GetInt("id"), "Updated ACU global routing policy", c.ClientIP(), "acu_routing_policy.update", map[string]interface{}{"model_count": len(normalized.AllowedModelIDs), "profile_count": len(normalized.AllowedProfileIDs)}, auditOperatorInfo(c), nil)
-	c.JSON(http.StatusOK, gin.H{
-		"success":           true,
-		"data":              normalized,
-		"removedProfileIds": removedProfileIDs,
-	})
+	model.RecordOperationAuditLog(
+		c.GetInt("id"),
+		"Updated ACU global Profile routing",
+		c.ClientIP(),
+		"acu_profile_routing.update",
+		map[string]interface{}{
+			"execution_profile_id": input.ExecutionProfileID,
+			"enabled":              input.Enabled,
+		},
+		auditOperatorInfo(c),
+		nil,
+	)
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": policy})
 }
 
 func GetACURoutingUtilityConfig(c *gin.Context) {
@@ -81,10 +99,6 @@ func UpdateACURoutingUtilityConfig(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	if err := service.ValidateACUProfilePreferenceScoresAgainstPool(c.Request.Context(), normalized.DefaultProfilePreferenceScores); err != nil {
-		common.ApiError(c, err)
-		return
-	}
 	raw, err := common.Marshal(normalized)
 	if err != nil {
 		common.ApiError(c, err)
@@ -97,10 +111,8 @@ func UpdateACURoutingUtilityConfig(c *gin.Context) {
 		return
 	}
 	model.RecordOperationAuditLog(c.GetInt("id"), "Updated ACU routing utility config", c.ClientIP(), "acu_routing_utility.update", map[string]interface{}{
-		"formula_mode":                       normalized.FormulaMode,
 		"schema_version":                     normalized.SchemaVersion,
 		"default_candidate_preference_count": len(normalized.DefaultCandidatePreferenceScores),
-		"default_profile_preference_count":   len(normalized.DefaultProfilePreferenceScores),
 	}, auditOperatorInfo(c), nil)
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": normalized})
 }

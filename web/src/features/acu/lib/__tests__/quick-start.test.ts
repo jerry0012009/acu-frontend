@@ -162,13 +162,15 @@ test('CC Switch setup exposes canonical endpoints and the Codex model mapping', 
       mapping.contextWindow,
     ]),
     [
-      ['acu-auto', 'acu-auto', 260000],
-      ['gpt-5.6-luna', 'gpt-5.6-luna', 260000],
-      ['gpt-5.6-terra', 'gpt-5.6-terra', 260000],
-      ['gpt-5.6-sol', 'gpt-5.6-sol', 260000],
+      ['acu-auto', 'acu-auto', 1050000],
+      ['gpt-5.6-luna', 'gpt-5.6-luna', 1050000],
+      ['gpt-5.6-terra', 'gpt-5.6-terra', 1050000],
+      ['gpt-5.6-sol', 'gpt-5.6-sol', 1050000],
       ['gpt-6-astra', 'gpt-6-astra', 1050000],
-      ['gpt-5.5', 'gpt-5.5', 260000],
-      ['gpt-5.4-mini', 'gpt-5.4-mini', 260000],
+      ['gpt-6-luna', 'gpt-6-luna', 1050000],
+      ['gpt-6-sol', 'gpt-6-sol', 1050000],
+      ['gpt-5.5', 'gpt-5.5', 1050000],
+      ['gpt-5.4-mini', 'gpt-5.4-mini', 400000],
     ]
   )
 })

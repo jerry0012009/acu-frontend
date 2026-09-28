@@ -202,59 +202,61 @@ export function ACUProbeResultPanel(props: {
               </div>
             </div>
           ) : null}
-          {props.showCalibration ? (
-            <div className='space-y-2 border-t pt-2'>
-              <label className='block space-y-1'>
-                <span className='text-muted-foreground'>
-                  {t('Profile billing multiplier')}
-                </span>
-                <input
-                  className='bg-background h-8 w-full rounded border px-2'
-                  type='number'
-                  min='0.000001'
-                  step='0.0001'
-                  value={props.calibrationMultiplier ?? ''}
-                  onChange={(event) =>
-                    props.onCalibrationMultiplierChange?.(event.target.value)
-                  }
-                />
-              </label>
-              <label className='block space-y-1'>
-                <span className='text-muted-foreground'>
-                  {t('Provider conversion')}
-                </span>
-                <input
-                  className='bg-background h-8 w-full rounded border px-2'
-                  type='number'
-                  min='0.000001'
-                  step='0.01'
-                  value={props.calibrationCreditsPerCny ?? ''}
-                  onChange={(event) =>
-                    props.onCalibrationCreditsPerCnyChange?.(event.target.value)
-                  }
-                />
-                <span className='text-muted-foreground block'>
-                  {t(
-                    'Provider-level value; affects profiles sharing this provider economics.'
-                  )}
-                </span>
-              </label>
-              <Button
-                size='sm'
-                disabled={props.savePending}
-                onClick={props.onSaveCalibration}
-              >
-                {props.savePending ? t('Saving') : t('Save calibration')}
-              </Button>
-              {props.saveMessage ? (
-                <span className='text-muted-foreground ml-2'>
-                  {props.saveMessage}
-                </span>
-              ) : null}
-            </div>
-          ) : null}
         </div>
       )}
+      {props.showCalibration ? (
+        <div className='space-y-2 border-t pt-2'>
+          <label className='block space-y-1'>
+            <span className='text-muted-foreground'>
+              {t('Profile billing multiplier')}
+            </span>
+            <input
+              className='bg-background h-8 w-full rounded border px-2'
+              type='number'
+              min='0.000001'
+              step='0.0001'
+              value={props.calibrationMultiplier ?? ''}
+              onChange={(event) =>
+                props.onCalibrationMultiplierChange?.(event.target.value)
+              }
+            />
+          </label>
+          <label className='block space-y-1'>
+            <span className='text-muted-foreground'>
+              {t('Provider conversion')}
+            </span>
+            <input
+              className='bg-background h-8 w-full rounded border px-2'
+              type='number'
+              min='0.000001'
+              step='0.01'
+              value={props.calibrationCreditsPerCny ?? ''}
+              onChange={(event) =>
+                props.onCalibrationCreditsPerCnyChange?.(event.target.value)
+              }
+            />
+            <span className='text-muted-foreground block'>
+              {t(
+                'Provider-level value; affects profiles sharing this provider economics.'
+              )}
+            </span>
+          </label>
+          <Button
+            size='sm'
+            disabled={props.savePending}
+            onClick={props.onSaveCalibration}
+          >
+            {props.savePending
+              ? t('Saving')
+              : t('Save cost and global weight')}
+          </Button>
+          {props.saveMessage ? (
+            <span className='text-muted-foreground ml-2'>
+              {props.saveMessage}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -204,7 +204,9 @@ asset_is_current() {
         gpt-5.6-luna \
         gpt-5.6-terra \
         gpt-5.6-sol \
-        gpt-6-astra; do
+        gpt-6-astra \
+        gpt-6-luna \
+        gpt-6-sol; do
         grep -Fq "\"slug\": \"$model\"" "$asset_path" || return 1
       done
       ;;
@@ -366,8 +368,8 @@ cat >"$config_tmp" <<EOF
 model = "acu-auto"
 model_provider = "acu-founder-alpha"
 model_reasoning_effort = "medium"
-model_context_window = 272000
-model_auto_compact_token_limit = 258400
+model_context_window = 1050000
+model_auto_compact_token_limit = 922000
 model_auto_compact_token_limit_scope = "total"
 model_catalog_json = "$acu_home/model-catalog.json"
 

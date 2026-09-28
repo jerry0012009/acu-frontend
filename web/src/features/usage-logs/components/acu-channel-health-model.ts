@@ -447,7 +447,7 @@ export function groupACUChannels(
   return [...profilesByChannel.entries()]
     .map(([channel, channelProfiles]) => {
       const enabledProfiles = channelProfiles.filter(
-        (profile) => profile.enabled
+        (profile) => profile.routingEnabled
       )
       const eligibleProfiles = enabledProfiles.filter(
         (profile) => profile.routingEligible

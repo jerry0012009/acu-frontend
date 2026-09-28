@@ -408,8 +408,6 @@ test('renders Root Profile actions and keeps globally disabled Profiles probeabl
             policy: {
               modelPolicy: 'all_routing_eligible',
               allowedModelIds: [],
-              profilePolicy: 'custom_allowlist',
-              allowedProfileIds: [],
             },
             isTogglePending: () => false,
             isProbePending: () => false,
@@ -506,8 +504,6 @@ test('allows explicit-only Profile enablement independently of the Auto model al
             policy: {
               modelPolicy: 'custom_allowlist',
               allowedModelIds: ['gpt-5.6-luna'],
-              profilePolicy: 'custom_allowlist',
-              allowedProfileIds: [],
             },
             isTogglePending: () => false,
             isProbePending: () => true,

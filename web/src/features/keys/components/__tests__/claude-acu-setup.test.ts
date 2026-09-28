@@ -206,7 +206,15 @@ test('Codex installers install the latest CLI with China and overseas fallbacks'
   assert.doesNotMatch(codexLauncher, /-m acu-auto/)
   assert.deepEqual(
     codexModelCatalog.models.map(({ slug }) => slug),
-    ['acu-auto', 'gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol', 'gpt-6-astra']
+    [
+      'acu-auto',
+      'gpt-5.6-luna',
+      'gpt-5.6-terra',
+      'gpt-5.6-sol',
+      'gpt-6-astra',
+      'gpt-6-luna',
+      'gpt-6-sol',
+    ]
   )
   assert.deepEqual(
     codexModelCatalog.models.map(({ supported_reasoning_levels }) =>
@@ -217,6 +225,8 @@ test('Codex installers install the latest CLI with China and overseas fallbacks'
       ['low', 'medium', 'high', 'max'],
       ['low', 'medium', 'high', 'max'],
       ['low', 'medium', 'high', 'xhigh'],
+      ['low', 'medium', 'high', 'xhigh'],
+      ['low', 'medium', 'high', 'max'],
       ['low', 'medium', 'high', 'xhigh'],
     ]
   )
@@ -244,11 +254,8 @@ test('ACU Quick Start and CC Switch expose no Gemini user entry', () => {
   assert.doesNotMatch(ccSwitchSource, /gemini/i)
 })
 
-test('ACU Quick Start scopes Chat Completions to WorkBuddy and keeps verified agent protocols', () => {
-  assert.match(quickStartComponentSource, /WorkBuddy/)
-  assert.match(quickStartComponentSource, /OpenAI Chat Completions/)
-  assert.match(quickStartSource, /WORKBUDDY_CHAT_COMPLETIONS_ENDPOINT/)
-  assert.match(quickStartSource, /\/v1\/chat\/completions/)
+test('ACU Quick Start keeps Chat Completions hidden and exposes verified Hermes configuration', () => {
+  assert.doesNotMatch(quickStartComponentSource, /Chat Completions/)
   assert.match(quickStartSource, /"api": "openai-responses"/)
   assert.match(quickStartComponentSource, /Hermes/)
   assert.match(quickStartSource, /buildHermesConfig/)

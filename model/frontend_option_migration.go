@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -11,6 +12,7 @@ import (
 )
 
 const retiredThemeOptionKey = "theme.frontend"
+const acuRoutingUtilityConfigOptionKey = "ACURoutingUtilityConfig"
 
 type legacyOptionTransform func(string) (string, error)
 
@@ -47,7 +49,37 @@ func MigrateRetiredFrontendOptions() error {
 	if err := migrateLegacyUptimeOptions(); err != nil {
 		migrationErrors = append(migrationErrors, err)
 	}
+	if err := removeRetiredACURoutingUtilityFormulaMode(); err != nil {
+		migrationErrors = append(migrationErrors, err)
+	}
 	return errors.Join(migrationErrors...)
+}
+
+func removeRetiredACURoutingUtilityFormulaMode() error {
+	return DB.Transaction(func(tx *gorm.DB) error {
+		var option Option
+		if err := tx.Where(&Option{Key: acuRoutingUtilityConfigOptionKey}).First(&option).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil
+			}
+			return fmt.Errorf("read option %s: %w", acuRoutingUtilityConfigOptionKey, err)
+		}
+
+		var config map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(option.Value), &config); err != nil {
+			common.SysError(fmt.Sprintf("option %s was not migrated: %v", acuRoutingUtilityConfigOptionKey, err))
+			return nil
+		}
+		if _, exists := config["formulaMode"]; !exists {
+			return nil
+		}
+		delete(config, "formulaMode")
+		encoded, err := json.Marshal(config)
+		if err != nil {
+			return fmt.Errorf("encode option %s: %w", acuRoutingUtilityConfigOptionKey, err)
+		}
+		return tx.Model(&option).Update("value", string(encoded)).Error
+	})
 }
 
 func migrateLegacySystemName() error {

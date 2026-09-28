@@ -15,12 +15,12 @@ import (
 func TestResolveACUEffectiveRoutingPolicyUsesTokenAndGlobalIntersection(t *testing.T) {
 	previous := common.OptionMap
 	t.Cleanup(func() { common.OptionMap = previous })
-	common.OptionMap = map[string]string{"ACUGlobalRoutingPolicy": `{"modelPolicy":"custom_allowlist","allowedModelIds":["a","b"],"profilePolicy":"custom_allowlist","allowedProfileIds":["p1","p2"]}`}
+	common.OptionMap = map[string]string{"ACUGlobalRoutingPolicy": `{"modelPolicy":"custom_allowlist","allowedModelIds":["a","b"]}`}
 	policy, err := ResolveACUEffectiveRoutingPolicy(&model.Token{ModelLimitsEnabled: true, ModelLimits: "b,c", ACUProfileLimitsEnabled: true, ACUProfileLimits: []string{"p2", "p3"}, ACURoutingPreference: "economy"})
 	require.NoError(t, err)
 	require.Equal(t, ACURoutingPolicyCustom, policy.RoutingPolicy)
 	require.Equal(t, []string{"a", "b"}, policy.AllowedModelIDs)
-	require.Equal(t, []string{"p2"}, policy.AllowedProfileIDs)
+	require.Equal(t, []string{"p2", "p3"}, policy.AllowedProfileIDs)
 	require.Equal(t, "economy", policy.RoutingPreference)
 }
 
@@ -28,16 +28,16 @@ func TestResolveACUEffectiveRoutingPolicyDefaultTokenDynamicallyInheritsGlobalPr
 	previous := common.OptionMap
 	t.Cleanup(func() { common.OptionMap = previous })
 	token := &model.Token{}
-	common.OptionMap = map[string]string{"ACUGlobalRoutingPolicy": `{"profilePolicy":"custom_allowlist","allowedProfileIds":["p1"]}`}
+	common.OptionMap = map[string]string{"ACUGlobalRoutingPolicy": `{"modelPolicy":"all_routing_eligible","allowedModelIds":[]}`}
 
 	initial, err := ResolveACUEffectiveRoutingPolicy(token)
 	require.NoError(t, err)
-	require.Equal(t, []string{"p1"}, initial.AllowedProfileIDs)
+	require.Empty(t, initial.AllowedProfileIDs)
 
-	common.OptionMap["ACUGlobalRoutingPolicy"] = `{"profilePolicy":"custom_allowlist","allowedProfileIds":["p1","p2"]}`
+	common.OptionMap["ACUGlobalRoutingPolicy"] = `{"modelPolicy":"all_routing_eligible","allowedModelIds":[]}`
 	updated, err := ResolveACUEffectiveRoutingPolicy(token)
 	require.NoError(t, err)
-	require.Equal(t, []string{"p1", "p2"}, updated.AllowedProfileIDs)
+	require.Empty(t, updated.AllowedProfileIDs)
 	require.False(t, token.ACUProfileLimitsEnabled)
 	require.Empty(t, token.ACUProfileLimits)
 }
@@ -62,14 +62,11 @@ func TestNormalizeACURoutingPreferenceDefaultsAndRejectsInvalid(t *testing.T) {
 
 func TestNormalizeACURoutingScopeClearsInactiveAllowlists(t *testing.T) {
 	scope, err := NormalizeACURoutingScope(ACURoutingScope{
-		Policy:            ACURoutingPolicyAll,
-		AllowedModelIDs:   []string{"gemini-2.5-flash"},
-		ProfilePolicy:     ACURoutingPolicyAll,
-		AllowedProfileIDs: []string{"lucen-gemini-openai-030:gemini-2.5-flash:responses"},
+		Policy:          ACURoutingPolicyAll,
+		AllowedModelIDs: []string{"gemini-2.5-flash"},
 	})
 	require.NoError(t, err)
 	require.Empty(t, scope.AllowedModelIDs)
-	require.Empty(t, scope.AllowedProfileIDs)
 }
 
 func TestNormalizeACURoutingScopeDerivesAutoCandidatesFromModelAccess(t *testing.T) {
@@ -79,7 +76,6 @@ func TestNormalizeACURoutingScopeDerivesAutoCandidatesFromModelAccess(t *testing
 			"gpt-5.6-sol": ACUModelAccessAuto,
 			"kimi-k2.6":   ACUModelAccessDisabled,
 		},
-		ProfilePolicy: ACURoutingPolicyAll,
 	})
 	require.NoError(t, err)
 	require.Equal(t, ACURoutingPolicyCustom, scope.Policy)
@@ -88,98 +84,25 @@ func TestNormalizeACURoutingScopeDerivesAutoCandidatesFromModelAccess(t *testing
 	require.Equal(t, ACUModelAccessDisabled, scope.ModelAccess["kimi-k2.6"])
 }
 
-func TestSanitizeACUGlobalRoutingScopeRemovesProfilesMissingFromRouterPool(t *testing.T) {
-	previous := common.OptionMap
-	t.Cleanup(func() { common.OptionMap = previous })
-	common.OptionMap = map[string]string{}
-	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{
-			"range":"24h",
-			"supplyStrategy":"balanced",
-			"scenario":"standard",
-			"protocol":"all",
-			"profiles":[
-				{
-					"executionProfileId":"active-profile",
-					"canonicalModel":"gpt-5.6-luna",
-					"protocol":["responses"],
-					"enabled":true,
-					"administratorAllowed":true,
-					"autoRouteEnabled":true
-				},
-				{
-					"executionProfileId":"disabled-profile",
-					"canonicalModel":"gpt-5.6-luna",
-					"protocol":["responses"],
-					"enabled":false,
-					"administratorAllowed":true,
-					"autoRouteEnabled":true
-				}
-			],
-			"history":[],
-			"cooldownIntervals":[],
-			"probeHistory":[],
-			"supplyInventory":[],
-			"modelPool":[]
-		}`))
-	}))
-	t.Cleanup(router.Close)
-	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
-	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
-
-	scope := ACURoutingScope{
-		Policy:            ACURoutingPolicyAll,
-		ProfilePolicy:     ACURoutingPolicyCustom,
-		AllowedProfileIDs: []string{"active-profile", "disabled-profile", "stale-profile"},
-	}
-	sanitized, removed, err := SanitizeACUGlobalRoutingScopeAgainstPool(
-		context.Background(),
-		scope,
-	)
-	require.NoError(t, err)
-	require.Equal(t, []string{"active-profile"}, sanitized.AllowedProfileIDs)
-	require.Equal(t, []string{"disabled-profile", "stale-profile"}, removed)
-}
-
-func TestValidateACURoutingScopeAllowsExplicitProfileOutsideAutoModelAllowlist(t *testing.T) {
+func TestValidateACURoutingScopeChecksModelPool(t *testing.T) {
 	clearACUChannelMonitorCache()
 	t.Cleanup(clearACUChannelMonitorCache)
-	previous := common.OptionMap
-	t.Cleanup(func() { common.OptionMap = previous })
-	common.OptionMap = map[string]string{}
 	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{
-			"profiles":[{
-				"executionProfileId":"auto:gpt-5.6-sol:responses",
-				"canonicalModel":"gpt-5.6-sol","enabled":true,
-				"administratorAllowed":true,"autoRouteEnabled":true
-			},{
-				"executionProfileId":"explicit:mimo-v2.5:chat_completions",
-				"canonicalModel":"mimo-v2.5","enabled":true,
-				"administratorAllowed":true,"autoRouteEnabled":false
-			}],
-			"history":[],"cooldownIntervals":[],"probeHistory":[],
-			"supplyInventory":[],"modelPool":[{
-				"modelId":"gpt-5.6-sol","autoRouteEnabled":true
-			}]
-		}`))
+		_, _ = w.Write([]byte(`{"profiles":[],"history":[],"cooldownIntervals":[],"probeHistory":[],"supplyInventory":[],"modelPool":[{"modelId":"gpt-5.6-sol"}]}`))
 	}))
 	t.Cleanup(router.Close)
 	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
 	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
 
 	err := ValidateACURoutingScopeAgainstPool(context.Background(), ACURoutingScope{
-		Policy:            ACURoutingPolicyCustom,
-		AllowedModelIDs:   []string{"gpt-5.6-sol"},
-		ProfilePolicy:     ACURoutingPolicyCustom,
-		AllowedProfileIDs: []string{"explicit:mimo-v2.5:chat_completions"},
+		Policy:          ACURoutingPolicyCustom,
+		AllowedModelIDs: []string{"gpt-5.6-sol"},
 	})
 	require.NoError(t, err)
 }
 
-func TestCurrentGlobalACUProfileIDsIncludesExplicitModelsAndAppliesProfilePolicy(t *testing.T) {
+func TestCurrentGlobalACUProfileIDsUsesDatabaseRoutingAndModelAccess(t *testing.T) {
 	clearACUChannelMonitorCache()
 	t.Cleanup(clearACUChannelMonitorCache)
 	previous := common.OptionMap
@@ -190,13 +113,7 @@ func TestCurrentGlobalACUProfileIDsIncludesExplicitModelsAndAppliesProfilePolicy
 				"gpt-5.6-sol":"auto",
 				"mimo-v2.5":"explicit",
 				"kimi-k2.6":"disabled"
-			},
-			"profilePolicy":"custom_allowlist",
-			"allowedProfileIds":[
-				"auto:gpt-5.6-sol:responses",
-				"explicit:mimo-v2.5:chat_completions",
-				"disabled:kimi-k2.6:messages"
-			]
+			}
 		}`,
 	}
 	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -204,20 +121,16 @@ func TestCurrentGlobalACUProfileIDsIncludesExplicitModelsAndAppliesProfilePolicy
 		_, _ = w.Write([]byte(`{
 			"profiles":[{
 				"executionProfileId":"auto:gpt-5.6-sol:responses",
-				"canonicalModel":"gpt-5.6-sol","enabled":true,
-				"administratorAllowed":true,"autoRouteEnabled":true
+				"canonicalModel":"gpt-5.6-sol","routingEnabled":true
 			},{
 				"executionProfileId":"explicit:mimo-v2.5:chat_completions",
-				"canonicalModel":"mimo-v2.5","enabled":true,
-				"administratorAllowed":true,"autoRouteEnabled":false
+				"canonicalModel":"mimo-v2.5","routingEnabled":true
 			},{
 				"executionProfileId":"disabled:kimi-k2.6:messages",
-				"canonicalModel":"kimi-k2.6","enabled":true,
-				"administratorAllowed":true,"autoRouteEnabled":false
+				"canonicalModel":"kimi-k2.6","routingEnabled":true
 			},{
 				"executionProfileId":"not-allowed:mimo-v2.5:responses",
-				"canonicalModel":"mimo-v2.5","enabled":true,
-				"administratorAllowed":true,"autoRouteEnabled":false
+				"canonicalModel":"mimo-v2.5","routingEnabled":true
 			}],
 			"history":[],"cooldownIntervals":[],"probeHistory":[],
 			"supplyInventory":[],"modelPool":[]
@@ -232,6 +145,7 @@ func TestCurrentGlobalACUProfileIDsIncludesExplicitModelsAndAppliesProfilePolicy
 	require.Equal(t, []string{
 		"auto:gpt-5.6-sol:responses",
 		"explicit:mimo-v2.5:chat_completions",
+		"not-allowed:mimo-v2.5:responses",
 	}, profileIDs)
 }
 
@@ -276,7 +190,7 @@ func TestResolveACUEffectiveRoutingPolicyUsesPresetAndCustomBias(t *testing.T) {
 	previous := common.OptionMap
 	t.Cleanup(func() { common.OptionMap = previous })
 	common.OptionMap = map[string]string{
-		"ACURoutingUtilityConfig": `{"schemaVersion":"acu-routing-utility-config-v1","formulaMode":"shadow","qualityPresets":{"economy":-70,"balanced":5,"quality":75},"acuHighBiasOffset":35,"modelCostLogScale":3,"supplyPresets":{"lowest_cost":{"cost":100,"speed":0,"reliability":0},"balanced":{"cost":40,"speed":25,"reliability":35},"low_latency":{"cost":10,"speed":80,"reliability":10},"high_reliability":{"cost":10,"speed":10,"reliability":80}},"profileCostLogScale":2,"profileSpeedLogScale":4,"latency":{"windowHours":24,"longContextThresholdTokens":100000,"minimumSamples":5,"unknownLatencyMultiplier":1.2},"reliability":{"windowHours":24,"minimumSamples":5,"unknownDefault":0.75,"degradedMultiplier":0.85},"workPhaseBiasOffsets":{"inspection":-10,"general":0,"implementation":0,"verification":0,"planning":10,"recovery":20}}`,
+		"ACURoutingUtilityConfig": `{"schemaVersion":"acu-routing-utility-config-v1","qualityPresets":{"economy":-70,"balanced":5,"quality":75},"acuHighBiasOffset":35,"modelCostLogScale":3,"supplyPresets":{"lowest_cost":{"cost":100,"speed":0,"reliability":0},"balanced":{"cost":40,"speed":25,"reliability":35},"low_latency":{"cost":10,"speed":80,"reliability":10},"high_reliability":{"cost":10,"speed":10,"reliability":80}},"profileCostLogScale":2,"profileSpeedLogScale":4,"latency":{"windowHours":24,"longContextThresholdTokens":100000,"minimumSamples":5,"unknownLatencyMultiplier":1.2},"reliability":{"windowHours":24,"minimumSamples":5,"unknownDefault":0.75,"degradedMultiplier":0.85},"workPhaseBiasOffsets":{"inspection":-10,"general":0,"implementation":0,"verification":0,"planning":10,"recovery":20}}`,
 	}
 	preset, err := ResolveACUEffectiveRoutingPolicy(&model.Token{
 		ACURoutingPreference: "economy", ACUSupplyStrategy: "low_latency",
@@ -286,7 +200,6 @@ func TestResolveACUEffectiveRoutingPolicyUsesPresetAndCustomBias(t *testing.T) {
 	require.Equal(t, map[string]int{"economy": -70, "balanced": 5, "quality": 75}, preset.QualityPresets)
 	require.Equal(t, "low_latency", preset.SupplyStrategy)
 	require.Equal(t, []int{10, 80, 10}, []int{preset.SupplyCostWeight, preset.SupplySpeedWeight, preset.SupplyReliabilityWeight})
-	require.Equal(t, "shadow", preset.FormulaMode)
 
 	customBias := -13
 	custom, err := ResolveACUEffectiveRoutingPolicy(&model.Token{
@@ -298,7 +211,6 @@ func TestResolveACUEffectiveRoutingPolicyUsesPresetAndCustomBias(t *testing.T) {
 
 func TestNormalizeACURoutingUtilityConfigRejectsInvalidContracts(t *testing.T) {
 	config := defaultACURoutingUtilityConfig()
-	config.FormulaMode = "shadow"
 	_, err := NormalizeACURoutingUtilityConfig(config)
 	require.NoError(t, err)
 
@@ -317,7 +229,7 @@ func TestNormalizeACURoutingUtilityConfigRejectsInvalidContracts(t *testing.T) {
 	require.ErrorContains(t, err, "quality preset")
 }
 
-func TestLegacyTokenDefaultsToBalancedUtility(t *testing.T) {
+func TestTokenDefaultsToBalancedUtility(t *testing.T) {
 	previous := common.OptionMap
 	t.Cleanup(func() { common.OptionMap = previous })
 	common.OptionMap = map[string]string{}
@@ -326,7 +238,6 @@ func TestLegacyTokenDefaultsToBalancedUtility(t *testing.T) {
 	require.Equal(t, "balanced", policy.RoutingPreference)
 	require.Equal(t, "balanced", policy.SupplyStrategy)
 	require.Equal(t, 20, policy.QualityBias)
-	require.Equal(t, "legacy", policy.FormulaMode)
 	require.NotEmpty(t, policy.RoutingUtilityVersion)
 }
 
@@ -334,7 +245,6 @@ func TestQualitySatisfactionVersionInvalidatesRoutingUtilityVersion(t *testing.T
 	previous := common.OptionMap
 	t.Cleanup(func() { common.OptionMap = previous })
 	config := defaultACURoutingUtilityConfig()
-	config.FormulaMode = "active"
 	config.QualityPresets = map[string]int{"economy": 0, "balanced": 40, "quality": 70}
 	raw, err := common.Marshal(config)
 	require.NoError(t, err)
@@ -406,7 +316,6 @@ func TestDefaultCandidatePreferencesAreInheritedAndTokenScoresOverride(t *testin
 	previous := common.OptionMap
 	t.Cleanup(func() { common.OptionMap = previous })
 	config := defaultACURoutingUtilityConfig()
-	config.FormulaMode = "active"
 	config.DefaultCandidatePreferenceScores = map[string]float64{
 		"gpt-5.6-luna":     118,
 		"gpt-5.6-sol@high": 90,
@@ -436,54 +345,24 @@ func TestDefaultCandidatePreferencesAreInheritedAndTokenScoresOverride(t *testin
 	require.NotEqual(t, inherited.RoutingUtilityVersion, changed.RoutingUtilityVersion)
 }
 
-func TestDefaultProfilePreferencesAreInheritedFilteredAndVersioned(t *testing.T) {
-	previous := common.OptionMap
-	t.Cleanup(func() { common.OptionMap = previous })
-	config := defaultACURoutingUtilityConfig()
-	config.FormulaMode = "active"
-	config.DefaultProfilePreferenceScores = map[string]float64{
-		"cockpit:gpt-5.6-sol:responses": 125.5,
-		"wawazz:gpt-5.6-sol:responses":  100,
-	}
-	raw, err := common.Marshal(config)
-	require.NoError(t, err)
-	common.OptionMap = map[string]string{
-		"ACURoutingUtilityConfig": string(raw),
-		"ACUGlobalRoutingPolicy":  `{"profilePolicy":"custom_allowlist","allowedProfileIds":["cockpit:gpt-5.6-sol:responses"]}`,
-	}
-
-	inherited, err := ResolveACUEffectiveRoutingPolicy(&model.Token{})
-	require.NoError(t, err)
-	require.Equal(t, map[string]float64{
-		"cockpit:gpt-5.6-sol:responses": 125.5,
-	}, inherited.ProfilePreferenceScores)
-	initialVersion := inherited.RoutingUtilityVersion
-
-	config.DefaultProfilePreferenceScores["cockpit:gpt-5.6-sol:responses"] = 130
-	raw, err = common.Marshal(config)
-	require.NoError(t, err)
-	common.OptionMap["ACURoutingUtilityConfig"] = string(raw)
-	changed, err := ResolveACUEffectiveRoutingPolicy(&model.Token{})
-	require.NoError(t, err)
-	require.NotEqual(t, initialVersion, changed.RoutingUtilityVersion)
-	require.Equal(t, inherited.RoutingPolicyVersion, changed.RoutingPolicyVersion)
-}
-
-func TestNormalizeProfilePreferencesUsesImplicitNeutralAndValidatesBounds(t *testing.T) {
+func TestTokenProfilePreferencesPreserveExplicitNeutralAndValidateBounds(t *testing.T) {
 	scores, err := NormalizeACUProfilePreferenceScores(map[string]float64{
 		"cockpit:gpt-5.6-sol:responses": 125.5,
 		"wawazz:gpt-5.6-sol:responses":  100,
+		"special:gpt-6-sol:responses":  500,
 	})
 	require.NoError(t, err)
 	require.Equal(t, map[string]float64{
 		"cockpit:gpt-5.6-sol:responses": 125.5,
+		"wawazz:gpt-5.6-sol:responses":  100,
+		"special:gpt-6-sol:responses":  500,
 	}, scores)
 
 	for _, invalid := range []map[string]float64{
 		{"": 120},
 		{"invalid profile": 120},
 		{"cockpit:gpt-5.6-sol:responses": -1},
-		{"cockpit:gpt-5.6-sol:responses": 201},
+		{"cockpit:gpt-5.6-sol:responses": 501},
 		{"cockpit:gpt-5.6-sol:responses": math.NaN()},
 	} {
 		_, err = NormalizeACUProfilePreferenceScores(invalid)

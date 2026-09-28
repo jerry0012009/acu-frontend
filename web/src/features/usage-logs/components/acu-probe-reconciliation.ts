@@ -14,15 +14,18 @@ export function recommendedProbeMultiplier(
 export function buildProbeCalibrationInput(
   observedBillingMultiplier: number,
   creditsPerCny: string,
-  creditsPerCnyDirty: boolean
+  creditsPerCnyDirty: boolean,
+  routingWeight = 100
 ): {
   observedBillingMultiplier: number
   creditsPerCny?: number
+  routingWeight: number
 } {
   const input: {
     observedBillingMultiplier: number
     creditsPerCny?: number
-  } = { observedBillingMultiplier }
+    routingWeight: number
+  } = { observedBillingMultiplier, routingWeight }
   if (creditsPerCnyDirty) input.creditsPerCny = Number(creditsPerCny)
   return input
 }

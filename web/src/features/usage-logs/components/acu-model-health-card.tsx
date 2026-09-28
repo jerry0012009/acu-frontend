@@ -22,11 +22,9 @@ import {
   probeBucketTitle,
   type ACUModelOverview,
 } from './acu-channel-health-model'
-import {
-  isProfileGloballyAllowed,
-  modelAccessFor,
-} from './acu-global-routing-policy'
+import { modelAccessFor } from './acu-global-routing-policy'
 import { StatusTimeline } from './acu-health-timeline'
+import { ACUTokenProfileWeight } from './acu-token-profile-weight'
 import {
   monitorStateLabel,
   profileLatencyDisplay,
@@ -51,6 +49,8 @@ export function ACUModelHealthCard(props: {
     scope?: ACUTokenProfileRoutingScope
     isPending: (profileId: string) => boolean
     onToggle: (profile: ACUChannelMonitorProfile, enabled: boolean) => void
+    onSetWeight?: (profile: ACUChannelMonitorProfile, weight: number) => void
+    onInheritWeight?: (profile: ACUChannelMonitorProfile) => void
   }
   profileNoteActions?: {
     isPending: (profileId: string) => boolean
@@ -156,6 +156,8 @@ function ModelProfile(props: {
     scope?: ACUTokenProfileRoutingScope
     isPending: (profileId: string) => boolean
     onToggle: (profile: ACUChannelMonitorProfile, enabled: boolean) => void
+    onSetWeight?: (profile: ACUChannelMonitorProfile, weight: number) => void
+    onInheritWeight?: (profile: ACUChannelMonitorProfile) => void
   }
   noteActions?: {
     isPending: (profileId: string) => boolean
@@ -175,15 +177,14 @@ function ModelProfile(props: {
   const { t } = useTranslation()
   const profile = props.profile
   const policy = props.actions?.policy
-  const globallyAllowed =
-    policy && isProfileGloballyAllowed(policy, profile.executionProfileId)
+  const globallyAllowed = profile.routingEnabled
   const modelAccess =
     policy &&
     modelAccessFor(
       policy,
       profile.canonicalModel,
       true,
-      profile.autoRouteEnabled !== false
+      profile.routingEnabled
     )
   const modelExposed = modelAccess !== 'disabled'
   let globalRoutingStatus = t('Loading...')
@@ -201,6 +202,7 @@ function ModelProfile(props: {
   const probePending =
     props.actions?.isProbePending(profile.executionProfileId) ?? false
   const tokenScope = props.tokenActions?.scope
+  const tokenActions = props.tokenActions
   const globallyAvailableForToken =
     tokenScope?.globalProfileIds.includes(profile.executionProfileId) ?? false
   const tokenAllowed =
@@ -322,6 +324,18 @@ function ModelProfile(props: {
           >
             {t('Probe test')}
           </Button>
+          {tokenActions?.onSetWeight &&
+          tokenActions.onInheritWeight &&
+          tokenScope &&
+          globallyAvailableForToken ? (
+            <ACUTokenProfileWeight
+              profile={profile}
+              scope={tokenScope}
+              pending={tokenTogglePending}
+              onSetWeight={tokenActions.onSetWeight}
+              onInheritWeight={tokenActions.onInheritWeight}
+            />
+          ) : null}
         </div>
       ) : null}
       {props.tokenActions ? (
