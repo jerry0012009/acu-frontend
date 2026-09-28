@@ -283,6 +283,62 @@ func TestStreamScannerHandler_ClientCancelAbortsUpstreamAndReturns(t *testing.T)
 	assert.NotContains(t, body, "second")
 }
 
+func TestFormatClientGoneStreamDiagnostic(t *testing.T) {
+	streamStartedAt := time.Unix(100, 0)
+	firstEventAt := streamStartedAt.Add(250 * time.Millisecond)
+	lastEventAt := streamStartedAt.Add(2 * time.Second)
+	endedAt := streamStartedAt.Add(5 * time.Second)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+	}
+	info := &relaycommon.RelayInfo{
+		StartTime:             streamStartedAt.Add(-time.Second),
+		RequestURLPath:        "/v1/chat/completions",
+		RelayMode:             1,
+		RelayFormat:           "openai",
+		OriginModelName:       "acu-auto",
+		ReceivedResponseCount: 12,
+		SendResponseCount:     11,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelId:         42,
+			ChannelType:       8,
+			UpstreamModelName: "gpt-test",
+		},
+		StreamStatus: relaycommon.NewStreamStatus(),
+	}
+	info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonClientGone, context.Canceled)
+
+	got := formatClientGoneStreamDiagnostic(
+		c,
+		resp,
+		info,
+		streamStartedAt,
+		firstEventAt,
+		lastEventAt,
+		endedAt,
+	)
+
+	assert.Contains(t, got, `reason=client_gone end_error="context canceled"`)
+	assert.Contains(t, got, `diagnostic=client_disconnect`)
+	assert.Contains(t, got, `stream_ms=5000`)
+	assert.Contains(t, got, `request_ms=6000`)
+	assert.Contains(t, got, `first_event_ms=250`)
+	assert.Contains(t, got, `last_event_age_ms=3000`)
+	assert.Contains(t, got, `received=12 sent=11`)
+	assert.Contains(t, got, `upstream_status=200`)
+	assert.Contains(t, got, `content_type="text/event-stream"`)
+	assert.Contains(t, got, `path="/v1/chat/completions"`)
+	assert.Contains(t, got, `origin_model="acu-auto"`)
+	assert.Contains(t, got, `upstream_model="gpt-test"`)
+	assert.Contains(t, got, `channel_id=42 channel_type=8`)
+}
+
 // ---------- Ping tests ----------
 
 func TestStreamScannerHandler_PingSentDuringSlowUpstream(t *testing.T) {

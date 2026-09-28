@@ -230,7 +230,16 @@ func RefreshLoginSession(rawRefreshToken, expectedSID, ip, userAgent string) (*A
 		return nil, nil, ErrLoginSessionRevoked
 	}
 	nextSecret := deriveNextRefreshSecret(sid, secret)
-	rotated, err := model.RotateUserSessionRefresh(session.UserID, sid, hashRefreshSecret(secret), hashRefreshSecret(nextSecret), time.Now().Unix(), RefreshReplayWindow)
+	now := time.Now().Unix()
+	rotated, err := model.RotateUserSessionRefresh(
+		session.UserID,
+		sid,
+		hashRefreshSecret(secret),
+		hashRefreshSecret(nextSecret),
+		now,
+		RefreshReplayWindow,
+		time.Unix(now, 0).Add(LoginSessionTTL).Unix(),
+	)
 	if err != nil {
 		if errors.Is(err, model.ErrUserSessionRefreshRace) && rotated != nil &&
 			hashRefreshSecret(nextSecret) == rotated.RefreshHash {

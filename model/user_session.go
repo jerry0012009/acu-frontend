@@ -448,8 +448,8 @@ func ListActiveUserSessions(userID int, currentSID string, now int64) ([]UserSes
 // no-op, has the same single-winner behavior as MySQL and PostgreSQL. Only a
 // recognized previous digest outside its grace window is treated as reuse;
 // an unknown secret never revokes the victim session.
-func RotateUserSessionRefresh(userID int, sid, presentedHash, nextHash string, now int64, grace time.Duration) (*UserSession, error) {
-	if userID <= 0 || sid == "" || presentedHash == "" || nextHash == "" || hmac.Equal([]byte(presentedHash), []byte(nextHash)) {
+func RotateUserSessionRefresh(userID int, sid, presentedHash, nextHash string, now int64, grace time.Duration, expiresAt int64) (*UserSession, error) {
+	if userID <= 0 || sid == "" || presentedHash == "" || nextHash == "" || expiresAt <= now || hmac.Equal([]byte(presentedHash), []byte(nextHash)) {
 		return nil, ErrUserSessionInvalid
 	}
 	if now <= 0 {
@@ -478,6 +478,7 @@ func RotateUserSessionRefresh(userID int, sid, presentedHash, nextHash string, n
 					"previous_valid_until":  now + graceSeconds,
 					"refresh_hash":          nextHash,
 					"last_active_at":        now,
+					"expires_at":            expiresAt,
 				})
 			if result.Error != nil {
 				return nil, result.Error
@@ -489,6 +490,7 @@ func RotateUserSessionRefresh(userID int, sid, presentedHash, nextHash string, n
 			session.PreviousValidUntil = now + graceSeconds
 			session.RefreshHash = nextHash
 			session.LastActiveAt = now
+			session.ExpiresAt = expiresAt
 			if err := writeUserSessionCache(session.cacheEntry(), cacheDeadline); err != nil {
 				if errors.Is(err, errUserSessionCacheObservationStale) {
 					if confirmErr := confirmUserSessionActiveSnapshot(&session); confirmErr != nil {

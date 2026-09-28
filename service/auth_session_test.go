@@ -331,6 +331,7 @@ func TestLoginSessionCreateRefreshAndRevoke(t *testing.T) {
 	bundle, err := CreateLoginSession(user.Id, "password", "127.0.0.1", "test-agent")
 	require.NoError(t, err)
 	assert.NotEmpty(t, bundle.RefreshToken)
+	assert.Equal(t, int64(3*24*60*60), bundle.Session.ExpiresAt-bundle.Session.CreatedAt)
 	identity, err := ParseAccessToken(bundle.AccessToken)
 	require.NoError(t, err)
 	_, cachedUser, err := ValidateLoginSession(identity)

@@ -250,21 +250,22 @@ func TestRotateUserSessionRefreshRaceAndReuse(t *testing.T) {
 	session := newTestUserSession("rotate-session", 1002, now)
 	require.NoError(t, CreateUserSession(session))
 
-	rotated, err := RotateUserSessionRefresh(1002, session.SID, session.RefreshHash, "next-hash", now+10, 30*time.Second)
+	rotated, err := RotateUserSessionRefresh(1002, session.SID, session.RefreshHash, "next-hash", now+10, 30*time.Second, now+86400)
 	require.NoError(t, err)
 	assert.Equal(t, "next-hash", rotated.RefreshHash)
 	assert.Equal(t, session.RefreshHash, rotated.PreviousRefreshHash)
 	assert.Equal(t, now+40, rotated.PreviousValidUntil)
+	assert.Equal(t, int64(now+86400), rotated.ExpiresAt)
 
-	_, err = RotateUserSessionRefresh(1002, session.SID, session.RefreshHash, "unused-hash", now+20, 30*time.Second)
+	_, err = RotateUserSessionRefresh(1002, session.SID, session.RefreshHash, "unused-hash", now+20, 30*time.Second, now+86400)
 	assert.ErrorIs(t, err, ErrUserSessionRefreshRace)
-	_, err = RotateUserSessionRefresh(1002, session.SID, "unknown-hash", "unused-hash", now+20, 30*time.Second)
+	_, err = RotateUserSessionRefresh(1002, session.SID, "unknown-hash", "unused-hash", now+20, 30*time.Second, now+86400)
 	assert.ErrorIs(t, err, ErrUserSessionRefreshInvalid)
 	stored, getErr := GetUserSessionBySID(session.SID)
 	require.NoError(t, getErr)
 	assert.Equal(t, UserSessionStatusActive, stored.Status)
 
-	_, err = RotateUserSessionRefresh(1002, session.SID, session.RefreshHash, "unused-hash", now+41, 30*time.Second)
+	_, err = RotateUserSessionRefresh(1002, session.SID, session.RefreshHash, "unused-hash", now+41, 30*time.Second, now+86400)
 	assert.ErrorIs(t, err, ErrUserSessionRefreshReuse)
 	stored, getErr = GetUserSessionBySID(session.SID)
 	require.NoError(t, getErr)
@@ -300,7 +301,7 @@ func TestUserSessionPreviousRefreshHashNormalizesLegacyPadding(t *testing.T) {
 			"previous_refresh_hash": digest + "   ",
 			"previous_valid_until":  now + 60,
 		}).Error)
-	_, err = RotateUserSessionRefresh(valid.UserID, valid.SID, digest, strings.Repeat("c", 64), now+1, 30*time.Second)
+	_, err = RotateUserSessionRefresh(valid.UserID, valid.SID, digest, strings.Repeat("c", 64), now+1, 30*time.Second, now+86400)
 	assert.ErrorIs(t, err, ErrUserSessionRefreshRace)
 
 	revoked, err := RevokeUserSessionByRefreshHash(valid.SID, digest, "legacy-padded-refresh-logout")

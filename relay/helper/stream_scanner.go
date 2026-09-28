@@ -80,6 +80,10 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 		return
 	}
 
+	streamStartedAt := time.Now()
+	var firstEventAt time.Time
+	var lastEventAt time.Time
+
 	// 无条件新建 StreamStatus
 	info.StreamStatus = relaycommon.NewStreamStatus()
 
@@ -263,6 +267,11 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 				continue
 			}
 			if !strings.HasPrefix(data, "[DONE]") {
+				eventAt := time.Now()
+				if firstEventAt.IsZero() {
+					firstEventAt = eventAt
+				}
+				lastEventAt = eventAt
 				info.SetFirstResponseTime()
 				info.ReceivedResponseCount++
 
@@ -304,7 +313,106 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 	cleanup()
 	if info.StreamStatus.IsNormalEnd() && !info.StreamStatus.HasErrors() {
 		logger.LogInfo(c, fmt.Sprintf("stream ended: %s", info.StreamStatus.Summary()))
+	} else if info.StreamStatus.EndReason == relaycommon.StreamEndReasonClientGone {
+		logger.LogError(c, formatClientGoneStreamDiagnostic(
+			c,
+			resp,
+			info,
+			streamStartedAt,
+			firstEventAt,
+			lastEventAt,
+			time.Now(),
+		))
 	} else {
 		logger.LogError(c, fmt.Sprintf("stream ended: %s, received=%d", info.StreamStatus.Summary(), info.ReceivedResponseCount))
 	}
+}
+
+func formatClientGoneStreamDiagnostic(
+	c *gin.Context,
+	resp *http.Response,
+	info *relaycommon.RelayInfo,
+	streamStartedAt time.Time,
+	firstEventAt time.Time,
+	lastEventAt time.Time,
+	endedAt time.Time,
+) string {
+	streamDurationMs := durationMilliseconds(streamStartedAt, endedAt)
+	requestDurationMs := int64(-1)
+	firstEventMs := int64(-1)
+	lastEventAgeMs := int64(-1)
+	if info != nil && !info.StartTime.IsZero() {
+		requestDurationMs = durationMilliseconds(info.StartTime, endedAt)
+	}
+	if !firstEventAt.IsZero() {
+		firstEventMs = durationMilliseconds(streamStartedAt, firstEventAt)
+	}
+	if !lastEventAt.IsZero() {
+		lastEventAgeMs = durationMilliseconds(lastEventAt, endedAt)
+	}
+
+	path := ""
+	if info != nil {
+		path = info.RequestURLPath
+	}
+	if path == "" && c != nil && c.Request != nil && c.Request.URL != nil {
+		path = c.Request.URL.Path
+	}
+
+	upstreamStatus := 0
+	contentType := ""
+	if resp != nil {
+		upstreamStatus = resp.StatusCode
+		contentType = resp.Header.Get("Content-Type")
+	}
+
+	received := 0
+	sent := 0
+	relayMode := 0
+	relayFormat := ""
+	originModel := ""
+	upstreamModel := ""
+	channelID := 0
+	channelType := 0
+	statusSummary := "StreamStatus<nil>"
+	if info != nil {
+		received = info.ReceivedResponseCount
+		sent = info.SendResponseCount
+		relayMode = info.RelayMode
+		relayFormat = string(info.RelayFormat)
+		originModel = info.OriginModelName
+		statusSummary = info.StreamStatus.Summary()
+		if info.ChannelMeta != nil {
+			upstreamModel = info.UpstreamModelName
+			channelID = info.ChannelId
+			channelType = info.ChannelType
+		}
+	}
+
+	return fmt.Sprintf(
+		"stream ended: %s, diagnostic=client_disconnect stream_ms=%d request_ms=%d first_event_ms=%d last_event_age_ms=%d received=%d sent=%d upstream_status=%d content_type=%q path=%q relay_mode=%d relay_format=%q origin_model=%q upstream_model=%q channel_id=%d channel_type=%d",
+		statusSummary,
+		streamDurationMs,
+		requestDurationMs,
+		firstEventMs,
+		lastEventAgeMs,
+		received,
+		sent,
+		upstreamStatus,
+		contentType,
+		path,
+		relayMode,
+		relayFormat,
+		originModel,
+		upstreamModel,
+		channelID,
+		channelType,
+	)
+}
+
+func durationMilliseconds(start time.Time, end time.Time) int64 {
+	if start.IsZero() || end.Before(start) {
+		return -1
+	}
+	return end.Sub(start).Milliseconds()
 }
