@@ -159,20 +159,19 @@ export function PromptInputProvider({
   const openRef = useRef<() => void>(() => {})
 
   const add = useCallback((files: File[] | FileList) => {
-    const incoming = Array.from(files)
+    const incoming = [...files]
     if (incoming.length === 0) return
 
-    setAttachements((prev) =>
-      prev.concat(
-        incoming.map((file) => ({
-          id: nanoid(),
-          type: 'file' as const,
-          url: URL.createObjectURL(file),
-          mediaType: file.type,
-          filename: file.name,
-        }))
-      )
-    )
+    setAttachements((prev) => [
+      ...prev,
+      ...incoming.map((file) => ({
+        id: nanoid(),
+        type: 'file' as const,
+        url: URL.createObjectURL(file),
+        mediaType: file.type,
+        filename: file.name,
+      })),
+    ])
   }, [])
 
   const remove = useCallback((id: string) => {
@@ -421,7 +420,7 @@ export type PromptInputProps = Omit<
   maxFiles?: number
   maxFileSize?: number // bytes
   onError?: (err: {
-    code: 'max_files' | 'max_file_size' | 'accept'
+    code: 'max_files' | 'max_file_size' | 'max_total_size' | 'accept'
     message: string
   }) => void
   onSubmit: (
@@ -480,18 +479,23 @@ export const PromptInput = ({
       if (!accept || accept.trim() === '') {
         return true
       }
-      if (accept.includes('image/*')) {
-        return f.type.startsWith('image/')
-      }
-      // NOTE: keep simple; expand as needed
-      return true
+      return accept.split(',').some((acceptedType) => {
+        const value = acceptedType.trim()
+        if (value.startsWith('.')) {
+          return f.name.toLowerCase().endsWith(value.toLowerCase())
+        }
+        if (value.endsWith('/*')) {
+          return f.type.startsWith(value.slice(0, -1))
+        }
+        return value === f.type
+      })
     },
     [accept]
   )
 
   const addLocal = useCallback(
-    (fileList: File[] | FileList) => {
-      const incoming = Array.from(fileList)
+    async (fileList: File[] | FileList) => {
+      const incoming = [...fileList]
       const accepted = incoming.filter((f) => matchesAccept(f))
       if (incoming.length && accepted.length === 0) {
         onError?.({
@@ -511,14 +515,39 @@ export const PromptInput = ({
         return
       }
 
+      const prepared = await Promise.all(
+        sized.map(async (file) => {
+          if (!file.type.startsWith('image/')) return file
+          try {
+            const module =
+              await import('../../features/playground/lib/input/image-attachments')
+            return (await module.prepareImageFile(file)).file
+          } catch (error) {
+            onError?.({
+              code: 'max_file_size',
+              message:
+                error instanceof Error
+                  ? error.message
+                  : t('All files exceed the maximum size.'),
+            })
+            return null
+          }
+        })
+      )
+      const validPrepared = prepared.filter(
+        (file): file is File => file !== null
+      )
+
       setItems((prev) => {
         const capacity =
           typeof maxFiles === 'number'
             ? Math.max(0, maxFiles - prev.length)
             : undefined
         const capped =
-          typeof capacity === 'number' ? sized.slice(0, capacity) : sized
-        if (typeof capacity === 'number' && sized.length > capacity) {
+          typeof capacity === 'number'
+            ? validPrepared.slice(0, capacity)
+            : validPrepared
+        if (typeof capacity === 'number' && validPrepared.length > capacity) {
           onError?.({
             code: 'max_files',
             message: t('Too many files. Some were not added.'),
@@ -534,7 +563,7 @@ export const PromptInput = ({
             filename: file.name,
           })
         }
-        return prev.concat(next)
+        return [...prev, ...next]
       })
     },
     [matchesAccept, maxFiles, maxFileSize, onError, t]
@@ -709,7 +738,7 @@ export const PromptInput = ({
     }
 
     // Convert blob URLs to data URLs asynchronously
-    Promise.all(
+    void Promise.all(
       files.map(async ({ id, ...item }) => {
         if (item.url && item.url.startsWith('blob:')) {
           return {
@@ -719,33 +748,56 @@ export const PromptInput = ({
         }
         return item
       })
-    ).then((convertedFiles: FileUIPart[]) => {
-      try {
-        const result = onSubmit({ text, files: convertedFiles }, event)
-
-        // Handle both sync and async onSubmit
-        if (result instanceof Promise) {
-          result
-            .then(() => {
-              clear()
-              if (usingProvider) {
-                controller.textInput.clear()
-              }
-            })
-            .catch(() => {
-              // Don't clear on error - user may want to retry
-            })
-        } else {
-          // Sync function completed without throwing, clear attachments
-          clear()
-          if (usingProvider) {
-            controller.textInput.clear()
-          }
+    )
+      .then(async (convertedFiles: FileUIPart[]) => {
+        const imageBudget =
+          await import('../../features/playground/lib/input/image-attachments')
+        const totalBytes = convertedFiles
+          .filter((file) => file.mediaType?.startsWith('image/'))
+          .reduce(
+            (total, file) =>
+              total +
+              (file.url?.startsWith('data:')
+                ? imageBudget.dataUrlByteLength(file.url)
+                : 0),
+            0
+          )
+        if (totalBytes > imageBudget.PLAYGROUND_MAX_TOTAL_IMAGE_BYTES) {
+          onError?.({
+            code: 'max_total_size',
+            message: t('All files exceed the maximum size.'),
+          })
+          return
         }
-      } catch (_error) {
-        // Don't clear on error - user may want to retry
-      }
-    })
+        try {
+          const result = onSubmit({ text, files: convertedFiles }, event)
+
+          // Handle both sync and async onSubmit
+          if (result instanceof Promise) {
+            result
+              .then(() => {
+                clear()
+                if (usingProvider) {
+                  controller.textInput.clear()
+                }
+              })
+              .catch(() => {
+                // Don't clear on error - user may want to retry
+              })
+          } else {
+            // Sync function completed without throwing, clear attachments
+            clear()
+            if (usingProvider) {
+              controller.textInput.clear()
+            }
+          }
+        } catch {
+          // Don't clear on error - user may want to retry
+        }
+      })
+      .catch(() => {
+        // Keep the current input available when conversion fails.
+      })
   }
 
   // Render with or without local provider
@@ -823,10 +875,7 @@ export const PromptInputTextarea = ({
       attachments.files.length > 0
     ) {
       e.preventDefault()
-      const lastAttachment =
-        attachments.files.length > 0
-          ? attachments.files[attachments.files.length - 1]
-          : undefined
+      const lastAttachment = attachments.files.at(-1)
       if (lastAttachment) {
         attachments.remove(lastAttachment.id)
       }
@@ -1120,9 +1169,8 @@ export const PromptInputSpeechButton = ({
       speechRecognition.onresult = (event) => {
         let finalTranscript = ''
 
-        const results = Array.from(event.results)
-
-        for (const result of results) {
+        for (let index = 0; index < event.results.length; index += 1) {
+          const result = event.results[index]
           if (result.isFinal) {
             finalTranscript += result[0]?.transcript ?? ''
           }

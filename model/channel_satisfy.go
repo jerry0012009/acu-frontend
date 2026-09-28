@@ -76,6 +76,37 @@ func HasEnabledChannelTagForGroupModel(group string, modelName string, requestPa
 	return false
 }
 
+func HasEnabledChannelForGroupModel(group string, modelName string, requestPath string) bool {
+	if group == "" || modelName == "" {
+		return false
+	}
+	if !common.MemoryCacheEnabled {
+		return hasEnabledChannelForGroupModelDB(group, modelName, requestPath)
+	}
+
+	channelSyncLock.RLock()
+	defer channelSyncLock.RUnlock()
+
+	if group2model2channels == nil {
+		return false
+	}
+	channelIDs := group2model2channels[group][modelName]
+	if len(channelIDs) == 0 {
+		normalized := ratio_setting.FormatMatchingModelName(modelName)
+		if normalized != "" && normalized != modelName {
+			channelIDs = group2model2channels[group][normalized]
+		}
+	}
+	for _, channelID := range channelIDs {
+		channel := channelsIDM[channelID]
+		if channel != nil && channel.Status == common.ChannelStatusEnabled &&
+			channel.SupportsRequestPath(requestPath, modelName) {
+			return true
+		}
+	}
+	return false
+}
+
 func ChannelMatchesRequiredTag(channel *Channel, requiredTag string) bool {
 	return channel != nil && (strings.TrimSpace(requiredTag) == "" ||
 		strings.EqualFold(strings.TrimSpace(channel.GetTag()), strings.TrimSpace(requiredTag)))
@@ -111,6 +142,29 @@ func hasEnabledChannelTagForGroupModelDB(group string, modelName string, request
 		Joins("JOIN abilities ON abilities.channel_id = channels.id").
 		Where("abilities."+commonGroupCol+" = ? AND abilities.model IN ? AND abilities.enabled = ? AND channels.status = ? AND LOWER(COALESCE(channels.tag, '')) = ?",
 			group, models, true, common.ChannelStatusEnabled, strings.ToLower(strings.TrimSpace(tag))).
+		Find(&channels).Error
+	if err != nil {
+		return false
+	}
+	for _, channel := range channels {
+		if channel.SupportsRequestPath(requestPath, modelName) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasEnabledChannelForGroupModelDB(group string, modelName string, requestPath string) bool {
+	models := []string{modelName}
+	normalized := ratio_setting.FormatMatchingModelName(modelName)
+	if normalized != "" && normalized != modelName {
+		models = append(models, normalized)
+	}
+	var channels []*Channel
+	err := DB.Model(&Channel{}).
+		Joins("JOIN abilities ON abilities.channel_id = channels.id").
+		Where("abilities."+commonGroupCol+" = ? AND abilities.model IN ? AND abilities.enabled = ? AND channels.status = ?",
+			group, models, true, common.ChannelStatusEnabled).
 		Find(&channels).Error
 	if err != nil {
 		return false

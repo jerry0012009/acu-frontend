@@ -6,6 +6,8 @@ import type {
   ACUConversationOptions,
   ChatCompletionRequest,
   ChatCompletionResponse,
+  ImageGenerationRequest,
+  ImageGenerationResponse,
 } from './types'
 
 /**
@@ -17,6 +19,19 @@ export async function sendChatCompletion(
   signal?: AbortSignal
 ): Promise<ChatCompletionResponse> {
   const res = await api.post(API_ENDPOINTS.CHAT_COMPLETIONS, payload, {
+    signal,
+    headers: withPlaygroundTokenHeader({}, selectedTokenId),
+    skipErrorHandler: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+export async function sendImageGeneration(
+  payload: ImageGenerationRequest,
+  selectedTokenId: number | null,
+  signal?: AbortSignal
+): Promise<ImageGenerationResponse> {
+  const res = await api.post(API_ENDPOINTS.IMAGE_GENERATIONS, payload, {
     signal,
     headers: withPlaygroundTokenHeader({}, selectedTokenId),
     skipErrorHandler: true,

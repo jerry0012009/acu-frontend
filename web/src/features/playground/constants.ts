@@ -17,6 +17,7 @@ export const MESSAGE_STATUS = {
 // API endpoints
 export const API_ENDPOINTS = {
   CHAT_COMPLETIONS: '/pg/chat/completions',
+  IMAGE_GENERATIONS: '/pg/images/generations',
   ACU_CONVERSATION_OPTIONS: '/api/user/self/acu-conversation-options',
 } as const
 

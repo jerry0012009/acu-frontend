@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 
 import {
   PromptInputButton,
+  usePromptInputAttachments,
   PromptInputTools,
 } from '@/components/ai-elements/prompt-input'
 import { ConfirmDialog } from '@/components/confirm-dialog'
@@ -20,11 +21,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 
-import {
-  ATTACHMENT_ACTIONS,
-  getAttachmentActionNotice,
-  getSearchActionNotice,
-} from '../../lib'
+import { getSearchActionNotice } from '../../lib'
 import type { ParameterEnabled, PlaygroundConfig } from '../../types'
 import { PlaygroundParameterPanel } from './playground-parameter-panel'
 
@@ -55,13 +52,9 @@ export function PlaygroundInputTools({
 }: PlaygroundInputToolsProps) {
   const { t } = useTranslation()
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
+  const attachments = usePromptInputAttachments()
 
-  const handleFileAction = (action: string) => {
-    const notice = getAttachmentActionNotice(action)
-    toast.info(t(notice.title), {
-      description: notice.description,
-    })
-  }
+  const handleFileAction = () => attachments.openFileDialog()
 
   const handleSearchAction = () => {
     const notice = getSearchActionNotice()
@@ -99,15 +92,10 @@ export function PlaygroundInputTools({
               <p>{t('Attach')}</p>
             </TooltipContent>
             <DropdownMenuContent align='start'>
-              {ATTACHMENT_ACTIONS.map(({ action, icon: Icon, label }) => (
-                <DropdownMenuItem
-                  key={action}
-                  onClick={() => handleFileAction(action)}
-                >
-                  <Icon className='mr-2' size={16} />
-                  {t(label)}
-                </DropdownMenuItem>
-              ))}
+              <DropdownMenuItem onClick={handleFileAction}>
+                <PaperclipIcon className='mr-2' size={16} />
+                {t('Upload photo')}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </Tooltip>

@@ -357,7 +357,13 @@ export function loadMessages(): Message[] | null {
 export function saveMessages(messages: Message[]): void {
   try {
     const trimmed = trimMessages(messages)
-    const parsed = messagesSchema.parse(trimmed) as Message[]
+    // Image data URLs can exceed localStorage's quota by themselves. Keep
+    // text history durable while retaining image attachments only in memory
+    // for the active conversation.
+    const serializable = trimmed.map(
+      ({ attachments: _attachments, ...message }) => message
+    )
+    const parsed = messagesSchema.parse(serializable) as Message[]
     writeStoredValue(STORAGE_KEYS.MESSAGES, parsed)
   } catch (error) {
     // eslint-disable-next-line no-console

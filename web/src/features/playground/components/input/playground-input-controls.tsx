@@ -2,7 +2,10 @@ import { SendIcon, SquareIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { PromptInputButton } from '@/components/ai-elements/prompt-input'
+import {
+  PromptInputButton,
+  usePromptInputAttachments,
+} from '@/components/ai-elements/prompt-input'
 import { ModelSelector } from '@/components/model-group-selector'
 
 import { getInputControlState } from '../../lib'
@@ -26,10 +29,12 @@ type PlaygroundInputControlsProps = {
 
 export function PlaygroundInputControls(props: PlaygroundInputControlsProps) {
   const { t } = useTranslation()
+  const attachments = usePromptInputAttachments()
   const { canSubmit, isSelectorDisabled, shouldShowStop } =
     getInputControlState({
       disabled: props.disabled,
       hasSelectedToken: props.selectedTokenId !== null,
+      hasAttachments: attachments.files.length > 0,
       hasStopHandler: Boolean(props.onStop),
       isGenerating: props.isGenerating,
       isModelLoading: props.isModelLoading,

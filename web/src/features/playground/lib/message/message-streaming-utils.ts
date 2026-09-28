@@ -1,7 +1,11 @@
 import { t } from 'i18next'
 
 import { ERROR_MESSAGES, MESSAGE_ROLES, MESSAGE_STATUS } from '../../constants'
-import type { ChatCompletionResponse, Message } from '../../types'
+import type {
+  ChatCompletionResponse,
+  ImageGenerationResponse,
+  Message,
+} from '../../types'
 import { parseThinkTags } from './message-reasoning-utils'
 import {
   completeAssistantTiming,
@@ -190,6 +194,37 @@ export function applyChatCompletionResponse(
   }
 
   return applyChatCompletionChoice(message, choice)
+}
+
+export function applyImageGenerationResponse(
+  message: Message,
+  response: ImageGenerationResponse
+): Message | null {
+  const attachments = response.data.flatMap((image, index) => {
+    const url = image.b64_json
+      ? `data:image/png;base64,${image.b64_json}`
+      : image.url
+    return url
+      ? [
+          {
+            type: 'image_url' as const,
+            url,
+            filename: `generated-image-${index + 1}.png`,
+            mediaType: 'image/png',
+          },
+        ]
+      : []
+  })
+
+  if (attachments.length === 0) return null
+
+  return completeAssistantTiming({
+    ...message,
+    attachments,
+    status: MESSAGE_STATUS.COMPLETE,
+    isReasoningStreaming: false,
+    isContentComplete: true,
+  })
 }
 
 /**

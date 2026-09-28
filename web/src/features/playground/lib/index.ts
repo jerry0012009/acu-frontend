@@ -1,4 +1,5 @@
 export * from './input/input-control-utils'
+export * from './input/image-attachments'
 export * from './input/input-tool-utils'
 export * from './message/conversation-message-utils'
 export * from './message/message-action-utils'

@@ -65,6 +65,30 @@ export function PlaygroundMessageContent({
   const isMessageFinal =
     message.status !== MESSAGE_STATUS.LOADING &&
     message.status !== MESSAGE_STATUS.STREAMING
+  let responseContent: ReactNode = null
+  if (showMessageContent && isSourceVisible) {
+    responseContent = (
+      <CodeBlock
+        code={versionContent}
+        className='my-0 group-[.is-assistant]:w-full group-[.is-assistant]:max-w-[78ch]'
+        collapsedLines={24}
+        defaultCollapsed={false}
+        language='markdown'
+        maxExpandedLines={48}
+        showLineNumbers
+        showToolbar
+        title={t('Raw response')}
+      >
+        <CodeBlockCopyButton />
+      </CodeBlock>
+    )
+  } else if (showMessageContent) {
+    responseContent = (
+      <MessageContent variant='flat' className={cn(getMessageContentStyles())}>
+        <Response final={isMessageFinal}>{displayContent}</Response>
+      </MessageContent>
+    )
+  }
 
   return (
     <div
@@ -116,34 +140,35 @@ export function PlaygroundMessageContent({
         </>
       )}
 
-      {!isError && showMessageContent && (
-        <>
-          {isSourceVisible ? (
-            <CodeBlock
-              code={versionContent}
-              className='my-0 group-[.is-assistant]:w-full group-[.is-assistant]:max-w-[78ch]'
-              collapsedLines={24}
-              defaultCollapsed={false}
-              language='markdown'
-              maxExpandedLines={48}
-              showLineNumbers
-              showToolbar
-              title={t('Raw response')}
-            >
-              <CodeBlockCopyButton />
-            </CodeBlock>
-          ) : (
-            <MessageContent
-              variant='flat'
-              className={cn(getMessageContentStyles())}
-            >
-              <Response final={isMessageFinal}>{displayContent}</Response>
-            </MessageContent>
-          )}
-          <MessageMetadata alignment={alignment} message={message} />
-          {actions}
-        </>
-      )}
+      {!isError &&
+        (showMessageContent || Boolean(message.attachments?.length)) && (
+          <>
+            {message.attachments?.length ? (
+              <div className='mb-2 flex flex-wrap gap-2'>
+                {message.attachments.map((attachment) => (
+                  <img
+                    alt={
+                      attachment.filename ||
+                      (message.from === 'user'
+                        ? t('Upload photo')
+                        : t('Generated image'))
+                    }
+                    className='max-h-56 max-w-56 rounded-md border object-contain'
+                    key={attachment.url}
+                    src={attachment.url}
+                  />
+                ))}
+              </div>
+            ) : null}
+            {responseContent}
+            {showMessageContent || message.attachments?.length ? (
+              <>
+                <MessageMetadata alignment={alignment} message={message} />
+                {actions}
+              </>
+            ) : null}
+          </>
+        )}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { MESSAGE_ROLES } from '../../constants'
-import type { Message } from '../../types'
+import type { Message, MessageAttachment } from '../../types'
 import {
   createLoadingAssistantMessage,
   createUserMessage,
@@ -20,13 +20,14 @@ type ChatMessageRenderState = {
 
 export function appendUserMessagePair(
   messages: Message[],
-  content: string
+  content: string,
+  attachments: MessageAttachment[] = []
 ): Message[] {
   const submittedAt = Date.now()
 
   return [
     ...messages,
-    createUserMessage(content, submittedAt),
+    createUserMessage(content, submittedAt, attachments),
     createLoadingAssistantMessage(submittedAt),
   ]
 }

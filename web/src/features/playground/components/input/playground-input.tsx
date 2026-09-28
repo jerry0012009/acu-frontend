@@ -1,15 +1,20 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 
 import {
   PromptInput,
+  PromptInputAttachment,
+  PromptInputAttachments,
   PromptInputFooter,
+  PromptInputHeader,
   PromptInputTextarea,
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input'
 
 import { getSubmittableInputText } from '../../lib'
 import type {
+  MessageAttachment,
   ModelOption,
   ParameterEnabled,
   PlaygroundApiKeyOption,
@@ -20,7 +25,7 @@ import { PlaygroundInputTools } from './playground-input-tools'
 
 interface PlaygroundInputProps {
   config: PlaygroundConfig
-  onSubmit: (text: string) => void
+  onSubmit: (text: string, attachments?: MessageAttachment[]) => void
   onStop?: () => void
   disabled?: boolean
   isGenerating?: boolean
@@ -68,19 +73,39 @@ export function PlaygroundInput({
 
   const handleSubmit = (message: PromptInputMessage) => {
     const submittableText = getSubmittableInputText(message, disabled)
+    const attachments = (message.files ?? [])
+      .filter((file) => file.mediaType?.startsWith('image/') && file.url)
+      .map((file) => ({
+        type: 'image_url' as const,
+        url: file.url,
+        filename: file.filename,
+        mediaType: file.mediaType,
+      }))
 
-    if (!submittableText) return
-    onSubmit(submittableText)
+    if (!submittableText && attachments.length === 0) return
+    onSubmit(submittableText ?? '', attachments)
     setText('')
   }
 
   return (
     <div className='grid shrink-0 gap-4 px-1 md:pb-4'>
       <PromptInput
+        accept='image/jpeg,image/png,image/webp,image/gif'
+        maxFileSize={16 * 1024 * 1024}
+        maxFiles={8}
+        multiple
         className='relative'
         groupClassName='bg-background/95 dark:bg-background/80 border-border/70 shadow-[0_18px_60px_-32px_rgba(0,0,0,0.65)] ring-1 ring-foreground/5 rounded-xl overflow-hidden transition-all duration-200 focus-within:border-primary/45 focus-within:ring-primary/15 focus-within:shadow-[0_22px_70px_-34px_rgba(0,0,0,0.75)]'
+        onError={(error) => toast.error(error.message)}
         onSubmit={handleSubmit}
       >
+        <PromptInputAttachments>
+          {(attachment) => (
+            <PromptInputHeader>
+              <PromptInputAttachment data={attachment} />
+            </PromptInputHeader>
+          )}
+        </PromptInputAttachments>
         <PromptInputTextarea
           autoComplete='off'
           autoCorrect='off'

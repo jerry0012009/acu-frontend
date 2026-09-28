@@ -1,6 +1,7 @@
 import type {
   ChatCompletionRequest,
   Message,
+  ImageGenerationRequest,
   PlaygroundConfig,
   ParameterEnabled,
 } from '../../types'
@@ -50,4 +51,21 @@ export function buildChatCompletionPayload(
   }
 
   return payload
+}
+
+export function buildImageGenerationPayload(
+  messages: Message[],
+  config: PlaygroundConfig
+): ImageGenerationRequest {
+  const prompt = [...messages]
+    .reverse()
+    .find((message) => message.from === 'user')
+    ?.versions[0]?.content.trim()
+
+  return {
+    model: config.model,
+    prompt: prompt || 'Generate an image.',
+    n: 1,
+    response_format: 'b64_json',
+  }
 }

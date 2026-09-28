@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -12,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/relay/channel/openrouter"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/service/relayconvert"
@@ -121,6 +123,7 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	var secondLastStreamData string // 存储倒数第二个stream data，用于音频模型
 	seenStreamToolCalls := make(map[string]struct{})
 	var streamFunctionCallNames []string
+	streamChoiceStates := make(map[int]*chatStreamChoiceState)
 
 	// 检查是否为音频模型
 	isAudioModel := strings.Contains(strings.ToLower(model), "audio")
@@ -139,6 +142,7 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 			}
 
 			lastStreamData = data
+			observeChatStreamChunk(data, streamChoiceStates)
 			collectStreamFunctionCallNames(data, seenStreamToolCalls, &streamFunctionCallNames)
 			if err := processTokenData(info.RelayMode, data, &responseTextBuilder, &toolCount); err != nil {
 				logger.LogError(c, "error processing stream token data: "+err.Error())
@@ -178,6 +182,27 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 		}
 	}
 
+	if shouldRepairChatStreamEOF(info, streamChoiceStates, lastStreamData) {
+		terminalChunk := dto.ChatCompletionsStreamResponse{
+			Id:      responseId,
+			Object:  "chat.completion.chunk",
+			Created: createAt,
+			Model:   model,
+			Choices: missingChatStreamFinishChoices(streamChoiceStates),
+		}
+		if terminalChunk.Id == "" {
+			terminalChunk.Id = helper.GetResponseID(c)
+		}
+		if terminalChunk.Model == "" {
+			terminalChunk.Model = info.UpstreamModelName
+		}
+		if err := helper.ObjectData(c, terminalChunk); err != nil {
+			logger.LogError(c, "failed to repair chat stream EOF: "+err.Error())
+		} else {
+			logger.LogWarn(c, fmt.Sprintf("repaired chat stream EOF without finish_reason: choices=%d", len(terminalChunk.Choices)))
+		}
+	}
+
 	if !containStreamUsage {
 		usage = service.ResponseText2Usage(c, responseTextBuilder.String(), info.UpstreamModelName, info.GetEstimatePromptTokens())
 		usage.CompletionTokens += toolCount * 7
@@ -192,6 +217,74 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 	HandleFinalResponse(c, info, lastStreamData, responseId, createAt, model, systemFingerprint, usage, containStreamUsage)
 
 	return usage, nil
+}
+
+type chatStreamChoiceState struct {
+	sawToolCall     bool
+	sawFinishReason bool
+}
+
+func observeChatStreamChunk(data string, states map[int]*chatStreamChoiceState) {
+	var streamResponse dto.ChatCompletionsStreamResponse
+	if err := common.UnmarshalJsonStr(data, &streamResponse); err != nil {
+		return
+	}
+	for _, choice := range streamResponse.Choices {
+		state := states[choice.Index]
+		if state == nil {
+			state = &chatStreamChoiceState{}
+			states[choice.Index] = state
+		}
+		if len(choice.Delta.ToolCalls) > 0 {
+			state.sawToolCall = true
+		}
+		if choice.FinishReason != nil && strings.TrimSpace(*choice.FinishReason) != "" {
+			state.sawFinishReason = true
+		}
+	}
+}
+
+func shouldRepairChatStreamEOF(info *relaycommon.RelayInfo, states map[int]*chatStreamChoiceState, lastStreamData string) bool {
+	if info == nil ||
+		info.RelayMode != relayconstant.RelayModeChatCompletions ||
+		info.RelayFormat != types.RelayFormatOpenAI ||
+		info.StreamStatus == nil ||
+		info.StreamStatus.EndReason != relaycommon.StreamEndReasonEOF ||
+		info.StreamStatus.HasErrors() ||
+		lastStreamData == "" ||
+		len(states) == 0 {
+		return false
+	}
+	for _, state := range states {
+		if !state.sawFinishReason {
+			return true
+		}
+	}
+	return false
+}
+
+func missingChatStreamFinishChoices(states map[int]*chatStreamChoiceState) []dto.ChatCompletionsStreamResponseChoice {
+	indices := make([]int, 0, len(states))
+	for index, state := range states {
+		if !state.sawFinishReason {
+			indices = append(indices, index)
+		}
+	}
+	sort.Ints(indices)
+
+	choices := make([]dto.ChatCompletionsStreamResponseChoice, 0, len(indices))
+	for _, index := range indices {
+		finishReason := constant.FinishReasonStop
+		if states[index].sawToolCall {
+			finishReason = constant.FinishReasonToolCalls
+		}
+		choices = append(choices, dto.ChatCompletionsStreamResponseChoice{
+			Delta:        dto.ChatCompletionsStreamResponseChoiceDelta{},
+			FinishReason: &finishReason,
+			Index:        index,
+		})
+	}
+	return choices
 }
 
 func collectStreamFunctionCallNames(data string, seen map[string]struct{}, names *[]string) {

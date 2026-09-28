@@ -10,6 +10,13 @@ export interface MessageVersion {
   content: string
 }
 
+export interface MessageAttachment {
+  type: 'image_url'
+  url: string
+  filename?: string
+  mediaType?: string
+}
+
 export interface Message {
   key: string
   from: MessageRole
@@ -31,6 +38,7 @@ export interface Message {
   isContentComplete?: boolean
   status?: MessageStatus
   errorCode?: string | null
+  attachments?: MessageAttachment[]
 }
 
 // API payload types
@@ -94,6 +102,21 @@ export interface ChatCompletionResponse {
     completion_tokens: number
     total_tokens: number
   }
+}
+
+export interface ImageGenerationRequest {
+  model: string
+  prompt: string
+  n: number
+  response_format: 'b64_json'
+}
+
+export interface ImageGenerationResponse {
+  created: number
+  data: Array<{
+    b64_json?: string
+    url?: string
+  }>
 }
 
 // Configuration types

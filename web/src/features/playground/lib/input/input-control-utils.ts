@@ -4,6 +4,7 @@ type InputControlStateOptions = {
   disabled?: boolean
   hasStopHandler: boolean
   hasSelectedToken: boolean
+  hasAttachments: boolean
   isGenerating?: boolean
   isModelLoading?: boolean
   models: ModelOption[]
@@ -35,6 +36,7 @@ export function getInputControlState({
   disabled,
   hasStopHandler,
   hasSelectedToken,
+  hasAttachments,
   isGenerating,
   isModelLoading,
   models,
@@ -44,7 +46,10 @@ export function getInputControlState({
 
   return {
     canSubmit:
-      !disabled && hasModels && hasSelectedToken && text.trim().length > 0,
+      !disabled &&
+      hasModels &&
+      hasSelectedToken &&
+      (text.trim().length > 0 || hasAttachments),
     isSelectorDisabled: disabled || isModelLoading || !hasSelectedToken,
     shouldShowStop: Boolean(isGenerating && hasStopHandler),
   }

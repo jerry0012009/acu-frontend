@@ -12,6 +12,12 @@ import (
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 )
 
+var acuConversationImageModels = []string{
+	"gpt-image-2.5-flare",
+	"gpt-image-2.5-sunburst",
+	"gpt-image-2",
+}
+
 func IsACUConversationTokenEligible(token *model.Token, now int64) bool {
 	if token == nil || token.Status != common.TokenStatusEnabled {
 		return false
@@ -98,6 +104,12 @@ func GetACUConversationModels(ctx context.Context, token *model.Token, userGroup
 			models = append(models, virtualModel)
 		}
 	}
+	for _, imageModel := range acuConversationImageModels {
+		if tokenAllowsACUConversationModel(token, imageModel) &&
+			hasACUConversationImageAbility(groups, imageModel) {
+			models = append(models, imageModel)
+		}
+	}
 	return models, nil
 }
 
@@ -142,6 +154,17 @@ func hasACUConversationAbility(groups []string, modelID string) bool {
 	for _, group := range groups {
 		if model.HasEnabledChannelTagForGroupModel(
 			group, modelID, "/pg/chat/completions", constant.ChannelTagACURouter,
+		) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasACUConversationImageAbility(groups []string, modelID string) bool {
+	for _, group := range groups {
+		if model.HasEnabledChannelForGroupModel(
+			group, modelID, "/v1/images/generations",
 		) {
 			return true
 		}

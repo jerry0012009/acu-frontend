@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { sendChatCompletion } from '../api'
+import { sendChatCompletion, sendImageGeneration } from '../api'
 import { ERROR_MESSAGES } from '../constants'
 import {
   applyStreamingChunk,
@@ -11,6 +11,8 @@ import {
   updateLastAssistantMessage,
   parseRequestErrorDetails,
   applyChatCompletionResponse,
+  applyImageGenerationResponse,
+  buildImageGenerationPayload,
   completeAssistantMessage,
   hasChatCompletionChoice,
   isAssistantMessageFinal,
@@ -33,6 +35,10 @@ type PendingStreamChunks = {
   generation: number
   content: string
   reasoning: string
+}
+
+function isImageGenerationModel(model: string): boolean {
+  return model.trim().toLowerCase().startsWith('gpt-image-')
 }
 
 function mergePendingStreamChunk(
@@ -333,16 +339,88 @@ export function useChatHandler({
     ]
   )
 
+  const sendImage = useCallback(
+    async (messages: Message[]) => {
+      const payload = buildImageGenerationPayload(messages, config)
+      const generation = requestGenerationRef.current + 1
+      const abortController = new AbortController()
+
+      requestGenerationRef.current = generation
+      stopStream()
+      discardPendingStreamUpdates(generation)
+      abortControllerRef.current?.abort()
+      abortControllerRef.current = abortController
+
+      try {
+        setIsRequesting(true)
+        const response = await sendImageGeneration(
+          payload,
+          selectedTokenId,
+          abortController.signal
+        )
+        if (
+          abortController.signal.aborted ||
+          requestGenerationRef.current !== generation
+        ) {
+          return
+        }
+
+        if (!response.data.some((image) => image.b64_json || image.url)) {
+          handleStreamError(generation, ERROR_MESSAGES.API_REQUEST_ERROR)
+          return
+        }
+
+        onMessageUpdate((prev) => {
+          if (requestGenerationRef.current !== generation) return prev
+          return updateLastAssistantMessage(prev, (message) => {
+            return applyImageGenerationResponse(message, response) ?? message
+          })
+        })
+      } catch (error: unknown) {
+        if (
+          abortController.signal.aborted ||
+          requestGenerationRef.current !== generation
+        ) {
+          return
+        }
+
+        const { errorCode, errorMessage } = parseRequestErrorDetails(error)
+        handleStreamError(generation, errorMessage, errorCode)
+      } finally {
+        if (requestGenerationRef.current === generation) {
+          abortControllerRef.current = null
+          setIsRequesting(false)
+        }
+      }
+    },
+    [
+      config,
+      selectedTokenId,
+      stopStream,
+      discardPendingStreamUpdates,
+      onMessageUpdate,
+      handleStreamError,
+    ]
+  )
+
   // Send chat request (stream or non-stream based on config)
   const sendChat = useCallback(
     (messages: Message[]) => {
-      if (config.stream) {
+      if (isImageGenerationModel(config.model)) {
+        void sendImage(messages)
+      } else if (config.stream) {
         sendStreamingChat(messages)
       } else {
         sendNonStreamingChat(messages)
       }
     },
-    [config.stream, sendStreamingChat, sendNonStreamingChat]
+    [
+      config.model,
+      config.stream,
+      sendImage,
+      sendStreamingChat,
+      sendNonStreamingChat,
+    ]
   )
 
   // Stop generation

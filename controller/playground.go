@@ -9,6 +9,14 @@ import (
 )
 
 func Playground(c *gin.Context) {
+	playgroundRelay(c, types.RelayFormatOpenAI)
+}
+
+func PlaygroundImage(c *gin.Context) {
+	playgroundRelay(c, types.RelayFormatOpenAIImage)
+}
+
+func playgroundRelay(c *gin.Context, relayFormat types.RelayFormat) {
 	var newAPIError *types.NewAPIError
 
 	defer func() {
@@ -25,5 +33,5 @@ func Playground(c *gin.Context) {
 		return
 	}
 
-	Relay(c, types.RelayFormatOpenAI)
+	Relay(c, relayFormat)
 }
