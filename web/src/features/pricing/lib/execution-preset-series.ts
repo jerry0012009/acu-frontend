@@ -3,7 +3,7 @@ import type {
   PricingDisplayMode,
   PricingModel,
 } from '../types'
-import { estimatedPricingCost } from './pricing-comparison'
+import { contextPricingRates, estimatedPricingCost } from './pricing-comparison'
 
 export function executionPresetPointAtDifficulty(
   series: ACUExecutionPresetSeries,
@@ -41,9 +41,10 @@ export function executionPresetPricingCosts(
 ) {
   const point = executionPresetPointAtDifficulty(series, difficulty)
   const payableCost = point?.estimatedCallCost
+  const reference = contextPricingRates(baseModel?.reference, inputTokens)
   const referenceCost = estimatedPricingCost(
-    baseModel?.reference?.input_cny_per_million,
-    baseModel?.reference?.output_cny_per_million,
+    reference?.input_cny_per_million,
+    reference?.output_cny_per_million,
     inputTokens,
     series.estimatedOutputTokens
   )

@@ -44,6 +44,11 @@ export const CC_SWITCH_MODEL_MAPPINGS = [
     contextWindow: 1050000,
   },
   {
+    menuName: 'gpt-6.1-sol',
+    requestModel: 'gpt-6.1-sol',
+    contextWindow: 1050000,
+  },
+  {
     menuName: 'gpt-5.5',
     requestModel: 'gpt-5.5',
     contextWindow: 1050000,

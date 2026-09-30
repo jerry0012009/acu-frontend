@@ -335,6 +335,7 @@ func routingCatalogReference(value interface{}) *dto.ACURoutingCatalogReference 
 		return nil
 	}
 	return &dto.ACURoutingCatalogReference{
+		ContextTiers:             dto.ParseACUContextTierPrices(reference["contextTiers"]),
 		InputUSDPerMillion:       acuCatalogOptionalFloatValue(reference, "inputUsdPerMillion"),
 		OutputUSDPerMillion:      acuCatalogOptionalFloatValue(reference, "outputUsdPerMillion"),
 		CachedInputUSDPerMillion: acuCatalogOptionalFloatValue(reference, "cachedInputUsdPerMillion"),

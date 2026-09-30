@@ -219,6 +219,7 @@ function Test-AcuAsset([string]$Path, [string]$Kind) {
       return $text.Contains('gpt-6-astra') -and
         $text.Contains('gpt-6-luna') -and
         $text.Contains('gpt-6-sol') -and
+        $text.Contains('gpt-6.1-sol') -and
         $text.Contains('Test-AllowedModel')
     }
     if ($Kind -eq 'catalog') {
@@ -231,7 +232,8 @@ function Test-AcuAsset([string]$Path, [string]$Kind) {
         'gpt-5.6-sol',
         'gpt-6-astra',
         'gpt-6-luna',
-        'gpt-6-sol'
+        'gpt-6-sol',
+        'gpt-6.1-sol'
       )) {
         if ($slugs -notcontains $required) { return $false }
       }
@@ -471,7 +473,8 @@ function Test-AllowedModel([string]$Model) {
     'gpt-5.6-sol',
     'gpt-6-astra',
     'gpt-6-luna',
-    'gpt-6-sol'
+    'gpt-6-sol',
+    'gpt-6.1-sol'
   )
 }
 

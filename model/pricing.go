@@ -63,23 +63,25 @@ type Pricing struct {
 }
 
 type PricingPayable struct {
-	InputCNYPerMillion       float64  `json:"input_cny_per_million"`
-	OutputCNYPerMillion      float64  `json:"output_cny_per_million"`
-	CachedInputCNYPerMillion *float64 `json:"cached_input_cny_per_million,omitempty"`
-	CacheWriteCNYPerMillion  *float64 `json:"cache_write_cny_per_million,omitempty"`
-	Status                   string   `json:"status"`
-	PricingPolicyVersion     string   `json:"pricing_policy_version"`
+	ContextTiers             *dto.ACUContextTierPrices `json:"context_tiers,omitempty"`
+	InputCNYPerMillion       float64                   `json:"input_cny_per_million"`
+	OutputCNYPerMillion      float64                   `json:"output_cny_per_million"`
+	CachedInputCNYPerMillion *float64                  `json:"cached_input_cny_per_million,omitempty"`
+	CacheWriteCNYPerMillion  *float64                  `json:"cache_write_cny_per_million,omitempty"`
+	Status                   string                    `json:"status"`
+	PricingPolicyVersion     string                    `json:"pricing_policy_version"`
 }
 
 type PricingReference struct {
-	InputCNYPerMillion       float64  `json:"input_cny_per_million"`
-	OutputCNYPerMillion      float64  `json:"output_cny_per_million"`
-	CachedInputCNYPerMillion *float64 `json:"cached_input_cny_per_million,omitempty"`
-	SourceType               string   `json:"source_type"`
-	SourceName               string   `json:"source_name"`
-	ObservedAt               string   `json:"observed_at"`
-	OriginalCurrency         string   `json:"original_currency"`
-	FXCNYPerUSD              *float64 `json:"fx_cny_per_usd,omitempty"`
+	ContextTiers             *dto.ACUContextTierPrices `json:"context_tiers,omitempty"`
+	InputCNYPerMillion       float64                   `json:"input_cny_per_million"`
+	OutputCNYPerMillion      float64                   `json:"output_cny_per_million"`
+	CachedInputCNYPerMillion *float64                  `json:"cached_input_cny_per_million,omitempty"`
+	SourceType               string                    `json:"source_type"`
+	SourceName               string                    `json:"source_name"`
+	ObservedAt               string                    `json:"observed_at"`
+	OriginalCurrency         string                    `json:"original_currency"`
+	FXCNYPerUSD              *float64                  `json:"fx_cny_per_usd,omitempty"`
 }
 
 type ACUPricingCurvePoint struct {

@@ -1,4 +1,23 @@
-import type { PricingDisplayMode, PricingModel, PricingPayable } from '../types'
+import type { ContextTierPrices, PricingDisplayMode, PricingModel, PricingPayable } from '../types'
+
+export function contextPricingRates<T extends {
+  input_cny_per_million: number
+  output_cny_per_million: number
+  cached_input_cny_per_million?: number
+  cache_write_cny_per_million?: number
+  context_tiers?: ContextTierPrices
+}>(price: T | undefined, inputTokens: number): T | undefined {
+  if (!price?.context_tiers) return price
+  const tiers = price.context_tiers
+  const selected = inputTokens > tiers.thresholdTokens ? tiers.longContext : tiers.standard
+  return {
+    ...price,
+    input_cny_per_million: selected.inputPricePerMillion,
+    output_cny_per_million: selected.outputPricePerMillion,
+    cached_input_cny_per_million: selected.cachedInputPricePerMillion,
+    cache_write_cny_per_million: selected.cacheWritePricePerMillion,
+  }
+}
 
 export type PricingCostDatum = {
   modelId: string
@@ -60,10 +79,10 @@ export function displayedPricingCost(
     protocol === 'all'
       ? defaultACUPricingProtocol(model.payable_by_protocol)
       : protocol
-  const protocolPrice =
+  const protocolPrice = contextPricingRates(
     selectedProtocol === undefined
       ? model.payable
-      : (model.payable_by_protocol?.[selectedProtocol] ?? model.payable)
+      : (model.payable_by_protocol?.[selectedProtocol] ?? model.payable), inputTokens)
   return (
     estimatedPricingCost(
       protocolPrice?.input_cny_per_million,

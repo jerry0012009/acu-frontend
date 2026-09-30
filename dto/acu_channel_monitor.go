@@ -57,12 +57,13 @@ type ACURoutingCatalogCurvePoint struct {
 }
 
 type ACURoutingCatalogReference struct {
-	InputUSDPerMillion       *float64 `json:"inputUsdPerMillion"`
-	OutputUSDPerMillion      *float64 `json:"outputUsdPerMillion"`
-	CachedInputUSDPerMillion *float64 `json:"cachedInputUsdPerMillion"`
-	CacheWriteUSDPerMillion  *float64 `json:"cacheWriteUsdPerMillion"`
-	SourceNames              []string `json:"sourceNames"`
-	ObservedAt               *string  `json:"observedAt"`
+	ContextTiers             *ACUContextTierPrices `json:"contextTiers,omitempty"`
+	InputUSDPerMillion       *float64              `json:"inputUsdPerMillion"`
+	OutputUSDPerMillion      *float64              `json:"outputUsdPerMillion"`
+	CachedInputUSDPerMillion *float64              `json:"cachedInputUsdPerMillion"`
+	CacheWriteUSDPerMillion  *float64              `json:"cacheWriteUsdPerMillion"`
+	SourceNames              []string              `json:"sourceNames"`
+	ObservedAt               *string               `json:"observedAt"`
 }
 
 type ACURoutingCatalogCandidate struct {

@@ -25,12 +25,13 @@ type acuPricingAuto struct {
 }
 
 type acuCatalogPayable struct {
-	InputCNYPerMillion       float64  `json:"inputCnyPerMillion"`
-	OutputCNYPerMillion      float64  `json:"outputCnyPerMillion"`
-	CachedInputCNYPerMillion *float64 `json:"cachedInputCnyPerMillion"`
-	CacheWriteCNYPerMillion  *float64 `json:"cacheWriteCnyPerMillion"`
-	Status                   string   `json:"status"`
-	PricingPolicyVersion     string   `json:"pricingPolicyVersion"`
+	ContextTiers             *dto.ACUContextTierPrices `json:"contextTiers,omitempty"`
+	InputCNYPerMillion       float64                   `json:"inputCnyPerMillion"`
+	OutputCNYPerMillion      float64                   `json:"outputCnyPerMillion"`
+	CachedInputCNYPerMillion *float64                  `json:"cachedInputCnyPerMillion"`
+	CacheWriteCNYPerMillion  *float64                  `json:"cacheWriteCnyPerMillion"`
+	Status                   string                    `json:"status"`
+	PricingPolicyVersion     string                    `json:"pricingPolicyVersion"`
 }
 
 func (price *acuCatalogPayable) public() *model.PricingPayable {
@@ -38,6 +39,7 @@ func (price *acuCatalogPayable) public() *model.PricingPayable {
 		return nil
 	}
 	return &model.PricingPayable{
+		ContextTiers:       price.ContextTiers,
 		InputCNYPerMillion: price.InputCNYPerMillion, OutputCNYPerMillion: price.OutputCNYPerMillion,
 		CachedInputCNYPerMillion: price.CachedInputCNYPerMillion, Status: price.Status,
 		CacheWriteCNYPerMillion: price.CacheWriteCNYPerMillion,
@@ -46,14 +48,15 @@ func (price *acuCatalogPayable) public() *model.PricingPayable {
 }
 
 type acuCatalogReference struct {
-	InputCNYPerMillion       float64  `json:"inputCnyPerMillion"`
-	OutputCNYPerMillion      float64  `json:"outputCnyPerMillion"`
-	CachedInputCNYPerMillion *float64 `json:"cachedInputCnyPerMillion"`
-	SourceType               string   `json:"sourceType"`
-	SourceName               string   `json:"sourceName"`
-	ObservedAt               string   `json:"observedAt"`
-	OriginalCurrency         string   `json:"originalCurrency"`
-	FXCNYPerUSD              *float64 `json:"fxCnyPerUsd"`
+	ContextTiers             *dto.ACUContextTierPrices `json:"contextTiers,omitempty"`
+	InputCNYPerMillion       float64                   `json:"inputCnyPerMillion"`
+	OutputCNYPerMillion      float64                   `json:"outputCnyPerMillion"`
+	CachedInputCNYPerMillion *float64                  `json:"cachedInputCnyPerMillion"`
+	SourceType               string                    `json:"sourceType"`
+	SourceName               string                    `json:"sourceName"`
+	ObservedAt               string                    `json:"observedAt"`
+	OriginalCurrency         string                    `json:"originalCurrency"`
+	FXCNYPerUSD              *float64                  `json:"fxCnyPerUsd"`
 }
 
 func (price *acuCatalogReference) public() *model.PricingReference {
@@ -61,6 +64,7 @@ func (price *acuCatalogReference) public() *model.PricingReference {
 		return nil
 	}
 	return &model.PricingReference{
+		ContextTiers:       price.ContextTiers,
 		InputCNYPerMillion: price.InputCNYPerMillion, OutputCNYPerMillion: price.OutputCNYPerMillion,
 		CachedInputCNYPerMillion: price.CachedInputCNYPerMillion, SourceType: price.SourceType,
 		SourceName: price.SourceName, ObservedAt: price.ObservedAt, OriginalCurrency: price.OriginalCurrency,
@@ -332,6 +336,7 @@ func acuPayableFromCorridor(price map[string]interface{}, policyVersion string) 
 		return nil
 	}
 	return &acuCatalogPayable{
+		ContextTiers:       dto.ParseACUContextTierPrices(price["payableContextTiers"]),
 		InputCNYPerMillion: input, OutputCNYPerMillion: output,
 		CachedInputCNYPerMillion: optionalFloatMapValue(price, "payableCachedInputPriceCnyPerMillion"),
 		CacheWriteCNYPerMillion:  optionalFloatMapValue(price, "payableCacheWritePriceCnyPerMillion"),
@@ -356,6 +361,7 @@ func acuReferenceFromCatalog(catalogModel dto.ACURoutingCatalogModel, fx float64
 	}
 	sourceName := firstNonEmpty(catalogModel.Vendor, "Vendor") + " official pricing"
 	return &acuCatalogReference{
+		ContextTiers:             reference.ContextTiers.Scale(fx),
 		InputCNYPerMillion:       *reference.InputUSDPerMillion * fx,
 		OutputCNYPerMillion:      *reference.OutputUSDPerMillion * fx,
 		CachedInputCNYPerMillion: cached, SourceType: "official",

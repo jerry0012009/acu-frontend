@@ -6,6 +6,7 @@ import {
   buildPricingBarSeries,
   buildPricingCostSpec,
   compareDisplayedCostsDescending,
+  contextPricingRates,
   defaultACUPricingProtocol,
   displayedPricingCost,
   estimatedPricingCost,
@@ -21,6 +22,23 @@ const specOptions = {
   colorForDatum: () => '#369',
   tooltip: { mark: { content: [] } },
 }
+
+test('context pricing selects the whole request tier without mutating flat prices', () => {
+  const price = {
+    input_cny_per_million: 2,
+    output_cny_per_million: 10,
+    context_tiers: {
+      thresholdTokens: 272000,
+      standard: { inputPricePerMillion: 2, outputPricePerMillion: 10 },
+      longContext: { inputPricePerMillion: 4, outputPricePerMillion: 15 },
+    },
+  }
+  assert.equal(contextPricingRates(price, 272000)?.output_cny_per_million, 10)
+  assert.equal(contextPricingRates(price, 272001)?.output_cny_per_million, 15)
+  assert.equal(price.output_cny_per_million, 10)
+  const flat = { input_cny_per_million: 2, output_cny_per_million: 10 }
+  assert.equal(contextPricingRates(flat, 1000000), flat)
+})
 
 const model = {
   id: 1,

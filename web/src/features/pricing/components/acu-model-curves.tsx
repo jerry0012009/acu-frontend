@@ -44,6 +44,7 @@ import {
 import {
   buildPricingCostSpec,
   compareDisplayedCostsDescending,
+  contextPricingRates,
   displayedPricingCost,
   estimatedPricingCost,
   pricingCostRange,
@@ -345,25 +346,33 @@ export function ACUModelCurves(props: {
     () =>
       [
         ...selectedModels.map(
-          (model): PricingCostDatum => ({
+          (model): PricingCostDatum => {
+            const payable = contextPricingRates(
+              pricingProtocol === 'all'
+                ? model.payable
+                : (model.payable_by_protocol?.[pricingProtocol] ?? model.payable),
+              inputTokens
+            )
+            const reference = contextPricingRates(model.reference, inputTokens)
+            return ({
             modelId: model.model_name,
             modelName: model.display_name || model.model_name,
             payableCost: estimatedPricingCost(
-              model.payable?.input_cny_per_million,
-              model.payable?.output_cny_per_million,
+              payable?.input_cny_per_million,
+              payable?.output_cny_per_million,
               inputTokens,
               outputTokens
             ),
             referenceCost: estimatedPricingCost(
-              model.reference?.input_cny_per_million,
-              model.reference?.output_cny_per_million,
+              reference?.input_cny_per_million,
+              reference?.output_cny_per_million,
               inputTokens,
               outputTokens
             ),
-            payableInput: model.payable?.input_cny_per_million,
-            payableOutput: model.payable?.output_cny_per_million,
-            referenceInput: model.reference?.input_cny_per_million,
-            referenceOutput: model.reference?.output_cny_per_million,
+            payableInput: payable?.input_cny_per_million,
+            payableOutput: payable?.output_cny_per_million,
+            referenceInput: reference?.input_cny_per_million,
+            referenceOutput: reference?.output_cny_per_million,
             referenceSource: model.reference
               ? formatPublicReferenceSource(
                   model.reference,
@@ -384,6 +393,7 @@ export function ACUModelCurves(props: {
               qualityAtDifficulty(model.acu_curve ?? [], abilityDifficulty) *
               100,
           })
+          }
         ),
         ...selectedPresets.flatMap((preset): PricingCostDatum[] => {
           const baseModel = canonicalModelById.get(preset.modelId)
@@ -402,8 +412,8 @@ export function ACUModelCurves(props: {
                   modelName: preset.displayName,
                   payableCost: costs.payableCost,
                   referenceCost: costs.referenceCost,
-                  referenceInput: baseModel?.reference?.input_cny_per_million,
-                  referenceOutput: baseModel?.reference?.output_cny_per_million,
+                  referenceInput: contextPricingRates(baseModel?.reference, inputTokens)?.input_cny_per_million,
+                  referenceOutput: contextPricingRates(baseModel?.reference, inputTokens)?.output_cny_per_million,
                   referenceSource: baseModel?.reference
                     ? formatPublicReferenceSource(
                         baseModel.reference,

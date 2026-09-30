@@ -81,6 +81,7 @@ export type PricingDisplayMode =
   | 'comparison'
 
 export type PricingPayable = {
+  context_tiers?: ContextTierPrices
   input_cny_per_million: number
   output_cny_per_million: number
   cached_input_cny_per_million?: number
@@ -90,6 +91,7 @@ export type PricingPayable = {
 }
 
 export type PricingReference = {
+  context_tiers?: ContextTierPrices
   input_cny_per_million: number
   output_cny_per_million: number
   cached_input_cny_per_million?: number
@@ -105,6 +107,19 @@ export type ACUCurvePoint = {
   estimatedQuality: number
   qualityLower: number
   qualityUpper: number
+}
+
+export type ContextTierTokenPrices = {
+  inputPricePerMillion: number
+  outputPricePerMillion: number
+  cachedInputPricePerMillion?: number
+  cacheWritePricePerMillion?: number
+}
+
+export type ContextTierPrices = {
+  thresholdTokens: number
+  standard: ContextTierTokenPrices
+  longContext: ContextTierTokenPrices
 }
 
 /** Input/output modalities supported by a model. */

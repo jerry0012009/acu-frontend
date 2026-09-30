@@ -106,6 +106,9 @@ function ACUPricingTooltip(props: {
                 {t('Current platform estimate')}
                 {defaultProtocolLabel ? ` · ${defaultProtocolLabel}` : ''}
               </p>
+              {props.payable.context_tiers && (
+                <p>{t('Standard')}: {t('Input')} &lt;= {props.payable.context_tiers.thresholdTokens.toLocaleString()} Tokens</p>
+              )}
               <p>
                 {t('Input')}:{' '}
                 {formatACUCNY(props.payable.input_cny_per_million)} / 1M Tokens
@@ -125,6 +128,14 @@ function ACUPricingTooltip(props: {
                 <p>
                   {t('Price status')}: {t('Estimated')}
                 </p>
+              )}
+              {props.payable.context_tiers && (
+                <div className='border-background/20 mt-2 border-t pt-2'>
+                  <p>{t('Input')} &gt; {props.payable.context_tiers.thresholdTokens.toLocaleString()} Tokens</p>
+                  <p>{t('Input')}: {formatACUCNY(props.payable.context_tiers.longContext.inputPricePerMillion)} / 1M</p>
+                  <p>{t('Output')}: {formatACUCNY(props.payable.context_tiers.longContext.outputPricePerMillion)} / 1M</p>
+                  {props.payable.context_tiers.longContext.cachedInputPricePerMillion !== undefined && <p>{t('Cached')}: {formatACUCNY(props.payable.context_tiers.longContext.cachedInputPricePerMillion)} / 1M</p>}
+                </div>
               )}
             </div>
           )}
@@ -156,6 +167,13 @@ function ACUPricingTooltip(props: {
                 {formatACUCNY(props.reference.output_cny_per_million)} / 1M
                 Tokens
               </p>
+              {props.reference.context_tiers && (
+                <div className='border-background/20 mt-2 border-t pt-2'>
+                  <p>{t('Input')} &gt; {props.reference.context_tiers.thresholdTokens.toLocaleString()} Tokens</p>
+                  <p>{t('Input')}: {formatACUCNY(props.reference.context_tiers.longContext.inputPricePerMillion)} / 1M</p>
+                  <p>{t('Output')}: {formatACUCNY(props.reference.context_tiers.longContext.outputPricePerMillion)} / 1M</p>
+                </div>
+              )}
               {props.reference.cached_input_cny_per_million !== undefined && (
                 <p>
                   {t('Cached')}:{' '}
