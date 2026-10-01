@@ -198,6 +198,7 @@ asset_is_current() {
       grep -Fq "gpt-6-astra" "$asset_path" &&
         grep -Fq "gpt-6-luna" "$asset_path" &&
         grep -Fq "gpt-6-sol" "$asset_path" &&
+        grep -Fq "gpt-6.1-sol" "$asset_path" &&
         grep -Fq "allowed_model" "$asset_path"
       ;;
     catalog)
@@ -208,7 +209,8 @@ asset_is_current() {
         gpt-5.6-sol \
         gpt-6-astra \
         gpt-6-luna \
-        gpt-6-sol; do
+        gpt-6-sol \
+        gpt-6.1-sol; do
         grep -Fq "\"slug\": \"$model\"" "$asset_path" || return 1
       done
       ;;
