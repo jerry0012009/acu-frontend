@@ -85,3 +85,64 @@ test('routing utility is fixed to Active Utility without a mode selector', async
   await act(async () => root.unmount())
   container.remove()
 })
+
+test('shows Router candidates using routingEnabled with a neutral default weight', async () => {
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+
+  await act(async () => {
+    root.render(
+      <I18nextProvider i18n={i18n}>
+        <RoutingUtilityEditor
+          value={
+            {
+              defaultCandidatePreferenceScores: {},
+              defaultProfilePreferenceScores: {},
+              supplyPresets: {},
+              qualityPresets: {},
+              latency: {},
+              reliability: {},
+              workPhaseBiasOffsets: {},
+            } as never
+          }
+          modelPool={
+            [
+              {
+                modelId: 'gpt-6-luna',
+                modelCategory: 'text_agent',
+                routingEnabled: true,
+                routingCandidates: [
+                  {
+                    candidateId: 'gpt-6-luna',
+                    modelId: 'gpt-6-luna',
+                    displayName: 'GPT-6 Luna',
+                    kind: 'base',
+                    protocols: ['responses'],
+                    responsesProfileCount: 1,
+                    messagesProfileCount: 0,
+                  },
+                ],
+              },
+            ] as never
+          }
+          profiles={[]}
+          onChange={() => undefined}
+        />
+      </I18nextProvider>
+    )
+  })
+
+  const preferenceButton = container.querySelector('button')
+  assert.ok(preferenceButton)
+  await act(async () => preferenceButton.click())
+
+  const input = container.querySelector(
+    '[aria-label="gpt-6-luna Model Preference"]'
+  )
+  assert.ok(input)
+  assert.equal((input as HTMLInputElement).value, '100')
+
+  await act(async () => root.unmount())
+  container.remove()
+})

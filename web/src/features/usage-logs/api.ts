@@ -378,7 +378,8 @@ export type ACUModelPoolEntry = {
   currentBestChannel: string | null
   currentMultiplier: number | null
   backupChannel: string | null
-  autoRouteEnabled: boolean
+  autoRouteEnabled?: boolean
+  routingEnabled?: boolean
   exclusionReason: string | null
   profiles: ACUChannelMonitorProfile[]
   routingCandidates?: Array<{
@@ -389,7 +390,7 @@ export type ACUModelPoolEntry = {
     presetId?: string
     reasoningEffort?: string
     calibrationStatus?: string
-    protocols: Array<'responses' | 'messages'>
+    protocols: Array<'responses' | 'messages' | 'chat_completions'>
     responsesProfileCount: number
     messagesProfileCount: number
   }>
@@ -416,7 +417,7 @@ export type ACURoutingCatalog = {
       presetId?: string
       reasoningEffort?: string
       calibrationStatus?: string
-      protocols: Array<'responses' | 'messages'>
+      protocols: Array<'responses' | 'messages' | 'chat_completions'>
     }>
   }>
   profiles: Array<{

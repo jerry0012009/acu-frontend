@@ -100,6 +100,15 @@ type GlobalModelOption = {
   autoRouteEnabled: boolean
 }
 
+type RoutingCandidate = NonNullable<
+  ACUModelPoolEntry['routingCandidates']
+>[number]
+
+type CandidatePreferenceGroup = {
+  modelId: string
+  candidates: RoutingCandidate[]
+}
+
 type ProfileFilters = {
   model: string
   provider: string
@@ -118,6 +127,71 @@ export type ACUChannelMonitorFocus = {
   line: string
   model: string
   protocol: Exclude<ACUMonitorProtocol, 'all'>
+}
+
+function modelAutoRouteEnabled(model: ACUModelPoolEntry) {
+  return model.autoRouteEnabled ?? model.routingEnabled ?? false
+}
+
+function buildCandidatePreferenceGroups(
+  modelPool: ACUModelPoolEntry[],
+  scores: Record<string, number>
+): CandidatePreferenceGroup[] {
+  const groups = new Map<string, CandidatePreferenceGroup>()
+  for (const model of modelPool) {
+    if (model.modelCategory !== 'text_agent' || !modelAutoRouteEnabled(model)) {
+      continue
+    }
+    const candidates = model.routingCandidates?.length
+      ? model.routingCandidates
+      : [
+          {
+            candidateId: model.modelId,
+            modelId: model.modelId,
+            displayName: model.modelId,
+            kind: 'base' as const,
+            protocols: [] as Array<
+              'responses' | 'messages' | 'chat_completions'
+            >,
+            responsesProfileCount: 0,
+            messagesProfileCount: 0,
+          },
+        ]
+    groups.set(model.modelId, {
+      modelId: model.modelId,
+      candidates: [...candidates],
+    })
+  }
+
+  const represented = new Set(
+    [...groups.values()].flatMap((group) =>
+      group.candidates.map((candidate) => candidate.candidateId)
+    )
+  )
+  for (const candidateId of Object.keys(scores)) {
+    if (represented.has(candidateId)) continue
+    const modelId = candidateId.split('@')[0]
+    const group = groups.get(modelId)
+    const candidate: RoutingCandidate = {
+      candidateId,
+      modelId,
+      displayName: candidateId,
+      kind: 'base',
+      protocols: [],
+      responsesProfileCount: 0,
+      messagesProfileCount: 0,
+    }
+    if (group) {
+      group.candidates.push(candidate)
+    } else {
+      groups.set(modelId, { modelId, candidates: [candidate] })
+    }
+    represented.add(candidateId)
+  }
+
+  return [...groups.values()].sort((left, right) =>
+    left.modelId.localeCompare(right.modelId)
+  )
 }
 
 function buildAvailableModelEntries(
@@ -202,6 +276,8 @@ export function ACUChannelMonitor(
   const [selectedTokenId, setSelectedTokenId] = useState<number | null>(null)
   useEffect(() => {
     if (!props.focus) return
+    // The focus prop intentionally resets the monitor view for deep links.
+    // oxlint-disable-next-line react(set-state-in-effect)
     setProtocol(props.focus.protocol)
     setActiveTab('overview')
     setSort((current) => (current === 'routing_rank' ? 'recommended' : current))
@@ -246,6 +322,8 @@ export function ACUChannelMonitor(
     }
     const defaultToken =
       apiKeys.find((token) => token.status === 1) ?? apiKeys[0]
+    // The selected key must follow the first available active key.
+    // oxlint-disable-next-line react(set-state-in-effect)
     setSelectedTokenId(defaultToken?.id ?? null)
   }, [apiKeys, selectedTokenId])
   const selectedToken = useMemo<ApiKey | undefined>(
@@ -1392,14 +1470,26 @@ function RouterConfigurationTab(props: {
                 {t('Model Preference')}
               </div>
               <div className='mt-1 grid gap-x-4 gap-y-1 sm:grid-cols-2'>
-                {Object.entries(
+                {buildCandidatePreferenceGroups(
+                  props.modelPool,
                   savedUtilityConfig.defaultCandidatePreferenceScores
-                ).map(([candidateId, score]) => (
-                  <div key={candidateId} className='flex justify-between gap-3'>
-                    <span className='truncate font-mono'>{candidateId}</span>
-                    <span>{score}</span>
-                  </div>
-                ))}
+                ).flatMap((group) =>
+                  group.candidates.map((candidate) => (
+                    <div
+                      key={candidate.candidateId}
+                      className='flex justify-between gap-3'
+                    >
+                      <span className='truncate font-mono'>
+                        {candidate.candidateId}
+                      </span>
+                      <span>
+                        {savedUtilityConfig.defaultCandidatePreferenceScores[
+                          candidate.candidateId
+                        ] ?? 100}
+                      </span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
             <div>
@@ -1488,56 +1578,14 @@ export function RoutingUtilityEditor(props: {
   const { t } = useTranslation()
   const [candidatePreferencesOpen, setCandidatePreferencesOpen] =
     useState(false)
-  const candidateGroups = useMemo(() => {
-    const groups = props.modelPool
-      .filter(
-        (model) =>
-          model.modelCategory === 'text_agent' && model.autoRouteEnabled
-      )
-      .map((model) => ({
-        modelId: model.modelId,
-        candidates: model.routingCandidates?.length
-          ? model.routingCandidates
-          : [
-              {
-                candidateId: model.modelId,
-                modelId: model.modelId,
-                displayName: model.modelId,
-                kind: 'base' as const,
-                protocols: [] as Array<'responses' | 'messages'>,
-                responsesProfileCount: 0,
-                messagesProfileCount: 0,
-              },
-            ],
-      }))
-    const represented = new Set(
-      groups.flatMap((group) =>
-        group.candidates.map((candidate) => candidate.candidateId)
-      )
-    )
-    for (const candidateId of Object.keys(
-      props.value.defaultCandidatePreferenceScores
-    )) {
-      if (represented.has(candidateId)) continue
-      groups.push({
-        modelId: candidateId,
-        candidates: [
-          {
-            candidateId,
-            modelId: candidateId.split('@')[0],
-            displayName: candidateId,
-            kind: 'base' as const,
-            protocols: [] as Array<'responses' | 'messages'>,
-            responsesProfileCount: 0,
-            messagesProfileCount: 0,
-          },
-        ],
-      })
-    }
-    return groups
-      .filter((group) => group.candidates.length > 0)
-      .sort((left, right) => left.modelId.localeCompare(right.modelId))
-  }, [props.modelPool, props.value.defaultCandidatePreferenceScores])
+  const candidateGroups = useMemo(
+    () =>
+      buildCandidatePreferenceGroups(
+        props.modelPool,
+        props.value.defaultCandidatePreferenceScores
+      ),
+    [props.modelPool, props.value.defaultCandidatePreferenceScores]
+  )
   const numberField = (
     label: string,
     value: number,
@@ -1546,7 +1594,7 @@ export function RoutingUtilityEditor(props: {
     max: number,
     step = 1
   ) => (
-    <label className='space-y-1 text-xs'>
+    <label key={label} className='space-y-1 text-xs'>
       <span className='text-muted-foreground'>{t(label)}</span>
       <input
         className='bg-background h-8 w-full rounded-md border px-2'
