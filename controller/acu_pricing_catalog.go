@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -128,6 +129,7 @@ var acuPricingCatalogCache = struct {
 	sync.RWMutex
 	catalog   *acuPricingCatalog
 	expiresAt time.Time
+	lastError string
 }{}
 
 var acuPricingCatalogRefreshMu sync.Mutex
@@ -137,7 +139,11 @@ func loadACUPricingCatalog(ctx context.Context) (*acuPricingCatalog, error) {
 	acuPricingCatalogCache.RLock()
 	if acuPricingCatalogCache.catalog != nil && now.Before(acuPricingCatalogCache.expiresAt) {
 		catalog := acuPricingCatalogCache.catalog
+		lastError := acuPricingCatalogCache.lastError
 		acuPricingCatalogCache.RUnlock()
+		if lastError != "" {
+			return catalog, errors.New(lastError)
+		}
 		return catalog, nil
 	}
 	acuPricingCatalogCache.RUnlock()
@@ -148,7 +154,11 @@ func loadACUPricingCatalog(ctx context.Context) (*acuPricingCatalog, error) {
 	acuPricingCatalogCache.RLock()
 	if acuPricingCatalogCache.catalog != nil && time.Now().Before(acuPricingCatalogCache.expiresAt) {
 		catalog := acuPricingCatalogCache.catalog
+		lastError := acuPricingCatalogCache.lastError
 		acuPricingCatalogCache.RUnlock()
+		if lastError != "" {
+			return catalog, errors.New(lastError)
+		}
 		return catalog, nil
 	}
 	staleCatalog := acuPricingCatalogCache.catalog
@@ -179,7 +189,20 @@ func loadACUPricingCatalog(ctx context.Context) (*acuPricingCatalog, error) {
 	for range protocols {
 		result := <-results
 		if result.err != nil {
-			return staleCatalog, fmt.Errorf("load ACU %s pricing: %w", result.protocol, result.err)
+			fallback, fallbackErr := buildLiveACUPricingCatalog(routingCatalog, corridors)
+			if fallbackErr != nil {
+				return staleCatalog, fmt.Errorf("load ACU %s pricing: %w", result.protocol, result.err)
+			}
+			if displayErr := applyACUPricingDisplayMode(fallback); displayErr != nil {
+				return staleCatalog, displayErr
+			}
+			loadErr := fmt.Errorf("load ACU %s pricing: %w", result.protocol, result.err)
+			acuPricingCatalogCache.Lock()
+			acuPricingCatalogCache.catalog = fallback
+			acuPricingCatalogCache.expiresAt = time.Now().Add(acuPricingCatalogCacheTTL)
+			acuPricingCatalogCache.lastError = loadErr.Error()
+			acuPricingCatalogCache.Unlock()
+			return fallback, loadErr
 		}
 		corridors[result.protocol] = result.value
 	}
@@ -188,20 +211,28 @@ func loadACUPricingCatalog(ctx context.Context) (*acuPricingCatalog, error) {
 	if err != nil {
 		return staleCatalog, err
 	}
+	if err := applyACUPricingDisplayMode(catalog); err != nil {
+		return staleCatalog, err
+	}
+	acuPricingCatalogCache.Lock()
+	acuPricingCatalogCache.catalog = catalog
+	acuPricingCatalogCache.expiresAt = time.Now().Add(acuPricingCatalogCacheTTL)
+	acuPricingCatalogCache.lastError = ""
+	acuPricingCatalogCache.Unlock()
+	return catalog, nil
+}
+
+func applyACUPricingDisplayMode(catalog *acuPricingCatalog) error {
 	if mode := strings.TrimSpace(os.Getenv("ACU_PRICING_DISPLAY_MODE")); mode != "" {
 		if mode != "payable_only" && mode != "reference_only" && mode != "comparison" {
-			return staleCatalog, fmt.Errorf("invalid ACU_PRICING_DISPLAY_MODE %q", mode)
+			return fmt.Errorf("invalid ACU_PRICING_DISPLAY_MODE %q", mode)
 		}
 		catalog.DisplayMode = mode
 	}
 	if catalog.DisplayMode == "" {
 		catalog.DisplayMode = "comparison"
 	}
-	acuPricingCatalogCache.Lock()
-	acuPricingCatalogCache.catalog = catalog
-	acuPricingCatalogCache.expiresAt = time.Now().Add(acuPricingCatalogCacheTTL)
-	acuPricingCatalogCache.Unlock()
-	return catalog, nil
+	return nil
 }
 
 func buildLiveACUPricingCatalog(

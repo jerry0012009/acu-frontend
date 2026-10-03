@@ -162,6 +162,32 @@ func TestBuildLiveACUPricingCatalogUsesRoutingProtocolsAndKeepsUnavailableModels
 	require.NotNil(t, unavailable.TemporarilyUnavailableReason)
 }
 
+func TestBuildLiveACUPricingCatalogKeepsCurvesWhenCorridorsAreUnavailable(t *testing.T) {
+	routingCatalog := dto.ACURoutingCatalog{
+		CatalogVersion:       "catalog-v1",
+		PricingPolicyVersion: "retail-v1",
+		Models: []dto.ACURoutingCatalogModel{{
+			ModelID:          "gpt-test",
+			DisplayName:      "GPT Test",
+			CapabilityTier:   "LUNA",
+			Protocols:        []string{"responses"},
+			AutoRouteEnabled: true,
+			Curve: []dto.ACURoutingCatalogCurvePoint{
+				{DifficultyScore: 0, EstimatedQuality: 0.9, QualityLower: 0.8, QualityUpper: 1},
+				{DifficultyScore: 100, EstimatedQuality: 0.4, QualityLower: 0.3, QualityUpper: 0.5},
+			},
+		}},
+	}
+
+	catalog, err := buildLiveACUPricingCatalog(routingCatalog, map[string]map[string]interface{}{})
+	require.NoError(t, err)
+	require.Len(t, catalog.Responses, 1)
+	require.Len(t, catalog.Responses[0].Curve, 2)
+	require.False(t, catalog.Responses[0].CurrentlyEligible)
+	require.Nil(t, catalog.Responses[0].Payable)
+	require.Equal(t, "temporarily_unavailable", catalog.Responses[0].Status)
+}
+
 func TestCatalogCamelCasePricesProduceSerializablePublicPricing(t *testing.T) {
 	var catalog acuPricingCatalog
 	require.NoError(t, json.Unmarshal([]byte(`{
