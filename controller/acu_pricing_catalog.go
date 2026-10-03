@@ -167,7 +167,9 @@ func loadACUPricingCatalog(ctx context.Context) (*acuPricingCatalog, error) {
 	staleCatalog := acuPricingCatalogCache.catalog
 	acuPricingCatalogCache.RUnlock()
 
-	routingCatalog, err := service.GetACURoutingCatalog(ctx)
+	catalogCtx, cancel := context.WithTimeout(ctx, acuPricingCorridorTimeout)
+	defer cancel()
+	routingCatalog, err := service.GetACURoutingCatalog(catalogCtx)
 	if err != nil {
 		return cacheACUPricingFallback(err, staleCatalog)
 	}
