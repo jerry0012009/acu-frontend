@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
@@ -125,6 +126,7 @@ type acuPricingCatalog struct {
 
 const acuPricingCatalogCacheTTL = 30 * time.Second
 const acuPricingCorridorTimeout = 5 * time.Second
+const acuPricingFallbackCatalogFile = "/app/acu-catalog/newapi-acu-catalog.json"
 
 var acuPricingCatalogCache = struct {
 	sync.RWMutex
@@ -167,10 +169,10 @@ func loadACUPricingCatalog(ctx context.Context) (*acuPricingCatalog, error) {
 
 	routingCatalog, err := service.GetACURoutingCatalog(ctx)
 	if err != nil {
-		return staleCatalog, err
+		return cacheACUPricingFallback(err, staleCatalog)
 	}
 	if routingCatalog.CatalogVersion == "" {
-		return staleCatalog, fmt.Errorf("ACU Router catalog metadata is unavailable")
+		return cacheACUPricingFallback(errors.New("ACU Router catalog metadata is unavailable"), staleCatalog)
 	}
 
 	type corridorResult struct {
@@ -223,6 +225,34 @@ func loadACUPricingCatalog(ctx context.Context) (*acuPricingCatalog, error) {
 	acuPricingCatalogCache.lastError = ""
 	acuPricingCatalogCache.Unlock()
 	return catalog, nil
+}
+
+func cacheACUPricingFallback(loadErr error, staleCatalog *acuPricingCatalog) (*acuPricingCatalog, error) {
+	fallback := staleCatalog
+	if fallback == nil {
+		path := strings.TrimSpace(os.Getenv("ACU_PRICING_FALLBACK_CATALOG_FILE"))
+		if path == "" {
+			path = acuPricingFallbackCatalogFile
+		}
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("load ACU pricing fallback catalog: %w", loadErr)
+		}
+		fallback = &acuPricingCatalog{}
+		if err := common.Unmarshal(raw, fallback); err != nil {
+			return nil, fmt.Errorf("decode ACU pricing fallback catalog: %w", err)
+		}
+	}
+	if err := applyACUPricingDisplayMode(fallback); err != nil {
+		return nil, err
+	}
+	err := fmt.Errorf("load ACU Router catalog: %w", loadErr)
+	acuPricingCatalogCache.Lock()
+	acuPricingCatalogCache.catalog = fallback
+	acuPricingCatalogCache.expiresAt = time.Now().Add(acuPricingCatalogCacheTTL)
+	acuPricingCatalogCache.lastError = err.Error()
+	acuPricingCatalogCache.Unlock()
+	return fallback, err
 }
 
 func applyACUPricingDisplayMode(catalog *acuPricingCatalog) error {
