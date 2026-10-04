@@ -803,7 +803,7 @@ func runACUProfileGpttesticuRequest(
 ) (map[string]interface{}, error) {
 	result, err := acuExecutionProfileRequestWithTimeout(
 		ctx,
-		210*time.Second,
+		330*time.Second,
 		http.MethodPost,
 		"/internal/admin/execution-profiles/gpttesticu",
 		map[string]interface{}{"executionProfileId": profileID},

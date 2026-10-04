@@ -1122,7 +1122,7 @@ export async function runACUProfileGpttesticu(executionProfileId: string) {
   )
   const jobId = started.data?.jobId
   if (!jobId) throw new Error('gpttesticu did not return a job id')
-  for (let attempt = 0; attempt < 120; attempt += 1) {
+  for (let attempt = 0; attempt < 180; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, 2000))
     const statusResponse = await api.get(
       `/api/log/acu-channel-monitor/gpttesticu/${encodeURIComponent(jobId)}`
