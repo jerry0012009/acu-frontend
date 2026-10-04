@@ -97,7 +97,9 @@ export function ACUVeridropInspector(props: {
           </div>
           {props.loading ? (
             <div className='text-muted-foreground rounded border p-3'>
-              {t('Running Veridrop check...')}
+              {props.method === 'gpttesticu'
+                ? t('Generating SVG preview...')
+                : t('Running Veridrop check...')}
             </div>
           ) : null}
           {props.requestError ? (

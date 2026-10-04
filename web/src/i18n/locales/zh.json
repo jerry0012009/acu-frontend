@@ -5974,6 +5974,7 @@
     "SVG behavior": "SVG 行为",
     "Sampled output": "采样输出",
     "SVG preview": "SVG 预览",
+    "Generating SVG preview...": "正在生成 SVG 预览……",
     "This protocol is not supported by the quick check": "当前协议暂不支持快速检测",
     "Detector summary": "检测项摘要",
     "Detected model": "检测到的模型",

@@ -1306,7 +1306,7 @@ export function ACUChannelMonitor(
         profile={veridropInspector?.profile ?? null}
         protocol={veridropInspector?.protocol ?? null}
         method={veridropInspector?.method ?? 'veridrop'}
-        loading={veridropMutation.isPending}
+        loading={veridropMutation.isPending || gpttesticuMutation.isPending}
         result={veridropInspector?.result ?? null}
         requestError={veridropInspector?.requestError}
         onOpenChange={(open) => {
