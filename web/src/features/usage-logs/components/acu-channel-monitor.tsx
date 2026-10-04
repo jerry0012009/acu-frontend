@@ -30,6 +30,7 @@ import {
   getACUGlobalRoutingPolicy,
   getACURoutingUtilityConfig,
   getACUTokenProfileRouting,
+  runACUProfileGpttesticu,
   runACUProfileVeridrop,
   probeACUExecutionProfileById,
   reconcileACUExecutionProfileCalibration,
@@ -91,6 +92,7 @@ type VeridropInspectorState = {
   profile: ACUChannelMonitorProfile
   protocol: string
   result: ACUVeridropResult | null
+  method: 'veridrop' | 'gpttesticu'
   requestError?: string
 }
 
@@ -487,6 +489,35 @@ export function ACUChannelMonitor(
           : current
       ),
   })
+  const gpttesticuMutation = useMutation({
+    mutationFn: (executionProfileId: string) =>
+      runACUProfileGpttesticu(executionProfileId),
+    onSuccess: (result) => {
+      setVeridropInspector((current) =>
+        current && current.method === 'gpttesticu'
+          ? {
+              ...current,
+              result: result.data ?? null,
+              requestError: result.data
+                ? undefined
+                : result.message || t('gpttesticu check failed'),
+            }
+          : current
+      )
+    },
+    onError: (error) =>
+      setVeridropInspector((current) =>
+        current && current.method === 'gpttesticu'
+          ? {
+              ...current,
+              requestError:
+                error instanceof Error
+                  ? error.message
+                  : t('gpttesticu check failed'),
+            }
+          : current
+      ),
+  })
   const calibrationMutation = useMutation({
     mutationFn: (input: {
       executionProfileId: string
@@ -632,6 +663,7 @@ export function ACUChannelMonitor(
       setVeridropInspector({
         profile,
         protocol: checkProtocol,
+        method: 'veridrop',
         result: null,
       })
       veridropMutation.mutate({
@@ -643,6 +675,22 @@ export function ACUChannelMonitor(
       })
     },
   }
+  const gpttesticuActions = isAdmin
+    ? {
+        isPending: (profileId: string) =>
+          gpttesticuMutation.isPending &&
+          gpttesticuMutation.variables === profileId,
+        onCheck: (profile: ACUChannelMonitorProfile) => {
+          setVeridropInspector({
+            profile,
+            protocol: 'responses',
+            method: 'gpttesticu',
+            result: null,
+          })
+          gpttesticuMutation.mutate(profile.executionProfileId)
+        },
+      }
+    : undefined
   const tokenProfileActions =
     selectedToken && selectedTokenId != null
       ? {
@@ -1078,6 +1126,7 @@ export function ACUChannelMonitor(
                     generatedAt={query.data?.data?.generatedAt ?? ''}
                     profileActions={profileActions}
                     veridropActions={veridropActions}
+                    gpttesticuActions={gpttesticuActions}
                     profileNoteActions={profileNoteActions}
                     tokenProfileActions={tokenProfileActions}
                   />
@@ -1091,6 +1140,7 @@ export function ACUChannelMonitor(
                     probeRange={probeRange}
                     profileActions={profileActions}
                     veridropActions={veridropActions}
+                    gpttesticuActions={gpttesticuActions}
                     tokenProfileActions={tokenProfileActions}
                     profileNoteActions={profileNoteActions}
                   />
@@ -1255,6 +1305,7 @@ export function ACUChannelMonitor(
         open={veridropInspector !== null}
         profile={veridropInspector?.profile ?? null}
         protocol={veridropInspector?.protocol ?? null}
+        method={veridropInspector?.method ?? 'veridrop'}
         loading={veridropMutation.isPending}
         result={veridropInspector?.result ?? null}
         requestError={veridropInspector?.requestError}

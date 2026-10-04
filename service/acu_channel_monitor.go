@@ -35,6 +35,8 @@ var acuChannelMonitorCache = struct {
 var acuProfilePublicNotesMu sync.Mutex
 var acuVeridropMu sync.Mutex
 var acuVeridropLastRun = map[string]time.Time{}
+var acuGpttesticuMu sync.Mutex
+var acuGpttesticuLastRun = map[string]time.Time{}
 
 func clearACUChannelMonitorCache() {
 	acuChannelMonitorCache.Lock()
@@ -750,6 +752,45 @@ func RunACUProfileVeridrop(
 		acuVeridropMu.Lock()
 		delete(acuVeridropLastRun, key)
 		acuVeridropMu.Unlock()
+		return nil, err
+	}
+	return result, nil
+}
+
+func RunACUProfileGpttesticu(
+	ctx context.Context,
+	userID int,
+	input map[string]interface{},
+) (map[string]interface{}, error) {
+	profileID, ok := input["executionProfileId"].(string)
+	if !ok || strings.TrimSpace(profileID) == "" {
+		return nil, errors.New("executionProfileId is required")
+	}
+	if len(input) != 1 {
+		return nil, errors.New("only executionProfileId is accepted")
+	}
+	key := fmt.Sprintf("%d:%s", userID, strings.TrimSpace(profileID))
+	acuGpttesticuMu.Lock()
+	if last, found := acuGpttesticuLastRun[key]; found {
+		remaining := acuVeridropCooldown - time.Since(last)
+		if remaining > 0 {
+			acuGpttesticuMu.Unlock()
+			return nil, fmt.Errorf("check is cooling down; retry in %d seconds", int(remaining.Seconds())+1)
+		}
+	}
+	acuGpttesticuLastRun[key] = time.Now()
+	acuGpttesticuMu.Unlock()
+	result, err := acuExecutionProfileRequestWithTimeout(
+		ctx,
+		210*time.Second,
+		http.MethodPost,
+		"/internal/admin/execution-profiles/gpttesticu",
+		map[string]interface{}{"executionProfileId": strings.TrimSpace(profileID)},
+	)
+	if err != nil {
+		acuGpttesticuMu.Lock()
+		delete(acuGpttesticuLastRun, key)
+		acuGpttesticuMu.Unlock()
 		return nil, err
 	}
 	return result, nil

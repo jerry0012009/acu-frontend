@@ -67,6 +67,18 @@ func TestACUChannelMonitorIsUserReadableWhileManagementRemainsRestricted(t *test
 		engine.ServeHTTP(recorder, req)
 		return recorder
 	}
+	gpttesticu := func(token string) *httptest.ResponseRecorder {
+		recorder := httptest.NewRecorder()
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/api/log/acu-channel-monitor/gpttesticu",
+			bytes.NewBufferString(`{"executionProfileId":"fixture:model:responses"}`),
+		)
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+		engine.ServeHTTP(recorder, req)
+		return recorder
+	}
 
 	require.Equal(t, http.StatusOK, request("/api/log/acu-channel-monitor", "regular-user-pat").Code)
 	require.Equal(t, http.StatusOK, request("/api/log/acu-channel-monitor", "admin-user-pat").Code)
@@ -74,6 +86,9 @@ func TestACUChannelMonitorIsUserReadableWhileManagementRemainsRestricted(t *test
 	require.Equal(t, http.StatusForbidden, request("/api/log/acu-execution-profiles", "admin-user-pat").Code)
 	require.Equal(t, http.StatusOK, request("/api/log/acu-execution-profiles", "root-user-pat").Code)
 	require.Equal(t, http.StatusOK, request("/api/user/self/acu-routing-catalog", "regular-user-pat").Code)
+	require.Equal(t, http.StatusForbidden, gpttesticu("regular-user-pat").Code)
+	require.Equal(t, http.StatusOK, gpttesticu("admin-user-pat").Code)
+	require.Equal(t, http.StatusOK, gpttesticu("root-user-pat").Code)
 
 	updateNote := func(token string) *httptest.ResponseRecorder {
 		recorder := httptest.NewRecorder()

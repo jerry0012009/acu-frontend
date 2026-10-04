@@ -94,6 +94,10 @@ export function ACUChannelHealthCard(props: {
     isPending: (profileId: string) => boolean
     onCheck: (profile: ACUChannelMonitorProfile, protocol: string) => void
   }
+  gpttesticuActions?: {
+    isPending: (profileId: string) => boolean
+    onCheck: (profile: ACUChannelMonitorProfile) => void
+  }
 }) {
   const { t, i18n } = useTranslation()
   const [expanded, setExpanded] = useState(false)
@@ -253,6 +257,7 @@ export function ACUChannelHealthCard(props: {
               profile={profile}
               actions={props.profileActions}
               veridropActions={props.veridropActions}
+              gpttesticuActions={props.gpttesticuActions}
               noteActions={props.profileNoteActions}
               tokenActions={props.tokenProfileActions}
             />
@@ -292,6 +297,10 @@ function ChannelProfile(props: {
     isPending: (profileId: string) => boolean
     onCheck: (profile: ACUChannelMonitorProfile, protocol: string) => void
   }
+  gpttesticuActions?: {
+    isPending: (profileId: string) => boolean
+    onCheck: (profile: ACUChannelMonitorProfile) => void
+  }
 }) {
   const { t, i18n } = useTranslation()
   const profile = props.profile
@@ -308,6 +317,9 @@ function ChannelProfile(props: {
     props.actions?.isProbePending(profile.executionProfileId) ?? false
   const veridropPending =
     props.veridropActions?.isPending(profile.executionProfileId) ?? false
+  const gpttesticuPending =
+    props.gpttesticuActions?.isPending(profile.executionProfileId) ?? false
+  const supportsResponses = profile.protocol.includes('responses')
   const notePending =
     props.noteActions?.isPending(profile.executionProfileId) ?? false
   const tokenScope = props.tokenActions?.scope
@@ -387,7 +399,7 @@ function ChannelProfile(props: {
           ) : null}
         </div>
       ) : null}
-      {(props.actions || props.veridropActions) && (
+      {(props.actions || props.veridropActions || props.gpttesticuActions) && (
         <div className='mt-3 flex flex-wrap items-center gap-2 border-t pt-3'>
           {props.actions ? (
             <>
@@ -442,6 +454,16 @@ function ChannelProfile(props: {
               }}
             >
               {veridropPending ? t('Checking...') : t('Veridrop')}
+            </Button>
+          ) : null}
+          {props.gpttesticuActions ? (
+            <Button
+              size='sm'
+              variant='outline'
+              disabled={!supportsResponses || gpttesticuPending}
+              onClick={() => props.gpttesticuActions?.onCheck(profile)}
+            >
+              {gpttesticuPending ? t('Checking...') : t('SVG behavior')}
             </Button>
           ) : null}
           {tokenActions?.onSetWeight &&

@@ -53,6 +53,20 @@ func RunACUProfileVeridrop(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
 }
 
+func RunACUProfileGpttesticu(c *gin.Context) {
+	var input map[string]interface{}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	result, err := service.RunACUProfileGpttesticu(c.Request.Context(), c.GetInt("id"), input)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
 func GetACURoutingCatalog(c *gin.Context) {
 	result, err := service.GetACURoutingCatalog(c.Request.Context())
 	if err != nil {

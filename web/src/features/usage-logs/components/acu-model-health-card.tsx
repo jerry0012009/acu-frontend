@@ -72,6 +72,10 @@ export function ACUModelHealthCard(props: {
     isPending: (profileId: string) => boolean
     onCheck: (profile: ACUChannelMonitorProfile, protocol: string) => void
   }
+  gpttesticuActions?: {
+    isPending: (profileId: string) => boolean
+    onCheck: (profile: ACUChannelMonitorProfile) => void
+  }
 }) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(() =>
@@ -157,6 +161,7 @@ export function ACUModelHealthCard(props: {
               probeRange={probeRange}
               actions={props.profileActions}
               veridropActions={props.veridropActions}
+              gpttesticuActions={props.gpttesticuActions}
               tokenActions={props.tokenProfileActions}
               noteActions={props.profileNoteActions}
             />
@@ -199,6 +204,10 @@ function ModelProfile(props: {
     isPending: (profileId: string) => boolean
     onCheck: (profile: ACUChannelMonitorProfile, protocol: string) => void
   }
+  gpttesticuActions?: {
+    isPending: (profileId: string) => boolean
+    onCheck: (profile: ACUChannelMonitorProfile) => void
+  }
 }) {
   const { t } = useTranslation()
   const profile = props.profile
@@ -224,6 +233,9 @@ function ModelProfile(props: {
     props.actions?.isProbePending(profile.executionProfileId) ?? false
   const veridropPending =
     props.veridropActions?.isPending(profile.executionProfileId) ?? false
+  const gpttesticuPending =
+    props.gpttesticuActions?.isPending(profile.executionProfileId) ?? false
+  const supportsResponses = profile.protocol.includes('responses')
   const tokenScope = props.tokenActions?.scope
   const tokenActions = props.tokenActions
   const globallyAvailableForToken =
@@ -317,7 +329,7 @@ function ModelProfile(props: {
           />
         ) : null}
       </div>
-      {props.actions || props.veridropActions ? (
+      {props.actions || props.veridropActions || props.gpttesticuActions ? (
         <div className='mt-3 flex flex-wrap items-center gap-2 border-t pt-3'>
           {props.actions ? (
             <>
@@ -369,6 +381,16 @@ function ModelProfile(props: {
               }}
             >
               {veridropPending ? t('Checking...') : t('Veridrop')}
+            </Button>
+          ) : null}
+          {props.gpttesticuActions ? (
+            <Button
+              size='sm'
+              variant='outline'
+              disabled={!supportsResponses || gpttesticuPending}
+              onClick={() => props.gpttesticuActions?.onCheck(profile)}
+            >
+              {gpttesticuPending ? t('Checking...') : t('SVG behavior')}
             </Button>
           ) : null}
           {tokenActions?.onSetWeight &&

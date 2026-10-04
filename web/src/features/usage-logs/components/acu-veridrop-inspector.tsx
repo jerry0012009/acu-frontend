@@ -24,6 +24,7 @@ export function ACUVeridropInspector(props: {
   protocol: string | null
   loading: boolean
   result: ACUVeridropResult | null
+  method?: 'veridrop' | 'gpttesticu'
   requestError?: string
   onOpenChange: (open: boolean) => void
 }) {
@@ -32,9 +33,15 @@ export function ACUVeridropInspector(props: {
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
       <SheetContent side='right' className='sm:max-w-xl'>
         <SheetHeader>
-          <SheetTitle>{t('Veridrop check')}</SheetTitle>
+          <SheetTitle>
+            {props.method === 'gpttesticu'
+              ? t('gpttesticu SVG check')
+              : t('Veridrop check')}
+          </SheetTitle>
           <SheetDescription>
-            {t('Standard authenticity check for this ACU route')}
+            {props.method === 'gpttesticu'
+              ? t('Administrator-only SVG behavior check for this ACU route')
+              : t('Standard authenticity check for this ACU route')}
           </SheetDescription>
         </SheetHeader>
         <div className='min-h-0 flex-1 space-y-3 overflow-y-auto px-4 text-xs'>
@@ -116,6 +123,14 @@ export function ACUVeridropInspector(props: {
                   <div className='font-medium'>{t('Performance evidence')}</div>
                   <pre className='bg-muted/40 max-h-56 overflow-auto rounded p-2 text-[11px] break-words whitespace-pre-wrap'>
                     {formatEvidence(props.result.performance)}
+                  </pre>
+                </div>
+              ) : null}
+              {props.result.sample ? (
+                <div className='space-y-2 rounded border p-2'>
+                  <div className='font-medium'>{t('Sampled output')}</div>
+                  <pre className='bg-muted/40 max-h-80 overflow-auto rounded p-2 text-[11px] break-words whitespace-pre-wrap'>
+                    {props.result.sample}
                   </pre>
                 </div>
               ) : null}

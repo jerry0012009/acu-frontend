@@ -645,6 +645,26 @@ export type ACUVeridropResult = {
   selfReportedIdentity?: string | null
   detectedBrands?: string[]
   summary?: string | null
+  sample?: string
+  completedAt?: string
+  reason?: string
+  routingImpact: 'none'
+}
+
+export type ACUGpttesticuResult = {
+  supported: boolean
+  status: 'done' | 'unsupported'
+  protocol: string
+  mode?: 'quick' | 'standard' | 'full'
+  requestedModel?: string
+  targetModel?: string | null
+  actualModel?: string | null
+  verdict?: string
+  score?: number | null
+  detectors?: Array<Record<string, unknown>>
+  performance?: Record<string, unknown>
+  sample?: string
+  summary?: string | null
   completedAt?: string
   reason?: string
   routingImpact: 'none'
@@ -1085,6 +1105,19 @@ export async function runACUProfileVeridrop(
       success: boolean
       message?: string
       data?: ACUVeridropResult
+    }
+  )
+}
+
+export async function runACUProfileGpttesticu(executionProfileId: string) {
+  const res = await api.post('/api/log/acu-channel-monitor/gpttesticu', {
+    executionProfileId,
+  })
+  return requireACUSuccess(
+    res.data as {
+      success: boolean
+      message?: string
+      data?: ACUGpttesticuResult
     }
   )
 }
