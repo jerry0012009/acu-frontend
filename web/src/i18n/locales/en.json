@@ -5973,6 +5973,7 @@
     "gpttesticu check failed": "gpttesticu check failed",
     "SVG behavior": "SVG behavior",
     "Sampled output": "Sampled output",
+    "SVG preview": "SVG preview",
     "This protocol is not supported by the quick check": "This protocol is not supported by the quick check",
     "Detector summary": "Detector summary",
     "Detected model": "Detected model",
