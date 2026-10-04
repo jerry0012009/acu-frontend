@@ -87,8 +87,8 @@ func TestACUChannelMonitorIsUserReadableWhileManagementRemainsRestricted(t *test
 	require.Equal(t, http.StatusOK, request("/api/log/acu-execution-profiles", "root-user-pat").Code)
 	require.Equal(t, http.StatusOK, request("/api/user/self/acu-routing-catalog", "regular-user-pat").Code)
 	require.Equal(t, http.StatusForbidden, gpttesticu("regular-user-pat").Code)
-	require.Equal(t, http.StatusOK, gpttesticu("admin-user-pat").Code)
-	require.Equal(t, http.StatusOK, gpttesticu("root-user-pat").Code)
+	require.Equal(t, http.StatusAccepted, gpttesticu("admin-user-pat").Code)
+	require.Equal(t, http.StatusAccepted, gpttesticu("root-user-pat").Code)
 
 	updateNote := func(token string) *httptest.ResponseRecorder {
 		recorder := httptest.NewRecorder()

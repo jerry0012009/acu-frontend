@@ -59,7 +59,19 @@ func RunACUProfileGpttesticu(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	result, err := service.RunACUProfileGpttesticu(c.Request.Context(), c.GetInt("id"), input)
+	result, err := service.StartACUProfileGpttesticu(c.Request.Context(), c.GetInt("id"), input)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusAccepted, gin.H{"success": true, "message": "", "data": result})
+}
+
+func GetACUProfileGpttesticu(c *gin.Context) {
+	result, err := service.GetACUProfileGpttesticu(
+		c.GetInt("id"),
+		c.Param("jobId"),
+	)
 	if err != nil {
 		common.ApiError(c, err)
 		return

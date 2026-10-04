@@ -1,4 +1,3 @@
-import DOMPurify from 'dompurify'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -10,6 +9,10 @@ import {
 } from '@/components/ui/sheet'
 
 import type { ACUChannelMonitorProfile, ACUVeridropResult } from '../api'
+import {
+  buildGpttesticuPreview,
+  extractGpttesticuHtml,
+} from '../lib/gpttesticu-render'
 
 function formatEvidence(value: unknown): string {
   try {
@@ -17,45 +20,6 @@ function formatEvidence(value: unknown): string {
   } catch {
     return String(value)
   }
-}
-
-function extractRenderableDocument(value: string): string | null {
-  const fenced = [
-    ...value.matchAll(
-      /```(?:html|htm|xml|svg)?[^\S\n]*\r?\n([\s\S]*?)(?:```|$)/gi
-    ),
-  ]
-    .map((match) => match[1])
-    .filter((candidate) => /<svg\b/i.test(candidate))
-  if (fenced.length) return fenced.at(-1)?.trim() ?? null
-
-  const lower = value.toLowerCase()
-  const htmlStart = lower.indexOf('<!doctype html')
-  const rootStart = lower.indexOf('<html')
-  if (htmlStart >= 0 || rootStart >= 0) {
-    const start =
-      htmlStart >= 0 && (rootStart < 0 || htmlStart < rootStart)
-        ? htmlStart
-        : rootStart
-    return value.slice(start).trim()
-  }
-
-  const svgStart = lower.indexOf('<svg')
-  if (svgStart >= 0) return value.slice(svgStart).trim()
-  return null
-}
-
-function buildSafePreview(value: string): string | null {
-  const document = extractRenderableDocument(value)
-  if (!document || !/<svg\b/i.test(document)) return null
-  const sanitized = DOMPurify.sanitize(document, {
-    USE_PROFILES: { html: true, svg: true, svgFilters: true },
-    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form'],
-    FORBID_ATTR: ['src', 'href', 'xlink:href', 'action', 'formaction'],
-    ALLOW_DATA_ATTR: false,
-  })
-  if (!/<svg\b/i.test(sanitized)) return null
-  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'none'; script-src 'none'; base-uri 'none'; form-action 'none'"><style>html,body{margin:0;min-height:100%;background:#fff}body{display:grid;place-items:center;padding:12px}svg{width:100%;height:auto;max-height:100%;display:block}</style></head><body>${sanitized}</body></html>`
 }
 
 export function ACUVeridropInspector(props: {
@@ -69,9 +33,12 @@ export function ACUVeridropInspector(props: {
   onOpenChange: (open: boolean) => void
 }) {
   const { t } = useTranslation()
+  const extractedHtml = props.result?.sample
+    ? extractGpttesticuHtml(props.result.sample)
+    : null
   const previewDocument =
-    props.method === 'gpttesticu' && props.result?.sample
-      ? buildSafePreview(props.result.sample)
+    props.method === 'gpttesticu' && extractedHtml
+      ? buildGpttesticuPreview(extractedHtml)
       : null
   return (
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>

@@ -1113,13 +1113,43 @@ export async function runACUProfileGpttesticu(executionProfileId: string) {
   const res = await api.post('/api/log/acu-channel-monitor/gpttesticu', {
     executionProfileId,
   })
-  return requireACUSuccess(
+  const started = requireACUSuccess(
     res.data as {
       success: boolean
       message?: string
-      data?: ACUGpttesticuResult
+      data?: { jobId: string; status: 'running' }
     }
   )
+  const jobId = started.data?.jobId
+  if (!jobId) throw new Error('gpttesticu did not return a job id')
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+    const statusResponse = await api.get(
+      `/api/log/acu-channel-monitor/gpttesticu/${encodeURIComponent(jobId)}`
+    )
+    const status = requireACUSuccess(
+      statusResponse.data as {
+        success: boolean
+        message?: string
+        data?: {
+          status: 'running' | 'done' | 'error'
+          result?: ACUGpttesticuResult
+          error?: string
+        }
+      }
+    )
+    if (status.data?.status === 'done' && status.data.result) {
+      return {
+        success: true,
+        message: '',
+        data: status.data.result,
+      }
+    }
+    if (status.data?.status === 'error') {
+      throw new Error(status.data.error || 'gpttesticu check failed')
+    }
+  }
+  throw new Error('gpttesticu check timed out')
 }
 
 export async function getUserInfo(

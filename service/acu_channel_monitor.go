@@ -3,6 +3,8 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -37,6 +39,19 @@ var acuVeridropMu sync.Mutex
 var acuVeridropLastRun = map[string]time.Time{}
 var acuGpttesticuMu sync.Mutex
 var acuGpttesticuLastRun = map[string]time.Time{}
+
+type acuGpttesticuJob struct {
+	userID      int
+	cooldownKey string
+	status      string
+	result      map[string]interface{}
+	errorText   string
+	startedAt   time.Time
+	completedAt *time.Time
+}
+
+var acuGpttesticuJobs = map[string]*acuGpttesticuJob{}
+var acuGpttesticuJobsMu sync.Mutex
 
 func clearACUChannelMonitorCache() {
 	acuChannelMonitorCache.Lock()
@@ -757,41 +772,155 @@ func RunACUProfileVeridrop(
 	return result, nil
 }
 
-func RunACUProfileGpttesticu(
-	ctx context.Context,
-	userID int,
-	input map[string]interface{},
-) (map[string]interface{}, error) {
+func validateACUProfileGpttesticuInput(input map[string]interface{}) (string, error) {
 	profileID, ok := input["executionProfileId"].(string)
 	if !ok || strings.TrimSpace(profileID) == "" {
-		return nil, errors.New("executionProfileId is required")
+		return "", errors.New("executionProfileId is required")
 	}
 	if len(input) != 1 {
-		return nil, errors.New("only executionProfileId is accepted")
+		return "", errors.New("only executionProfileId is accepted")
 	}
-	key := fmt.Sprintf("%d:%s", userID, strings.TrimSpace(profileID))
+	return strings.TrimSpace(profileID), nil
+}
+
+func reserveACUProfileGpttesticu(userID int, profileID string) error {
+	key := fmt.Sprintf("%d:%s", userID, profileID)
 	acuGpttesticuMu.Lock()
+	defer acuGpttesticuMu.Unlock()
 	if last, found := acuGpttesticuLastRun[key]; found {
 		remaining := acuVeridropCooldown - time.Since(last)
 		if remaining > 0 {
-			acuGpttesticuMu.Unlock()
-			return nil, fmt.Errorf("check is cooling down; retry in %d seconds", int(remaining.Seconds())+1)
+			return fmt.Errorf("check is cooling down; retry in %d seconds", int(remaining.Seconds())+1)
 		}
 	}
 	acuGpttesticuLastRun[key] = time.Now()
-	acuGpttesticuMu.Unlock()
+	return nil
+}
+
+func runACUProfileGpttesticuRequest(
+	ctx context.Context,
+	profileID string,
+) (map[string]interface{}, error) {
 	result, err := acuExecutionProfileRequestWithTimeout(
 		ctx,
 		210*time.Second,
 		http.MethodPost,
 		"/internal/admin/execution-profiles/gpttesticu",
-		map[string]interface{}{"executionProfileId": strings.TrimSpace(profileID)},
+		map[string]interface{}{"executionProfileId": profileID},
 	)
+	return result, err
+}
+
+func newACUGpttesticuJobID() (string, error) {
+	raw := make([]byte, 16)
+	if _, err := rand.Read(raw); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(raw), nil
+}
+
+func StartACUProfileGpttesticu(
+	ctx context.Context,
+	userID int,
+	input map[string]interface{},
+) (map[string]interface{}, error) {
+	profileID, err := validateACUProfileGpttesticuInput(input)
 	if err != nil {
-		acuGpttesticuMu.Lock()
-		delete(acuGpttesticuLastRun, key)
-		acuGpttesticuMu.Unlock()
 		return nil, err
 	}
+	if err := reserveACUProfileGpttesticu(userID, profileID); err != nil {
+		return nil, err
+	}
+	jobID, err := newACUGpttesticuJobID()
+	if err != nil {
+		return nil, err
+	}
+	job := &acuGpttesticuJob{
+		userID:      userID,
+		cooldownKey: fmt.Sprintf("%d:%s", userID, profileID),
+		status:      "running",
+		startedAt:   time.Now(),
+	}
+	acuGpttesticuJobsMu.Lock()
+	acuGpttesticuJobs[jobID] = job
+	acuGpttesticuJobsMu.Unlock()
+	go func() {
+		result, requestErr := runACUProfileGpttesticuRequest(context.Background(), profileID)
+		completedAt := time.Now()
+		acuGpttesticuJobsMu.Lock()
+		defer acuGpttesticuJobsMu.Unlock()
+		job.completedAt = &completedAt
+		if requestErr != nil {
+			job.status = "error"
+			job.errorText = requestErr.Error()
+			acuGpttesticuMu.Lock()
+			delete(acuGpttesticuLastRun, job.cooldownKey)
+			acuGpttesticuMu.Unlock()
+			return
+		}
+		job.status = "done"
+		job.result = result
+	}()
+	return map[string]interface{}{
+		"jobId":     jobID,
+		"status":    "running",
+		"startedAt": job.startedAt.Format(time.RFC3339),
+	}, nil
+}
+
+func GetACUProfileGpttesticu(
+	userID int,
+	jobID string,
+) (map[string]interface{}, error) {
+	jobID = strings.TrimSpace(jobID)
+	acuGpttesticuJobsMu.Lock()
+	job, found := acuGpttesticuJobs[jobID]
+	if found && job.status != "running" && job.completedAt != nil &&
+		time.Since(*job.completedAt) > 15*time.Minute {
+		delete(acuGpttesticuJobs, jobID)
+		found = false
+	}
+	acuGpttesticuJobsMu.Unlock()
+	if !found || job.userID != userID {
+		return nil, errors.New("gpttesticu job not found")
+	}
+	acuGpttesticuJobsMu.Lock()
+	status := job.status
+	startedAt := job.startedAt
+	completedAt := job.completedAt
+	jobResult := job.result
+	errorText := job.errorText
+	acuGpttesticuJobsMu.Unlock()
+	result := map[string]interface{}{
+		"jobId":  jobID,
+		"status": status,
+	}
+	if !startedAt.IsZero() {
+		result["startedAt"] = startedAt.Format(time.RFC3339)
+	}
+	if completedAt != nil {
+		result["completedAt"] = completedAt.Format(time.RFC3339)
+	}
+	if status == "done" {
+		result["result"] = jobResult
+	}
+	if status == "error" {
+		result["error"] = errorText
+	}
 	return result, nil
+}
+
+func RunACUProfileGpttesticu(
+	ctx context.Context,
+	userID int,
+	input map[string]interface{},
+) (map[string]interface{}, error) {
+	profileID, err := validateACUProfileGpttesticuInput(input)
+	if err != nil {
+		return nil, err
+	}
+	if err := reserveACUProfileGpttesticu(userID, profileID); err != nil {
+		return nil, err
+	}
+	return runACUProfileGpttesticuRequest(ctx, profileID)
 }
