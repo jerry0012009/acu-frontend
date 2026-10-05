@@ -495,12 +495,22 @@ export function addExplicitQuality(
             officialCostCny: number
           } => value != null && Number.isFinite(value.officialCostCny)
         )
-      const affordable = references
+      const pricedReferences = references.filter(
+        (reference) => reference.officialCostCny > 0
+      )
+      const affordable = pricedReferences
         .filter((reference) => reference.officialCostCny <= modelCharge + 1e-10)
         .sort(
           (left, right) =>
             right.estimatedQuality - left.estimatedQuality ||
             left.officialCostCny - right.officialCostCny
+        )[0]
+      const sameBudget =
+        affordable ??
+        [...pricedReferences].sort(
+          (left, right) =>
+            left.officialCostCny - right.officialCostCny ||
+            right.estimatedQuality - left.estimatedQuality
         )[0]
       const mostExpensive =
         references.find((reference) => reference.modelId === 'gpt-6-astra') ??
@@ -509,7 +519,7 @@ export function addExplicitQuality(
             right.officialCostCny - left.officialCostCny ||
             right.estimatedQuality - left.estimatedQuality
         )[0]
-      if (affordable) comparison.sameBudget = affordable
+      if (sameBudget) comparison.sameBudget = sameBudget
       if (mostExpensive) comparison.mostExpensive = mostExpensive
     }
 

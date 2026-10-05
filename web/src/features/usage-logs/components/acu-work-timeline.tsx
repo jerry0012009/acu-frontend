@@ -977,7 +977,7 @@ export function ACUWorkTimeline() {
       '',
     ],
     [
-      t('Official direct equivalent'),
+      t('Official API price'),
       visibleItems.length > 0 &&
       visibleItems.every(
         (item) =>
@@ -1087,20 +1087,6 @@ export function ACUWorkTimeline() {
               />
               {t('Quality points')}
             </span>
-            {chartItems.some((item) => item.displayQualityInferred) ? (
-              <span className='flex items-center gap-2'>
-                <span
-                  aria-hidden='true'
-                  className='size-2.5 rounded-full border-2'
-                  style={{
-                    borderColor: qualityColors.executed,
-                    backgroundColor:
-                      resolvedTheme === 'dark' ? '#0f172a' : '#ffffff',
-                  }}
-                />
-                {t('Inferred execution quality')}
-              </span>
-            ) : null}
           </div>
         ) : null}
         {chartView === 'quality' &&
@@ -1136,7 +1122,7 @@ export function ACUWorkTimeline() {
                 aria-hidden='true'
                 className='w-5 border-t border-dashed border-slate-500 dark:border-slate-300'
               />
-              {t('Official direct equivalent')}
+              {t('Official API price')}
             </span>
           </div>
         ) : null}

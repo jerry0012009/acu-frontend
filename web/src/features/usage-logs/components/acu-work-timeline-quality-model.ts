@@ -114,14 +114,14 @@ export function timelineCostDifference(
   if (charge == null || official == null || official <= 0) return '\u2014'
   const difference = charge - official
   const change = (Math.abs(difference) / official) * 100
-  if (Math.abs(difference) < 1e-10) return t('Same as official direct')
+  if (Math.abs(difference) < 1e-10) return t('Same as official API')
   const values = {
     amount: money(Math.abs(difference)),
     percent: change.toFixed(1),
   }
   return difference > 0
-    ? t('Above official direct by {{amount}} ({{percent}}%)', values)
-    : t('Below official direct by {{amount}} ({{percent}}%)', values)
+    ? t('Above official API price by {{amount}} ({{percent}}%)', values)
+    : t('Below official API price by {{amount}} ({{percent}}%)', values)
 }
 
 export function qualityTimelineTooltip(
@@ -133,11 +133,11 @@ export function qualityTimelineTooltip(
   const colors = qualityTimelineColors(dark)
   const rows = [
     {
-      name: timelineQualityIsInferred(item)
-        ? t('ACU execution (inferred)')
-        : t('ACU execution'),
+      name: t('ACU execution'),
       quality: timelineEstimatedQuality(item),
-      model: `${item.actualModel} \u00b7 ${thinkingEffort(item)}`,
+      model: `${item.actualModel} \u00b7 ${thinkingEffort(item)}${
+        timelineQualityIsInferred(item) ? ` \u00b7 ${t('Inferred')}` : ''
+      }`,
       color: colors.executed,
     },
     {
@@ -177,7 +177,7 @@ export function qualityTimelineTooltip(
     }),
     '<div style="border-top:1px solid #94a3b840;margin-top:10px;padding-top:8px">',
     `<div style="display:flex;justify-content:space-between;gap:12px"><span>${escapeHtml(t('Model execution charge'))}</span><strong>${money(comparison?.modelChargeCny)}</strong></div>`,
-    `<div style="display:flex;justify-content:space-between;gap:12px;margin-top:4px"><span>${escapeHtml(t('Official direct equivalent'))}</span><span>${money(comparison?.officialModelCostCny)}</span></div>`,
+    `<div style="display:flex;justify-content:space-between;gap:12px;margin-top:4px"><span>${escapeHtml(t('Official API price'))}</span><span>${money(comparison?.officialModelCostCny)}</span></div>`,
     `<div style="font-size:11px;margin-top:7px">${escapeHtml(timelineCostDifference(item))}</div>`,
     '</div></div>',
   ].join('')
@@ -304,7 +304,7 @@ export function buildACUQualityTimelineChartOption(props: {
     },
     {
       id: 'quality-official-cost',
-      name: t('Official direct equivalent'),
+      name: t('Official API price'),
       type: 'line',
       xAxisIndex: 1,
       yAxisIndex: 1,
@@ -332,29 +332,6 @@ export function buildACUQualityTimelineChartOption(props: {
       },
     }
   )
-  series.push({
-    id: 'quality-inferred-points',
-    name: t('Inferred execution quality'),
-    type: 'scatter',
-    xAxisIndex: 0,
-    yAxisIndex: 0,
-    data: items
-      .map((item, index) =>
-        timelineQualityIsInferred(item)
-          ? datum(item, index, timelineEstimatedQuality(item))
-          : undefined
-      )
-      .filter((value): value is TimelineChartDatum => value != null),
-    symbol: 'emptyCircle',
-    symbolSize: 10,
-    itemStyle: {
-      color: props.dark ? '#0f172a' : '#ffffff',
-      borderColor: colors.executed,
-      borderWidth: 2,
-    },
-    z: 6,
-    animation: false,
-  })
   return {
     ...option,
     yAxis: axes,

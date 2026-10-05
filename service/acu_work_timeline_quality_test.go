@@ -15,6 +15,7 @@ func TestTimelineQualityUsesOfficialBudgetAndProtocolInsteadOfSupplierCost(t *te
 	operation_setting.USDExchangeRate = 1
 	t.Cleanup(func() { operation_setting.USDExchangeRate = originalFX })
 	catalog := dto.ACURoutingCatalog{CatalogVersion: "test-catalog", Models: []dto.ACURoutingCatalogModel{
+		qualityTestModel("free-reference", "responses", .99, 0),
 		qualityTestModel("cheap", "responses", .8, 1),
 		qualityTestModel("best-budget", "responses", .9, 2),
 		qualityTestModel("expensive", "responses", .85, 8),

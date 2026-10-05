@@ -297,6 +297,22 @@ test('explicit quality uses estimated difficulty and builds both cost references
         routingCandidates: [],
       },
       {
+        modelId: 'free-reference',
+        displayName: 'Free reference',
+        vendor: 'test',
+        modelCategory: 'text_agent' as const,
+        capabilityTier: 'LUNA' as const,
+        protocols: ['responses'],
+        verificationStatus: 'verified' as const,
+        autoRouteEnabled: true,
+        curve: curve(0.99),
+        referencePricing: {
+          inputUsdPerMillion: 0,
+          outputUsdPerMillion: 0,
+        },
+        routingCandidates: [],
+      },
+      {
         modelId: 'budget',
         displayName: 'Budget',
         vendor: 'test',

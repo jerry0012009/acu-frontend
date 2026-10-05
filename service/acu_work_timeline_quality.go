@@ -77,6 +77,7 @@ func timelineQualityComparison(
 		return result
 	}
 	result.ReferenceCatalogVersion = catalog.CatalogVersion
+	var cheapestPositiveReference *dto.ACUTimelineQualityReference
 	curves := mapValue(route, "curves")
 	if len(curves) == 0 {
 		curves = mapValue(snapshot, "curves")
@@ -110,6 +111,13 @@ func timelineQualityComparison(
 			ModelID: model.ModelID, DisplayName: firstTimelineValue(model.DisplayName, model.ModelID),
 			EstimatedQuality: *quality, OfficialCostCNY: *cost,
 		}
+		if *cost > 0 &&
+			(cheapestPositiveReference == nil ||
+				*cost < cheapestPositiveReference.OfficialCostCNY ||
+				(*cost == cheapestPositiveReference.OfficialCostCNY &&
+					model.ModelID < cheapestPositiveReference.ModelID)) {
+			cheapestPositiveReference = reference
+		}
 		if model.ModelID == timelineFlagshipReferenceModel ||
 			(result.MostExpensive == nil ||
 				result.MostExpensive.ModelID != timelineFlagshipReferenceModel &&
@@ -118,11 +126,15 @@ func timelineQualityComparison(
 							model.ModelID < result.MostExpensive.ModelID))) {
 			result.MostExpensive = reference
 		}
-		if result.ModelChargeCNY != nil && *cost <= *result.ModelChargeCNY+1e-10 &&
+		if result.ModelChargeCNY != nil && *cost > 0 &&
+			*cost <= *result.ModelChargeCNY+1e-10 &&
 			(result.SameBudget == nil || *quality > result.SameBudget.EstimatedQuality ||
 				(*quality == result.SameBudget.EstimatedQuality && *cost < result.SameBudget.OfficialCostCNY)) {
 			result.SameBudget = reference
 		}
+	}
+	if result.SameBudget == nil && result.ModelChargeCNY != nil {
+		result.SameBudget = cheapestPositiveReference
 	}
 	return result
 }

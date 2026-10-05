@@ -118,7 +118,7 @@ test('quality view draws three correctly scaled continuous solid quality series'
   )
 })
 
-test('quality view overlays inferred execution points and keeps reference lines', () => {
+test('quality view keeps inferred execution points white and keeps reference lines', () => {
   const inferred = execution({
     qualityComparison: {
       estimatedQuality: 68,
@@ -160,11 +160,18 @@ test('quality view overlays inferred execution points and keeps reference lines'
   const series = chartSeries(
     buildACUQualityTimelineChartOption({ items: [inferred], dark: false })
   )
-  assert.equal(
-    series.find((entry) => entry.id === 'quality-inferred-points')?.data[0]
-      ?.value[1],
-    68
+  assert.deepEqual(
+    series
+      .find((entry) => entry.id === 'quality-observation-points')
+      ?.data.map((point) => point.value),
+    [[1, 68]]
   )
+  assert.equal(
+    series.some((entry) => entry.id === 'quality-inferred-points'),
+    false
+  )
+  const html = qualityTimelineTooltip(inferred, 1)
+  assert.match(html, /inferred/i)
   assert.equal(
     series.find((entry) => entry.id === 'quality-same-budget-reference')
       ?.data[0]?.value[1],
@@ -350,7 +357,7 @@ test('quality tooltip shows reference models, quality gaps, costs and escapes mo
 })
 
 test('cost comparison preserves savings, extra cost and zero-price boundary', () => {
-  assert.match(timelineCostDifference(execution()), /Above official direct/)
+  assert.match(timelineCostDifference(execution()), /Above official API price/)
   assert.match(
     timelineCostDifference(
       execution({
@@ -360,7 +367,7 @@ test('cost comparison preserves savings, extra cost and zero-price boundary', ()
         },
       })
     ),
-    /Below official direct/
+    /Below official API price/
   )
   assert.equal(
     timelineCostDifference(
@@ -368,7 +375,7 @@ test('cost comparison preserves savings, extra cost and zero-price boundary', ()
         qualityComparison: { modelChargeCny: 0.01, officialModelCostCny: 0.01 },
       })
     ),
-    'Same as official direct'
+    'Same as official API'
   )
   assert.equal(
     timelineCostDifference(
