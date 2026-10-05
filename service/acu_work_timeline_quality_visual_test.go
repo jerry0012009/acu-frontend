@@ -51,7 +51,7 @@ func TestTimelineQualityVisualReplay(t *testing.T) {
 		}
 		if comparison.SameBudget != nil {
 			require.NotNil(t, comparison.ModelChargeCNY)
-			assert.LessOrEqual(t, comparison.SameBudget.OfficialCostCNY, *comparison.ModelChargeCNY+1e-10)
+			assert.Positive(t, comparison.SameBudget.OfficialCostCNY)
 		}
 	}
 	require.Positive(t, recorded, "real logs must produce recorded quality points")

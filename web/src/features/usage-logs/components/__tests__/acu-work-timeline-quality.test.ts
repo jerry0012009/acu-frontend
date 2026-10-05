@@ -179,7 +179,7 @@ test('quality view keeps inferred execution points white and keeps reference lin
   )
 })
 
-test('missing quality is filled in the trend while a recorded zero remains a point', () => {
+test('missing quality stays absent at the edge while a recorded zero remains a point', () => {
   const missing = execution({ qualityComparison: undefined })
   const zero = execution({
     pointId: 'zero:execution',
@@ -188,7 +188,7 @@ test('missing quality is filled in the trend while a recorded zero remains a poi
   const series = chartSeries(
     buildACUQualityTimelineChartOption({ items: [missing, zero], dark: true })
   )
-  assert.equal(series[0].data[0].value[1], 0)
+  assert.ok(Number.isNaN(series[0].data[0].value[1]))
   assert.equal(series[0].data[1].value[1], 0)
   assert.equal(series[0].connectNulls, true)
   assert.equal(
@@ -250,7 +250,7 @@ test('a sparse reference stays visible when the timeline exceeds eighty requests
   assert.equal(budget?.showSymbol, false)
   assert.equal(
     budget?.data.filter((point) => Number.isFinite(point.value[1])).length,
-    81
+    1
   )
 })
 
@@ -281,6 +281,20 @@ test('trend lines interpolate missing estimates while raw points remain absent',
   )
 })
 
+test('trailing missing quality does not become a flat extrapolated line', () => {
+  const items = [
+    execution(),
+    execution({ qualityComparison: { estimatedQuality: 40 } }),
+    execution({ qualityComparison: undefined }),
+  ]
+  const series = chartSeries(
+    buildACUQualityTimelineChartOption({ items, dark: false })
+  )
+  const main = series.find((entry) => entry.id === 'quality-executed-trend')
+  assert.ok(Number.isFinite(main?.data[0].value[1]))
+  assert.ok(Number.isFinite(main?.data[1].value[1]))
+  assert.ok(Number.isNaN(main?.data[2].value[1]))
+})
 test('a completely missing reference stays absent and tooltip never reports filled values', () => {
   const first = execution({
     qualityComparison: { estimatedQuality: 40 },

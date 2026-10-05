@@ -79,9 +79,6 @@ function smoothTimelineData(data: TimelineChartDatum[]): TimelineChartDatum[] {
     .filter((item) => Number.isFinite(item.value))
   if (known.length === 0) return result
 
-  for (let index = 0; index < known[0].index; index += 1) {
-    result[index].value[1] = known[0].value
-  }
   for (let point = 0; point < known.length - 1; point += 1) {
     const left = known[point]
     const right = known[point + 1]
@@ -92,17 +89,15 @@ function smoothTimelineData(data: TimelineChartDatum[]): TimelineChartDatum[] {
         left.value + (right.value - left.value) * progress
     }
   }
-  const last = known.at(-1)
-  if (last) {
-    for (let index = last.index + 1; index < result.length; index += 1) {
-      result[index].value[1] = last.value
-    }
+  const first = known[0].index
+  const last = known.at(-1)?.index ?? first
+  const smoothed = gaussianSmooth(
+    result.slice(first, last + 1).map((item) => item.value[1])
+  )
+  for (let index = first; index <= last; index += 1) {
+    result[index].value[1] = smoothed[index - first]
   }
-  const smoothed = gaussianSmooth(result.map((item) => item.value[1]))
-  return result.map((item, index) => ({
-    ...item,
-    value: [item.value[0], smoothed[index]] as [number, number],
-  }))
+  return result
 }
 
 export function timelineCostDifference(
