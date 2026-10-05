@@ -29,7 +29,7 @@ function formatEvidence(value: unknown): string {
 }
 
 function formatDuration(value?: number): string {
-  if (value == null || value < 0) return 'n/a'
+  if (value == null || value <= 0) return 'n/a'
   const seconds = Math.round(value / 1000)
   if (seconds < 60) return `${seconds}s`
   const minutes = Math.floor(seconds / 60)
