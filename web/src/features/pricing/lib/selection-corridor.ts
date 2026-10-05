@@ -1,4 +1,16 @@
+import {
+  CURVE_DISPLAY_SMOOTH_RADIUS,
+  CURVE_DISPLAY_SMOOTH_SIGMA,
+  gaussianSmooth,
+} from '@/lib/curve-smoothing'
+
 import type { ACUSelectionCorridorPoint, ACUSelectionCorridor } from '../types'
+
+export {
+  CURVE_DISPLAY_SMOOTH_RADIUS,
+  CURVE_DISPLAY_SMOOTH_SIGMA,
+  gaussianSmooth,
+} from '@/lib/curve-smoothing'
 
 export type CorridorPreference = 'economy' | 'balanced' | 'quality'
 
@@ -14,45 +26,14 @@ export type CorridorDisplayValue = Pick<
 >
 
 // Pricing display only; never used for real routing, Tooltip values, or summaries.
-export const CORRIDOR_DISPLAY_SMOOTH_RADIUS = 5
-export const CORRIDOR_DISPLAY_SMOOTH_SIGMA = 2.5
+export const CORRIDOR_DISPLAY_SMOOTH_RADIUS = CURVE_DISPLAY_SMOOTH_RADIUS
+export const CORRIDOR_DISPLAY_SMOOTH_SIGMA = CURVE_DISPLAY_SMOOTH_SIGMA
 
 export const PRICING_PREVIEW_CONTROL_GRID_CLASS =
   'grid shrink-0 grid-cols-2 items-end gap-2 sm:w-auto sm:grid-cols-4 xl:grid-cols-[minmax(220px,260px)_minmax(180px,240px)_112px_112px]'
 
 function clampQuality(value: number): number {
   return Math.min(100, Math.max(0, value))
-}
-
-function gaussianSmooth(values: number[]): number[] {
-  const weights = Array.from(
-    { length: CORRIDOR_DISPLAY_SMOOTH_RADIUS * 2 + 1 },
-    (_, index) => {
-      const offset = index - CORRIDOR_DISPLAY_SMOOTH_RADIUS
-      return Math.exp(
-        -(offset * offset) /
-          (2 * CORRIDOR_DISPLAY_SMOOTH_SIGMA * CORRIDOR_DISPLAY_SMOOTH_SIGMA)
-      )
-    }
-  )
-
-  return values.map((_, index) => {
-    const start = Math.max(0, index - CORRIDOR_DISPLAY_SMOOTH_RADIUS)
-    const end = Math.min(
-      values.length - 1,
-      index + CORRIDOR_DISPLAY_SMOOTH_RADIUS
-    )
-    let weightedSum = 0
-    let weightTotal = 0
-
-    for (let neighbor = start; neighbor <= end; neighbor += 1) {
-      const weight = weights[neighbor - index + CORRIDOR_DISPLAY_SMOOTH_RADIUS]
-      weightedSum += values[neighbor] * weight
-      weightTotal += weight
-    }
-
-    return weightedSum / weightTotal
-  })
 }
 
 export function buildSmoothedCorridorDisplayValues(

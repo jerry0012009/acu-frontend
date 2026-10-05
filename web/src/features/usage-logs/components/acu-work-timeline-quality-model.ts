@@ -1,6 +1,8 @@
 import type { EChartsOption } from 'echarts'
 import { t } from 'i18next'
 
+import { gaussianSmooth } from '@/lib/curve-smoothing'
+
 import type { ACUWorkTimelineItem } from '../api'
 import type { ACUWorkTimelineDisplayItem } from '../lib/explicit-difficulty'
 import {
@@ -63,6 +65,34 @@ function escapeHtml(value: unknown): string {
 function money(value: number | undefined): string {
   if (value == null || !Number.isFinite(value)) return '\u2014'
   return `\u00a5${value.toFixed(value < 0.01 ? 6 : 3)}`
+}
+
+function smoothTimelineData(data: TimelineChartDatum[]): TimelineChartDatum[] {
+  const result = data.map((item) => ({
+    ...item,
+    value: [...item.value] as [number, number],
+  }))
+  let segmentStart = 0
+
+  const smoothSegment = (segmentEnd: number) => {
+    if (segmentEnd <= segmentStart) return
+    const values = result
+      .slice(segmentStart, segmentEnd)
+      .map((item) => item.value[1])
+    const smoothed = gaussianSmooth(values)
+    for (let index = segmentStart; index < segmentEnd; index += 1) {
+      result[index].value[1] = smoothed[index - segmentStart]
+    }
+  }
+
+  for (let index = 0; index <= result.length; index += 1) {
+    const finite =
+      index < result.length && Number.isFinite(result[index].value[1])
+    if (finite) continue
+    smoothSegment(index)
+    segmentStart = index + 1
+  }
+  return result
 }
 
 export function timelineCostDifference(
@@ -227,7 +257,7 @@ export function buildACUQualityTimelineChartOption(props: {
             type: 'line' as const,
             xAxisIndex: 0,
             yAxisIndex: 0,
-            data,
+            data: smoothTimelineData(data),
             connectNulls: false,
             smooth: 0.32,
             showSymbol: false,
@@ -256,8 +286,10 @@ export function buildACUQualityTimelineChartOption(props: {
       type: 'line',
       xAxisIndex: 0,
       yAxisIndex: 0,
-      data: items.map((item, index) =>
-        datum(item, index, specification.value(item))
+      data: smoothTimelineData(
+        items.map((item, index) =>
+          datum(item, index, specification.value(item))
+        )
       ),
       connectNulls: false,
       smooth: 0.25,

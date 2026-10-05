@@ -104,6 +104,16 @@ test('quality view draws three correctly scaled quality series with dashed refer
   const axes = option.yAxis as Array<{ min: number; max: number }>
   assert.equal(axes[0].min, 0)
   assert.equal(axes[0].max, 100)
+  assert.equal(
+    series.find((entry) => entry.id === 'quality-same-budget-reference')
+      ?.showSymbol,
+    false
+  )
+  assert.equal(
+    series.find((entry) => entry.id === 'quality-same-budget-reference')
+      ?.smooth,
+    0.25
+  )
 })
 
 test('quality view overlays inferred execution points and keeps reference lines', () => {
