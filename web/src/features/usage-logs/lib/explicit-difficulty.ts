@@ -41,7 +41,7 @@ const MODEL_DEFAULT_DIFFICULTY: Record<string, number> = {
   'gpt-6-luna': 50,
   'gpt-5.6-terra': 58,
   'gpt-5.6-sol': 74,
-  'gpt-6-astra': 42,
+  'gpt-6-astra': 86,
   'gpt-6-sol': 72,
   'gpt-6.1-sol': 72,
   'deepseek-v4-flash': 38,

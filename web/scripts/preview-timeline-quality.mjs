@@ -9,6 +9,16 @@ if (!directory) {
 const replay = JSON.parse(
   readFileSync(path.join(directory, 'timeline.json'), 'utf8')
 )
+const monitor = JSON.parse(
+  readFileSync(path.join(directory, 'monitor.json'), 'utf8')
+)
+const routingCatalog = {
+  catalogVersion: monitor.catalogVersion,
+  models: monitor.modelPool ?? [],
+  profiles: monitor.profiles ?? [],
+  defaultCandidatePreferenceScores:
+    monitor.defaultCandidatePreferenceScores ?? {},
+}
 const executions = replay.data.items.filter(
   (item) => item.pointType === 'execution'
 )
@@ -95,6 +105,9 @@ const server = createServer((request, response) => {
   if (url.pathname === '/api/log/self/acu-work-timeline') return reply(timeline)
   if (url.pathname === '/api/user/self') {
     return reply({ success: true, data: user })
+  }
+  if (url.pathname === '/api/user/self/acu-routing-catalog') {
+    return reply({ success: true, data: routingCatalog })
   }
   if (url.pathname === '/api/setup') {
     return reply({ success: true, data: { status: true } })
