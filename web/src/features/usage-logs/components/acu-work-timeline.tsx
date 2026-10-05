@@ -1055,14 +1055,14 @@ export function ACUWorkTimeline() {
         {chartView === 'quality' ? (
           <div className='flex flex-wrap items-center gap-x-5 gap-y-2 px-1 py-3 text-xs'>
             {[
-              [t('ACU execution'), qualityColors.executed, false],
-              [t('Same-budget reference'), qualityColors.sameBudget, true],
-              [t('Highest official price'), qualityColors.mostExpensive, true],
-            ].map(([label, color, dashed], index) => (
+              [t('ACU execution'), qualityColors.executed],
+              [t('Same-budget reference'), qualityColors.sameBudget],
+              [t('Highest official price'), qualityColors.mostExpensive],
+            ].map(([label, color], index) => (
               <span key={String(label)} className='flex items-center gap-2'>
                 <span
                   aria-hidden='true'
-                  className={cn('w-5 border-t-2', dashed && 'border-dashed')}
+                  className='w-5 border-t-2'
                   style={{ borderColor: String(color) }}
                 />
                 {label}

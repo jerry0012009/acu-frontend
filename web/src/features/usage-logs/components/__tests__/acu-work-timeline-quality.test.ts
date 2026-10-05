@@ -89,7 +89,7 @@ test('quality view uses only executions and excludes Judge charges from its cost
   )
 })
 
-test('quality view draws three correctly scaled quality series with dashed references', () => {
+test('quality view draws three correctly scaled continuous solid quality series', () => {
   const option = buildACUQualityTimelineChartOption({
     items: [execution()],
     dark: false,
@@ -101,7 +101,7 @@ test('quality view draws three correctly scaled quality series with dashed refer
   )
   assert.deepEqual(
     series.slice(0, 3).map((entry) => entry.lineStyle?.type),
-    ['solid', 'dashed', 'dashed']
+    ['solid', 'solid', 'solid']
   )
   const axes = option.yAxis as Array<{ min: number; max: number }>
   assert.equal(axes[0].min, 0)
@@ -272,6 +272,30 @@ test('trend lines interpolate missing estimates while raw points remain absent',
       .length,
     2
   )
+})
+
+test('a completely missing reference stays absent and tooltip never reports filled values', () => {
+  const first = execution({
+    qualityComparison: { estimatedQuality: 40 },
+  })
+  const missing = execution({ qualityComparison: undefined })
+  const last = execution({
+    qualityComparison: { estimatedQuality: 80 },
+  })
+  const items = [first, missing, last]
+  const snapshot = structuredClone(items)
+  const option = buildACUQualityTimelineChartOption({ items, dark: false })
+  const series = chartSeries(option)
+  const reference = series.find(
+    (entry) => entry.id === 'quality-same-budget-reference'
+  )
+  assert.ok(reference?.data.every((point) => Number.isNaN(point.value[1])))
+  const trend = series.find((entry) => entry.id === 'quality-executed-trend')
+  assert.ok(trend?.data.every((point) => Number.isFinite(point.value[1])))
+  const format = (option.tooltip as { formatter: (params: unknown) => string })
+    .formatter
+  assert.doesNotMatch(format([{ data: trend?.data[1] }]), /60\.0/)
+  assert.deepEqual(items, snapshot)
 })
 
 test('pricing Gaussian smooths a quality step while white points and tooltips keep original scores', () => {

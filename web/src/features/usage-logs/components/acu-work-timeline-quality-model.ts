@@ -67,13 +67,13 @@ function money(value: number | undefined): string {
   return `\u00a5${value.toFixed(value < 0.01 ? 6 : 3)}`
 }
 
-function interpolateTimelineData(
-  data: TimelineChartDatum[]
-): TimelineChartDatum[] {
+function smoothTimelineData(data: TimelineChartDatum[]): TimelineChartDatum[] {
   const result = data.map((item) => ({
     ...item,
     value: [...item.value] as [number, number],
   }))
+  // Fill display-only gaps before smoothing; observations and tooltip data
+  // remain untouched, including references that are missing for every request.
   const known = result
     .map((item, index) => ({ index, value: item.value[1] }))
     .filter((item) => Number.isFinite(item.value))
@@ -98,13 +98,8 @@ function interpolateTimelineData(
       result[index].value[1] = last.value
     }
   }
-  return result
-}
-
-function smoothTimelineData(data: TimelineChartDatum[]): TimelineChartDatum[] {
-  const interpolated = interpolateTimelineData(data)
-  const smoothed = gaussianSmooth(interpolated.map((item) => item.value[1]))
-  return interpolated.map((item, index) => ({
+  const smoothed = gaussianSmooth(result.map((item) => item.value[1]))
+  return result.map((item, index) => ({
     ...item,
     value: [item.value[0], smoothed[index]] as [number, number],
   }))
@@ -260,10 +255,7 @@ export function buildACUQualityTimelineChartOption(props: {
       lineStyle: {
         color: specification.color,
         width: specification.id === 'executed' ? 2.5 : 2,
-        type:
-          specification.id === 'executed'
-            ? ('solid' as const)
-            : ('dashed' as const),
+        type: 'solid' as const,
       },
       itemStyle: { color: specification.color },
       emphasis: { focus: 'series' as const },
