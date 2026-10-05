@@ -59,6 +59,12 @@ func RunACUProfileGpttesticu(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	if c.GetInt("role") < common.RoleAdminUser {
+		if _, ok := input["tokenId"]; !ok {
+			common.ApiError(c, fmt.Errorf("tokenId is required for user-paid SVG checks"))
+			return
+		}
+	}
 	result, err := service.StartACUProfileGpttesticu(c.Request.Context(), c.GetInt("id"), input)
 	if err != nil {
 		common.ApiError(c, err)
@@ -80,7 +86,10 @@ func GetACUProfileGpttesticu(c *gin.Context) {
 }
 
 func GetACUProfileGpttesticuHistory(c *gin.Context) {
-	result, err := service.GetACUProfileGpttesticuHistory(c.Param("executionProfileId"))
+	result, err := service.GetACUProfileGpttesticuHistory(
+		c.Param("executionProfileId"),
+		c.GetInt("id"),
+	)
 	if err != nil {
 		common.ApiError(c, err)
 		return

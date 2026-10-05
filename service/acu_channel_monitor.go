@@ -44,6 +44,7 @@ type acuGpttesticuJob struct {
 	userID      int
 	cooldownKey string
 	profileID   string
+	tokenKey    string
 	status      string
 	result      map[string]interface{}
 	errorText   string
@@ -773,15 +774,29 @@ func RunACUProfileVeridrop(
 	return result, nil
 }
 
-func validateACUProfileGpttesticuInput(input map[string]interface{}) (string, error) {
+func validateACUProfileGpttesticuInput(input map[string]interface{}) (string, int, error) {
 	profileID, ok := input["executionProfileId"].(string)
 	if !ok || strings.TrimSpace(profileID) == "" {
-		return "", errors.New("executionProfileId is required")
+		return "", 0, errors.New("executionProfileId is required")
 	}
-	if len(input) != 1 {
-		return "", errors.New("only executionProfileId is accepted")
+	tokenID := 0
+	if rawTokenID, exists := input["tokenId"]; exists {
+		switch value := rawTokenID.(type) {
+		case float64:
+			tokenID = int(value)
+		case int:
+			tokenID = value
+		default:
+			return "", 0, errors.New("tokenId must be a number")
+		}
+		if tokenID <= 0 {
+			return "", 0, errors.New("tokenId must be positive")
+		}
 	}
-	return strings.TrimSpace(profileID), nil
+	if len(input) != 1 && len(input) != 2 {
+		return "", 0, errors.New("only executionProfileId and tokenId are accepted")
+	}
+	return strings.TrimSpace(profileID), tokenID, nil
 }
 
 func reserveACUProfileGpttesticu(userID int, profileID string) error {
@@ -801,13 +816,20 @@ func reserveACUProfileGpttesticu(userID int, profileID string) error {
 func runACUProfileGpttesticuRequest(
 	ctx context.Context,
 	profileID string,
+	tokenKey string,
 ) (map[string]interface{}, error) {
+	path := "/internal/admin/execution-profiles/gpttesticu"
+	payload := map[string]interface{}{"executionProfileId": profileID}
+	if strings.TrimSpace(tokenKey) != "" {
+		path = "/internal/user/execution-profiles/gpttesticu"
+		payload["tokenKey"] = tokenKey
+	}
 	result, err := acuExecutionProfileRequestWithTimeout(
 		ctx,
 		330*time.Second,
 		http.MethodPost,
-		"/internal/admin/execution-profiles/gpttesticu",
-		map[string]interface{}{"executionProfileId": profileID},
+		path,
+		payload,
 	)
 	return result, err
 }
@@ -825,9 +847,20 @@ func StartACUProfileGpttesticu(
 	userID int,
 	input map[string]interface{},
 ) (map[string]interface{}, error) {
-	profileID, err := validateACUProfileGpttesticuInput(input)
+	profileID, tokenID, err := validateACUProfileGpttesticuInput(input)
 	if err != nil {
 		return nil, err
+	}
+	tokenKey := ""
+	if tokenID > 0 {
+		token, tokenErr := model.GetTokenByIds(tokenID, userID)
+		if tokenErr != nil {
+			return nil, errors.New("API key is unavailable")
+		}
+		if !IsACUConversationTokenEligible(token, time.Now().Unix()) {
+			return nil, errors.New("API key is unavailable or has insufficient quota")
+		}
+		tokenKey = token.GetFullKey()
 	}
 	if err := reserveACUProfileGpttesticu(userID, profileID); err != nil {
 		return nil, err
@@ -840,6 +873,7 @@ func StartACUProfileGpttesticu(
 		userID:      userID,
 		cooldownKey: fmt.Sprintf("%d:%s", userID, profileID),
 		profileID:   profileID,
+		tokenKey:    tokenKey,
 		status:      "running",
 		startedAt:   time.Now(),
 	}
@@ -847,7 +881,7 @@ func StartACUProfileGpttesticu(
 	acuGpttesticuJobs[jobID] = job
 	acuGpttesticuJobsMu.Unlock()
 	go func() {
-		result, requestErr := runACUProfileGpttesticuRequest(context.Background(), profileID)
+		result, requestErr := runACUProfileGpttesticuRequest(context.Background(), profileID, job.tokenKey)
 		completedAt := time.Now()
 		acuGpttesticuJobsMu.Lock()
 		defer acuGpttesticuJobsMu.Unlock()
@@ -864,7 +898,7 @@ func StartACUProfileGpttesticu(
 		job.result = result
 		durationMs := completedAt.Sub(job.startedAt).Milliseconds()
 		result["durationMs"] = durationMs
-		if err := recordACUGpttesticuHistory(job.profileID, result, durationMs); err != nil {
+		if err := recordACUGpttesticuHistory(job.profileID, int64(job.userID), result, durationMs); err != nil {
 			common.SysLog("failed to record gpttesticu history: " + err.Error())
 		}
 	}()
@@ -877,6 +911,7 @@ func StartACUProfileGpttesticu(
 
 func recordACUGpttesticuHistory(
 	profileID string,
+	userID int64,
 	result map[string]interface{},
 	durationMs int64,
 ) error {
@@ -898,6 +933,7 @@ func recordACUGpttesticuHistory(
 		score = int(value)
 	}
 	return model.DB.Create(&model.ACUGpttesticuHistory{
+		UserID:             userID,
 		ExecutionProfileID: profileID,
 		RequestedModel:     requestedModel,
 		ActualModel:        actualModel,
@@ -911,6 +947,7 @@ func recordACUGpttesticuHistory(
 
 func GetACUProfileGpttesticuHistory(
 	profileID string,
+	userID int,
 ) ([]map[string]interface{}, error) {
 	var rows []model.ACUGpttesticuHistory
 	if err := model.DB.
@@ -930,6 +967,11 @@ func GetACUProfileGpttesticuHistory(
 		payload["executionProfileId"] = row.ExecutionProfileID
 		payload["createdAt"] = row.CreatedAt
 		payload["durationMs"] = row.DurationMs
+		if userID > 0 && row.UserID == int64(userID) {
+			payload["ownerLabel"] = "me"
+		} else {
+			payload["ownerLabel"] = "other"
+		}
 		result = append(result, payload)
 	}
 	return result, nil
@@ -982,12 +1024,19 @@ func RunACUProfileGpttesticu(
 	userID int,
 	input map[string]interface{},
 ) (map[string]interface{}, error) {
-	profileID, err := validateACUProfileGpttesticuInput(input)
+	profileID, tokenID, err := validateACUProfileGpttesticuInput(input)
 	if err != nil {
 		return nil, err
 	}
 	if err := reserveACUProfileGpttesticu(userID, profileID); err != nil {
 		return nil, err
 	}
-	return runACUProfileGpttesticuRequest(ctx, profileID)
+	if tokenID > 0 {
+		token, tokenErr := model.GetTokenByIds(tokenID, userID)
+		if tokenErr != nil || !IsACUConversationTokenEligible(token, time.Now().Unix()) {
+			return nil, errors.New("API key is unavailable or has insufficient quota")
+		}
+		return runACUProfileGpttesticuRequest(ctx, profileID, token.GetFullKey())
+	}
+	return runACUProfileGpttesticuRequest(ctx, profileID, "")
 }
