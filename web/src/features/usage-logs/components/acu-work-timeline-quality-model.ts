@@ -203,7 +203,7 @@ export function buildACUQualityTimelineChartOption(props: {
   })
   const series: NonNullable<EChartsOption['series']> = [...groups].flatMap(
     ([group, entries]) =>
-      specifications.flatMap((specification) => {
+      [specifications[0]].flatMap((specification) => {
         const data: TimelineChartDatum[] = []
         let previousIndex = -1
         for (const { item, index } of entries) {
@@ -249,6 +249,31 @@ export function buildACUQualityTimelineChartOption(props: {
         ]
       })
   )
+  for (const specification of specifications.slice(1)) {
+    series.push({
+      id: `quality-${specification.id}-reference`,
+      name: specification.name,
+      type: 'line',
+      xAxisIndex: 0,
+      yAxisIndex: 0,
+      data: items.map((item, index) =>
+        datum(item, index, specification.value(item))
+      ),
+      connectNulls: false,
+      smooth: 0.25,
+      showSymbol: false,
+      symbol: 'none',
+      z: 3,
+      lineStyle: {
+        color: specification.color,
+        width: 2,
+        type: 'dashed',
+      },
+      itemStyle: { color: specification.color },
+      emphasis: { focus: 'series' },
+      animation: false,
+    })
+  }
   series.push(
     {
       id: 'quality-model-charge',

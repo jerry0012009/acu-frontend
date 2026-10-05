@@ -8,7 +8,10 @@ export const EXPLICIT_DIFFICULTY_WINDOW_SIZE = 16
 export const EXPLICIT_DIFFICULTY_OFFSET_LIMIT = 10
 export const EXPLICIT_DIFFICULTY_MIN = 5
 export const EXPLICIT_DIFFICULTY_MAX = 95
+export const EXPLICIT_QUALITY_TARGET = 0.8
 
+// Conservative display baselines for explicit models; reasoning effort is
+// deliberately not used as a proxy for task difficulty.
 const MODEL_DEFAULT_DIFFICULTY: Record<string, number> = {
   'claude-fable-5-1': 94,
   'fable-5-1': 94,
@@ -16,6 +19,8 @@ const MODEL_DEFAULT_DIFFICULTY: Record<string, number> = {
   'fable-5': 92,
   'claude-opus-5': 88,
   'opus-5': 88,
+  'claude-opus-5-5': 90,
+  'opus-5-5': 90,
   'claude-opus-4-8': 84,
   'claude-opus-4.8': 84,
   'opus-4-8': 84,
@@ -33,9 +38,40 @@ const MODEL_DEFAULT_DIFFICULTY: Record<string, number> = {
   'gpt-5.4-mini': 25,
   'gpt-5.5': 34,
   'gpt-5.6-luna': 42,
+  'gpt-6-luna': 50,
   'gpt-5.6-terra': 58,
   'gpt-5.6-sol': 74,
-  'gpt-6-astra': 86,
+  'gpt-6-astra': 42,
+  'gpt-6-sol': 72,
+  'gpt-6.1-sol': 72,
+  'deepseek-v4-flash': 38,
+  'deepseek-v4-pro': 50,
+  'deepseek-v4-flash-vision-exp': 38,
+  'glm-5.1': 40,
+  'glm-5.2': 42,
+  'glm-5.3-flash': 36,
+  'glm-5.3': 44,
+  'kimi-k3': 46,
+  'kimi-k2.6': 44,
+  'kimi-k2.7-code': 50,
+  'grok-4.6': 48,
+  hy3: 35,
+  'hy4-preview': 42,
+  'longcat-2.0': 38,
+  'mimo-v2.5': 42,
+  'mimo-v2.5-pro': 50,
+  'mimo-v2.6-flash': 36,
+  'mimo-v2.6-pro': 48,
+  'minimax-m2.7': 45,
+  'minimax-m3': 50,
+  'muse-spark-1.2-contributor': 44,
+  'qwen3.6-plus': 50,
+  'qwen3.7-max': 54,
+  'qwen3.7-plus': 50,
+  'qwen3.8-flash': 38,
+  'qwen3.8-max': 54,
+  'gemini-2.5-flash': 35,
+  'gemini-3.5-flash': 42,
 }
 
 const MODEL_TIER_DIFFICULTY = {
@@ -122,8 +158,71 @@ function hasModelIdentifier(identifier: string, modelId: string): boolean {
   )
 }
 
-function modelDefaultDifficulty(item: ACUWorkTimelineItem): number {
+function catalogTierDifficulty(
+  item: ACUWorkTimelineItem,
+  catalog: ACURoutingCatalog | undefined
+): number | undefined {
+  if (!catalog) return undefined
+  const model = catalogModelForItem(item, catalog)
+  if (!model) return undefined
+  const tierDifficulty: Record<string, number> = {
+    LUNA: 42,
+    TERRA: 58,
+    SOL: 74,
+    FRONTIER: 84,
+  }
+  return tierDifficulty[model.capabilityTier]
+}
+
+function difficultyAtQualityTarget(
+  curve: NonNullable<ACURoutingCatalog['models'][number]['curve']>
+): number | undefined {
+  const points = curve
+    .filter(
+      (point) =>
+        Number.isFinite(point.difficultyScore) &&
+        Number.isFinite(point.estimatedQuality)
+    )
+    .sort((left, right) => left.difficultyScore - right.difficultyScore)
+  if (!points.length) return undefined
+  if (points[0].estimatedQuality <= EXPLICIT_QUALITY_TARGET) {
+    return points[0].difficultyScore
+  }
+  const last = points.at(-1)
+  if (!last) return undefined
+  if (last.estimatedQuality >= EXPLICIT_QUALITY_TARGET) {
+    return last.difficultyScore
+  }
+  for (let index = 1; index < points.length; index += 1) {
+    const left = points[index - 1]
+    const right = points[index]
+    if (
+      left.estimatedQuality < EXPLICIT_QUALITY_TARGET ||
+      right.estimatedQuality > EXPLICIT_QUALITY_TARGET
+    ) {
+      continue
+    }
+    const qualitySpan = left.estimatedQuality - right.estimatedQuality
+    const difficultySpan = right.difficultyScore - left.difficultyScore
+    if (qualitySpan <= 0 || difficultySpan <= 0) return undefined
+    const fraction =
+      (left.estimatedQuality - EXPLICIT_QUALITY_TARGET) / qualitySpan
+    return left.difficultyScore + fraction * difficultySpan
+  }
+  return undefined
+}
+
+function modelDefaultDifficulty(
+  item: ACUWorkTimelineItem,
+  catalog?: ACURoutingCatalog
+): number {
   const identifiers = modelIdentifiers(item)
+  const model = catalog ? catalogModelForItem(item, catalog) : undefined
+  const curveDifficulty = model?.curve
+    ? difficultyAtQualityTarget(model.curve)
+    : undefined
+  if (curveDifficulty != null) return curveDifficulty
+
   for (const [modelId, difficulty] of Object.entries(
     MODEL_DEFAULT_DIFFICULTY
   )) {
@@ -134,16 +233,12 @@ function modelDefaultDifficulty(item: ACUWorkTimelineItem): number {
     }
   }
 
-  const tierSource = identifiers.join(' ').replaceAll(/[_-]+/g, ' ')
-  if (/\bmid\s*high\b|\bmidhigh\b/.test(tierSource)) {
-    return MODEL_TIER_DIFFICULTY.midHigh
-  }
-  if (/\bhigh\b|\bmax\b/.test(tierSource)) {
-    return MODEL_TIER_DIFFICULTY.high
-  }
-  if (/\blow\b|\bmin\b/.test(tierSource)) {
-    return MODEL_TIER_DIFFICULTY.low
-  }
+  const catalogDifficulty = catalogTierDifficulty(item, catalog)
+  if (catalogDifficulty != null) return catalogDifficulty
+
+  // Reasoning effort is not a task-difficulty signal for an explicit call.
+  // Unknown model IDs stay at the neutral midpoint instead of becoming
+  // "high" merely because their preset contains "high" or "max".
   return MODEL_TIER_DIFFICULTY.mid
 }
 
@@ -263,7 +358,8 @@ export function isExplicitTimelineItem(item: ACUWorkTimelineItem): boolean {
 
 export function estimateExplicitDifficulty(
   item: ACUWorkTimelineItem,
-  explicitOrdinal: number
+  explicitOrdinal: number,
+  catalog?: ACURoutingCatalog
 ): ExplicitDifficultyEstimate | undefined {
   if (!isExplicitTimelineItem(item) || !Number.isInteger(explicitOrdinal)) {
     return undefined
@@ -277,7 +373,7 @@ export function estimateExplicitDifficulty(
     `acu-explicit:v1:window:${key}:${windowIndex}`
   )
   const workPhaseOffset = workPhaseDifficultyOffset(item.workPhase)
-  const modelBase = modelDefaultDifficulty(item)
+  const modelBase = modelDefaultDifficulty(item, catalog)
   const difficulty = clampDifficulty(
     modelBase + sessionOffset + windowOffset + workPhaseOffset
   )
@@ -294,7 +390,8 @@ export function estimateExplicitDifficulty(
 
 export function addExplicitDifficulty(
   items: ACUWorkTimelineItem[],
-  isAdmin: boolean
+  isAdmin: boolean,
+  catalog?: ACURoutingCatalog
 ): ACUWorkTimelineDisplayItem[] {
   if (!isAdmin || items.length === 0) return items
 
@@ -316,7 +413,7 @@ export function addExplicitDifficulty(
     if (item.difficultyRecorded && Number.isFinite(item.difficulty)) return item
     const ordinal = ordinalByPoint.get(item.pointId)
     if (ordinal == null) return item
-    const estimate = estimateExplicitDifficulty(item, ordinal)
+    const estimate = estimateExplicitDifficulty(item, ordinal, catalog)
     if (!estimate) return item
     return {
       ...item,

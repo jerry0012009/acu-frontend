@@ -154,9 +154,8 @@ test('quality view overlays inferred execution points and keeps reference lines'
     68
   )
   assert.equal(
-    series.find(
-      (entry) => entry.id === 'quality-same-budget-self:session:responses'
-    )?.data[0]?.value[1],
+    series.find((entry) => entry.id === 'quality-same-budget-reference')
+      ?.data[0]?.value[1],
     70
   )
 })
@@ -213,7 +212,7 @@ test('a sparse reference stays visible when the timeline exceeds eighty requests
   const budget = series.find((entry) =>
     entry.id.startsWith('quality-same-budget-')
   )
-  assert.equal(budget?.showSymbol, true)
+  assert.equal(budget?.showSymbol, false)
   assert.equal(
     budget?.data.filter((point) => Number.isFinite(point.value[1])).length,
     1

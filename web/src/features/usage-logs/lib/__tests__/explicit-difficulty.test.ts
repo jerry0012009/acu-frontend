@@ -7,6 +7,7 @@ import {
   EXPLICIT_DIFFICULTY_MIN,
   EXPLICIT_DIFFICULTY_OFFSET_LIMIT,
   EXPLICIT_DIFFICULTY_WINDOW_SIZE,
+  EXPLICIT_QUALITY_TARGET,
   addExplicitDifficulty,
   addExplicitQuality,
   estimateExplicitDifficulty,
@@ -159,6 +160,99 @@ test('Claude family models use elevated capability-aligned bases', () => {
     )
     assert.ok(estimate)
     assert.equal(estimate.modelBase, expectedBase)
+  }
+})
+
+test('GPT-6 Luna uses a model baseline before reasoning-effort adjustments', () => {
+  const estimate = estimateExplicitDifficulty(
+    item({
+      requestedModel: 'gpt-6-luna',
+      actualModel: 'gpt-6-luna',
+      resolvedReasoningEffort: 'high',
+    }),
+    0
+  )
+  assert.ok(estimate)
+  assert.equal(estimate.modelBase, 50)
+  assert.equal(
+    estimate.difficulty - estimate.modelBase,
+    estimate.sessionOffset + estimate.windowOffset + estimate.workPhaseOffset
+  )
+})
+
+test('reasoning effort alone does not move an explicit model difficulty baseline', () => {
+  const high = estimateExplicitDifficulty(
+    item({
+      requestedModel: 'gpt-6-luna',
+      actualModel: 'gpt-6-luna',
+      resolvedReasoningEffort: 'high',
+    }),
+    0
+  )
+  const max = estimateExplicitDifficulty(
+    item({
+      requestedModel: 'gpt-6-luna',
+      actualModel: 'gpt-6-luna',
+      resolvedReasoningEffort: 'max',
+    }),
+    0
+  )
+  assert.ok(high)
+  assert.ok(max)
+  assert.equal(high.difficulty, max.difficulty)
+  assert.equal(high.modelBase, 50)
+})
+
+test('catalog quality curves determine the model baseline before fallback tables', () => {
+  const catalog = {
+    models: [
+      {
+        modelId: 'gpt-6-astra',
+        vendor: 'test',
+        modelCategory: 'text_agent' as const,
+        capabilityTier: 'LUNA' as const,
+        protocols: ['responses'],
+        verificationStatus: 'verified' as const,
+        autoRouteEnabled: true,
+        curve: [
+          { difficultyScore: 0, estimatedQuality: 0.99 },
+          { difficultyScore: 50, estimatedQuality: EXPLICIT_QUALITY_TARGET },
+          { difficultyScore: 100, estimatedQuality: 0.6 },
+        ],
+        routingCandidates: [],
+      },
+    ],
+    profiles: [],
+    defaultCandidatePreferenceScores: {},
+  }
+  const estimate = estimateExplicitDifficulty(
+    item({ requestedModel: 'gpt-6-astra', actualModel: 'gpt-6-astra' }),
+    0,
+    catalog
+  )
+  assert.ok(estimate)
+  assert.equal(estimate.modelBase, 50)
+})
+
+test('current catalog model IDs have explicit baselines', () => {
+  const modelIds = [
+    'claude-opus-5-5',
+    'gpt-6-sol',
+    'gpt-6.1-sol',
+    'deepseek-v4-pro',
+    'glm-5.3',
+    'kimi-k2.7-code',
+    'grok-4.6',
+    'mimo-v2.6-pro',
+    'qwen3.8-max',
+  ]
+  for (const modelId of modelIds) {
+    const estimate = estimateExplicitDifficulty(
+      item({ requestedModel: modelId, actualModel: modelId }),
+      0
+    )
+    assert.ok(estimate, modelId)
+    assert.notEqual(estimate.modelBase, 42, modelId)
   }
 })
 

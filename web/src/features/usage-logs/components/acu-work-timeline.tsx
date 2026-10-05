@@ -729,7 +729,7 @@ export function ACUWorkTimeline() {
   const displayItems = useMemo(
     () =>
       addExplicitQuality(
-        addExplicitDifficulty(items, isAdmin),
+        addExplicitDifficulty(items, isAdmin, catalogQuery.data?.data),
         catalogQuery.data?.data
       ),
     [catalogQuery.data?.data, isAdmin, items]
