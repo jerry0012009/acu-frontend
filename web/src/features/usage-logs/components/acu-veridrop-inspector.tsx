@@ -28,6 +28,15 @@ function formatEvidence(value: unknown): string {
   }
 }
 
+function formatDuration(value?: number): string {
+  if (value == null || value < 0) return 'n/a'
+  const seconds = Math.round(value / 1000)
+  if (seconds < 60) return `${seconds}s`
+  const minutes = Math.floor(seconds / 60)
+  const remaining = seconds % 60
+  return remaining ? `${minutes}m ${remaining}s` : `${minutes}m`
+}
+
 export function ACUVeridropInspector(props: {
   open: boolean
   profile: ACUChannelMonitorProfile | null
@@ -119,7 +128,8 @@ export function ACUVeridropInspector(props: {
                         : t('Unknown time')}
                     </span>
                     <span className='shrink-0 font-medium'>
-                      {item.verdict ?? t('Unknown')} · {item.score ?? t('n/a')}
+                      {item.verdict ?? t('Unknown')} · {item.score ?? t('n/a')}{' '}
+                      · {t('Task duration')}: {formatDuration(item.durationMs)}
                     </span>
                   </button>
                 ))}

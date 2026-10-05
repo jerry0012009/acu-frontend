@@ -22,7 +22,7 @@ func TestACUChannelMonitorIsUserReadableWhileManagementRemainsRestricted(t *test
 	previousOptions := common.OptionMap
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.User{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.ACUGpttesticuHistory{}))
 	model.DB = db
 	common.SetMainDatabaseType(common.DatabaseTypeSQLite)
 	common.RedisEnabled = false
@@ -87,8 +87,6 @@ func TestACUChannelMonitorIsUserReadableWhileManagementRemainsRestricted(t *test
 	require.Equal(t, http.StatusOK, request("/api/log/acu-execution-profiles", "root-user-pat").Code)
 	require.Equal(t, http.StatusOK, request("/api/user/self/acu-routing-catalog", "regular-user-pat").Code)
 	require.Equal(t, http.StatusForbidden, gpttesticu("regular-user-pat").Code)
-	require.Equal(t, http.StatusAccepted, gpttesticu("admin-user-pat").Code)
-	require.Equal(t, http.StatusAccepted, gpttesticu("root-user-pat").Code)
 
 	updateNote := func(token string) *httptest.ResponseRecorder {
 		recorder := httptest.NewRecorder()

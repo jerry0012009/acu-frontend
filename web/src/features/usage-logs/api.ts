@@ -671,6 +671,7 @@ export type ACUGpttesticuResult = {
   historyId?: number
   executionProfileId?: string
   createdAt?: string
+  durationMs?: number
 }
 
 export type ACUQuickAddConnection = {

@@ -862,7 +862,9 @@ func StartACUProfileGpttesticu(
 		}
 		job.status = "done"
 		job.result = result
-		if err := recordACUGpttesticuHistory(job.profileID, result); err != nil {
+		durationMs := completedAt.Sub(job.startedAt).Milliseconds()
+		result["durationMs"] = durationMs
+		if err := recordACUGpttesticuHistory(job.profileID, result, durationMs); err != nil {
 			common.SysLog("failed to record gpttesticu history: " + err.Error())
 		}
 	}()
@@ -873,7 +875,14 @@ func StartACUProfileGpttesticu(
 	}, nil
 }
 
-func recordACUGpttesticuHistory(profileID string, result map[string]interface{}) error {
+func recordACUGpttesticuHistory(
+	profileID string,
+	result map[string]interface{},
+	durationMs int64,
+) error {
+	if model.DB == nil || !model.DB.Migrator().HasTable(&model.ACUGpttesticuHistory{}) {
+		return nil
+	}
 	payload, err := common.Marshal(result)
 	if err != nil {
 		return err
@@ -894,6 +903,7 @@ func recordACUGpttesticuHistory(profileID string, result map[string]interface{})
 		ActualModel:        actualModel,
 		Verdict:            verdict,
 		Score:              score,
+		DurationMs:         durationMs,
 		ResultJSON:         string(payload),
 		CreatedAt:          time.Now(),
 	}).Error
@@ -919,6 +929,7 @@ func GetACUProfileGpttesticuHistory(
 		payload["historyId"] = row.ID
 		payload["executionProfileId"] = row.ExecutionProfileID
 		payload["createdAt"] = row.CreatedAt
+		payload["durationMs"] = row.DurationMs
 		result = append(result, payload)
 	}
 	return result, nil

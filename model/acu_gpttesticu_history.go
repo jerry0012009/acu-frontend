@@ -9,6 +9,7 @@ type ACUGpttesticuHistory struct {
 	ActualModel        string    `json:"actualModel" gorm:"type:varchar(128)"`
 	Verdict            string    `json:"verdict" gorm:"type:varchar(32);index"`
 	Score              int       `json:"score"`
+	DurationMs         int64     `json:"durationMs"`
 	ResultJSON         string    `json:"-" gorm:"type:text;not null"`
 	CreatedAt          time.Time `json:"createdAt" gorm:"index;not null"`
 }
