@@ -214,6 +214,7 @@ test('Codex installers install the latest CLI with China and overseas fallbacks'
       'gpt-6-astra',
       'gpt-6-luna',
       'gpt-6-sol',
+      'gpt-6.1-sol',
     ]
   )
   assert.deepEqual(
@@ -228,6 +229,7 @@ test('Codex installers install the latest CLI with China and overseas fallbacks'
       ['low', 'medium', 'high', 'xhigh'],
       ['low', 'medium', 'high', 'max'],
       ['low', 'medium', 'high', 'xhigh'],
+      ['low', 'medium', 'high', 'xhigh', 'max'],
     ]
   )
 })

@@ -184,6 +184,7 @@ test('CC Switch setup exposes canonical endpoints and the Codex model mapping', 
       ['gpt-6-astra', 'gpt-6-astra', 1050000],
       ['gpt-6-luna', 'gpt-6-luna', 1050000],
       ['gpt-6-sol', 'gpt-6-sol', 1050000],
+      ['gpt-6.1-sol', 'gpt-6.1-sol', 1050000],
       ['gpt-5.5', 'gpt-5.5', 1050000],
       ['gpt-5.4-mini', 'gpt-5.4-mini', 1048576],
     ]
