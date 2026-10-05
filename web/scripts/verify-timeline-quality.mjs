@@ -167,7 +167,9 @@ try {
         [...document.querySelectorAll('div')].some(
           (element) =>
             element.style.position === 'absolute' &&
-            element.innerText.includes('官方直连等价费用') &&
+            /官方 API 价格|官方直连等价费用|Official API price/.test(
+              element.innerText
+            ) &&
             element.style.visibility !== 'hidden'
         ),
       null,
