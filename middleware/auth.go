@@ -550,27 +550,9 @@ func applyGpttesticuProfileOverride(c *gin.Context, token *model.Token) error {
 		return errors.New("gpttesticu profile id is too long")
 	}
 
-	originalPolicy, err := service.ResolveACUEffectiveRoutingPolicy(token)
-	if err != nil {
-		abortWithOpenAiMessage(c, http.StatusForbidden, err.Error(), types.ErrorCodeAccessDenied)
-		return err
-	}
-	if len(originalPolicy.AllowedProfileIDs) > 0 {
-		allowed := false
-		for _, allowedProfileID := range originalPolicy.AllowedProfileIDs {
-			if allowedProfileID == profileID {
-				allowed = true
-				break
-			}
-		}
-		if !allowed {
-			abortWithOpenAiMessage(c, http.StatusForbidden, "This API key cannot test the selected Profile", types.ErrorCodeAccessDenied)
-			return errors.New("selected gpttesticu profile is outside token scope")
-		}
-	}
-
-	// Keep the user's original model and Profile policy as a hard boundary, then
-	// narrow the already-authorized request to the Profile being tested.
+	// The selected API key remains the billing and model/quota authority. The
+	// monitor Profile is intentionally tested independently of that key's
+	// production Profile allowlist, since this is a paid diagnostic request.
 	c.Set("acu_profile_limit_enabled", true)
 	c.Set("acu_profile_limits", []string{profileID})
 	if c.Keys != nil {
