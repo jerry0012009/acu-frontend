@@ -67,32 +67,47 @@ function money(value: number | undefined): string {
   return `\u00a5${value.toFixed(value < 0.01 ? 6 : 3)}`
 }
 
-function smoothTimelineData(data: TimelineChartDatum[]): TimelineChartDatum[] {
+function interpolateTimelineData(
+  data: TimelineChartDatum[]
+): TimelineChartDatum[] {
   const result = data.map((item) => ({
     ...item,
     value: [...item.value] as [number, number],
   }))
-  let segmentStart = 0
+  const known = result
+    .map((item, index) => ({ index, value: item.value[1] }))
+    .filter((item) => Number.isFinite(item.value))
+  if (known.length === 0) return result
 
-  const smoothSegment = (segmentEnd: number) => {
-    if (segmentEnd <= segmentStart) return
-    const values = result
-      .slice(segmentStart, segmentEnd)
-      .map((item) => item.value[1])
-    const smoothed = gaussianSmooth(values)
-    for (let index = segmentStart; index < segmentEnd; index += 1) {
-      result[index].value[1] = smoothed[index - segmentStart]
+  for (let index = 0; index < known[0].index; index += 1) {
+    result[index].value[1] = known[0].value
+  }
+  for (let point = 0; point < known.length - 1; point += 1) {
+    const left = known[point]
+    const right = known[point + 1]
+    const span = right.index - left.index
+    for (let index = left.index + 1; index < right.index; index += 1) {
+      const progress = (index - left.index) / span
+      result[index].value[1] =
+        left.value + (right.value - left.value) * progress
     }
   }
-
-  for (let index = 0; index <= result.length; index += 1) {
-    const finite =
-      index < result.length && Number.isFinite(result[index].value[1])
-    if (finite) continue
-    smoothSegment(index)
-    segmentStart = index + 1
+  const last = known.at(-1)
+  if (last) {
+    for (let index = last.index + 1; index < result.length; index += 1) {
+      result[index].value[1] = last.value
+    }
   }
   return result
+}
+
+function smoothTimelineData(data: TimelineChartDatum[]): TimelineChartDatum[] {
+  const interpolated = interpolateTimelineData(data)
+  const smoothed = gaussianSmooth(interpolated.map((item) => item.value[1]))
+  return interpolated.map((item, index) => ({
+    ...item,
+    value: [item.value[0], smoothed[index]] as [number, number],
+  }))
 }
 
 export function timelineCostDifference(
@@ -236,7 +251,7 @@ export function buildACUQualityTimelineChartOption(props: {
           datum(item, index, specification.value(item))
         )
       ),
-      connectNulls: false,
+      connectNulls: true,
       smooth: 0.5,
       smoothMonotone: 'x',
       showSymbol: false,

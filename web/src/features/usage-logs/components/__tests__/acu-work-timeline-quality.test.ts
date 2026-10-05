@@ -172,7 +172,7 @@ test('quality view overlays inferred execution points and keeps reference lines'
   )
 })
 
-test('missing quality remains a gap while a recorded zero remains a real point', () => {
+test('missing quality is filled in the trend while a recorded zero remains a point', () => {
   const missing = execution({ qualityComparison: undefined })
   const zero = execution({
     pointId: 'zero:execution',
@@ -181,9 +181,14 @@ test('missing quality remains a gap while a recorded zero remains a real point',
   const series = chartSeries(
     buildACUQualityTimelineChartOption({ items: [missing, zero], dark: true })
   )
-  assert.ok(Number.isNaN(series[0].data[0].value[1]))
+  assert.equal(series[0].data[0].value[1], 0)
   assert.equal(series[0].data[1].value[1], 0)
-  assert.equal(series[0].connectNulls, false)
+  assert.equal(series[0].connectNulls, true)
+  assert.equal(
+    series.find((entry) => entry.id === 'quality-observation-points')?.data
+      .length,
+    1
+  )
 })
 
 test('all-users view draws exactly three continuous quality trends with raw quality points', () => {
@@ -238,11 +243,11 @@ test('a sparse reference stays visible when the timeline exceeds eighty requests
   assert.equal(budget?.showSymbol, false)
   assert.equal(
     budget?.data.filter((point) => Number.isFinite(point.value[1])).length,
-    1
+    81
   )
 })
 
-test('a real missing estimate remains a gap and cannot borrow another segment quality', () => {
+test('trend lines interpolate missing estimates while raw points remain absent', () => {
   const items = [
     execution(),
     execution({ qualityComparison: undefined }),
@@ -258,10 +263,15 @@ test('a real missing estimate remains a gap and cannot borrow another segment qu
     main?.data.map((point) => point.value[0]),
     [1, 2, 3]
   )
-  assert.ok(Number.isNaN(main?.data[1].value[1]))
-  assert.equal(main?.connectNulls, false)
-  assert.equal(main?.data[0].value[1], 72)
-  assert.equal(main?.data[2].value[1], 20)
+  assert.ok(Number.isFinite(main?.data[1].value[1]))
+  assert.equal(main?.connectNulls, true)
+  assert.notEqual(main?.data[0].value[1], main?.data[1].value[1])
+  assert.notEqual(main?.data[1].value[1], main?.data[2].value[1])
+  assert.equal(
+    series.find((entry) => entry.id === 'quality-observation-points')?.data
+      .length,
+    2
+  )
 })
 
 test('pricing Gaussian smooths a quality step while white points and tooltips keep original scores', () => {
