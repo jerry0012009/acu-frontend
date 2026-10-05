@@ -490,8 +490,8 @@ export function ACUChannelMonitor(
       ),
   })
   const gpttesticuMutation = useMutation({
-    mutationFn: (executionProfileId: string) =>
-      runACUProfileGpttesticu(executionProfileId),
+    mutationFn: (input: { executionProfileId: string; tokenId: number }) =>
+      runACUProfileGpttesticu(input.executionProfileId, input.tokenId),
     onSuccess: (result) => {
       setVeridropInspector((current) =>
         current && current.method === 'gpttesticu'
@@ -505,7 +505,10 @@ export function ACUChannelMonitor(
           : current
       )
       void queryClient.invalidateQueries({
-        queryKey: ['gpttesticu-history', gpttesticuMutation.variables],
+        queryKey: [
+          'gpttesticu-history',
+          gpttesticuMutation.variables?.executionProfileId,
+        ],
       })
     },
     onError: (error) =>
@@ -678,11 +681,12 @@ export function ACUChannelMonitor(
       })
     },
   }
-  const gpttesticuActions = isAdmin
+  const gpttesticuActions =
+    selectedTokenId != null
     ? {
         isPending: (profileId: string) =>
           gpttesticuMutation.isPending &&
-          gpttesticuMutation.variables === profileId,
+          gpttesticuMutation.variables?.executionProfileId === profileId,
         onCheck: (profile: ACUChannelMonitorProfile) => {
           setVeridropInspector({
             profile,
@@ -692,7 +696,10 @@ export function ACUChannelMonitor(
           })
         },
         onStart: (profile: ACUChannelMonitorProfile) => {
-          gpttesticuMutation.mutate(profile.executionProfileId)
+          gpttesticuMutation.mutate({
+            executionProfileId: profile.executionProfileId,
+            tokenId: selectedTokenId,
+          })
         },
       }
     : undefined
@@ -1315,10 +1322,15 @@ export function ACUChannelMonitor(
         result={veridropInspector?.result ?? null}
         onStart={
           veridropInspector?.method === 'gpttesticu' &&
-          veridropInspector.profile
+          veridropInspector.profile &&
+          selectedTokenId != null
             ? () =>
                 gpttesticuMutation.mutate(
-                  veridropInspector.profile.executionProfileId
+                  {
+                    executionProfileId:
+                      veridropInspector.profile.executionProfileId,
+                    tokenId: selectedTokenId,
+                  }
                 )
             : undefined
         }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -527,8 +528,55 @@ func TokenAuth() func(c *gin.Context) {
 		if err != nil {
 			return
 		}
+		if err := applyGpttesticuProfileOverride(c, token); err != nil {
+			return
+		}
 		c.Next()
 	}
+}
+
+func applyGpttesticuProfileOverride(c *gin.Context, token *model.Token) error {
+	profileID := strings.TrimSpace(c.GetHeader("X-ACU-Gpttesticu-Profile-Id"))
+	traceToken := strings.TrimSpace(c.GetHeader("X-ACU-Gpttesticu-Trace"))
+	if profileID == "" && traceToken == "" {
+		return nil
+	}
+	if profileID == "" || traceToken == "" || traceToken != strings.TrimSpace(os.Getenv("ACU_ADMIN_TRACE_TOKEN")) {
+		abortWithOpenAiMessage(c, http.StatusForbidden, "Invalid SVG test authorization", types.ErrorCodeAccessDenied)
+		return errors.New("invalid gpttesticu profile authorization")
+	}
+	if len(profileID) > 256 {
+		abortWithOpenAiMessage(c, http.StatusBadRequest, "SVG test Profile ID is too long")
+		return errors.New("gpttesticu profile id is too long")
+	}
+
+	originalPolicy, err := service.ResolveACUEffectiveRoutingPolicy(token)
+	if err != nil {
+		abortWithOpenAiMessage(c, http.StatusForbidden, err.Error(), types.ErrorCodeAccessDenied)
+		return err
+	}
+	if len(originalPolicy.AllowedProfileIDs) > 0 {
+		allowed := false
+		for _, allowedProfileID := range originalPolicy.AllowedProfileIDs {
+			if allowedProfileID == profileID {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			abortWithOpenAiMessage(c, http.StatusForbidden, "This API key cannot test the selected Profile", types.ErrorCodeAccessDenied)
+			return errors.New("selected gpttesticu profile is outside token scope")
+		}
+	}
+
+	// Keep the user's original model and Profile policy as a hard boundary, then
+	// narrow the already-authorized request to the Profile being tested.
+	c.Set("acu_profile_limit_enabled", true)
+	c.Set("acu_profile_limits", []string{profileID})
+	if c.Keys != nil {
+		delete(c.Keys, "acu_routing_policy_error")
+	}
+	return nil
 }
 
 func SetupContextForToken(c *gin.Context, token *model.Token, parts ...string) error {
