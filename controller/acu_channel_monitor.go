@@ -79,6 +79,15 @@ func GetACUProfileGpttesticu(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
 }
 
+func GetACUProfileGpttesticuHistory(c *gin.Context) {
+	result, err := service.GetACUProfileGpttesticuHistory(c.Param("executionProfileId"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
 func GetACURoutingCatalog(c *gin.Context) {
 	result, err := service.GetACURoutingCatalog(c.Request.Context())
 	if err != nil {

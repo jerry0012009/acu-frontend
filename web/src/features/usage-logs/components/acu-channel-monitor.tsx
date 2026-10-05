@@ -504,6 +504,9 @@ export function ACUChannelMonitor(
             }
           : current
       )
+      void queryClient.invalidateQueries({
+        queryKey: ['gpttesticu-history', gpttesticuMutation.variables],
+      })
     },
     onError: (error) =>
       setVeridropInspector((current) =>
@@ -687,6 +690,8 @@ export function ACUChannelMonitor(
             method: 'gpttesticu',
             result: null,
           })
+        },
+        onStart: (profile: ACUChannelMonitorProfile) => {
           gpttesticuMutation.mutate(profile.executionProfileId)
         },
       }
@@ -1308,6 +1313,15 @@ export function ACUChannelMonitor(
         method={veridropInspector?.method ?? 'veridrop'}
         loading={veridropMutation.isPending || gpttesticuMutation.isPending}
         result={veridropInspector?.result ?? null}
+        onStart={
+          veridropInspector?.method === 'gpttesticu' &&
+          veridropInspector.profile
+            ? () =>
+                gpttesticuMutation.mutate(
+                  veridropInspector.profile.executionProfileId
+                )
+            : undefined
+        }
         requestError={veridropInspector?.requestError}
         onOpenChange={(open) => {
           if (!open) setVeridropInspector(null)

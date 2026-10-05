@@ -97,6 +97,7 @@ export function ACUChannelHealthCard(props: {
   gpttesticuActions?: {
     isPending: (profileId: string) => boolean
     onCheck: (profile: ACUChannelMonitorProfile) => void
+    onStart: (profile: ACUChannelMonitorProfile) => void
   }
 }) {
   const { t, i18n } = useTranslation()
@@ -300,6 +301,7 @@ function ChannelProfile(props: {
   gpttesticuActions?: {
     isPending: (profileId: string) => boolean
     onCheck: (profile: ACUChannelMonitorProfile) => void
+    onStart: (profile: ACUChannelMonitorProfile) => void
   }
 }) {
   const { t, i18n } = useTranslation()

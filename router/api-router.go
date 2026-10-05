@@ -329,6 +329,7 @@ func SetApiRouter(router *gin.Engine) {
 		logRoute.POST("/acu-channel-monitor/veridrop", middleware.UserAuth(), middleware.CriticalRateLimit(), middleware.DisableCache(), controller.RunACUProfileVeridrop)
 		logRoute.POST("/acu-channel-monitor/gpttesticu", middleware.AdminAuth(), middleware.CriticalRateLimit(), middleware.DisableCache(), controller.RunACUProfileGpttesticu)
 		logRoute.GET("/acu-channel-monitor/gpttesticu/:jobId", middleware.AdminAuth(), middleware.DisableCache(), controller.GetACUProfileGpttesticu)
+		logRoute.GET("/acu-channel-monitor/gpttesticu/history/:executionProfileId", middleware.AdminAuth(), middleware.DisableCache(), controller.GetACUProfileGpttesticuHistory)
 		logRoute.POST("/acu-channel-monitor/pause", middleware.AdminAuth(), controller.PauseACUChannel)
 		logRoute.POST("/acu-channel-monitor/probe-all", middleware.RootAuth(), controller.TriggerACUFullPoolProbe)
 		logRoute.PUT("/acu-channel-monitor/profile-note", middleware.AdminAuth(), middleware.DisableCache(), controller.UpdateACUProfilePublicNote)

@@ -668,6 +668,9 @@ export type ACUGpttesticuResult = {
   completedAt?: string
   reason?: string
   routingImpact: 'none'
+  historyId?: number
+  executionProfileId?: string
+  createdAt?: string
 }
 
 export type ACUQuickAddConnection = {
@@ -1150,6 +1153,23 @@ export async function runACUProfileGpttesticu(executionProfileId: string) {
     }
   }
   throw new Error('gpttesticu check timed out')
+}
+
+export async function getACUProfileGpttesticuHistory(
+  executionProfileId: string
+) {
+  const res = await api.get(
+    `/api/log/acu-channel-monitor/gpttesticu/history/${encodeURIComponent(
+      executionProfileId
+    )}`
+  )
+  return requireACUSuccess(
+    res.data as {
+      success: boolean
+      message?: string
+      data?: ACUGpttesticuResult[]
+    }
+  )
 }
 
 export async function getUserInfo(

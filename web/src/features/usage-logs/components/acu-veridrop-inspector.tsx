@@ -1,3 +1,5 @@
+import { useQuery } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -8,7 +10,11 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 
-import type { ACUChannelMonitorProfile, ACUVeridropResult } from '../api'
+import {
+  getACUProfileGpttesticuHistory,
+  type ACUChannelMonitorProfile,
+  type ACUVeridropResult,
+} from '../api'
 import {
   buildGpttesticuPreview,
   extractGpttesticuHtml,
@@ -29,12 +35,29 @@ export function ACUVeridropInspector(props: {
   loading: boolean
   result: ACUVeridropResult | null
   method?: 'veridrop' | 'gpttesticu'
+  onStart?: () => void
   requestError?: string
   onOpenChange: (open: boolean) => void
 }) {
   const { t } = useTranslation()
-  const extractedHtml = props.result?.sample
-    ? extractGpttesticuHtml(props.result.sample)
+  const [selectedHistory, setSelectedHistory] =
+    useState<ACUVeridropResult | null>(null)
+  const historyQuery = useQuery({
+    queryKey: ['gpttesticu-history', props.profile?.executionProfileId],
+    queryFn: () =>
+      getACUProfileGpttesticuHistory(props.profile?.executionProfileId ?? ''),
+    enabled:
+      props.open &&
+      props.method === 'gpttesticu' &&
+      Boolean(props.profile?.executionProfileId),
+    staleTime: 0,
+  })
+  useEffect(() => {
+    setSelectedHistory(null)
+  }, [props.profile?.executionProfileId, props.method])
+  const activeResult = props.result ?? selectedHistory
+  const extractedHtml = activeResult?.sample
+    ? extractGpttesticuHtml(activeResult.sample)
     : null
   const previewDocument =
     props.method === 'gpttesticu' && extractedHtml
@@ -60,8 +83,49 @@ export function ACUVeridropInspector(props: {
             <span>{t('Protocol')}</span>
             <span>{props.protocol ?? t('n/a')}</span>
             <span>{t('Mode')}</span>
-            <span>{props.result?.mode ?? t('Standard')}</span>
+            <span>{activeResult?.mode ?? t('Standard')}</span>
           </div>
+          {props.method === 'gpttesticu' && props.onStart ? (
+            <div className='flex items-center justify-between gap-2 rounded border p-2'>
+              <span className='text-muted-foreground'>
+                {t('Run a new SVG behavior test for this Profile')}
+              </span>
+              <button
+                type='button'
+                className='bg-primary text-primary-foreground rounded px-3 py-1.5 text-xs font-medium disabled:opacity-50'
+                disabled={props.loading}
+                onClick={props.onStart}
+              >
+                {props.loading
+                  ? t('Generating SVG preview...')
+                  : t('Start test')}
+              </button>
+            </div>
+          ) : null}
+          {props.method === 'gpttesticu' && historyQuery.data?.data?.length ? (
+            <div className='space-y-2 rounded border p-2'>
+              <div className='font-medium'>{t('SVG test history')}</div>
+              <div className='max-h-40 space-y-1 overflow-y-auto'>
+                {historyQuery.data.data.map((item) => (
+                  <button
+                    type='button'
+                    key={String(item.historyId ?? item.createdAt)}
+                    className='hover:bg-muted flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left'
+                    onClick={() => setSelectedHistory(item)}
+                  >
+                    <span className='truncate'>
+                      {item.createdAt
+                        ? new Date(item.createdAt).toLocaleString()
+                        : t('Unknown time')}
+                    </span>
+                    <span className='shrink-0 font-medium'>
+                      {item.verdict ?? t('Unknown')} · {item.score ?? t('n/a')}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {props.loading ? (
             <div className='text-muted-foreground rounded border p-3'>
               {props.method === 'gpttesticu'
@@ -74,72 +138,72 @@ export function ACUVeridropInspector(props: {
               {props.requestError}
             </div>
           ) : null}
-          {props.result?.supported === false ? (
+          {activeResult?.supported === false ? (
             <div className='rounded border p-3'>
               {t('This protocol is not supported by the quick check')}
             </div>
           ) : null}
-          {props.result?.supported ? (
+          {activeResult?.supported ? (
             <>
               <div className='grid grid-cols-2 gap-2 border-b pb-3'>
                 <span className='text-muted-foreground'>{t('Verdict')}</span>
                 <span className='font-medium'>
-                  {props.result.verdict ?? t('Unknown')}
+                  {activeResult.verdict ?? t('Unknown')}
                 </span>
                 <span className='text-muted-foreground'>{t('Score')}</span>
-                <span>{props.result.score ?? t('n/a')}</span>
+                <span>{activeResult.score ?? t('n/a')}</span>
                 <span className='text-muted-foreground'>
                   {t('Detected model')}
                 </span>
                 <span className='break-words'>
-                  {props.result.actualModel ?? t('n/a')}
+                  {activeResult.actualModel ?? t('n/a')}
                 </span>
                 <span className='text-muted-foreground'>
                   {t('Target model')}
                 </span>
                 <span className='break-words'>
-                  {props.result.targetModel ?? t('n/a')}
+                  {activeResult.targetModel ?? t('n/a')}
                 </span>
                 <span className='text-muted-foreground'>
                   {t('Evidence summary')}
                 </span>
                 <span className='break-words'>
-                  {props.result.summary ?? t('n/a')}
+                  {activeResult.summary ?? t('n/a')}
                 </span>
                 <span className='text-muted-foreground'>{t('Completed')}</span>
                 <span>
-                  {props.result.completedAt
-                    ? new Date(props.result.completedAt).toLocaleString()
+                  {activeResult.completedAt
+                    ? new Date(activeResult.completedAt).toLocaleString()
                     : t('n/a')}
                 </span>
               </div>
-              {props.result.selfReportedIdentity ? (
+              {activeResult.selfReportedIdentity ? (
                 <div className='space-y-1 rounded border p-2'>
                   <div className='font-medium'>{t('Identity response')}</div>
                   <div className='text-muted-foreground break-words whitespace-pre-wrap'>
-                    {props.result.selfReportedIdentity}
+                    {activeResult.selfReportedIdentity}
                   </div>
                 </div>
               ) : null}
-              {props.result.detectedBrands?.length ? (
+              {activeResult.detectedBrands?.length ? (
                 <div className='border-destructive/40 rounded border p-2'>
                   <div className='font-medium'>
                     {t('Detected non-native brands')}
                   </div>
                   <div className='text-muted-foreground mt-1 break-words'>
-                    {props.result.detectedBrands.join(', ')}
+                    {activeResult.detectedBrands.join(', ')}
                   </div>
                 </div>
               ) : null}
-              {props.result.performance ? (
+              {activeResult.performance ? (
                 <div className='space-y-2 rounded border p-2'>
                   <div className='font-medium'>{t('Performance evidence')}</div>
                   <pre className='bg-muted/40 max-h-56 overflow-auto rounded p-2 text-[11px] break-words whitespace-pre-wrap'>
-                    {formatEvidence(props.result.performance)}
+                    {formatEvidence(activeResult.performance)}
                   </pre>
                 </div>
               ) : null}
-              {props.result.sample ? (
+              {activeResult.sample ? (
                 <div className='space-y-2 rounded border p-2'>
                   {previewDocument ? (
                     <div className='space-y-2'>
@@ -154,14 +218,14 @@ export function ACUVeridropInspector(props: {
                   ) : null}
                   <div className='font-medium'>{t('Sampled output')}</div>
                   <pre className='bg-muted/40 max-h-80 overflow-auto rounded p-2 text-[11px] break-words whitespace-pre-wrap'>
-                    {props.result.sample}
+                    {activeResult.sample}
                   </pre>
                 </div>
               ) : null}
-              {props.result.detectors?.length ? (
+              {activeResult.detectors?.length ? (
                 <div className='space-y-2'>
                   <div className='font-medium'>{t('Detector summary')}</div>
-                  {props.result.detectors.map((detector) => (
+                  {activeResult.detectors.map((detector) => (
                     <details
                       key={String(detector.name ?? 'detector')}
                       className='rounded border p-2'

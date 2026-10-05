@@ -43,6 +43,7 @@ var acuGpttesticuLastRun = map[string]time.Time{}
 type acuGpttesticuJob struct {
 	userID      int
 	cooldownKey string
+	profileID   string
 	status      string
 	result      map[string]interface{}
 	errorText   string
@@ -838,6 +839,7 @@ func StartACUProfileGpttesticu(
 	job := &acuGpttesticuJob{
 		userID:      userID,
 		cooldownKey: fmt.Sprintf("%d:%s", userID, profileID),
+		profileID:   profileID,
 		status:      "running",
 		startedAt:   time.Now(),
 	}
@@ -860,12 +862,66 @@ func StartACUProfileGpttesticu(
 		}
 		job.status = "done"
 		job.result = result
+		if err := recordACUGpttesticuHistory(job.profileID, result); err != nil {
+			common.SysLog("failed to record gpttesticu history: " + err.Error())
+		}
 	}()
 	return map[string]interface{}{
 		"jobId":     jobID,
 		"status":    "running",
 		"startedAt": job.startedAt.Format(time.RFC3339),
 	}, nil
+}
+
+func recordACUGpttesticuHistory(profileID string, result map[string]interface{}) error {
+	payload, err := common.Marshal(result)
+	if err != nil {
+		return err
+	}
+	requestedModel, _ := result["requestedModel"].(string)
+	actualModel, _ := result["actualModel"].(string)
+	verdict, _ := result["verdict"].(string)
+	score := 0
+	switch value := result["score"].(type) {
+	case int:
+		score = value
+	case float64:
+		score = int(value)
+	}
+	return model.DB.Create(&model.ACUGpttesticuHistory{
+		ExecutionProfileID: profileID,
+		RequestedModel:     requestedModel,
+		ActualModel:        actualModel,
+		Verdict:            verdict,
+		Score:              score,
+		ResultJSON:         string(payload),
+		CreatedAt:          time.Now(),
+	}).Error
+}
+
+func GetACUProfileGpttesticuHistory(
+	profileID string,
+) ([]map[string]interface{}, error) {
+	var rows []model.ACUGpttesticuHistory
+	if err := model.DB.
+		Where("execution_profile_id = ?", strings.TrimSpace(profileID)).
+		Order("created_at DESC").
+		Limit(50).
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	result := make([]map[string]interface{}, 0, len(rows))
+	for _, row := range rows {
+		var payload map[string]interface{}
+		if err := common.Unmarshal([]byte(row.ResultJSON), &payload); err != nil {
+			continue
+		}
+		payload["historyId"] = row.ID
+		payload["executionProfileId"] = row.ExecutionProfileID
+		payload["createdAt"] = row.CreatedAt
+		result = append(result, payload)
+	}
+	return result, nil
 }
 
 func GetACUProfileGpttesticu(
