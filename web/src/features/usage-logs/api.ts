@@ -668,6 +668,8 @@ export type ACUGpttesticuResult = {
   completedAt?: string
   reason?: string
   routingImpact: 'none'
+  billingMode?: 'user_token' | 'platform'
+  ownerLabel?: 'me' | 'other'
   historyId?: number
   executionProfileId?: string
   createdAt?: string
@@ -1113,9 +1115,13 @@ export async function runACUProfileVeridrop(
   )
 }
 
-export async function runACUProfileGpttesticu(executionProfileId: string) {
+export async function runACUProfileGpttesticu(
+  executionProfileId: string,
+  tokenId?: number
+) {
   const res = await api.post('/api/log/acu-channel-monitor/gpttesticu', {
     executionProfileId,
+    ...(tokenId != null ? { tokenId } : {}),
   })
   const started = requireACUSuccess(
     res.data as {

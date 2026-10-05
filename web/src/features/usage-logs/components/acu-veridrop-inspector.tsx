@@ -83,7 +83,7 @@ export function ACUVeridropInspector(props: {
           </SheetTitle>
           <SheetDescription>
             {props.method === 'gpttesticu'
-              ? t('Administrator-only SVG behavior check for this ACU route')
+              ? t('SVG behavior check paid by the selected API key')
               : t('Standard authenticity check for this ACU route')}
           </SheetDescription>
         </SheetHeader>
@@ -128,6 +128,10 @@ export function ACUVeridropInspector(props: {
                         : t('Unknown time')}
                     </span>
                     <span className='shrink-0 font-medium'>
+                      {item.ownerLabel === 'me'
+                        ? t('Me')
+                        : t('Other user')}{' '}
+                      ·{' '}
                       {item.verdict ?? t('Unknown')} · {item.score ?? t('n/a')}{' '}
                       · {t('Task duration')}: {formatDuration(item.durationMs)}
                     </span>

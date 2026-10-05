@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -527,8 +528,37 @@ func TokenAuth() func(c *gin.Context) {
 		if err != nil {
 			return
 		}
+		if err := applyGpttesticuProfileOverride(c, token); err != nil {
+			return
+		}
 		c.Next()
 	}
+}
+
+func applyGpttesticuProfileOverride(c *gin.Context, token *model.Token) error {
+	profileID := strings.TrimSpace(c.GetHeader("X-ACU-Gpttesticu-Profile-Id"))
+	traceToken := strings.TrimSpace(c.GetHeader("X-ACU-Gpttesticu-Trace"))
+	if profileID == "" && traceToken == "" {
+		return nil
+	}
+	if profileID == "" || traceToken == "" || traceToken != strings.TrimSpace(os.Getenv("ACU_ADMIN_TRACE_TOKEN")) {
+		abortWithOpenAiMessage(c, http.StatusForbidden, "Invalid SVG test authorization", types.ErrorCodeAccessDenied)
+		return errors.New("invalid gpttesticu profile authorization")
+	}
+	if len(profileID) > 256 {
+		abortWithOpenAiMessage(c, http.StatusBadRequest, "SVG test Profile ID is too long")
+		return errors.New("gpttesticu profile id is too long")
+	}
+
+	// The selected API key remains the billing and model/quota authority. The
+	// monitor Profile is intentionally tested independently of that key's
+	// production Profile allowlist, since this is a paid diagnostic request.
+	c.Set("acu_profile_limit_enabled", true)
+	c.Set("acu_profile_limits", []string{profileID})
+	if c.Keys != nil {
+		delete(c.Keys, "acu_routing_policy_error")
+	}
+	return nil
 }
 
 func SetupContextForToken(c *gin.Context, token *model.Token, parts ...string) error {
