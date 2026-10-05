@@ -313,8 +313,8 @@ test('explicit quality uses estimated difficulty and builds both cost references
         routingCandidates: [],
       },
       {
-        modelId: 'flagship',
-        displayName: 'Flagship',
+        modelId: 'gpt-6-astra',
+        displayName: 'GPT-6 Astra',
         vendor: 'test',
         modelCategory: 'text_agent' as const,
         capabilityTier: 'SOL' as const,
@@ -347,6 +347,6 @@ test('explicit quality uses estimated difficulty and builds both cost references
   )
   assert.equal(
     result?.displayQualityComparison?.mostExpensive?.modelId,
-    'flagship'
+    'gpt-6-astra'
   )
 })

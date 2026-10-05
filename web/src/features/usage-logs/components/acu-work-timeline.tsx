@@ -1076,6 +1076,17 @@ export function ACUWorkTimeline() {
                 ) : null}
               </span>
             ))}
+            <span className='flex items-center gap-2'>
+              <span
+                aria-hidden='true'
+                className='size-2 rounded-full border'
+                style={{
+                  borderColor: qualityColors.executed,
+                  backgroundColor: '#ffffff',
+                }}
+              />
+              {t('Quality points')}
+            </span>
             {chartItems.some((item) => item.displayQualityInferred) ? (
               <span className='flex items-center gap-2'>
                 <span

@@ -18,6 +18,7 @@ func TestTimelineQualityUsesOfficialBudgetAndProtocolInsteadOfSupplierCost(t *te
 		qualityTestModel("cheap", "responses", .8, 1),
 		qualityTestModel("best-budget", "responses", .9, 2),
 		qualityTestModel("expensive", "responses", .85, 8),
+		qualityTestModel("gpt-6-astra", "responses", .88, 1),
 		qualityTestModel("wrong-protocol", "messages", .99, 20),
 	}}
 	item := dto.ACUWorkTimelineItem{
@@ -45,7 +46,7 @@ func TestTimelineQualityUsesOfficialBudgetAndProtocolInsteadOfSupplierCost(t *te
 	assert.Equal(t, "best-budget", comparison.SameBudget.ModelID)
 	assert.Equal(t, 90.0, comparison.SameBudget.EstimatedQuality)
 	require.NotNil(t, comparison.MostExpensive)
-	assert.Equal(t, "expensive", comparison.MostExpensive.ModelID)
+	assert.Equal(t, "gpt-6-astra", comparison.MostExpensive.ModelID)
 	assert.Equal(t, "test-catalog", comparison.ReferenceCatalogVersion)
 }
 

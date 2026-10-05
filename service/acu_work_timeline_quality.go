@@ -10,6 +10,8 @@ import (
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 )
 
+const timelineFlagshipReferenceModel = "gpt-6-astra"
+
 func loadACUTimelineQualityCatalog() *dto.ACURoutingCatalog {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -108,8 +110,12 @@ func timelineQualityComparison(
 			ModelID: model.ModelID, DisplayName: firstTimelineValue(model.DisplayName, model.ModelID),
 			EstimatedQuality: *quality, OfficialCostCNY: *cost,
 		}
-		if result.MostExpensive == nil || *cost > result.MostExpensive.OfficialCostCNY ||
-			(*cost == result.MostExpensive.OfficialCostCNY && model.ModelID < result.MostExpensive.ModelID) {
+		if model.ModelID == timelineFlagshipReferenceModel ||
+			(result.MostExpensive == nil ||
+				result.MostExpensive.ModelID != timelineFlagshipReferenceModel &&
+					(*cost > result.MostExpensive.OfficialCostCNY ||
+						(*cost == result.MostExpensive.OfficialCostCNY &&
+							model.ModelID < result.MostExpensive.ModelID))) {
 			result.MostExpensive = reference
 		}
 		if result.ModelChargeCNY != nil && *cost <= *result.ModelChargeCNY+1e-10 &&

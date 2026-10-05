@@ -229,9 +229,9 @@ export function buildACUQualityTimelineChartOption(props: {
             yAxisIndex: 0,
             data,
             connectNulls: false,
-            smooth: false,
-            showSymbol: items.length <= 80 || pointCount === 1,
-            symbol: 'circle',
+            smooth: 0.32,
+            showSymbol: false,
+            symbol: 'none',
             symbolSize: specification.id === 'executed' ? 6 : 4,
             z: specification.id === 'executed' ? 4 : 2,
             lineStyle: {
@@ -274,6 +274,28 @@ export function buildACUQualityTimelineChartOption(props: {
       animation: false,
     })
   }
+  series.push({
+    id: 'quality-observation-points',
+    name: t('Quality points'),
+    type: 'scatter',
+    xAxisIndex: 0,
+    yAxisIndex: 0,
+    data: items
+      .map((item, index) => {
+        const value = timelineEstimatedQuality(item)
+        return value == null ? undefined : datum(item, index, value)
+      })
+      .filter((value): value is TimelineChartDatum => value != null),
+    symbol: 'circle',
+    symbolSize: 5,
+    itemStyle: {
+      color: props.dark ? '#ffffff' : '#ffffff',
+      borderColor: colors.executed,
+      borderWidth: 1.5,
+    },
+    z: 6,
+    animation: false,
+  })
   series.push(
     {
       id: 'quality-model-charge',
