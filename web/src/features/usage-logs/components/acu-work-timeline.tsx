@@ -37,6 +37,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { publicChannelAlias } from '@/features/acu/lib/public-channel-alias'
 import { ROLE } from '@/lib/roles'
 import { useChartTheme } from '@/lib/use-chart-theme'
@@ -69,6 +70,11 @@ import {
   type TimelineProtocolFilter,
   thinkingEffort,
 } from './acu-work-timeline-model'
+import {
+  buildACUQualityTimelineChartOption,
+  qualityTimelineColors,
+  qualityTimelineItems,
+} from './acu-work-timeline-quality-model'
 import { ACUSessionTracePanel } from './dialogs/acu-session-trace'
 
 echarts.use([
@@ -586,6 +592,9 @@ export function ACUWorkTimeline() {
   >()
   const [selectedPointId, setSelectedPointId] = useState('')
   const [trendOpen, setTrendOpen] = useState(true)
+  const [chartView, setChartView] = useState<'quality' | 'difficulty'>(
+    'quality'
+  )
   const [search, setSearch] = useState('')
   const [filterMode, setFilterMode] = useState<'all' | 'errors'>('all')
   const [protocolFilter, setProtocolFilter] =
@@ -600,6 +609,7 @@ export function ACUWorkTimeline() {
   const chartContainerRef = useRef<HTMLDivElement | null>(null)
   const chartRef = useRef<EChartsType | null>(null)
   const { resolvedTheme, themeReady } = useChartTheme()
+  const qualityColors = qualityTimelineColors(resolvedTheme === 'dark')
   const [visibleOrderRange, setVisibleOrderRange] = useState({
     start: 1,
     end: 1,
@@ -713,10 +723,22 @@ export function ACUWorkTimeline() {
         displayItems,
         protocolFilter,
         channelFilter,
-        pointTypeFilter,
+        chartView === 'quality' ? 'execution' : pointTypeFilter,
         resultFilter
       ),
-    [channelFilter, displayItems, pointTypeFilter, protocolFilter, resultFilter]
+    [
+      channelFilter,
+      chartView,
+      displayItems,
+      pointTypeFilter,
+      protocolFilter,
+      resultFilter,
+    ]
+  )
+  const chartItems = useMemo(
+    () =>
+      chartView === 'quality' ? qualityTimelineItems(supplyItems) : supplyItems,
+    [chartView, supplyItems]
   )
   const channelOptions = useMemo(
     () => buildTimelineChannelOptions(displayItems),
@@ -728,14 +750,15 @@ export function ACUWorkTimeline() {
   )
 
   useEffect(() => {
-    setVisibleOrderRange({ start: 1, end: Math.max(1, supplyItems.length) })
+    setVisibleOrderRange({ start: 1, end: Math.max(1, chartItems.length) })
   }, [
     allUsersSelected,
     customRange.from,
     customRange.to,
     hours,
     rangeMode,
-    supplyItems.length,
+    chartItems.length,
+    chartView,
   ])
 
   const applyCustomRange = () => {
@@ -769,8 +792,8 @@ export function ACUWorkTimeline() {
   }
 
   const rangeItems = useMemo(
-    () => supplyItems.slice(visibleOrderRange.start - 1, visibleOrderRange.end),
-    [supplyItems, visibleOrderRange]
+    () => chartItems.slice(visibleOrderRange.start - 1, visibleOrderRange.end),
+    [chartItems, visibleOrderRange]
   )
   const visibleItems = useMemo(
     () => filterTimelineItems(rangeItems, search, filterMode),
@@ -793,11 +816,16 @@ export function ACUWorkTimeline() {
   }, [visibleItems])
   const chartOption = useMemo(
     () =>
-      buildACUWorkTimelineChartOption({
-        items: supplyItems,
-        dark: resolvedTheme === 'dark',
-      }),
-    [resolvedTheme, supplyItems]
+      chartView === 'quality'
+        ? buildACUQualityTimelineChartOption({
+            items: chartItems,
+            dark: resolvedTheme === 'dark',
+          })
+        : buildACUWorkTimelineChartOption({
+            items: chartItems,
+            dark: resolvedTheme === 'dark',
+          }),
+    [chartItems, chartView, resolvedTheme]
   )
 
   const resetZoom = useCallback(() => {
@@ -807,12 +835,12 @@ export function ACUWorkTimeline() {
       start: 0,
       end: 100,
     })
-    setVisibleOrderRange({ start: 1, end: Math.max(1, supplyItems.length) })
-  }, [supplyItems.length])
+    setVisibleOrderRange({ start: 1, end: Math.max(1, chartItems.length) })
+  }, [chartItems.length])
 
   useEffect(() => {
     const container = chartContainerRef.current
-    if (!trendOpen || !container || !themeReady || supplyItems.length === 0) {
+    if (!trendOpen || !container || !themeReady || chartItems.length === 0) {
       return
     }
     const chart = echarts.init(
@@ -824,7 +852,7 @@ export function ACUWorkTimeline() {
     chart.setOption(chartOption, { notMerge: true })
 
     const handleZoom = (event: unknown) => {
-      const range = timelineOrderRangeFromZoom(event, supplyItems.length)
+      const range = timelineOrderRangeFromZoom(event, chartItems.length)
       if (range) setVisibleOrderRange(range)
     }
     const handleClick = (event: unknown) => {
@@ -850,14 +878,14 @@ export function ACUWorkTimeline() {
     }
   }, [
     chartOption,
-    supplyItems.length,
+    chartItems.length,
     resetZoom,
     resolvedTheme,
     themeReady,
     trendOpen,
   ])
 
-  const stats = [
+  const difficultyStats = [
     [t('Execution Steps'), summary.executionSteps, Activity, ''],
     [t('Judge Evaluations'), summary.judgeEvaluations, Scale, ''],
     [
@@ -906,11 +934,57 @@ export function ACUWorkTimeline() {
     [t('Unsettled requests'), summary.unsettledRequests, Coins, ''],
   ] as const
 
+  const qualityCharges = visibleItems.filter(
+    (item) => item.qualityComparison?.modelChargeCny != null
+  )
+  const qualityStats = [
+    [t('Execution Steps'), summary.executionSteps, Activity, ''],
+    [
+      t('Completion rate'),
+      `${(summary.completionRate * 100).toFixed(0)}%`,
+      Gauge,
+      '',
+    ],
+    [
+      t('Model execution charge'),
+      qualityCharges.length
+        ? money(
+            qualityCharges.reduce(
+              (total, item) =>
+                total + (item.qualityComparison?.modelChargeCny ?? 0),
+              0
+            )
+          )
+        : '—',
+      Coins,
+      '',
+    ],
+    [
+      t('Official direct equivalent'),
+      visibleItems.length > 0 &&
+      visibleItems.every(
+        (item) =>
+          item.qualityComparison?.modelChargeCny != null &&
+          item.qualityComparison?.officialModelCostCny != null
+      )
+        ? money(
+            visibleItems.reduce(
+              (total, item) =>
+                total + (item.qualityComparison?.officialModelCostCny ?? 0),
+              0
+            )
+          )
+        : '—',
+      Scale,
+      '',
+    ],
+  ] as const
+  const stats = chartView === 'quality' ? qualityStats : difficultyStats
   const visibleRequestStart =
-    supplyItems.length > 0 ? visibleOrderRange.start : 0
+    chartItems.length > 0 ? visibleOrderRange.start : 0
   const visibleRequestEnd =
-    supplyItems.length > 0
-      ? Math.min(visibleOrderRange.end, supplyItems.length)
+    chartItems.length > 0
+      ? Math.min(visibleOrderRange.end, chartItems.length)
       : 0
   let userScopeInputValue = userSearch
   if (allUsersSelected) {
@@ -940,22 +1014,91 @@ export function ACUWorkTimeline() {
         {t('Loading…')}
       </div>
     )
-  } else if (supplyItems.length > 0) {
+  } else if (query.isError) {
     chartContent = (
-      <section className='bg-card min-w-0 overflow-hidden rounded border'>
-        <div className='border-b px-4 py-3'>
-          <div className='text-sm font-medium'>
-            {t('Difficulty and user charge by request order')}
+      <div
+        className='text-destructive flex items-center justify-center gap-3 py-12 text-sm'
+        role='alert'
+      >
+        {t('Failed to load timeline.')}
+        <Button
+          size='sm'
+          variant='outline'
+          onClick={() => void query.refetch()}
+        >
+          <RotateCcw className='size-3.5' />
+          {t('Retry')}
+        </Button>
+      </div>
+    )
+  } else if (chartItems.length > 0) {
+    chartContent = (
+      <section className='min-w-0 overflow-hidden'>
+        {chartView === 'quality' ? (
+          <div className='flex flex-wrap items-center gap-x-5 gap-y-2 px-1 py-3 text-xs'>
+            {[
+              [t('ACU execution'), qualityColors.executed, false],
+              [t('Same-budget reference'), qualityColors.sameBudget, true],
+              [t('Highest official price'), qualityColors.mostExpensive, true],
+            ].map(([label, color, dashed], index) => (
+              <span key={String(label)} className='flex items-center gap-2'>
+                <span
+                  aria-hidden='true'
+                  className={cn('w-5 border-t-2', dashed && 'border-dashed')}
+                  style={{ borderColor: String(color) }}
+                />
+                {label}
+                {index === 1 &&
+                !chartItems.some(
+                  (item) => item.qualityComparison?.sameBudget
+                ) ? (
+                  <span className='text-muted-foreground'>
+                    {t('No comparable model')}
+                  </span>
+                ) : null}
+              </span>
+            ))}
           </div>
-          <div className='text-muted-foreground mt-0.5 text-xs'>
-            {t(
-              'Difficulty is shown above and user charge below. Both use the same request-order axis.'
-            )}
+        ) : null}
+        {chartView === 'quality' &&
+        !chartItems.some(
+          (item) => item.qualityComparison?.estimatedQuality != null
+        ) ? (
+          <div className='text-muted-foreground px-1 text-xs' role='status'>
+            {t('No recorded quality estimates.')}
           </div>
-        </div>
+        ) : null}
         <div className='h-[34rem] min-w-0 touch-pan-y sm:h-[38rem]'>
-          <div ref={chartContainerRef} className='size-full min-w-0' />
+          <div
+            ref={chartContainerRef}
+            className='size-full min-w-0'
+            role='img'
+            aria-label={
+              chartView === 'quality'
+                ? t('Estimated quality and model cost comparison')
+                : t('Difficulty and user charge by request order')
+            }
+            data-testid='acu-timeline-chart'
+          />
         </div>
+        {chartView === 'quality' ? (
+          <div className='text-muted-foreground flex flex-wrap gap-x-5 gap-y-2 px-1 pb-2 text-xs'>
+            <span className='flex items-center gap-2'>
+              <span
+                aria-hidden='true'
+                className='h-2.5 w-3 bg-teal-700/65 dark:bg-teal-400/65'
+              />
+              {t('Model execution charge')}
+            </span>
+            <span className='flex items-center gap-2'>
+              <span
+                aria-hidden='true'
+                className='w-5 border-t border-dashed border-slate-500 dark:border-slate-300'
+              />
+              {t('Official direct equivalent')}
+            </span>
+          </div>
+        ) : null}
       </section>
     )
   }
@@ -1066,7 +1209,7 @@ export function ACUWorkTimeline() {
         <label className='grid min-w-44 flex-1 gap-1 text-xs sm:flex-none'>
           <span className='text-muted-foreground'>{t('Protocol')}</span>
           <select
-            className='bg-background h-8 rounded border px-2'
+            className='bg-background h-8 w-full max-w-full min-w-0 rounded border px-2'
             value={protocolFilter}
             onChange={(event) =>
               setProtocolFilter(event.target.value as TimelineProtocolFilter)
@@ -1082,7 +1225,7 @@ export function ACUWorkTimeline() {
         <label className='grid min-w-44 flex-1 gap-1 text-xs sm:flex-none'>
           <span className='text-muted-foreground'>{executionRouteLabel}</span>
           <select
-            className='bg-background h-8 rounded border px-2'
+            className='bg-background h-8 w-full max-w-full min-w-0 rounded border px-2'
             value={channelFilter}
             onChange={(event) => setChannelFilter(event.target.value)}
           >
@@ -1098,24 +1241,26 @@ export function ACUWorkTimeline() {
             ))}
           </select>
         </label>
-        <label className='grid min-w-36 flex-1 gap-1 text-xs sm:flex-none'>
-          <span className='text-muted-foreground'>{t('Event type')}</span>
-          <select
-            className='bg-background h-8 rounded border px-2'
-            value={pointTypeFilter}
-            onChange={(event) =>
-              setPointTypeFilter(event.target.value as typeof pointTypeFilter)
-            }
-          >
-            <option value='all'>{t('All event types')}</option>
-            <option value='judge'>{t('Judge evaluation')}</option>
-            <option value='execution'>{t('Production request')}</option>
-          </select>
-        </label>
+        {chartView === 'difficulty' ? (
+          <label className='grid min-w-36 flex-1 gap-1 text-xs sm:flex-none'>
+            <span className='text-muted-foreground'>{t('Event type')}</span>
+            <select
+              className='bg-background h-8 w-full max-w-full min-w-0 rounded border px-2'
+              value={pointTypeFilter}
+              onChange={(event) =>
+                setPointTypeFilter(event.target.value as typeof pointTypeFilter)
+              }
+            >
+              <option value='all'>{t('All event types')}</option>
+              <option value='judge'>{t('Judge evaluation')}</option>
+              <option value='execution'>{t('Production request')}</option>
+            </select>
+          </label>
+        ) : null}
         <label className='grid min-w-32 flex-1 gap-1 text-xs sm:flex-none'>
           <span className='text-muted-foreground'>{t('Result')}</span>
           <select
-            className='bg-background h-8 rounded border px-2'
+            className='bg-background h-8 w-full max-w-full min-w-0 rounded border px-2'
             value={resultFilter}
             onChange={(event) =>
               setResultFilter(event.target.value as typeof resultFilter)
@@ -1169,7 +1314,7 @@ export function ACUWorkTimeline() {
           {t('Visible requests #{{start}}–#{{end}} of {{total}}', {
             start: visibleRequestStart,
             end: visibleRequestEnd,
-            total: supplyItems.length,
+            total: chartItems.length,
           })}
         </span>
         <span>
@@ -1178,7 +1323,12 @@ export function ACUWorkTimeline() {
           )}
         </span>
       </div>
-      <div className='bg-border grid shrink-0 grid-cols-2 gap-px overflow-hidden rounded border lg:grid-cols-8'>
+      <div
+        className={cn(
+          'bg-border grid shrink-0 grid-cols-2 gap-px overflow-hidden rounded border',
+          chartView === 'quality' ? 'lg:grid-cols-4' : 'lg:grid-cols-8'
+        )}
+      >
         {stats.map(([label, value, Icon, description]) => (
           <div
             key={label}
@@ -1198,7 +1348,9 @@ export function ACUWorkTimeline() {
           aria-expanded={trendOpen}
           className='bg-card flex w-full items-center justify-between rounded border px-4 py-3 text-left text-sm font-medium'
         >
-          {t('Difficulty and user charge trend')}
+          {chartView === 'quality'
+            ? t('Quality and model cost')
+            : t('Difficulty and user charge trend')}
           <ChevronDown
             className={cn(
               'size-4 transition-transform',
@@ -1206,7 +1358,28 @@ export function ACUWorkTimeline() {
             )}
           />
         </CollapsibleTrigger>
-        <CollapsibleContent className='pt-3'>{chartContent}</CollapsibleContent>
+        <CollapsibleContent className='pt-3'>
+          <Tabs
+            value={chartView}
+            onValueChange={(value) => {
+              if (value === 'quality' || value === 'difficulty') {
+                setChartView(value)
+              }
+            }}
+          >
+            <TabsList variant='line' aria-label={t('Timeline view')}>
+              <TabsTrigger value='quality' className='px-4'>
+                {t('Quality')}
+              </TabsTrigger>
+              <TabsTrigger value='difficulty' className='px-4'>
+                {t('Difficulty')}
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value={chartView} className='min-w-0'>
+              {chartContent}
+            </TabsContent>
+          </Tabs>
+        </CollapsibleContent>
       </Collapsible>
       <section className='bg-card min-w-0 overflow-hidden rounded border'>
         <div className='flex flex-wrap items-end justify-between gap-3 border-b px-4 py-3'>

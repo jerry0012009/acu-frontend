@@ -158,6 +158,15 @@ export type ACUWorkTimelineItem = {
   workPhase: string
   workPhaseQualityTargetOffset: number
   routingQualityTarget?: number
+  qualityComparison?: {
+    estimatedQuality?: number
+    modelChargeCny?: number
+    officialModelCostCny?: number
+    sameBudget?: ACUTimelineQualityReference
+    mostExpensive?: ACUTimelineQualityReference
+    qualitySource?: string
+    referenceCatalogVersion?: string
+  }
   judgeTrigger: string
   judgeStatus: string
   judgeResultSource: string
@@ -210,6 +219,13 @@ export type ACUWorkTimelineItem = {
     effectiveCostCny?: number
     nominalCostUsd?: number
   }>
+}
+
+export type ACUTimelineQualityReference = {
+  modelId: string
+  displayName: string
+  estimatedQuality: number
+  officialCostCny: number
 }
 
 export type ACUWorkTimeline = {

@@ -89,6 +89,16 @@ func buildACUWorkTimeline(
 	allowAdminAttemptHydration bool,
 	finalJudgeDifficulties ...map[string]float64,
 ) dto.ACUWorkTimeline {
+	return buildACUWorkTimelineWithQuality(logs, from, to, allowAdminAttemptHydration, nil, finalJudgeDifficulties...)
+}
+
+func buildACUWorkTimelineWithQuality(
+	logs []*model.Log,
+	from, to int64,
+	allowAdminAttemptHydration bool,
+	catalog *dto.ACURoutingCatalog,
+	finalJudgeDifficulties ...map[string]float64,
+) dto.ACUWorkTimeline {
 	var authoritativeJudgeDifficulties map[string]float64
 	if len(finalJudgeDifficulties) > 0 {
 		authoritativeJudgeDifficulties = finalJudgeDifficulties[0]
@@ -232,6 +242,7 @@ func buildACUWorkTimeline(
 			RouteRefreshReason:     firstTimelineValue(stringValue(decision, "route_refresh_reason"), stringValue(breakdown, "route_refresh_reason")),
 			TopCandidates:          timelineCandidates(decision), ProviderAttempts: timelineAttempts(attempts),
 		}
+		item.QualityComparison = timelineQualityComparison(item, breakdown, adminBreakdown, catalog)
 		requestKey := timelineRequestKey(log.UserId, logicalID)
 		if previous, exists := byRequest[requestKey]; !exists || timelineItemIsMoreFinal(item, previous, log.Type) {
 			byRequest[requestKey] = item
@@ -271,6 +282,7 @@ func buildACUWorkTimeline(
 			judge.FirstModelEventLatencyMs = 0
 			judge.ProviderAttempts = nil
 			judge.TopCandidates = nil
+			judge.QualityComparison = nil
 			judge.InputTokens = int64(sumJudgeTokens(item.JudgeAttempts, "input"))
 			judge.CachedInputTokens = int64(sumJudgeTokens(item.JudgeAttempts, "cached"))
 			judge.OutputTokens = int64(sumJudgeTokens(item.JudgeAttempts, "output"))

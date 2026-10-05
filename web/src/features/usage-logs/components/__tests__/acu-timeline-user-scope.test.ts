@@ -56,7 +56,7 @@ test('timeline and trace cache keys are scoped by target user and selection rese
 test('timeline zero state identifies direct model calls and uses an empty zero range', () => {
   assert.match(
     timelineSource,
-    /supplyItems\.length > 0 \? visibleOrderRange\.start : 0/
+    /chartItems\.length > 0 \? visibleOrderRange\.start : 0/
   )
   assert.match(timelineSource, /items\.length === 0/)
   assert.match(timelineSource, /No ACU Router requests in the current range\./)

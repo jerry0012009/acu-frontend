@@ -25,11 +25,16 @@ func GetOwnedACUWorkTimelineAccurateTiming(userID int, from, to int64, allowAdmi
 		return dto.ACUWorkTimeline{}, err
 	}
 	finalJudgeDifficulties, _ := loadACUTimelineJudgeDifficulties(logs, userID)
-	timeline := buildACUWorkTimeline(
+	var catalog *dto.ACURoutingCatalog
+	if len(logs) > 0 {
+		catalog = loadACUTimelineQualityCatalog()
+	}
+	timeline := buildACUWorkTimelineWithQuality(
 		logs,
 		from,
 		to,
 		allowAdminAttemptHydration,
+		catalog,
 		finalJudgeDifficulties,
 	)
 	applyACUWorkTimelineLatencySemantics(&timeline, logs)
@@ -41,7 +46,11 @@ func GetAllUsersACUWorkTimelineAccurateTiming(from, to int64) (dto.ACUWorkTimeli
 	if err != nil {
 		return dto.ACUWorkTimeline{}, err
 	}
-	timeline := buildACUWorkTimeline(logs, from, to, true)
+	var catalog *dto.ACURoutingCatalog
+	if len(logs) > 0 {
+		catalog = loadACUTimelineQualityCatalog()
+	}
+	timeline := buildACUWorkTimelineWithQuality(logs, from, to, true, catalog)
 	timeline.Scope = "all"
 	timeline.Truncated = truncated
 	timeline.ItemLimit = model.AllUsersACUTimelineLogLimit

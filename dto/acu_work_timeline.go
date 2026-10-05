@@ -87,6 +87,7 @@ type ACUWorkTimelineItem struct {
 	WorkPhase                      string                        `json:"workPhase"`
 	WorkPhaseQualityTargetOffset   float64                       `json:"workPhaseQualityTargetOffset"`
 	RoutingQualityTarget           *float64                      `json:"routingQualityTarget,omitempty"`
+	QualityComparison              *ACUTimelineQualityComparison `json:"qualityComparison,omitempty"`
 	JudgeTrigger                   string                        `json:"judgeTrigger"`
 	JudgeStatus                    string                        `json:"judgeStatus"`
 	JudgeResultSource              string                        `json:"judgeResultSource"`
@@ -112,6 +113,23 @@ type ACUWorkTimelineItem struct {
 	RouteRefreshReason             string                        `json:"routeRefreshReason,omitempty"`
 	TopCandidates                  []ACUTimelineCandidateSummary `json:"topCandidates"`
 	ProviderAttempts               []ACUTimelineProviderAttempt  `json:"providerAttempts"`
+}
+
+type ACUTimelineQualityComparison struct {
+	EstimatedQuality        *float64                     `json:"estimatedQuality,omitempty"`
+	ModelChargeCNY          *float64                     `json:"modelChargeCny,omitempty"`
+	OfficialModelCostCNY    *float64                     `json:"officialModelCostCny,omitempty"`
+	SameBudget              *ACUTimelineQualityReference `json:"sameBudget,omitempty"`
+	MostExpensive           *ACUTimelineQualityReference `json:"mostExpensive,omitempty"`
+	QualitySource           string                       `json:"qualitySource,omitempty"`
+	ReferenceCatalogVersion string                       `json:"referenceCatalogVersion,omitempty"`
+}
+
+type ACUTimelineQualityReference struct {
+	ModelID          string  `json:"modelId"`
+	DisplayName      string  `json:"displayName"`
+	EstimatedQuality float64 `json:"estimatedQuality"`
+	OfficialCostCNY  float64 `json:"officialCostCny"`
 }
 
 type ACUJudgeProfileSelection struct {
