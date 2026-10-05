@@ -56,6 +56,8 @@ function chartSeries(option: EChartsOption) {
   return option.series as Array<{
     id: string
     connectNulls?: boolean
+    smooth?: number | boolean
+    smoothMonotone?: string
     lineStyle?: { type: string }
     showSymbol?: boolean
     data: Array<{ value: [number, number]; timelineItem: ACUWorkTimelineItem }>
@@ -112,7 +114,7 @@ test('quality view draws three correctly scaled quality series with dashed refer
   assert.equal(
     series.find((entry) => entry.id === 'quality-same-budget-reference')
       ?.smooth,
-    0.25
+    0.5
   )
 })
 
@@ -184,24 +186,35 @@ test('missing quality remains a gap while a recorded zero remains a real point',
   assert.equal(series[0].connectNulls, false)
 })
 
-test('quality lines do not bridge different sessions or protocols', () => {
+test('all-users view draws exactly three continuous quality trends with raw quality points', () => {
   const a = execution()
   const b = execution({ pointId: 'b:execution', sessionId: 'other' })
   const c = execution({ pointId: 'c:execution', protocol: 'messages' })
   const series = chartSeries(
     buildACUQualityTimelineChartOption({ items: [a, b, c], dark: false })
   )
-  const executed = series.filter((entry) =>
-    entry.id.startsWith('quality-executed-')
+  const trends = series.filter((entry) =>
+    [
+      'quality-executed-trend',
+      'quality-same-budget-reference',
+      'quality-most-expensive-reference',
+    ].includes(entry.id)
   )
-  assert.equal(executed.length, 3)
-  assert.equal(
-    executed.every(
-      (entry) =>
-        entry.data.filter((point) => Number.isFinite(point.value[1])).length ===
-        1
-    ),
-    true
+  assert.equal(trends.length, 3)
+  for (const trend of trends) {
+    assert.equal(trend.data.length, 3)
+    assert.equal(trend.smoothMonotone, 'x')
+    assert.equal(trend.showSymbol, false)
+  }
+  assert.deepEqual(
+    series
+      .find((entry) => entry.id === 'quality-observation-points')
+      ?.data.map((point) => point.value),
+    [
+      [1, 72],
+      [2, 72],
+      [3, 72],
+    ]
   )
 })
 
@@ -229,20 +242,61 @@ test('a sparse reference stays visible when the timeline exceeds eighty requests
   )
 })
 
-test('an interleaved session creates a gap without connecting through another session', () => {
-  const items = [execution(), execution({ sessionId: 'other' }), execution()]
+test('a real missing estimate remains a gap and cannot borrow another segment quality', () => {
+  const items = [
+    execution(),
+    execution({ qualityComparison: undefined }),
+    execution({
+      qualityComparison: { estimatedQuality: 20 },
+    }),
+  ]
   const series = chartSeries(
     buildACUQualityTimelineChartOption({ items, dark: false })
   )
-  const main = series.find(
-    (entry) => entry.id === 'quality-executed-self:session:responses'
-  )
+  const main = series.find((entry) => entry.id === 'quality-executed-trend')
   assert.deepEqual(
     main?.data.map((point) => point.value[0]),
-    [1, 2.5, 3]
+    [1, 2, 3]
   )
   assert.ok(Number.isNaN(main?.data[1].value[1]))
   assert.equal(main?.connectNulls, false)
+  assert.equal(main?.data[0].value[1], 72)
+  assert.equal(main?.data[2].value[1], 20)
+})
+
+test('pricing Gaussian smooths a quality step while white points and tooltips keep original scores', () => {
+  const items = Array.from({ length: 21 }, (_, index) =>
+    execution({
+      pointId: `step-${index}`,
+      qualityComparison: {
+        estimatedQuality: index < 10 ? 40 : 80,
+        sameBudget: {
+          modelId: 'budget',
+          displayName: 'Budget',
+          estimatedQuality: index < 10 ? 50 : 90,
+          officialCostCny: 0.01,
+        },
+      },
+    })
+  )
+  const snapshot = structuredClone(items)
+  const option = buildACUQualityTimelineChartOption({ items, dark: false })
+  const series = chartSeries(option)
+  const trend = series.find((entry) => entry.id === 'quality-executed-trend')
+  assert.ok((trend?.data[9].value[1] ?? 0) > 40)
+  assert.ok((trend?.data[10].value[1] ?? 100) < 80)
+  assert.ok((trend?.data[14].value[1] ?? 100) < 80)
+  const points = series.find(
+    (entry) => entry.id === 'quality-observation-points'
+  )
+  assert.equal(points?.data[9].value[1], 40)
+  assert.equal(points?.data[10].value[1], 80)
+  const format = (option.tooltip as { formatter: (params: unknown) => string })
+    .formatter
+  const html = format([{ data: trend?.data[9] }])
+  assert.match(html, /40\.0/)
+  assert.match(html, /50\.0/)
+  assert.deepEqual(items, snapshot)
 })
 
 test('quality tooltip shows reference models, quality gaps, costs and escapes model names', () => {

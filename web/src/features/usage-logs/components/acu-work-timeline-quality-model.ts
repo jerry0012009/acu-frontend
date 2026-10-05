@@ -187,18 +187,6 @@ export function buildACUQualityTimelineChartOption(props: {
   const axes = option.yAxis as Array<Record<string, unknown>>
   axes[0] = { ...axes[0], name: t('Estimated quality') }
   axes[1] = { ...axes[1], name: t('Model charge'), nameGap: 68 }
-  const groupKey = (item: ACUWorkTimelineItem): string =>
-    `${item.userId ?? 'self'}:${item.sessionId || item.taskId || item.logicalRequestId}:${item.protocol ?? 'unknown'}`
-  const groups = new Map<
-    string,
-    Array<{ item: ACUWorkTimelineItem; index: number }>
-  >()
-  items.forEach((item, index) => {
-    const key = groupKey(item)
-    const group = groups.get(key) ?? []
-    group.push({ item, index })
-    groups.set(key, group)
-  })
   const specifications = [
     {
       id: 'executed',
@@ -231,59 +219,16 @@ export function buildACUQualityTimelineChartOption(props: {
     chartOrder: index + 1,
     timelineItem: item,
   })
-  const series: NonNullable<EChartsOption['series']> = [...groups].flatMap(
-    ([group, entries]) =>
-      [specifications[0]].flatMap((specification) => {
-        const data: TimelineChartDatum[] = []
-        let previousIndex = -1
-        for (const { item, index } of entries) {
-          if (previousIndex >= 0 && index > previousIndex + 1) {
-            // Break the line when another session occupied intervening requests.
-            const gap = datum(item, index, undefined)
-            gap.value[0] -= 0.5
-            data.push(gap)
-          }
-          data.push(datum(item, index, specification.value(item)))
-          previousIndex = index
-        }
-        const pointCount = data.filter((point) =>
-          Number.isFinite(point.value[1])
-        ).length
-        if (pointCount === 0) return []
-        return [
-          {
-            id: `quality-${specification.id}-${group}`,
-            name: specification.name,
-            type: 'line' as const,
-            xAxisIndex: 0,
-            yAxisIndex: 0,
-            data: smoothTimelineData(data),
-            connectNulls: false,
-            smooth: 0.32,
-            showSymbol: false,
-            symbol: 'none',
-            symbolSize: specification.id === 'executed' ? 6 : 4,
-            z: specification.id === 'executed' ? 4 : 2,
-            lineStyle: {
-              color: specification.color,
-              width: specification.id === 'executed' ? 2.5 : 1.5,
-              type:
-                specification.id === 'executed'
-                  ? ('solid' as const)
-                  : ('dashed' as const),
-            },
-            itemStyle: { color: specification.color },
-            emphasis: { focus: 'series' as const },
-            animation: false,
-          },
-        ]
-      })
-  )
-  for (const specification of specifications.slice(1)) {
-    series.push({
-      id: `quality-${specification.id}-reference`,
+  // Trend lines summarize the filtered request sequence, including all-users
+  // views. White observations and tooltips retain each request's raw values.
+  const series: NonNullable<EChartsOption['series']> = specifications.map(
+    (specification) => ({
+      id:
+        specification.id === 'executed'
+          ? 'quality-executed-trend'
+          : `quality-${specification.id}-reference`,
       name: specification.name,
-      type: 'line',
+      type: 'line' as const,
       xAxisIndex: 0,
       yAxisIndex: 0,
       data: smoothTimelineData(
@@ -292,20 +237,24 @@ export function buildACUQualityTimelineChartOption(props: {
         )
       ),
       connectNulls: false,
-      smooth: 0.25,
+      smooth: 0.5,
+      smoothMonotone: 'x',
       showSymbol: false,
       symbol: 'none',
-      z: 3,
+      z: specification.id === 'executed' ? 4 : 3,
       lineStyle: {
         color: specification.color,
-        width: 2,
-        type: 'dashed',
+        width: specification.id === 'executed' ? 2.5 : 2,
+        type:
+          specification.id === 'executed'
+            ? ('solid' as const)
+            : ('dashed' as const),
       },
       itemStyle: { color: specification.color },
-      emphasis: { focus: 'series' },
+      emphasis: { focus: 'series' as const },
       animation: false,
     })
-  }
+  )
   series.push({
     id: 'quality-observation-points',
     name: t('Quality points'),
@@ -321,7 +270,7 @@ export function buildACUQualityTimelineChartOption(props: {
     symbol: 'circle',
     symbolSize: 5,
     itemStyle: {
-      color: props.dark ? '#ffffff' : '#ffffff',
+      color: '#ffffff',
       borderColor: colors.executed,
       borderWidth: 1.5,
     },
