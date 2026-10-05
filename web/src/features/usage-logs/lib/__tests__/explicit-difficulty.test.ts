@@ -8,6 +8,7 @@ import {
   EXPLICIT_DIFFICULTY_OFFSET_LIMIT,
   EXPLICIT_DIFFICULTY_WINDOW_SIZE,
   addExplicitDifficulty,
+  addExplicitQuality,
   estimateExplicitDifficulty,
   isExplicitModel,
   isExplicitTimelineItem,
@@ -166,4 +167,92 @@ test('a recorded difficulty is preserved instead of being replaced by an estimat
   const result = addExplicitDifficulty([recorded], true)[0]
   assert.equal(result.difficulty, 23)
   assert.notEqual(result.displayDifficultyInferred, true)
+})
+
+test('explicit quality uses estimated difficulty and builds both cost references', () => {
+  const current = item({
+    protocol: 'responses',
+    inputTokens: 1000,
+    outputTokens: 1000,
+    qualityComparison: {
+      modelChargeCny: 0.02,
+      officialModelCostCny: 0.01,
+    },
+  })
+  const curve = (quality: number) => [
+    { difficultyScore: 0, estimatedQuality: quality },
+    { difficultyScore: 100, estimatedQuality: quality },
+  ]
+  const catalog = {
+    catalogVersion: 'catalog-v1',
+    models: [
+      {
+        modelId: 'gpt-5.6-terra',
+        displayName: 'Terra',
+        vendor: 'test',
+        modelCategory: 'text_agent' as const,
+        capabilityTier: 'TERRA' as const,
+        protocols: ['responses'],
+        verificationStatus: 'verified' as const,
+        autoRouteEnabled: true,
+        curve: curve(0.7),
+        referencePricing: {
+          inputUsdPerMillion: 1,
+          outputUsdPerMillion: 1,
+        },
+        routingCandidates: [],
+      },
+      {
+        modelId: 'budget',
+        displayName: 'Budget',
+        vendor: 'test',
+        modelCategory: 'text_agent' as const,
+        capabilityTier: 'LUNA' as const,
+        protocols: ['responses'],
+        verificationStatus: 'verified' as const,
+        autoRouteEnabled: true,
+        curve: curve(0.6),
+        referencePricing: {
+          inputUsdPerMillion: 0.5,
+          outputUsdPerMillion: 0.5,
+        },
+        routingCandidates: [],
+      },
+      {
+        modelId: 'flagship',
+        displayName: 'Flagship',
+        vendor: 'test',
+        modelCategory: 'text_agent' as const,
+        capabilityTier: 'SOL' as const,
+        protocols: ['responses'],
+        verificationStatus: 'verified' as const,
+        autoRouteEnabled: true,
+        curve: curve(0.9),
+        referencePricing: {
+          inputUsdPerMillion: 10,
+          outputUsdPerMillion: 10,
+        },
+        routingCandidates: [],
+      },
+    ],
+    profiles: [],
+    defaultCandidatePreferenceScores: {},
+  }
+  const withDifficulty = addExplicitDifficulty([current], true)
+  const result = addExplicitQuality(withDifficulty, catalog)[0]
+
+  assert.equal(result?.displayQualityInferred, true)
+  assert.equal(result?.displayQuality, 70)
+  assert.equal(
+    result?.displayQualityComparison?.qualitySource,
+    'explicit_difficulty_model_curve'
+  )
+  assert.equal(
+    result?.displayQualityComparison?.sameBudget?.modelId,
+    'gpt-5.6-terra'
+  )
+  assert.equal(
+    result?.displayQualityComparison?.mostExpensive?.modelId,
+    'flagship'
+  )
 })

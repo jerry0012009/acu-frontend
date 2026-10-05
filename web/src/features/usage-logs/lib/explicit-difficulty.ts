@@ -1,4 +1,8 @@
-import type { ACUWorkTimelineItem } from '../api'
+import type {
+  ACURoutingCatalog,
+  ACUWorkTimelineItem,
+  ACUTimelineQualityComparison,
+} from '../api'
 
 export const EXPLICIT_DIFFICULTY_WINDOW_SIZE = 16
 export const EXPLICIT_DIFFICULTY_OFFSET_LIMIT = 10
@@ -54,6 +58,9 @@ export type ACUWorkTimelineDisplayItem = ACUWorkTimelineItem & {
   displayDifficulty?: number
   displayDifficultyInferred?: boolean
   displayDifficultyWindow?: number
+  displayQuality?: number
+  displayQualityInferred?: boolean
+  displayQualityComparison?: ACUTimelineQualityComparison
 }
 
 export type ExplicitDifficultyEstimate = {
@@ -144,6 +151,91 @@ function workPhaseDifficultyOffset(workPhase: string | undefined): number {
   return WORK_PHASE_DIFFICULTY_OFFSET[normalize(workPhase)] ?? 0
 }
 
+function interpolateCurveQuality(
+  difficulty: number,
+  curve: NonNullable<ACURoutingCatalog['models'][number]['curve']>
+): number | undefined {
+  const points = curve
+    .filter(
+      (point) =>
+        Number.isFinite(point.difficultyScore) &&
+        Number.isFinite(point.estimatedQuality)
+    )
+    .sort((left, right) => left.difficultyScore - right.difficultyScore)
+  if (!points.length) return undefined
+  if (difficulty <= points[0].difficultyScore) {
+    return points[0].estimatedQuality * 100
+  }
+  const last = points.at(-1)
+  if (!last) return undefined
+  if (difficulty >= last.difficultyScore) return last.estimatedQuality * 100
+  for (let index = 1; index < points.length; index += 1) {
+    const right = points[index]
+    if (difficulty > right.difficultyScore) continue
+    const left = points[index - 1]
+    const span = right.difficultyScore - left.difficultyScore
+    if (span <= 0) return undefined
+    const fraction = (difficulty - left.difficultyScore) / span
+    return (
+      (left.estimatedQuality +
+        fraction * (right.estimatedQuality - left.estimatedQuality)) *
+      100
+    )
+  }
+  return undefined
+}
+
+function catalogModelForItem(
+  item: ACUWorkTimelineItem,
+  catalog: ACURoutingCatalog
+) {
+  const identifiers = modelIdentifiers(item)
+  return catalog.models.find((model) =>
+    identifiers.some((identifier) =>
+      hasModelIdentifier(identifier, model.modelId)
+    )
+  )
+}
+
+function officialModelCostUsd(
+  item: ACUWorkTimelineItem,
+  model: NonNullable<ACURoutingCatalog['models'][number]>
+): number | undefined {
+  const pricing = model.referencePricing
+  if (
+    !pricing ||
+    pricing.inputUsdPerMillion == null ||
+    pricing.outputUsdPerMillion == null
+  ) {
+    return undefined
+  }
+  const inputTokens = Math.max(0, item.inputTokens)
+  const cachedTokens = Math.min(
+    inputTokens,
+    Math.max(0, item.cachedInputTokens)
+  )
+  const outputTokens = Math.max(0, item.outputTokens)
+  const contextPrices =
+    pricing.contextTiers &&
+    (inputTokens > pricing.contextTiers.thresholdTokens
+      ? pricing.contextTiers.longContext
+      : pricing.contextTiers.standard)
+  const inputPrice =
+    contextPrices?.inputUsdPerMillion ?? pricing.inputUsdPerMillion
+  const outputPrice =
+    contextPrices?.outputUsdPerMillion ?? pricing.outputUsdPerMillion
+  const cachedPrice =
+    contextPrices?.cachedInputUsdPerMillion ??
+    pricing.cachedInputUsdPerMillion ??
+    inputPrice
+  return (
+    ((inputTokens - cachedTokens) * inputPrice +
+      cachedTokens * cachedPrice +
+      outputTokens * outputPrice) /
+    1_000_000
+  )
+}
+
 function timelineOrder(left: ACUWorkTimelineItem, right: ACUWorkTimelineItem) {
   if (left.timestamp !== right.timestamp) {
     return left.timestamp - right.timestamp
@@ -231,6 +323,102 @@ export function addExplicitDifficulty(
       displayDifficulty: estimate.difficulty,
       displayDifficultyInferred: true,
       displayDifficultyWindow: estimate.windowIndex,
+    }
+  })
+}
+
+export function addExplicitQuality(
+  items: ACUWorkTimelineDisplayItem[],
+  catalog: ACURoutingCatalog | undefined
+): ACUWorkTimelineDisplayItem[] {
+  if (!catalog || items.length === 0) return items
+  return items.map((item) => {
+    if (
+      !item.displayDifficultyInferred ||
+      item.displayDifficulty == null ||
+      !isExplicitTimelineItem(item) ||
+      item.qualityComparison?.estimatedQuality != null
+    ) {
+      return item
+    }
+    const model = catalogModelForItem(item, catalog)
+    if (!model?.curve) return item
+    const difficulty = item.displayDifficulty
+    if (difficulty == null) return item
+    const estimatedQuality = interpolateCurveQuality(difficulty, model.curve)
+    if (estimatedQuality == null || !Number.isFinite(estimatedQuality)) {
+      return item
+    }
+
+    const comparison: ACUTimelineQualityComparison = {
+      ...item.qualityComparison,
+      estimatedQuality: Math.min(100, Math.max(0, estimatedQuality)),
+      qualitySource: 'explicit_difficulty_model_curve',
+      referenceCatalogVersion: catalog.catalogVersion,
+    }
+    const modelCharge = comparison.modelChargeCny
+    const actualOfficialCostUsd = officialModelCostUsd(item, model)
+    const actualOfficialCostCny = comparison.officialModelCostCny
+    const fx =
+      actualOfficialCostUsd != null &&
+      actualOfficialCostUsd > 0 &&
+      actualOfficialCostCny != null
+        ? actualOfficialCostCny / actualOfficialCostUsd
+        : undefined
+
+    if (modelCharge != null && fx != null && fx > 0) {
+      const references = catalog.models
+        .filter(
+          (candidate) =>
+            candidate.protocols.includes(item.protocol ?? '') &&
+            candidate.curve &&
+            candidate.referencePricing
+        )
+        .map((candidate) => {
+          const quality = interpolateCurveQuality(
+            difficulty,
+            candidate.curve ?? []
+          )
+          const costUsd = officialModelCostUsd(item, candidate)
+          if (quality == null || costUsd == null) return undefined
+          return {
+            modelId: candidate.modelId,
+            displayName: candidate.displayName ?? candidate.modelId,
+            estimatedQuality: quality,
+            officialCostCny: costUsd * fx,
+          }
+        })
+        .filter(
+          (
+            value
+          ): value is {
+            modelId: string
+            displayName: string
+            estimatedQuality: number
+            officialCostCny: number
+          } => value != null && Number.isFinite(value.officialCostCny)
+        )
+      const affordable = references
+        .filter((reference) => reference.officialCostCny <= modelCharge + 1e-10)
+        .sort(
+          (left, right) =>
+            right.estimatedQuality - left.estimatedQuality ||
+            left.officialCostCny - right.officialCostCny
+        )[0]
+      const mostExpensive = [...references].sort(
+        (left, right) =>
+          right.officialCostCny - left.officialCostCny ||
+          right.estimatedQuality - left.estimatedQuality
+      )[0]
+      if (affordable) comparison.sameBudget = affordable
+      if (mostExpensive) comparison.mostExpensive = mostExpensive
+    }
+
+    return {
+      ...item,
+      displayQuality: comparison.estimatedQuality,
+      displayQualityInferred: true,
+      displayQualityComparison: comparison,
     }
   })
 }

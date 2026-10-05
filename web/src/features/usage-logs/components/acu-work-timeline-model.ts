@@ -40,12 +40,12 @@ export function buildTimelineChannelOptions(
 }
 
 export function filterTimelineBySupply(
-  items: ACUWorkTimelineItem[],
+  items: ACUWorkTimelineDisplayItem[],
   protocol: TimelineProtocolFilter,
   channel: string,
   pointType: 'all' | 'judge' | 'execution',
   result: 'all' | 'success' | 'issues'
-): ACUWorkTimelineItem[] {
+): ACUWorkTimelineDisplayItem[] {
   return items.filter((item) => {
     if (protocol !== 'all' && timelineItemProtocol(item) !== protocol) {
       return false
@@ -199,10 +199,10 @@ export function isTimelineError(item: ACUWorkTimelineItem): boolean {
 }
 
 export function filterTimelineItems(
-  items: ACUWorkTimelineItem[],
+  items: ACUWorkTimelineDisplayItem[],
   search: string,
   mode: 'all' | 'errors'
-): ACUWorkTimelineItem[] {
+): ACUWorkTimelineDisplayItem[] {
   const query = search.trim().toLocaleLowerCase()
   return items.filter((item) => {
     if (mode === 'errors' && !isTimelineError(item)) return false

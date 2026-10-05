@@ -6,6 +6,8 @@
     "Completion rate": "完成率",
     "Timeline view": "时间线视图",
     "ACU execution": "ACU 执行质量",
+    "ACU execution (inferred)": "ACU 执行质量（推测）",
+    "Inferred execution quality": "推测执行质量",
     "Same-budget reference": "同成本质量参照",
     "Highest official price": "官方最高价模型参照",
     "No comparable model": "暂无可比较模型",

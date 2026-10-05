@@ -6,6 +6,8 @@
     "Completion rate": "Доля завершения",
     "Timeline view": "Вид временной шкалы",
     "ACU execution": "Выполнение ACU",
+    "ACU execution (inferred)": "Выполнение ACU (оценка)",
+    "Inferred execution quality": "Оценочное качество выполнения",
     "Same-budget reference": "Сравнение при равном бюджете",
     "Highest official price": "Максимальная официальная цена",
     "No comparable model": "Нет сопоставимой модели",

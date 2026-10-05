@@ -2,6 +2,7 @@ import type { EChartsOption } from 'echarts'
 import { t } from 'i18next'
 
 import type { ACUWorkTimelineItem } from '../api'
+import type { ACUWorkTimelineDisplayItem } from '../lib/explicit-difficulty'
 import {
   buildACUWorkTimelineChartOption,
   formatTimelineTimestamp,
@@ -29,9 +30,25 @@ export function qualityTimelineColors(
 }
 
 export function qualityTimelineItems(
-  items: ACUWorkTimelineItem[]
-): ACUWorkTimelineItem[] {
+  items: ACUWorkTimelineDisplayItem[]
+): ACUWorkTimelineDisplayItem[] {
   return items.filter((item) => item.pointType === 'execution')
+}
+
+export function timelineQualityComparison(item: ACUWorkTimelineDisplayItem) {
+  return item.displayQualityComparison ?? item.qualityComparison
+}
+
+export function timelineEstimatedQuality(
+  item: ACUWorkTimelineDisplayItem
+): number | undefined {
+  return timelineQualityComparison(item)?.estimatedQuality
+}
+
+export function timelineQualityIsInferred(
+  item: ACUWorkTimelineDisplayItem
+): boolean {
+  return item.displayQualityInferred === true
 }
 
 function escapeHtml(value: unknown): string {
@@ -48,9 +65,12 @@ function money(value: number | undefined): string {
   return `\u00a5${value.toFixed(value < 0.01 ? 6 : 3)}`
 }
 
-export function timelineCostDifference(item: ACUWorkTimelineItem): string {
-  const charge = item.qualityComparison?.modelChargeCny
-  const official = item.qualityComparison?.officialModelCostCny
+export function timelineCostDifference(
+  item: ACUWorkTimelineDisplayItem
+): string {
+  const comparison = timelineQualityComparison(item)
+  const charge = comparison?.modelChargeCny
+  const official = comparison?.officialModelCostCny
   if (charge == null || official == null || official <= 0) return '\u2014'
   const difference = charge - official
   const change = (Math.abs(difference) / official) * 100
@@ -65,16 +85,18 @@ export function timelineCostDifference(item: ACUWorkTimelineItem): string {
 }
 
 export function qualityTimelineTooltip(
-  item: ACUWorkTimelineItem,
+  item: ACUWorkTimelineDisplayItem,
   order: number,
   dark = false
 ): string {
-  const comparison = item.qualityComparison
+  const comparison = timelineQualityComparison(item)
   const colors = qualityTimelineColors(dark)
   const rows = [
     {
-      name: t('ACU execution'),
-      quality: comparison?.estimatedQuality,
+      name: timelineQualityIsInferred(item)
+        ? t('ACU execution (inferred)')
+        : t('ACU execution'),
+      quality: timelineEstimatedQuality(item),
       model: `${item.actualModel} \u00b7 ${thinkingEffort(item)}`,
       color: colors.executed,
     },
@@ -122,7 +144,7 @@ export function qualityTimelineTooltip(
 }
 
 export function buildACUQualityTimelineChartOption(props: {
-  items: ACUWorkTimelineItem[]
+  items: ACUWorkTimelineDisplayItem[]
   dark: boolean
 }): EChartsOption {
   const items = qualityTimelineItems(props.items)
@@ -152,22 +174,22 @@ export function buildACUQualityTimelineChartOption(props: {
       id: 'executed',
       name: t('ACU execution'),
       color: colors.executed,
-      value: (item: ACUWorkTimelineItem) =>
-        item.qualityComparison?.estimatedQuality,
+      value: (item: ACUWorkTimelineDisplayItem) =>
+        timelineEstimatedQuality(item),
     },
     {
       id: 'same-budget',
       name: t('Same-budget reference'),
       color: colors.sameBudget,
-      value: (item: ACUWorkTimelineItem) =>
-        item.qualityComparison?.sameBudget?.estimatedQuality,
+      value: (item: ACUWorkTimelineDisplayItem) =>
+        timelineQualityComparison(item)?.sameBudget?.estimatedQuality,
     },
     {
       id: 'most-expensive',
       name: t('Highest official price'),
       color: colors.mostExpensive,
-      value: (item: ACUWorkTimelineItem) =>
-        item.qualityComparison?.mostExpensive?.estimatedQuality,
+      value: (item: ACUWorkTimelineDisplayItem) =>
+        timelineQualityComparison(item)?.mostExpensive?.estimatedQuality,
     },
   ]
   const datum = (
@@ -235,7 +257,7 @@ export function buildACUQualityTimelineChartOption(props: {
       xAxisIndex: 1,
       yAxisIndex: 1,
       data: items.map((item, index) =>
-        datum(item, index, item.qualityComparison?.modelChargeCny)
+        datum(item, index, timelineQualityComparison(item)?.modelChargeCny)
       ),
       barMinWidth: 3,
       barMaxWidth: 18,
@@ -252,7 +274,11 @@ export function buildACUQualityTimelineChartOption(props: {
       xAxisIndex: 1,
       yAxisIndex: 1,
       data: items.map((item, index) =>
-        datum(item, index, item.qualityComparison?.officialModelCostCny)
+        datum(
+          item,
+          index,
+          timelineQualityComparison(item)?.officialModelCostCny
+        )
       ),
       connectNulls: false,
       symbol: 'circle',
@@ -260,7 +286,8 @@ export function buildACUQualityTimelineChartOption(props: {
       showSymbol:
         items.length <= 80 ||
         items.filter(
-          (item) => item.qualityComparison?.officialModelCostCny != null
+          (item) =>
+            timelineQualityComparison(item)?.officialModelCostCny != null
         ).length === 1,
       itemStyle: { color: colors.officialCost },
       lineStyle: {
@@ -270,6 +297,29 @@ export function buildACUQualityTimelineChartOption(props: {
       },
     }
   )
+  series.push({
+    id: 'quality-inferred-points',
+    name: t('Inferred execution quality'),
+    type: 'scatter',
+    xAxisIndex: 0,
+    yAxisIndex: 0,
+    data: items
+      .map((item, index) =>
+        timelineQualityIsInferred(item)
+          ? datum(item, index, timelineEstimatedQuality(item))
+          : undefined
+      )
+      .filter((value): value is TimelineChartDatum => value != null),
+    symbol: 'emptyCircle',
+    symbolSize: 10,
+    itemStyle: {
+      color: props.dark ? '#0f172a' : '#ffffff',
+      borderColor: colors.executed,
+      borderWidth: 2,
+    },
+    z: 6,
+    animation: false,
+  })
   return {
     ...option,
     yAxis: axes,

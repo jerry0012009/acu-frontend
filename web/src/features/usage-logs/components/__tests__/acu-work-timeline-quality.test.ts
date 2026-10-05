@@ -7,6 +7,7 @@ import i18next from 'i18next'
 import en from '@/i18n/locales/en.json'
 
 import type { ACUWorkTimelineItem } from '../../api'
+import type { ACUWorkTimelineDisplayItem } from '../../lib/explicit-difficulty'
 import {
   buildACUQualityTimelineChartOption,
   qualityTimelineItems,
@@ -17,8 +18,8 @@ import {
 await i18next.init({ lng: 'en', resources: { en } })
 
 function execution(
-  overrides: Partial<ACUWorkTimelineItem> = {}
-): ACUWorkTimelineItem {
+  overrides: Partial<ACUWorkTimelineDisplayItem> = {}
+): ACUWorkTimelineDisplayItem {
   return {
     pointId: 'req:execution',
     pointType: 'execution',
@@ -103,6 +104,61 @@ test('quality view draws three correctly scaled quality series with dashed refer
   const axes = option.yAxis as Array<{ min: number; max: number }>
   assert.equal(axes[0].min, 0)
   assert.equal(axes[0].max, 100)
+})
+
+test('quality view overlays inferred execution points and keeps reference lines', () => {
+  const inferred = execution({
+    qualityComparison: {
+      estimatedQuality: 68,
+      modelChargeCny: 0.02,
+      officialModelCostCny: 0.01,
+      sameBudget: {
+        modelId: 'budget',
+        displayName: 'Budget',
+        estimatedQuality: 70,
+        officialCostCny: 0.02,
+      },
+      mostExpensive: {
+        modelId: 'flagship',
+        displayName: 'Flagship',
+        estimatedQuality: 90,
+        officialCostCny: 0.1,
+      },
+    },
+    displayQualityInferred: true,
+    displayQuality: 68,
+    displayQualityComparison: {
+      estimatedQuality: 68,
+      modelChargeCny: 0.02,
+      officialModelCostCny: 0.01,
+      sameBudget: {
+        modelId: 'budget',
+        displayName: 'Budget',
+        estimatedQuality: 70,
+        officialCostCny: 0.02,
+      },
+      mostExpensive: {
+        modelId: 'flagship',
+        displayName: 'Flagship',
+        estimatedQuality: 90,
+        officialCostCny: 0.1,
+      },
+    },
+  })
+  const series = chartSeries(
+    buildACUQualityTimelineChartOption({ items: [inferred], dark: false })
+  )
+  assert.equal(
+    series.find((entry) => entry.id === 'quality-inferred-points')?.data[0]
+      ?.value[1],
+    68
+  )
+  assert.equal(
+    series.find(
+      (entry) => entry.id === 'quality-same-budget-self:session:responses'
+    )?.data[0]?.value[1],
+    70
+  )
 })
 
 test('missing quality remains a gap while a recorded zero remains a real point', () => {

@@ -158,15 +158,7 @@ export type ACUWorkTimelineItem = {
   workPhase: string
   workPhaseQualityTargetOffset: number
   routingQualityTarget?: number
-  qualityComparison?: {
-    estimatedQuality?: number
-    modelChargeCny?: number
-    officialModelCostCny?: number
-    sameBudget?: ACUTimelineQualityReference
-    mostExpensive?: ACUTimelineQualityReference
-    qualitySource?: string
-    referenceCatalogVersion?: string
-  }
+  qualityComparison?: ACUTimelineQualityComparison
   judgeTrigger: string
   judgeStatus: string
   judgeResultSource: string
@@ -226,6 +218,16 @@ export type ACUTimelineQualityReference = {
   displayName: string
   estimatedQuality: number
   officialCostCny: number
+}
+
+export type ACUTimelineQualityComparison = {
+  estimatedQuality?: number
+  modelChargeCny?: number
+  officialModelCostCny?: number
+  sameBudget?: ACUTimelineQualityReference
+  mostExpensive?: ACUTimelineQualityReference
+  qualitySource?: string
+  referenceCatalogVersion?: string
 }
 
 export type ACUWorkTimeline = {
@@ -412,9 +414,18 @@ export type ACUModelPoolEntry = {
   }>
 }
 
+export type ACUTokenReferencePrices = {
+  inputUsdPerMillion: number
+  outputUsdPerMillion: number
+  cachedInputUsdPerMillion?: number
+  cacheWriteUsdPerMillion?: number
+}
+
 export type ACURoutingCatalog = {
+  catalogVersion?: string
   models: Array<{
     modelId: string
+    displayName?: string
     vendor: string
     modelCategory: 'text_agent'
     capabilityTier: 'LUNA' | 'TERRA' | 'SOL' | 'FRONTIER'
@@ -435,6 +446,21 @@ export type ACURoutingCatalog = {
       calibrationStatus?: string
       protocols: Array<'responses' | 'messages' | 'chat_completions'>
     }>
+    curve?: Array<{
+      difficultyScore: number
+      estimatedQuality: number
+    }>
+    referencePricing?: {
+      inputUsdPerMillion?: number
+      outputUsdPerMillion?: number
+      cachedInputUsdPerMillion?: number
+      cacheWriteUsdPerMillion?: number
+      contextTiers?: {
+        thresholdTokens: number
+        standard: ACUTokenReferencePrices
+        longContext: ACUTokenReferencePrices
+      }
+    }
   }>
   profiles: Array<{
     executionProfileId: string

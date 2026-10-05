@@ -46,9 +46,14 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import { searchUsers } from '../../users/api'
 import type { User } from '../../users/types'
-import { getACUWorkTimeline, type ACUWorkTimelineItem } from '../api'
+import {
+  getACURoutingCatalog,
+  getACUWorkTimeline,
+  type ACUWorkTimelineItem,
+} from '../api'
 import {
   addExplicitDifficulty,
+  addExplicitQuality,
   timelineDisplayDifficulty,
   type ACUWorkTimelineDisplayItem,
 } from '../lib/explicit-difficulty'
@@ -74,6 +79,8 @@ import {
   buildACUQualityTimelineChartOption,
   qualityTimelineColors,
   qualityTimelineItems,
+  timelineEstimatedQuality,
+  timelineQualityComparison,
 } from './acu-work-timeline-quality-model'
 import { ACUSessionTracePanel } from './dialogs/acu-session-trace'
 
@@ -711,11 +718,21 @@ export function ACUWorkTimeline() {
     enabled: !allUsersSelected || isAdmin,
     refetchInterval: 60_000,
   })
+  const catalogQuery = useQuery({
+    queryKey: ['acu-routing-catalog'],
+    queryFn: getACURoutingCatalog,
+    enabled: isAdmin && chartView === 'quality',
+    staleTime: 5 * 60_000,
+  })
   const data = query.data?.data
   const items = useMemo(() => data?.items ?? [], [data])
   const displayItems = useMemo(
-    () => addExplicitDifficulty(items, isAdmin),
-    [isAdmin, items]
+    () =>
+      addExplicitQuality(
+        addExplicitDifficulty(items, isAdmin),
+        catalogQuery.data?.data
+      ),
+    [catalogQuery.data?.data, isAdmin, items]
   )
   const supplyItems = useMemo(
     () =>
@@ -935,7 +952,7 @@ export function ACUWorkTimeline() {
   ] as const
 
   const qualityCharges = visibleItems.filter(
-    (item) => item.qualityComparison?.modelChargeCny != null
+    (item) => timelineQualityComparison(item)?.modelChargeCny != null
   )
   const qualityStats = [
     [t('Execution Steps'), summary.executionSteps, Activity, ''],
@@ -951,7 +968,7 @@ export function ACUWorkTimeline() {
         ? money(
             qualityCharges.reduce(
               (total, item) =>
-                total + (item.qualityComparison?.modelChargeCny ?? 0),
+                total + (timelineQualityComparison(item)?.modelChargeCny ?? 0),
               0
             )
           )
@@ -964,13 +981,14 @@ export function ACUWorkTimeline() {
       visibleItems.length > 0 &&
       visibleItems.every(
         (item) =>
-          item.qualityComparison?.modelChargeCny != null &&
-          item.qualityComparison?.officialModelCostCny != null
+          timelineQualityComparison(item)?.modelChargeCny != null &&
+          timelineQualityComparison(item)?.officialModelCostCny != null
       )
         ? money(
             visibleItems.reduce(
               (total, item) =>
-                total + (item.qualityComparison?.officialModelCostCny ?? 0),
+                total +
+                (timelineQualityComparison(item)?.officialModelCostCny ?? 0),
               0
             )
           )
@@ -1050,7 +1068,7 @@ export function ACUWorkTimeline() {
                 {label}
                 {index === 1 &&
                 !chartItems.some(
-                  (item) => item.qualityComparison?.sameBudget
+                  (item) => timelineQualityComparison(item)?.sameBudget
                 ) ? (
                   <span className='text-muted-foreground'>
                     {t('No comparable model')}
@@ -1058,12 +1076,24 @@ export function ACUWorkTimeline() {
                 ) : null}
               </span>
             ))}
+            {chartItems.some((item) => item.displayQualityInferred) ? (
+              <span className='flex items-center gap-2'>
+                <span
+                  aria-hidden='true'
+                  className='size-2.5 rounded-full border-2'
+                  style={{
+                    borderColor: qualityColors.executed,
+                    backgroundColor:
+                      resolvedTheme === 'dark' ? '#0f172a' : '#ffffff',
+                  }}
+                />
+                {t('Inferred execution quality')}
+              </span>
+            ) : null}
           </div>
         ) : null}
         {chartView === 'quality' &&
-        !chartItems.some(
-          (item) => item.qualityComparison?.estimatedQuality != null
-        ) ? (
+        !chartItems.some((item) => timelineEstimatedQuality(item) != null) ? (
           <div className='text-muted-foreground px-1 text-xs' role='status'>
             {t('No recorded quality estimates.')}
           </div>
