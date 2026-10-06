@@ -172,6 +172,50 @@ func TestTimelineQualityUsesAutoLunaDefaultDifficultyWhenRecordedDifficultyIsMis
 	assert.Equal(t, "auto_default_difficulty_model_curve", comparison.QualitySource)
 }
 
+func TestTimelineQualityFillsPrivateLunaWithoutProtocolOrRecordedDifficulty(t *testing.T) {
+	catalog := dto.ACURoutingCatalog{Models: []dto.ACURoutingCatalogModel{
+		{
+			ModelID: "gpt-6-luna", DisplayName: "GPT-6 Luna", Protocols: []string{"responses"},
+			Curve: []dto.ACURoutingCatalogCurvePoint{
+				{DifficultyScore: 0, EstimatedQuality: 1},
+				{DifficultyScore: 100, EstimatedQuality: 0},
+			},
+			ReferencePricing: &dto.ACURoutingCatalogReference{
+				InputUSDPerMillion: floatPointer(0.1), OutputUSDPerMillion: floatPointer(0.5),
+			},
+		},
+		{
+			ModelID: "gpt-6-astra", DisplayName: "GPT-6 Astra", Protocols: []string{"responses"},
+			Curve: []dto.ACURoutingCatalogCurvePoint{
+				{DifficultyScore: 0, EstimatedQuality: 1},
+				{DifficultyScore: 100, EstimatedQuality: 0},
+			},
+			ReferencePricing: &dto.ACURoutingCatalogReference{
+				InputUSDPerMillion: floatPointer(1), OutputUSDPerMillion: floatPointer(2),
+			},
+		},
+	}}
+	item := dto.ACUWorkTimelineItem{
+		PointType: "execution", ActualModel: "gpt-6-luna",
+		DifficultyRecorded: false, BillingStatus: "finalized",
+		InputTokens: 605615, OutputTokens: 557, UserChargeCNY: floatPointer(0.019),
+	}
+	breakdown := map[string]interface{}{
+		"private_acu":               true,
+		"official_catalog_cost_usd": 0.06084,
+	}
+
+	comparison := timelineQualityComparison(item, breakdown, nil, &catalog)
+
+	assert.Equal(t, 0.019, *comparison.ModelChargeCNY)
+	assert.InDelta(t, 0.410, *comparison.OfficialModelCostCNY, 1e-4)
+	require.NotNil(t, comparison.EstimatedQuality)
+	require.NotNil(t, comparison.MostExpensive)
+	assert.Equal(t, "gpt-6-astra", comparison.MostExpensive.ModelID)
+	require.NotNil(t, comparison.SameBudget)
+	assert.Equal(t, "gpt-6-luna", comparison.SameBudget.ModelID)
+}
+
 func TestTimelineQualityRejectsStaleCandidateScoresAtAnotherDifficulty(t *testing.T) {
 	item := dto.ACUWorkTimelineItem{ActualModel: "model", Difficulty: 90, DifficultyRecorded: true}
 	breakdown := map[string]interface{}{

@@ -65,6 +65,9 @@ func timelineQualityComparison(
 		if result.ModelChargeCNY == nil {
 			result.ModelChargeCNY = numberPointer(breakdown, "provider_user_charge_cny")
 		}
+		if result.ModelChargeCNY == nil && boolValue(breakdown, "private_acu") {
+			result.ModelChargeCNY = item.UserChargeCNY
+		}
 		if result.ModelChargeCNY == nil && stringValue(breakdown, "mode") == "explicit" {
 			result.ModelChargeCNY = item.UserChargeCNY
 		}
@@ -118,7 +121,7 @@ func timelineQualityComparison(
 		curves = mapValue(snapshot, "curves")
 	}
 	for _, model := range catalog.Models {
-		if item.Protocol == "" || !slices.Contains(model.Protocols, item.Protocol) {
+		if item.Protocol != "" && !slices.Contains(model.Protocols, item.Protocol) {
 			continue
 		}
 		quality := timelineCurveQuality(model.Curve, *qualityDifficulty)
@@ -193,8 +196,7 @@ func timelineQualityDifficultyForItem(item dto.ACUWorkTimelineItem) (*float64, s
 		difficulty := timelineQualityDifficulty(item)
 		return floatPointer(difficulty), "recorded"
 	}
-	if item.PointType != "execution" ||
-		(item.RequestedModel != "acu-auto" && item.RequestedModel != "acu-high") {
+	if item.PointType != "execution" {
 		return nil, ""
 	}
 	model := strings.ToLower(strings.TrimSpace(item.ActualModel))
@@ -211,9 +213,7 @@ func timelineQualityDifficultyForItem(item dto.ACUWorkTimelineItem) (*float64, s
 	case "gpt-6-astra":
 		difficulty = 84
 	default:
-		if strings.Contains(model, "luna") {
-			difficulty = 50
-		}
+		return nil, ""
 	}
 	difficulty = math.Max(0, math.Min(100, difficulty+item.WorkPhaseQualityTargetOffset))
 	return floatPointer(difficulty), "auto_default"
