@@ -81,6 +81,9 @@ func timelineQualityComparison(
 	if !item.DifficultyRecorded || !validTimelineQualityNumber(item.Difficulty, 100) {
 		return result
 	}
+	qualityDifficulty := timelineQualityDifficulty(item)
+	result.QualityDifficulty = floatPointer(qualityDifficulty)
+	phaseAdjusted := math.Abs(qualityDifficulty-item.Difficulty) > 1e-6
 	route := mapValue(adminBreakdown, "route_decision")
 	if len(route) == 0 {
 		route = mapValue(breakdown, "route_decision")
@@ -98,7 +101,7 @@ func timelineQualityComparison(
 		stringValue(mapValue(adminBreakdown, "decision_summary"), "selected_candidate_id"),
 		stringValue(snapshot, "selectedCandidateId"),
 	)
-	if quality := timelineCandidateQuality(candidates, item.ActualModel, item.ResolvedReasoningEffort, selectedCandidateID); quality != nil {
+	if quality := timelineCandidateQuality(candidates, item.ActualModel, item.ResolvedReasoningEffort, selectedCandidateID); quality != nil && !phaseAdjusted {
 		result.EstimatedQuality = quality
 		result.QualitySource = "route_snapshot"
 	}
@@ -115,22 +118,26 @@ func timelineQualityComparison(
 		if item.Protocol == "" || !slices.Contains(model.Protocols, item.Protocol) {
 			continue
 		}
-		quality := timelineCurveQuality(model.Curve, item.Difficulty)
+		quality := timelineCurveQuality(model.Curve, qualityDifficulty)
 		if saved, ok := curves[model.ModelID]; ok {
-			quality = timelineSavedCurveQuality(saved, item.Difficulty)
+			quality = timelineSavedCurveQuality(saved, qualityDifficulty)
 		}
 		if quality == nil {
 			continue
 		}
 		// Compare models at the same resolved reasoning effort when calibrated
 		// candidate estimates are present in the historical route.
-		if estimated := timelineCandidateQuality(candidates, model.ModelID, item.ResolvedReasoningEffort); estimated != nil {
+		if estimated := timelineCandidateQuality(candidates, model.ModelID, item.ResolvedReasoningEffort); estimated != nil && !phaseAdjusted {
 			quality = estimated
 		}
 		if result.EstimatedQuality == nil && model.ModelID == item.ActualModel &&
-			(item.ResolvedReasoningEffort == "" || item.ResolvedReasoningEffort == "default") {
+			(phaseAdjusted || item.ResolvedReasoningEffort == "" || item.ResolvedReasoningEffort == "default") {
 			result.EstimatedQuality = quality
-			result.QualitySource = "model_curve"
+			if phaseAdjusted {
+				result.QualitySource = "model_curve_phase_adjusted"
+			} else {
+				result.QualitySource = "model_curve"
+			}
 		}
 		cost := timelineOfficialModelCost(model.ReferencePricing, item, adminBreakdown)
 		if cost == nil {
@@ -170,6 +177,11 @@ func timelineQualityComparison(
 
 func validTimelineQualityNumber(value, maximum float64) bool {
 	return !math.IsNaN(value) && !math.IsInf(value, 0) && value >= 0 && value <= maximum
+}
+
+func timelineQualityDifficulty(item dto.ACUWorkTimelineItem) float64 {
+	difficulty := item.Difficulty + item.WorkPhaseQualityTargetOffset
+	return math.Max(0, math.Min(100, difficulty))
 }
 
 func timelineCandidateQuality(candidates []interface{}, modelID, effort string, selectedIDs ...string) *float64 {

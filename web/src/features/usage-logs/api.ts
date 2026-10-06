@@ -223,6 +223,7 @@ export type ACUTimelineQualityReference = {
 
 export type ACUTimelineQualityComparison = {
   estimatedQuality?: number
+  qualityDifficulty?: number
   modelChargeCny?: number
   officialModelCostCny?: number
   sameBudget?: ACUTimelineQualityReference

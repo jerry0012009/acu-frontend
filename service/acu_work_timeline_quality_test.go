@@ -121,6 +121,31 @@ func TestTimelineQualityDoesNotTreatAmbiguousLegacyTotalAsModelCharge(t *testing
 	assert.Equal(t, .5, *comparison.ModelChargeCNY)
 }
 
+func TestTimelineQualityUsesPhaseAdjustedDifficultyForCurves(t *testing.T) {
+	catalog := dto.ACURoutingCatalog{Models: []dto.ACURoutingCatalogModel{{
+		ModelID: "model", DisplayName: "model", Protocols: []string{"responses"},
+		Curve: []dto.ACURoutingCatalogCurvePoint{
+			{DifficultyScore: 0, EstimatedQuality: 1},
+			{DifficultyScore: 100, EstimatedQuality: 0},
+		},
+		ReferencePricing: &dto.ACURoutingCatalogReference{
+			InputUSDPerMillion: floatPointer(1), OutputUSDPerMillion: floatPointer(1),
+		},
+	}}}
+	item := dto.ACUWorkTimelineItem{
+		ActualModel: "model", Protocol: "responses", Difficulty: 50,
+		DifficultyRecorded: true, WorkPhaseQualityTargetOffset: 10,
+	}
+
+	comparison := timelineQualityComparison(item, nil, nil, &catalog)
+
+	require.NotNil(t, comparison.QualityDifficulty)
+	assert.Equal(t, 60.0, *comparison.QualityDifficulty)
+	require.NotNil(t, comparison.EstimatedQuality)
+	assert.Equal(t, 40.0, *comparison.EstimatedQuality)
+	assert.Equal(t, "model_curve_phase_adjusted", comparison.QualitySource)
+}
+
 func TestTimelineQualityRejectsStaleCandidateScoresAtAnotherDifficulty(t *testing.T) {
 	item := dto.ACUWorkTimelineItem{ActualModel: "model", Difficulty: 90, DifficultyRecorded: true}
 	breakdown := map[string]interface{}{

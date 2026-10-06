@@ -118,6 +118,7 @@ type ACUWorkTimelineItem struct {
 
 type ACUTimelineQualityComparison struct {
 	EstimatedQuality        *float64                     `json:"estimatedQuality,omitempty"`
+	QualityDifficulty       *float64                     `json:"qualityDifficulty,omitempty"`
 	ModelChargeCNY          *float64                     `json:"modelChargeCny,omitempty"`
 	OfficialModelCostCNY    *float64                     `json:"officialModelCostCny,omitempty"`
 	SameBudget              *ACUTimelineQualityReference `json:"sameBudget,omitempty"`
