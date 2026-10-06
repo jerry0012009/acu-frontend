@@ -146,6 +146,32 @@ func TestTimelineQualityUsesPhaseAdjustedDifficultyForCurves(t *testing.T) {
 	assert.Equal(t, "model_curve_phase_adjusted", comparison.QualitySource)
 }
 
+func TestTimelineQualityUsesAutoLunaDefaultDifficultyWhenRecordedDifficultyIsMissing(t *testing.T) {
+	catalog := dto.ACURoutingCatalog{Models: []dto.ACURoutingCatalogModel{{
+		ModelID: "gpt-6-luna", DisplayName: "GPT-6 Luna", Protocols: []string{"responses"},
+		Curve: []dto.ACURoutingCatalogCurvePoint{
+			{DifficultyScore: 0, EstimatedQuality: 1},
+			{DifficultyScore: 100, EstimatedQuality: 0},
+		},
+		ReferencePricing: &dto.ACURoutingCatalogReference{
+			InputUSDPerMillion: floatPointer(1), OutputUSDPerMillion: floatPointer(1),
+		},
+	}}}
+	item := dto.ACUWorkTimelineItem{
+		PointType:      "execution",
+		RequestedModel: "acu-auto", ActualModel: "gpt-6-luna",
+		Protocol: "responses", DifficultyRecorded: false,
+	}
+
+	comparison := timelineQualityComparison(item, nil, nil, &catalog)
+
+	require.NotNil(t, comparison.QualityDifficulty)
+	assert.Equal(t, 50.0, *comparison.QualityDifficulty)
+	require.NotNil(t, comparison.EstimatedQuality)
+	assert.Equal(t, 50.0, *comparison.EstimatedQuality)
+	assert.Equal(t, "auto_default_difficulty_model_curve", comparison.QualitySource)
+}
+
 func TestTimelineQualityRejectsStaleCandidateScoresAtAnotherDifficulty(t *testing.T) {
 	item := dto.ACUWorkTimelineItem{ActualModel: "model", Difficulty: 90, DifficultyRecorded: true}
 	breakdown := map[string]interface{}{

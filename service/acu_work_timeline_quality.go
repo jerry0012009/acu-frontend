@@ -4,6 +4,7 @@ import (
 	"context"
 	"math"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -78,12 +79,13 @@ func timelineQualityComparison(
 			}
 		}
 	}
-	if !item.DifficultyRecorded || !validTimelineQualityNumber(item.Difficulty, 100) {
+	qualityDifficulty, qualityDifficultySource := timelineQualityDifficultyForItem(item)
+	if qualityDifficulty == nil {
 		return result
 	}
-	qualityDifficulty := timelineQualityDifficulty(item)
-	result.QualityDifficulty = floatPointer(qualityDifficulty)
-	phaseAdjusted := math.Abs(qualityDifficulty-item.Difficulty) > 1e-6
+	result.QualityDifficulty = qualityDifficulty
+	phaseAdjusted := item.DifficultyRecorded &&
+		math.Abs(*qualityDifficulty-item.Difficulty) > 1e-6
 	route := mapValue(adminBreakdown, "route_decision")
 	if len(route) == 0 {
 		route = mapValue(breakdown, "route_decision")
@@ -101,7 +103,8 @@ func timelineQualityComparison(
 		stringValue(mapValue(adminBreakdown, "decision_summary"), "selected_candidate_id"),
 		stringValue(snapshot, "selectedCandidateId"),
 	)
-	if quality := timelineCandidateQuality(candidates, item.ActualModel, item.ResolvedReasoningEffort, selectedCandidateID); quality != nil && !phaseAdjusted {
+	if quality := timelineCandidateQuality(candidates, item.ActualModel, item.ResolvedReasoningEffort, selectedCandidateID); quality != nil &&
+		qualityDifficultySource == "recorded" && !phaseAdjusted {
 		result.EstimatedQuality = quality
 		result.QualitySource = "route_snapshot"
 	}
@@ -118,9 +121,9 @@ func timelineQualityComparison(
 		if item.Protocol == "" || !slices.Contains(model.Protocols, item.Protocol) {
 			continue
 		}
-		quality := timelineCurveQuality(model.Curve, qualityDifficulty)
+		quality := timelineCurveQuality(model.Curve, *qualityDifficulty)
 		if saved, ok := curves[model.ModelID]; ok {
-			quality = timelineSavedCurveQuality(saved, qualityDifficulty)
+			quality = timelineSavedCurveQuality(saved, *qualityDifficulty)
 		}
 		if quality == nil {
 			continue
@@ -130,10 +133,11 @@ func timelineQualityComparison(
 		if estimated := timelineCandidateQuality(candidates, model.ModelID, item.ResolvedReasoningEffort); estimated != nil && !phaseAdjusted {
 			quality = estimated
 		}
-		if result.EstimatedQuality == nil && model.ModelID == item.ActualModel &&
-			(phaseAdjusted || item.ResolvedReasoningEffort == "" || item.ResolvedReasoningEffort == "default") {
+		if result.EstimatedQuality == nil && model.ModelID == item.ActualModel {
 			result.EstimatedQuality = quality
-			if phaseAdjusted {
+			if qualityDifficultySource == "auto_default" {
+				result.QualitySource = "auto_default_difficulty_model_curve"
+			} else if phaseAdjusted {
 				result.QualitySource = "model_curve_phase_adjusted"
 			} else {
 				result.QualitySource = "model_curve"
@@ -182,6 +186,37 @@ func validTimelineQualityNumber(value, maximum float64) bool {
 func timelineQualityDifficulty(item dto.ACUWorkTimelineItem) float64 {
 	difficulty := item.Difficulty + item.WorkPhaseQualityTargetOffset
 	return math.Max(0, math.Min(100, difficulty))
+}
+
+func timelineQualityDifficultyForItem(item dto.ACUWorkTimelineItem) (*float64, string) {
+	if item.DifficultyRecorded && validTimelineQualityNumber(item.Difficulty, 100) {
+		difficulty := timelineQualityDifficulty(item)
+		return floatPointer(difficulty), "recorded"
+	}
+	if item.PointType != "execution" ||
+		(item.RequestedModel != "acu-auto" && item.RequestedModel != "acu-high") {
+		return nil, ""
+	}
+	model := strings.ToLower(strings.TrimSpace(item.ActualModel))
+	difficulty := 50.0
+	switch model {
+	case "gpt-5.6-luna":
+		difficulty = 42
+	case "gpt-6-luna":
+		difficulty = 50
+	case "gpt-5.6-terra":
+		difficulty = 58
+	case "gpt-5.6-sol", "gpt-6-sol", "gpt-6.1-sol":
+		difficulty = 74
+	case "gpt-6-astra":
+		difficulty = 84
+	default:
+		if strings.Contains(model, "luna") {
+			difficulty = 50
+		}
+	}
+	difficulty = math.Max(0, math.Min(100, difficulty+item.WorkPhaseQualityTargetOffset))
+	return floatPointer(difficulty), "auto_default"
 }
 
 func timelineCandidateQuality(candidates []interface{}, modelID, effort string, selectedIDs ...string) *float64 {
