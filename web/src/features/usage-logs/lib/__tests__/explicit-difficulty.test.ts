@@ -263,6 +263,67 @@ test('a recorded difficulty is preserved instead of being replaced by an estimat
   assert.notEqual(result.displayDifficultyInferred, true)
 })
 
+test('ACU-auto reuses a known segment difficulty for display-only quality points', () => {
+  const recorded = item({
+    pointId: 'first:execution',
+    logicalRequestId: 'first',
+    requestedModel: 'acu-auto',
+    actualModel: 'gpt-5.6-terra',
+    difficulty: 61,
+    difficultyRecorded: true,
+  })
+  const followUp = item({
+    pointId: 'second:execution',
+    logicalRequestId: 'second',
+    requestedModel: 'acu-auto',
+    actualModel: 'gpt-5.6-terra',
+    difficulty: 0,
+    difficultyRecorded: false,
+  })
+
+  const result = addExplicitDifficulty([recorded, followUp], true)
+  assert.equal(result[1]?.displayDifficulty, 61)
+  assert.equal(result[1]?.displayDifficultySource, 'reused_segment')
+  assert.equal(result[1]?.displayDifficultyInferred, true)
+})
+
+test('backend Judge reuse becomes a display-only quality input without changing difficulty', () => {
+  const reused = item({
+    requestedModel: 'acu-auto',
+    difficulty: 61,
+    difficultyRecorded: true,
+    difficultySource: 'reused_judge',
+  })
+  const result = addExplicitDifficulty([reused], true)[0]
+  assert.equal(result?.difficulty, 61)
+  assert.equal(result?.displayDifficulty, 61)
+  assert.equal(result?.displayDifficultySource, 'reused_judge')
+  assert.equal(result?.displayDifficultyInferred, true)
+})
+
+test('ACU-auto can reuse a session difficulty when its segment has no point', () => {
+  const recorded = item({
+    pointId: 'first:execution',
+    logicalRequestId: 'first',
+    requestedModel: 'acu-auto',
+    difficulty: 47,
+    difficultyRecorded: true,
+    segmentId: 'segment-1',
+  })
+  const followUp = item({
+    pointId: 'second:execution',
+    logicalRequestId: 'second',
+    requestedModel: 'acu-auto',
+    difficulty: 0,
+    difficultyRecorded: false,
+    segmentId: 'segment-2',
+  })
+
+  const result = addExplicitDifficulty([recorded, followUp], true)
+  assert.equal(result[1]?.displayDifficulty, 47)
+  assert.equal(result[1]?.displayDifficultySource, 'reused_session')
+})
+
 test('explicit quality uses estimated difficulty and builds both cost references', () => {
   const current = item({
     protocol: 'responses',

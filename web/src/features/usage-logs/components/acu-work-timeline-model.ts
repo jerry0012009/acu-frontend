@@ -7,6 +7,7 @@ import type { ACUWorkTimelineItem } from '../api'
 import {
   hasTimelineDisplayDifficulty,
   timelineDisplayDifficulty,
+  timelineDisplayDifficultySource,
   type ACUWorkTimelineDisplayItem,
 } from '../lib/explicit-difficulty'
 
@@ -284,7 +285,7 @@ function tooltipHtml(
     `<div>${escapeHtml(t('Request'))} #${chartOrder} · ${escapeHtml(t('Task step'))} ${item.sequence}</div>`,
     `<div>${escapeHtml(t('Time'))} ${escapeHtml(formatTimelineTimestamp(item.timestamp))}</div>`,
     `<div>${escapeHtml(t('Thinking effort'))} ${escapeHtml(thinkingEffort(item))}</div>`,
-    `<div>${escapeHtml(item.displayDifficultyInferred ? t('Estimated difficulty') : t('Difficulty'))} ${timelineDisplayDifficulty(item)?.toFixed(1) ?? '—'}</div>`,
+    `<div>${escapeHtml(timelineDisplayDifficultySource(item) === 'explicit_estimate' ? t('Estimated difficulty') : t('Difficulty'))} ${timelineDisplayDifficulty(item)?.toFixed(1) ?? '—'}</div>`,
     `<div>${escapeHtml(item.pointType === 'judge' ? t('Target phase') : t('Work phase'))} ${escapeHtml(timelineWorkPhase(item))}</div>`,
     `<div>${escapeHtml(t('Phase adjustment'))} ${escapeHtml(timelinePhaseAdjustment(item.workPhaseQualityTargetOffset))}</div>`,
     item.routingQualityTarget != null

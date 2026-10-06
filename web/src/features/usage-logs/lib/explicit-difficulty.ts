@@ -93,6 +93,11 @@ const WORK_PHASE_DIFFICULTY_OFFSET: Record<string, number> = {
 export type ACUWorkTimelineDisplayItem = ACUWorkTimelineItem & {
   displayDifficulty?: number
   displayDifficultyInferred?: boolean
+  displayDifficultySource?:
+    | 'explicit_estimate'
+    | 'reused_judge'
+    | 'reused_segment'
+    | 'reused_session'
   displayDifficultyWindow?: number
   displayQuality?: number
   displayQualityInferred?: boolean
@@ -345,6 +350,10 @@ function sessionKey(item: ACUWorkTimelineItem): string {
   return `${item.userId ?? 'self'}:${item.sessionId || item.taskId || 'sessionless'}`
 }
 
+function segmentKey(item: ACUWorkTimelineItem): string {
+  return `${sessionKey(item)}:${item.segmentId || 'segmentless'}`
+}
+
 export function isExplicitModel(requestedModel: string | undefined): boolean {
   const normalized = normalize(requestedModel)
   return (
@@ -398,6 +407,15 @@ export function addExplicitDifficulty(
   const orderedItems = items
     .map((item) => ({ item }))
     .sort((left, right) => timelineOrder(left.item, right.item))
+  const knownDifficultyBySegment = new Map<string, number>()
+  const knownDifficultyBySession = new Map<string, number>()
+  for (const { item } of orderedItems) {
+    if (!item.difficultyRecorded || !Number.isFinite(item.difficulty)) {
+      continue
+    }
+    knownDifficultyBySegment.set(segmentKey(item), item.difficulty)
+    knownDifficultyBySession.set(sessionKey(item), item.difficulty)
+  }
   const ordinalByPoint = new Map<string, number>()
   const nextOrdinalBySession = new Map<string, number>()
 
@@ -410,16 +428,45 @@ export function addExplicitDifficulty(
   }
 
   return items.map((item) => {
-    if (item.difficultyRecorded && Number.isFinite(item.difficulty)) return item
+    if (item.difficultyRecorded && Number.isFinite(item.difficulty)) {
+      if (
+        item.difficultySource === 'reused_judge' ||
+        item.difficultySource === 'reused_segment'
+      ) {
+        return {
+          ...item,
+          displayDifficulty: item.difficulty,
+          displayDifficultyInferred: true,
+          displayDifficultySource: item.difficultySource,
+        }
+      }
+      return item
+    }
     const ordinal = ordinalByPoint.get(item.pointId)
-    if (ordinal == null) return item
-    const estimate = estimateExplicitDifficulty(item, ordinal, catalog)
-    if (!estimate) return item
+    if (ordinal != null) {
+      const estimate = estimateExplicitDifficulty(item, ordinal, catalog)
+      if (estimate) {
+        return {
+          ...item,
+          displayDifficulty: estimate.difficulty,
+          displayDifficultyInferred: true,
+          displayDifficultySource: 'explicit_estimate',
+          displayDifficultyWindow: estimate.windowIndex,
+        }
+      }
+    }
+    if (item.pointType !== 'execution') return item
+    const reusedDifficulty =
+      knownDifficultyBySegment.get(segmentKey(item)) ??
+      knownDifficultyBySession.get(sessionKey(item))
+    if (reusedDifficulty == null) return item
     return {
       ...item,
-      displayDifficulty: estimate.difficulty,
+      displayDifficulty: reusedDifficulty,
       displayDifficultyInferred: true,
-      displayDifficultyWindow: estimate.windowIndex,
+      displayDifficultySource: knownDifficultyBySegment.has(segmentKey(item))
+        ? 'reused_segment'
+        : 'reused_session',
     }
   })
 }
@@ -433,7 +480,6 @@ export function addExplicitQuality(
     if (
       !item.displayDifficultyInferred ||
       item.displayDifficulty == null ||
-      !isExplicitTimelineItem(item) ||
       item.qualityComparison?.estimatedQuality != null
     ) {
       return item
@@ -450,7 +496,10 @@ export function addExplicitQuality(
     const comparison: ACUTimelineQualityComparison = {
       ...item.qualityComparison,
       estimatedQuality: Math.min(100, Math.max(0, estimatedQuality)),
-      qualitySource: 'explicit_difficulty_model_curve',
+      qualitySource:
+        item.displayDifficultySource === 'explicit_estimate'
+          ? 'explicit_difficulty_model_curve'
+          : 'reused_difficulty_model_curve',
       referenceCatalogVersion: catalog.catalogVersion,
     }
     const modelCharge = comparison.modelChargeCny
@@ -546,6 +595,14 @@ export function timelineDisplayDifficulty(
     return item.difficulty
   }
   return undefined
+}
+
+export function timelineDisplayDifficultySource(
+  item: ACUWorkTimelineDisplayItem
+): string | undefined {
+  if (item.displayDifficultySource) return item.displayDifficultySource
+  if (item.difficultySource) return item.difficultySource
+  return item.displayDifficultyInferred ? 'explicit_estimate' : undefined
 }
 
 export function hasTimelineDisplayDifficulty(

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -133,6 +134,29 @@ func TestBuildACUWorkTimelineUsesAuthoritativeJudgeDifficultyOnlyOnJudgePoint(t 
 	assert.True(t, result.Items[1].DifficultyRecorded)
 }
 
+func TestBuildACUWorkTimelineReusesAuthoritativeDifficultyOnExecutionPoint(t *testing.T) {
+	logs := []*model.Log{{
+		UserId:    7,
+		CreatedAt: 100,
+		Type:      model.LogTypeConsume,
+		Other:     `{"acu_logical_request_id":"req-reused-difficulty","acu_cost_breakdown":{"task_id":"task-1","segment_id":"seg-1","judge_calls":1,"judge_protocol":"responses","judge_model":"gpt-5.6-luna","requested_model":"acu-auto","canonical_model":"gpt-5.6-luna","decision_summary":{"judge_result_source":"upstream_live"}}}`,
+	}}
+
+	result := buildACUWorkTimeline(
+		logs,
+		0,
+		200,
+		true,
+		map[string]float64{"7:seg-1": 64.5},
+	)
+	require.Len(t, result.Items, 2)
+	execution := result.Items[1]
+	assert.Equal(t, "execution", execution.PointType)
+	assert.Equal(t, 64.5, execution.Difficulty)
+	assert.True(t, execution.DifficultyRecorded)
+	assert.Equal(t, "reused_judge", execution.DifficultySource)
+}
+
 func TestLoadACUTimelineJudgeDifficultiesBatchesUniqueSegments(t *testing.T) {
 	var body []byte
 	router := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -157,6 +181,35 @@ func TestLoadACUTimelineJudgeDifficultiesBatchesUniqueSegments(t *testing.T) {
 	require.NoError(t, common.Unmarshal(body, &payload))
 	assert.Equal(t, "3", payload["newapiUserId"])
 	assert.Equal(t, []interface{}{"seg-1", "seg-2"}, payload["segmentIds"])
+}
+
+func TestLoadACUTimelineJudgeDifficultiesForAllUsersKeepsOwnersSeparate(t *testing.T) {
+	router := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		var payload map[string]interface{}
+		if err := common.DecodeJson(request.Body, &payload); err != nil {
+			http.Error(writer, "invalid payload", http.StatusBadRequest)
+			return
+		}
+		difficulty := 41.0
+		if payload["newapiUserId"] == "2" {
+			difficulty = 73.0
+		}
+		_, _ = writer.Write([]byte(fmt.Sprintf(
+			`{"items":{"seg-shared":{"difficulty":%.1f}}}`,
+			difficulty,
+		)))
+	}))
+	defer router.Close()
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-timeline-token")
+
+	logs := []*model.Log{
+		{UserId: 1, Other: `{"acu_cost_breakdown":{"segment_id":"seg-shared","judge_calls":1}}`},
+		{UserId: 2, Other: `{"acu_cost_breakdown":{"segment_id":"seg-shared","judge_calls":1}}`},
+	}
+	result := loadACUTimelineJudgeDifficultiesForAllUsers(logs)
+	assert.Equal(t, 41.0, result["1:seg-shared"])
+	assert.Equal(t, 73.0, result["2:seg-shared"])
 }
 
 func TestBuildACUWorkTimelineFallsBackWhenAuthoritativeJudgeDifficultyIsUnavailable(t *testing.T) {

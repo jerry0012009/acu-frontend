@@ -55,6 +55,7 @@ import {
   addExplicitDifficulty,
   addExplicitQuality,
   timelineDisplayDifficulty,
+  timelineDisplayDifficultySource,
   type ACUWorkTimelineDisplayItem,
 } from '../lib/explicit-difficulty'
 import {
@@ -153,6 +154,24 @@ function difficultyText(item: ACUWorkTimelineDisplayItem, digits = 0) {
   return timelineDisplayDifficulty(item)?.toFixed(digits) ?? '—'
 }
 
+function difficultySourceText(
+  source: string | undefined,
+  t: (key: string) => string
+): string | undefined {
+  switch (source) {
+    case 'reused_judge':
+      return t('Reused from Judge')
+    case 'reused_segment':
+      return t('Reused from the same segment')
+    case 'reused_session':
+      return t('Reused from the same session')
+    case 'explicit_estimate':
+      return t('Estimated from the explicit model and work phase')
+    default:
+      return undefined
+  }
+}
+
 function timelineRouteLabel(
   provider: string,
   channel: string | undefined,
@@ -209,6 +228,8 @@ function StepDetailContent(props: {
   const executionRouteAttemptsLabel = t('Execution route attempts', {
     defaultValue: '执行线路尝试',
   })
+  const difficultySource = timelineDisplayDifficultySource(item)
+  const difficultySourceDescription = difficultySourceText(difficultySource, t)
   let pointJudgeLabel = t('Execution')
   if (item.pointType === 'judge') {
     pointJudgeLabel = `${t(judgeMode(item))} · D${difficultyText(item)}`
@@ -278,7 +299,7 @@ function StepDetailContent(props: {
           </span>
           <span className='text-muted-foreground mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:grid-cols-4'>
             <span>
-              {item.displayDifficultyInferred
+              {difficultySource === 'explicit_estimate'
                 ? t('Estimated difficulty')
                 : t('Difficulty')}{' '}
               {difficultyText(item)}
@@ -338,13 +359,11 @@ function StepDetailContent(props: {
               <div>{item.reasoningMappingStatus || t('model_default')}</div>
             </div>
           ) : null}
-          {props.isAdmin && item.displayDifficultyInferred ? (
+          {props.isAdmin && difficultySourceDescription ? (
             <div className='text-muted-foreground lg:col-span-2'>
               <div className='mb-1 text-[11px]'>{t('Difficulty source')}</div>
               <div className='text-[11px]'>
-                {t(
-                  'Inferred from the model and work phase. Judge was not invoked for this explicit request.'
-                )}
+                {difficultySourceDescription}
               </div>
             </div>
           ) : null}

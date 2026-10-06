@@ -4,21 +4,50 @@ import (
 	"context"
 	"math"
 	"slices"
+	"sync"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 )
 
 const timelineFlagshipReferenceModel = "gpt-6-astra"
+const timelineQualityCatalogCacheTTL = 2 * time.Minute
+
+var timelineQualityCatalogCache struct {
+	sync.Mutex
+	catalog   *dto.ACURoutingCatalog
+	expiresAt time.Time
+}
 
 func loadACUTimelineQualityCatalog() *dto.ACURoutingCatalog {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	now := time.Now()
+	timelineQualityCatalogCache.Lock()
+	if timelineQualityCatalogCache.catalog != nil &&
+		now.Before(timelineQualityCatalogCache.expiresAt) {
+		catalog := timelineQualityCatalogCache.catalog
+		timelineQualityCatalogCache.Unlock()
+		return catalog
+	}
+	stale := timelineQualityCatalogCache.catalog
+	timelineQualityCatalogCache.Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), acuTimelineDependencyTimeout)
 	defer cancel()
 	catalog, err := GetACURoutingCatalog(ctx)
 	if err != nil {
+		if stale != nil {
+			common.SysLog("ACU timeline catalog refresh failed; using stale catalog: " + err.Error())
+			return stale
+		}
+		common.SysLog("ACU timeline catalog unavailable: " + err.Error())
 		return nil
 	}
+	timelineQualityCatalogCache.Lock()
+	timelineQualityCatalogCache.catalog = &catalog
+	timelineQualityCatalogCache.expiresAt = time.Now().Add(timelineQualityCatalogCacheTTL)
+	timelineQualityCatalogCache.Unlock()
 	return &catalog
 }
 

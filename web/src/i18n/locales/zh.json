@@ -6142,6 +6142,10 @@
     "Estimated difficulty": "估算难度"
   },
   "Enter a positive balance conversion": "请输入大于零的余额换算比例",
+  "Reused from Judge": "复用自 Judge",
+  "Reused from the same segment": "复用自同一 segment",
+  "Reused from the same session": "复用自同一会话",
+  "Estimated from the explicit model and work phase": "根据显式模型与工作阶段估算",
   "Cache write tokens": "缓存写入 Tokens",
   "View routing score details": "查看路由评分详情",
   "Routing score details": "路由评分详情",

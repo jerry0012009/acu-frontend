@@ -46,11 +46,19 @@ func GetAllUsersACUWorkTimelineAccurateTiming(from, to int64) (dto.ACUWorkTimeli
 	if err != nil {
 		return dto.ACUWorkTimeline{}, err
 	}
+	finalJudgeDifficulties := loadACUTimelineJudgeDifficultiesForAllUsers(logs)
 	var catalog *dto.ACURoutingCatalog
 	if len(logs) > 0 {
 		catalog = loadACUTimelineQualityCatalog()
 	}
-	timeline := buildACUWorkTimelineWithQuality(logs, from, to, true, catalog)
+	timeline := buildACUWorkTimelineWithQuality(
+		logs,
+		from,
+		to,
+		true,
+		catalog,
+		finalJudgeDifficulties,
+	)
 	timeline.Scope = "all"
 	timeline.Truncated = truncated
 	timeline.ItemLimit = model.AllUsersACUTimelineLogLimit

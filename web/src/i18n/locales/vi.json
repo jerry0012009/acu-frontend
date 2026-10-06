@@ -6027,6 +6027,10 @@
     "Estimated difficulty": "Estimated difficulty"
   },
   "Enter a positive balance conversion": "Enter a positive balance conversion",
+  "Reused from Judge": "Tái sử dụng từ Judge",
+  "Reused from the same segment": "Tái sử dụng từ cùng segment",
+  "Reused from the same session": "Tái sử dụng từ cùng phiên",
+  "Estimated from the explicit model and work phase": "Ước tính từ mô hình tường minh và giai đoạn công việc",
   "Cache write tokens": "Cache write tokens",
   "View routing score details": "View routing score details",
   "Routing score details": "Routing score details",

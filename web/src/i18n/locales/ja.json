@@ -6027,6 +6027,10 @@
     "Estimated difficulty": "Estimated difficulty"
   },
   "Enter a positive balance conversion": "Enter a positive balance conversion",
+  "Reused from Judge": "Judge から再利用",
+  "Reused from the same segment": "同じ segment から再利用",
+  "Reused from the same session": "同じセッションから再利用",
+  "Estimated from the explicit model and work phase": "明示モデルと作業フェーズから推定",
   "Cache write tokens": "Cache write tokens",
   "View routing score details": "View routing score details",
   "Routing score details": "Routing score details",

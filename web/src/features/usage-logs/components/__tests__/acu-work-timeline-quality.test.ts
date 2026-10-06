@@ -171,7 +171,7 @@ test('quality view keeps inferred execution points white and keeps reference lin
     false
   )
   const html = qualityTimelineTooltip(inferred, 1)
-  assert.match(html, /inferred/i)
+  assert.doesNotMatch(html, /inferred/i)
   assert.equal(
     series.find((entry) => entry.id === 'quality-same-budget-reference')
       ?.data[0]?.value[1],
@@ -179,7 +179,7 @@ test('quality view keeps inferred execution points white and keeps reference lin
   )
 })
 
-test('missing quality stays absent at the edge while a recorded zero remains a point', () => {
+test('missing quality is flat-filled for the trend while a recorded zero remains a point', () => {
   const missing = execution({ qualityComparison: undefined })
   const zero = execution({
     pointId: 'zero:execution',
@@ -188,7 +188,7 @@ test('missing quality stays absent at the edge while a recorded zero remains a p
   const series = chartSeries(
     buildACUQualityTimelineChartOption({ items: [missing, zero], dark: true })
   )
-  assert.ok(Number.isNaN(series[0].data[0].value[1]))
+  assert.equal(series[0].data[0].value[1], 0)
   assert.equal(series[0].data[1].value[1], 0)
   assert.equal(series[0].connectNulls, true)
   assert.equal(
@@ -230,7 +230,7 @@ test('all-users view draws exactly three continuous quality trends with raw qual
   )
 })
 
-test('a sparse reference stays visible when the timeline exceeds eighty requests', () => {
+test('a sparse reference stays flat-filled when the timeline exceeds eighty requests', () => {
   const reference = execution().qualityComparison?.sameBudget
   const items = Array.from({ length: 81 }, (_, index) =>
     execution({
@@ -250,7 +250,7 @@ test('a sparse reference stays visible when the timeline exceeds eighty requests
   assert.equal(budget?.showSymbol, false)
   assert.equal(
     budget?.data.filter((point) => Number.isFinite(point.value[1])).length,
-    1
+    81
   )
 })
 
@@ -281,7 +281,7 @@ test('trend lines interpolate missing estimates while raw points remain absent',
   )
 })
 
-test('trailing missing quality does not become a flat extrapolated line', () => {
+test('trailing missing quality becomes a flat extrapolated trend', () => {
   const items = [
     execution(),
     execution({ qualityComparison: { estimatedQuality: 40 } }),
@@ -293,7 +293,7 @@ test('trailing missing quality does not become a flat extrapolated line', () => 
   const main = series.find((entry) => entry.id === 'quality-executed-trend')
   assert.ok(Number.isFinite(main?.data[0].value[1]))
   assert.ok(Number.isFinite(main?.data[1].value[1]))
-  assert.ok(Number.isNaN(main?.data[2].value[1]))
+  assert.equal(main?.data[2].value[1], 40)
 })
 test('a completely missing reference stays absent and tooltip never reports filled values', () => {
   const first = execution({

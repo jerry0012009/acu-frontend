@@ -6029,6 +6029,10 @@
     "Estimated difficulty": "Estimated difficulty"
   },
   "Enter a positive balance conversion": "Enter a positive balance conversion",
+  "Reused from Judge": "Переиспользовано из Judge",
+  "Reused from the same segment": "Переиспользовано из того же сегмента",
+  "Reused from the same session": "Переиспользовано из той же сессии",
+  "Estimated from the explicit model and work phase": "Оценено по явно выбранной модели и фазе работы",
   "Cache write tokens": "Cache write tokens",
   "View routing score details": "View routing score details",
   "Routing score details": "Routing score details",

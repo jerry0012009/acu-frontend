@@ -8,12 +8,15 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 )
+
+const acuTimelineDependencyTimeout = 20 * time.Second
 
 func GetOwnedACUWorkTimeline(userID int, from, to int64, allowAdminAttemptHydration bool) (dto.ACUWorkTimeline, error) {
 	logs, err := model.GetUserACUTimelineLogs(userID, from, to)
@@ -56,7 +59,7 @@ func loadACUTimelineJudgeDifficulties(logs []*model.Log, userID int) (map[string
 	}
 	response, err := acuRouterAdminRequestWithTimeout(
 		context.Background(),
-		2*time.Second,
+		acuTimelineDependencyTimeout,
 		http.MethodPost,
 		"/internal/admin/judge-difficulties",
 		body,
@@ -83,6 +86,60 @@ func loadACUTimelineJudgeDifficulties(logs []*model.Log, userID int) (map[string
 	return result, nil
 }
 
+func loadACUTimelineJudgeDifficultiesForAllUsers(logs []*model.Log) map[string]float64 {
+	logsByUser := make(map[int][]*model.Log)
+	for _, log := range logs {
+		if log == nil {
+			continue
+		}
+		logsByUser[log.UserId] = append(logsByUser[log.UserId], log)
+	}
+	if len(logsByUser) == 0 {
+		return nil
+	}
+
+	result := make(map[string]float64)
+	var mutex sync.Mutex
+	var waitGroup sync.WaitGroup
+	for userID, userLogs := range logsByUser {
+		userID, userLogs := userID, userLogs
+		waitGroup.Add(1)
+		go func() {
+			defer waitGroup.Done()
+			difficulties, err := loadACUTimelineJudgeDifficulties(userLogs, userID)
+			if err != nil {
+				return
+			}
+			mutex.Lock()
+			defer mutex.Unlock()
+			for segmentID, difficulty := range difficulties {
+				result[timelineDifficultyKey(userID, segmentID)] = difficulty
+			}
+		}()
+	}
+	waitGroup.Wait()
+	return result
+}
+
+func timelineDifficultyKey(userID int, segmentID string) string {
+	return strconv.Itoa(userID) + ":" + segmentID
+}
+
+func timelineDifficultyValue(
+	authoritative map[string]float64,
+	userID int,
+	segmentID string,
+) (float64, bool) {
+	if segmentID == "" {
+		return 0, false
+	}
+	if value, ok := authoritative[timelineDifficultyKey(userID, segmentID)]; ok {
+		return value, true
+	}
+	value, ok := authoritative[segmentID]
+	return value, ok
+}
+
 func buildACUWorkTimeline(
 	logs []*model.Log,
 	from, to int64,
@@ -102,6 +159,26 @@ func buildACUWorkTimelineWithQuality(
 	var authoritativeJudgeDifficulties map[string]float64
 	if len(finalJudgeDifficulties) > 0 {
 		authoritativeJudgeDifficulties = finalJudgeDifficulties[0]
+	}
+	recordedDifficulties := make(map[string]float64)
+	for _, log := range logs {
+		if log == nil {
+			continue
+		}
+		var other map[string]interface{}
+		if common.Unmarshal([]byte(log.Other), &other) != nil {
+			continue
+		}
+		breakdown := mapValue(other, "acu_cost_breakdown")
+		segmentID := stringValue(breakdown, "segment_id")
+		difficulty, recorded := numberValueOf(breakdown["difficulty"])
+		if segmentID == "" || !recorded || !validTimelineQualityNumber(difficulty, 100) {
+			continue
+		}
+		key := timelineDifficultyKey(log.UserId, segmentID)
+		if _, exists := recordedDifficulties[key]; !exists {
+			recordedDifficulties[key] = difficulty
+		}
 	}
 	byRequest := map[string]dto.ACUWorkTimelineItem{}
 	for _, log := range logs {
@@ -179,6 +256,26 @@ func buildACUWorkTimelineWithQuality(
 		judgeStatus := stringValue(decision, "judge_status")
 		judgeResultSource := stringValue(decision, "judge_result_source")
 		difficulty, difficultyRecorded := numberValueOf(breakdown["difficulty"])
+		difficultySource := ""
+		if difficultyRecorded && validTimelineQualityNumber(difficulty, 100) {
+			difficultySource = "recorded"
+		} else {
+			difficulty = 0
+			difficultyRecorded = false
+			if value, ok := timelineDifficultyValue(
+				authoritativeJudgeDifficulties,
+				log.UserId,
+				stringValue(breakdown, "segment_id"),
+			); ok && validTimelineQualityNumber(value, 100) {
+				difficulty = value
+				difficultyRecorded = true
+				difficultySource = "reused_judge"
+			} else if value, ok := recordedDifficulties[timelineDifficultyKey(log.UserId, stringValue(breakdown, "segment_id"))]; ok {
+				difficulty = value
+				difficultyRecorded = true
+				difficultySource = "reused_segment"
+			}
+		}
 		item := dto.ACUWorkTimelineItem{
 			Timestamp: log.CreatedAt, LogicalRequestID: logicalID,
 			UserID: log.UserId, Username: log.Username,
@@ -186,8 +283,9 @@ func buildACUWorkTimelineWithQuality(
 			JudgeCalled: numberValue(breakdown, "judge_calls") > 0, JudgeReused: boolValue(breakdown, "judge_reused"),
 			PointID: logicalID + ":execution", PointType: "execution",
 			JudgeModel: judgeModel,
-			Difficulty: difficulty, DifficultyRecorded: difficultyRecorded, RequestedModel: stringValue(breakdown, "requested_model"),
-			ActualModel: firstTimelineValue(stringValue(breakdown, "canonical_model"), log.ModelName),
+			Difficulty: difficulty, DifficultyRecorded: difficultyRecorded, DifficultySource: difficultySource,
+			RequestedModel: stringValue(breakdown, "requested_model"),
+			ActualModel:    firstTimelineValue(stringValue(breakdown, "canonical_model"), log.ModelName),
 			Provider: firstTimelineValue(
 				stringValue(breakdown, "actual_provider"),
 				stringValue(other, "actual_provider"),
@@ -273,9 +371,10 @@ func buildACUWorkTimelineWithQuality(
 			judge.UserChargeCNY = floatPointer(item.JudgeUserChargeCNY)
 			judge.ActualCashCostCNY = floatPointer(item.JudgeCostCNY)
 			judge.Status = judgePointStatus(item)
-			if difficulty, ok := authoritativeJudgeDifficulties[item.SegmentID]; ok {
+			if difficulty, ok := timelineDifficultyValue(authoritativeJudgeDifficulties, item.UserID, item.SegmentID); ok {
 				judge.Difficulty = difficulty
 				judge.DifficultyRecorded = true
+				judge.DifficultySource = "reused_judge"
 			}
 			judge.EndToEndLatencyMs = item.JudgeLatencyMs
 			judge.ProviderLatencyMs = 0

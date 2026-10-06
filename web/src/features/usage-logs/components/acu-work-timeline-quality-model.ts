@@ -47,12 +47,6 @@ export function timelineEstimatedQuality(
   return timelineQualityComparison(item)?.estimatedQuality
 }
 
-export function timelineQualityIsInferred(
-  item: ACUWorkTimelineDisplayItem
-): boolean {
-  return item.displayQualityInferred === true
-}
-
 function escapeHtml(value: unknown): string {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -79,6 +73,9 @@ function smoothTimelineData(data: TimelineChartDatum[]): TimelineChartDatum[] {
     .filter((item) => Number.isFinite(item.value))
   if (known.length === 0) return result
 
+  for (let index = 0; index < known[0].index; index += 1) {
+    result[index].value[1] = known[0].value
+  }
   for (let point = 0; point < known.length - 1; point += 1) {
     const left = known[point]
     const right = known[point + 1]
@@ -91,13 +88,20 @@ function smoothTimelineData(data: TimelineChartDatum[]): TimelineChartDatum[] {
   }
   const first = known[0].index
   const last = known.at(-1)?.index ?? first
-  const smoothed = gaussianSmooth(
-    result.slice(first, last + 1).map((item) => item.value[1])
-  )
-  for (let index = first; index <= last; index += 1) {
-    result[index].value[1] = smoothed[index - first]
+  for (let index = last + 1; index < result.length; index += 1) {
+    result[index].value[1] = result[last].value[1]
   }
-  return result
+  const smoothed = gaussianSmooth(result.map((item) => item.value[1]))
+  for (let index = 0; index < first; index += 1) {
+    smoothed[index] = result[index].value[1]
+  }
+  for (let index = last + 1; index < smoothed.length; index += 1) {
+    smoothed[index] = result[index].value[1]
+  }
+  return result.map((item, index) => ({
+    ...item,
+    value: [item.value[0], smoothed[index]] as [number, number],
+  }))
 }
 
 export function timelineCostDifference(
@@ -130,9 +134,7 @@ export function qualityTimelineTooltip(
     {
       name: t('ACU execution'),
       quality: timelineEstimatedQuality(item),
-      model: `${item.actualModel} \u00b7 ${thinkingEffort(item)}${
-        timelineQualityIsInferred(item) ? ` \u00b7 ${t('Inferred')}` : ''
-      }`,
+      model: `${item.actualModel} \u00b7 ${thinkingEffort(item)}`,
       color: colors.executed,
     },
     {
