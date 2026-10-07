@@ -36,7 +36,14 @@ export const CORRIDOR_DISPLAY_SMOOTH_SIGMA = CURVE_DISPLAY_SMOOTH_SIGMA
 export const PRICING_PREVIEW_CONTROL_GRID_CLASS =
   'grid w-full min-w-0 shrink-0 grid-cols-2 items-end gap-2 xl:w-auto xl:grid-cols-[360px_112px_112px]'
 
-export type PricingCurveProtocol = 'responses' | 'messages' | 'chat_completions'
+export const PRICING_CURVE_PROTOCOL_OPTIONS = [
+  { id: 'chat_completions', labelKey: 'Chat protocol' },
+  { id: 'responses', labelKey: 'Responses' },
+  { id: 'messages', labelKey: 'Messages' },
+] as const
+
+export type PricingCurveProtocol =
+  (typeof PRICING_CURVE_PROTOCOL_OPTIONS)[number]['id']
 
 export function corridorVisibleModels(
   models: PricingModel[],

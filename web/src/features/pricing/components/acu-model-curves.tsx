@@ -51,6 +51,7 @@ import {
   type PricingCostDatum,
 } from '../lib/pricing-comparison'
 import {
+  PRICING_CURVE_PROTOCOL_OPTIONS,
   PRICING_PREVIEW_CONTROL_GRID_CLASS,
   buildSmoothedCorridorDisplayValues,
   corridorVisibleModels,
@@ -60,6 +61,7 @@ import {
   isCorridorModelTooltipDatum,
   resolveEffectiveCorridorPreference,
   type CorridorPreference,
+  type PricingCurveProtocol,
 } from '../lib/selection-corridor'
 import type { PricingDisplayMode, PricingModel } from '../types'
 
@@ -69,7 +71,6 @@ function positiveInteger(value: string, fallback: number): number {
 }
 
 type CurveSortMode = 'price' | 'ability'
-type PricingProtocol = 'all' | 'responses' | 'messages' | 'chat_completions'
 
 const CORRIDOR_PREFERENCES: Array<{
   id: CorridorPreference
@@ -106,7 +107,9 @@ export function ACUModelCurves(props: {
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([])
   const [inputTokens, setInputTokens] = useState(100_000)
   const [outputTokens, setOutputTokens] = useState(4_000)
-  const [pricingProtocol, setPricingProtocol] = useState<PricingProtocol>('all')
+  const [pricingProtocol, setPricingProtocol] = useState<PricingCurveProtocol>(
+    PRICING_CURVE_PROTOCOL_OPTIONS[0].id
+  )
   const [sortMode, setSortMode] = useState<CurveSortMode>('price')
   const [corridorPreference, setCorridorPreference] =
     useState<CorridorPreference>('balanced')
@@ -129,14 +132,14 @@ export function ACUModelCurves(props: {
         deferredInputTokens,
         deferredOutputTokens,
         previewTokenId,
-        pricingProtocol === 'all' ? 'responses' : pricingProtocol,
+        pricingProtocol,
       ],
       queryFn: () =>
         getACUSelectionCorridor(
           deferredInputTokens,
           deferredOutputTokens,
           previewTokenId,
-          pricingProtocol === 'all' ? 'responses' : pricingProtocol
+          pricingProtocol
         ),
       staleTime: 60 * 1000,
       retry: false,
@@ -145,7 +148,7 @@ export function ACUModelCurves(props: {
     () =>
       corridorVisibleModels(
         allCurveModels,
-        pricingProtocol === 'all' ? 'responses' : pricingProtocol,
+        pricingProtocol,
         previewTokenId != null && selectionCorridor
           ? corridorEligibleModelIds(selectionCorridor)
           : undefined
@@ -341,9 +344,7 @@ export function ACUModelCurves(props: {
       [
         ...selectedModels.map((model): PricingCostDatum => {
           const payable = contextPricingRates(
-            pricingProtocol === 'all'
-              ? model.payable
-              : (model.payable_by_protocol?.[pricingProtocol] ?? model.payable),
+            model.payable_by_protocol?.[pricingProtocol] ?? model.payable,
             inputTokens
           )
           const reference = contextPricingRates(model.reference, inputTokens)
@@ -759,23 +760,19 @@ export function ACUModelCurves(props: {
                 role='group'
                 aria-label='Pricing protocol'
               >
-                {(
-                  [
-                    ['all', t('Default')],
-                    ['responses', t('Responses')],
-                    ['chat_completions', t('Chat Completions')],
-                    ['messages', t('Messages')],
-                  ] as const
-                ).map(([protocol, label]) => (
+                {PRICING_CURVE_PROTOCOL_OPTIONS.map((protocol) => (
                   <Button
-                    key={protocol}
+                    key={protocol.id}
                     type='button'
                     size='sm'
-                    variant={pricingProtocol === protocol ? 'default' : 'ghost'}
+                    variant={
+                      pricingProtocol === protocol.id ? 'default' : 'ghost'
+                    }
+                    aria-pressed={pricingProtocol === protocol.id}
                     className='h-7 min-w-0 flex-1 px-1.5 text-[11px] sm:px-2 sm:text-xs'
-                    onClick={() => setPricingProtocol(protocol)}
+                    onClick={() => setPricingProtocol(protocol.id)}
                   >
-                    {label}
+                    {t(protocol.labelKey)}
                   </Button>
                 ))}
               </div>
