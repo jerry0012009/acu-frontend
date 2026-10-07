@@ -146,11 +146,11 @@ export function ACUModelCurves(props: {
       corridorVisibleModels(
         allCurveModels,
         pricingProtocol === 'all' ? 'responses' : pricingProtocol,
-        selectionCorridor
+        previewTokenId != null && selectionCorridor
           ? corridorEligibleModelIds(selectionCorridor)
           : undefined
       ),
-    [allCurveModels, pricingProtocol, selectionCorridor]
+    [allCurveModels, previewTokenId, pricingProtocol, selectionCorridor]
   )
   const executionPresetSeries = useMemo(() => {
     const presets = selectionCorridor?.executionPresetSeries ?? []

@@ -63,6 +63,12 @@ test('Default and protocol views keep only priced, eligible model curves', () =>
     ),
     ['claude']
   )
+  assert.deepEqual(
+    corridorVisibleModels(models, 'responses', undefined).map(
+      (model) => model.model_name
+    ),
+    ['luna', 'unavailable']
+  )
 })
 
 const point = (

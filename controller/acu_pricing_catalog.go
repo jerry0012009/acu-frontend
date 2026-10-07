@@ -176,11 +176,6 @@ func loadACUPricingCatalog(ctx context.Context) (*acuPricingCatalog, error) {
 	if routingCatalog.CatalogVersion == "" {
 		return cacheACUPricingFallback(errors.New("ACU Router catalog metadata is unavailable"), staleCatalog)
 	}
-	policy, err := service.ResolveACUEffectiveRoutingPolicy(nil)
-	if err != nil {
-		return cacheACUPricingFallback(err, staleCatalog)
-	}
-
 	type corridorResult struct {
 		protocol string
 		value    map[string]interface{}
@@ -192,7 +187,7 @@ func loadACUPricingCatalog(ctx context.Context) (*acuPricingCatalog, error) {
 	results := make(chan corridorResult, len(protocols))
 	for _, protocol := range protocols {
 		go func(protocol string) {
-			value, loadErr := service.GetACUSelectionCorridor(corridorCtx, 100000, 4000, &policy, protocol)
+			value, loadErr := service.GetACUSelectionCorridor(corridorCtx, 100000, 4000, nil, protocol)
 			results <- corridorResult{protocol: protocol, value: value, err: loadErr}
 		}(protocol)
 	}
