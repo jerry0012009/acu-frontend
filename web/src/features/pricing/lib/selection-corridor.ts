@@ -34,7 +34,7 @@ export const CORRIDOR_DISPLAY_SMOOTH_RADIUS = CURVE_DISPLAY_SMOOTH_RADIUS
 export const CORRIDOR_DISPLAY_SMOOTH_SIGMA = CURVE_DISPLAY_SMOOTH_SIGMA
 
 export const PRICING_PREVIEW_CONTROL_GRID_CLASS =
-  'grid shrink-0 grid-cols-2 items-end gap-2 sm:w-auto sm:grid-cols-4 xl:grid-cols-[minmax(220px,260px)_minmax(180px,240px)_112px_112px]'
+  'grid w-full min-w-0 shrink-0 grid-cols-2 items-end gap-2 xl:w-auto xl:grid-cols-[360px_112px_112px]'
 
 export type PricingCurveProtocol = 'responses' | 'messages' | 'chat_completions'
 

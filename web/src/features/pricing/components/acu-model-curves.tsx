@@ -726,7 +726,7 @@ export function ACUModelCurves(props: {
     [axisColor, colorByModel, costData, gridColor, props.displayMode, t]
   )
 
-  if (curveModels.length === 0 && previewTokenId == null) return null
+  if (allCurveModels.length === 0 && previewTokenId == null) return null
 
   return (
     <section className='border-border/70 bg-card/80 overflow-hidden rounded-lg border'>
@@ -745,8 +745,14 @@ export function ACUModelCurves(props: {
               )}
             </p>
           </div>
-          <div className={PRICING_PREVIEW_CONTROL_GRID_CLASS}>
-            <div className='text-muted-foreground text-[11px] font-medium'>
+          <div
+            className={cn(
+              PRICING_PREVIEW_CONTROL_GRID_CLASS,
+              currentUser &&
+                'xl:grid-cols-[360px_minmax(160px,220px)_112px_112px]'
+            )}
+          >
+            <div className='text-muted-foreground col-span-2 text-[11px] font-medium xl:col-span-1'>
               {t('Client')}
               <div
                 className='bg-muted/40 mt-1 inline-flex h-8 w-full items-center rounded-md border p-0.5'
@@ -775,7 +781,7 @@ export function ACUModelCurves(props: {
               </div>
             </div>
             {currentUser && (
-              <label className='text-muted-foreground col-span-1 text-[11px] font-medium sm:col-span-2 xl:col-span-1'>
+              <label className='text-muted-foreground col-span-2 text-[11px] font-medium xl:col-span-1'>
                 {t('Preview API Key')}
                 <select
                   className='bg-background mt-1 h-8 w-full rounded-md border px-2 text-sm'

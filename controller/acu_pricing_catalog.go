@@ -125,7 +125,7 @@ type acuPricingCatalog struct {
 }
 
 const acuPricingCatalogCacheTTL = 30 * time.Second
-const acuPricingCorridorTimeout = 15 * time.Second
+const acuPricingCorridorTimeout = 30 * time.Second
 const acuPricingFallbackCatalogFile = "/app/acu-catalog/newapi-acu-catalog.json"
 
 var acuPricingCatalogCache = struct {

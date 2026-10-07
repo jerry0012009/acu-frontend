@@ -310,10 +310,10 @@ test('uses the selected Token preference and keeps global mode interactive', () 
   )
 })
 
-test('keeps the desktop protocol and numeric controls in the aligned grid', () => {
+test('reserves enough desktop width for the protocol selector and both numeric fields', () => {
   assert.match(
     PRICING_PREVIEW_CONTROL_GRID_CLASS,
-    /items-end.*xl:grid-cols-\[minmax\(220px,260px\)_minmax\(180px,240px\)_112px_112px\]/
+    /items-end.*xl:grid-cols-\[360px_112px_112px\]/
   )
 })
 
