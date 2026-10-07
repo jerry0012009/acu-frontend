@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
+import type { PricingModel } from '../../types'
 import {
   CORRIDOR_DISPLAY_SMOOTH_RADIUS,
   CORRIDOR_DISPLAY_SMOOTH_SIGMA,
@@ -8,9 +9,61 @@ import {
   buildSmoothedCorridorDisplayValues,
   corridorEligibleModelIds,
   corridorPointAtDifficulty,
+  corridorVisibleModels,
   isCorridorModelTooltipDatum,
   resolveEffectiveCorridorPreference,
 } from '../selection-corridor'
+
+test('Default and protocol views keep only priced, eligible model curves', () => {
+  const price = {
+    input_cny_per_million: 1,
+    output_cny_per_million: 2,
+    status: 'estimated' as const,
+    pricing_policy_version: 'test',
+  }
+  const models = ['luna', 'claude', 'unavailable'].map<PricingModel>(
+    (model_name, id) => ({
+      id,
+      model_name,
+      quota_type: 0,
+      model_ratio: 1,
+      completion_ratio: 1,
+      enable_groups: [],
+      acu_active: true,
+      price_currency: 'CNY',
+      acu_curve: [
+        {
+          difficultyScore: 0,
+          estimatedQuality: 0.9,
+          qualityLower: 0.8,
+          qualityUpper: 1,
+        },
+      ],
+      payable_by_protocol: {
+        [model_name === 'claude' ? 'messages' : 'responses']: price,
+      },
+    })
+  )
+  assert.deepEqual(
+    corridorVisibleModels(models, 'responses', new Set(['luna'])).map(
+      (model) => model.model_name
+    ),
+    ['luna']
+  )
+  assert.deepEqual(
+    corridorVisibleModels(models, 'messages', new Set(['claude'])).map(
+      (model) => model.model_name
+    ),
+    ['claude']
+  )
+  assert.deepEqual(corridorVisibleModels(models, 'messages', new Set()), [])
+  assert.deepEqual(
+    corridorVisibleModels(models, 'messages', undefined).map(
+      (model) => model.model_name
+    ),
+    ['claude']
+  )
+})
 
 const point = (
   difficulty: number,
@@ -257,7 +310,7 @@ test('uses the selected Token preference and keeps global mode interactive', () 
   )
 })
 
-test('uses a four-column aligned desktop control grid', () => {
+test('keeps the desktop protocol and numeric controls in the aligned grid', () => {
   assert.match(
     PRICING_PREVIEW_CONTROL_GRID_CLASS,
     /items-end.*xl:grid-cols-\[minmax\(220px,260px\)_minmax\(180px,240px\)_112px_112px\]/

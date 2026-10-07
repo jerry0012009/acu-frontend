@@ -125,7 +125,7 @@ type acuPricingCatalog struct {
 }
 
 const acuPricingCatalogCacheTTL = 30 * time.Second
-const acuPricingCorridorTimeout = 5 * time.Second
+const acuPricingCorridorTimeout = 15 * time.Second
 const acuPricingFallbackCatalogFile = "/app/acu-catalog/newapi-acu-catalog.json"
 
 var acuPricingCatalogCache = struct {
@@ -176,6 +176,10 @@ func loadACUPricingCatalog(ctx context.Context) (*acuPricingCatalog, error) {
 	if routingCatalog.CatalogVersion == "" {
 		return cacheACUPricingFallback(errors.New("ACU Router catalog metadata is unavailable"), staleCatalog)
 	}
+	policy, err := service.ResolveACUEffectiveRoutingPolicy(nil)
+	if err != nil {
+		return cacheACUPricingFallback(err, staleCatalog)
+	}
 
 	type corridorResult struct {
 		protocol string
@@ -188,7 +192,7 @@ func loadACUPricingCatalog(ctx context.Context) (*acuPricingCatalog, error) {
 	results := make(chan corridorResult, len(protocols))
 	for _, protocol := range protocols {
 		go func(protocol string) {
-			value, loadErr := service.GetACUSelectionCorridor(corridorCtx, 100000, 4000, nil, protocol)
+			value, loadErr := service.GetACUSelectionCorridor(corridorCtx, 100000, 4000, &policy, protocol)
 			results <- corridorResult{protocol: protocol, value: value, err: loadErr}
 		}(protocol)
 	}
@@ -196,20 +200,10 @@ func loadACUPricingCatalog(ctx context.Context) (*acuPricingCatalog, error) {
 	for range protocols {
 		result := <-results
 		if result.err != nil {
-			fallback, fallbackErr := buildLiveACUPricingCatalog(routingCatalog, corridors)
-			if fallbackErr != nil {
-				return staleCatalog, fmt.Errorf("load ACU %s pricing: %w", result.protocol, result.err)
-			}
-			if displayErr := applyACUPricingDisplayMode(fallback); displayErr != nil {
-				return staleCatalog, displayErr
-			}
-			loadErr := fmt.Errorf("load ACU %s pricing: %w", result.protocol, result.err)
-			acuPricingCatalogCache.Lock()
-			acuPricingCatalogCache.catalog = fallback
-			acuPricingCatalogCache.expiresAt = time.Now().Add(acuPricingCatalogCacheTTL)
-			acuPricingCatalogCache.lastError = loadErr.Error()
-			acuPricingCatalogCache.Unlock()
-			return fallback, loadErr
+			return cacheACUPricingFallback(
+				fmt.Errorf("load ACU %s pricing: %w", result.protocol, result.err),
+				staleCatalog,
+			)
 		}
 		corridors[result.protocol] = result.value
 	}

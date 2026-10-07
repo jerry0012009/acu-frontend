@@ -4,7 +4,11 @@ import {
   gaussianSmooth,
 } from '@/lib/curve-smoothing'
 
-import type { ACUSelectionCorridorPoint, ACUSelectionCorridor } from '../types'
+import type {
+  ACUSelectionCorridor,
+  ACUSelectionCorridorPoint,
+  PricingModel,
+} from '../types'
 
 export {
   CURVE_DISPLAY_SMOOTH_RADIUS,
@@ -31,6 +35,29 @@ export const CORRIDOR_DISPLAY_SMOOTH_SIGMA = CURVE_DISPLAY_SMOOTH_SIGMA
 
 export const PRICING_PREVIEW_CONTROL_GRID_CLASS =
   'grid shrink-0 grid-cols-2 items-end gap-2 sm:w-auto sm:grid-cols-4 xl:grid-cols-[minmax(220px,260px)_minmax(180px,240px)_112px_112px]'
+
+export type PricingCurveProtocol = 'responses' | 'messages' | 'chat_completions'
+
+export function corridorVisibleModels(
+  models: PricingModel[],
+  protocol: PricingCurveProtocol,
+  eligibleModelIds?: Set<string>
+): PricingModel[] {
+  return models.filter((model) => {
+    if (eligibleModelIds && !eligibleModelIds.has(model.model_name)) {
+      return false
+    }
+    const payable = model.payable_by_protocol?.[protocol]
+    return (
+      model.acu_active === true &&
+      model.price_currency === 'CNY' &&
+      (model.acu_curve?.length ?? 0) > 0 &&
+      payable != null &&
+      Number.isFinite(payable.input_cny_per_million) &&
+      Number.isFinite(payable.output_cny_per_million)
+    )
+  })
+}
 
 function clampQuality(value: number): number {
   return Math.min(100, Math.max(0, value))

@@ -1,9 +1,13 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -11,6 +15,47 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/stretchr/testify/require"
 )
+
+func TestLoadACUPricingCatalogKeepsCompleteSnapshotWhenOneProtocolFails(t *testing.T) {
+	previousOptions := common.OptionMap
+	common.OptionMap = map[string]string{}
+	acuPricingCatalogCache.Lock()
+	previousCatalog, previousExpiry, previousError := acuPricingCatalogCache.catalog, acuPricingCatalogCache.expiresAt, acuPricingCatalogCache.lastError
+	complete := &acuPricingCatalog{SourceCatalogVersion: "complete", Responses: []acuPricingResponse{{
+		ModelID: "claude-test", PayableByProtocol: map[string]*acuCatalogPayable{
+			"messages": {InputCNYPerMillion: 1, OutputCNYPerMillion: 2},
+		},
+	}}}
+	acuPricingCatalogCache.catalog = complete
+	acuPricingCatalogCache.expiresAt = time.Time{}
+	acuPricingCatalogCache.lastError = ""
+	acuPricingCatalogCache.Unlock()
+	t.Cleanup(func() {
+		common.OptionMap = previousOptions
+		acuPricingCatalogCache.Lock()
+		acuPricingCatalogCache.catalog, acuPricingCatalogCache.expiresAt, acuPricingCatalogCache.lastError = previousCatalog, previousExpiry, previousError
+		acuPricingCatalogCache.Unlock()
+	})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/internal/admin/channel-monitor" {
+			_, _ = w.Write([]byte(`{"catalogVersion":"fresh","pricingPolicyVersion":"test","modelPool":[{"modelId":"claude-test","modelCategory":"text_agent","routingEnabled":true,"protocols":["messages"]}],"profiles":[]}`))
+			return
+		}
+		if r.URL.Query().Get("protocol") == "messages" {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		_, _ = w.Write([]byte(`{"pricing":{}}`))
+	}))
+	defer server.Close()
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", server.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test")
+	got, err := loadACUPricingCatalog(context.Background())
+	require.Error(t, err)
+	require.Same(t, complete, got)
+	require.Contains(t, got.Responses[0].PayableByProtocol, "messages")
+}
 
 func TestOverlayACUPricingUsesDynamicAutoAndCatalogPrices(t *testing.T) {
 	cachePayable := 0.006

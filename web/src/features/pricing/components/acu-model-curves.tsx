@@ -53,6 +53,7 @@ import {
 import {
   PRICING_PREVIEW_CONTROL_GRID_CLASS,
   buildSmoothedCorridorDisplayValues,
+  corridorVisibleModels,
   corridorEligibleModelIds,
   corridorEffectivePointAtDifficulty,
   corridorPointAtDifficulty,
@@ -140,35 +141,28 @@ export function ACUModelCurves(props: {
       staleTime: 60 * 1000,
       retry: false,
     })
+  const curveModels = useMemo(
+    () =>
+      corridorVisibleModels(
+        allCurveModels,
+        pricingProtocol === 'all' ? 'responses' : pricingProtocol,
+        selectionCorridor
+          ? corridorEligibleModelIds(selectionCorridor)
+          : undefined
+      ),
+    [allCurveModels, pricingProtocol, selectionCorridor]
+  )
   const executionPresetSeries = useMemo(() => {
     const presets = selectionCorridor?.executionPresetSeries ?? []
     if (!selectionCorridor) return presets
     const eligibleModelIds = corridorEligibleModelIds(selectionCorridor)
     return presets.filter(
       (preset) =>
-        preset.points.length > 0 && eligibleModelIds.has(preset.modelId)
+        preset.points.length > 0 &&
+        eligibleModelIds.has(preset.modelId) &&
+        curveModels.some((model) => model.model_name === preset.modelId)
     )
-  }, [selectionCorridor])
-  const curveModels = useMemo(() => {
-    if (!selectionCorridor) {
-      return allCurveModels
-    }
-    if (pricingProtocol === 'all') return allCurveModels
-
-    // The corridor contains recommended candidates, not the complete
-    // protocol inventory. Keep every curve-capable model for the selected
-    // protocol and use corridor eligibility only for the all-protocol view.
-    const protocolLabel = {
-      messages: 'Messages',
-      responses: 'Responses',
-      chat_completions: 'Chat Completions',
-    }[pricingProtocol]
-    return allCurveModels.filter((model) =>
-      model.acu_protocol
-        ?.split('+')
-        .some((value) => value.trim() === protocolLabel)
-    )
-  }, [allCurveModels, pricingProtocol, selectionCorridor])
+  }, [curveModels, selectionCorridor])
   const effectiveCorridorPreference = resolveEffectiveCorridorPreference(
     previewTokenId,
     selectionCorridor,
@@ -345,16 +339,15 @@ export function ACUModelCurves(props: {
   const costData = useMemo(
     () =>
       [
-        ...selectedModels.map(
-          (model): PricingCostDatum => {
-            const payable = contextPricingRates(
-              pricingProtocol === 'all'
-                ? model.payable
-                : (model.payable_by_protocol?.[pricingProtocol] ?? model.payable),
-              inputTokens
-            )
-            const reference = contextPricingRates(model.reference, inputTokens)
-            return ({
+        ...selectedModels.map((model): PricingCostDatum => {
+          const payable = contextPricingRates(
+            pricingProtocol === 'all'
+              ? model.payable
+              : (model.payable_by_protocol?.[pricingProtocol] ?? model.payable),
+            inputTokens
+          )
+          const reference = contextPricingRates(model.reference, inputTokens)
+          return {
             modelId: model.model_name,
             modelName: model.display_name || model.model_name,
             payableCost: estimatedPricingCost(
@@ -392,9 +385,8 @@ export function ACUModelCurves(props: {
             abilityScore:
               qualityAtDifficulty(model.acu_curve ?? [], abilityDifficulty) *
               100,
-          })
           }
-        ),
+        }),
         ...selectedPresets.flatMap((preset): PricingCostDatum[] => {
           const baseModel = canonicalModelById.get(preset.modelId)
           const costs = executionPresetPricingCosts(
@@ -412,8 +404,14 @@ export function ACUModelCurves(props: {
                   modelName: preset.displayName,
                   payableCost: costs.payableCost,
                   referenceCost: costs.referenceCost,
-                  referenceInput: contextPricingRates(baseModel?.reference, inputTokens)?.input_cny_per_million,
-                  referenceOutput: contextPricingRates(baseModel?.reference, inputTokens)?.output_cny_per_million,
+                  referenceInput: contextPricingRates(
+                    baseModel?.reference,
+                    inputTokens
+                  )?.input_cny_per_million,
+                  referenceOutput: contextPricingRates(
+                    baseModel?.reference,
+                    inputTokens
+                  )?.output_cny_per_million,
                   referenceSource: baseModel?.reference
                     ? formatPublicReferenceSource(
                         baseModel.reference,
@@ -768,7 +766,7 @@ export function ACUModelCurves(props: {
                     type='button'
                     size='sm'
                     variant={pricingProtocol === protocol ? 'default' : 'ghost'}
-                    className='h-7 flex-1 px-2 text-xs'
+                    className='h-7 min-w-0 flex-1 px-1.5 text-[11px] sm:px-2 sm:text-xs'
                     onClick={() => setPricingProtocol(protocol)}
                   >
                     {label}
@@ -942,7 +940,9 @@ export function ACUModelCurves(props: {
 
       {selectedModels.length + selectedPresets.length === 0 ? (
         <div className='text-muted-foreground flex h-56 items-center justify-center text-sm'>
-          {t('Select at least one model')}
+          {allCandidateIds.length === 0
+            ? t('No models found')
+            : t('Select at least one model')}
         </div>
       ) : (
         <div className='bg-border/60 grid min-w-0 gap-px xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.85fr)]'>
