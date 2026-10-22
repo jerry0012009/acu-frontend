@@ -13,6 +13,7 @@ import {
 } from '../../lib/pricing-comparison'
 import type { ACUSelectionCorridor, PricingModel } from '../../types'
 import { ACUPriceSummary, ACURouteDetails } from '../acu-price-summary'
+import { ModelPerfBadge } from '../model-perf-badge'
 
 const i18n = createInstance()
 await i18n.init({
@@ -27,6 +28,28 @@ const price = {
   status: 'estimated' as const,
   pricing_policy_version: 'test',
 }
+
+test('profile first-token latency replaces model total latency without substituting it when unknown', () => {
+  for (const value of [1200, undefined]) {
+    const window = render(
+      <ModelPerfBadge
+        perf={{ avg_latency_ms: 15000, avg_tps: 90, success_rate: 98 }}
+        latency={{ label: 'Top route first token', value }}
+      />
+    )
+    try {
+      const latency = window.document.querySelector(
+        '[title="Top route first token"]'
+      )
+      assert.ok(latency)
+      assert.doesNotMatch(latency.textContent ?? '', /15s/)
+      if (value) assert.match(latency.textContent ?? '', /1\.20s/)
+      else assert.doesNotMatch(latency.textContent ?? '', /\d+s/)
+    } finally {
+      window.close()
+    }
+  }
+})
 const model: PricingModel = {
   id: 1,
   model_name: 'test',
@@ -35,6 +58,14 @@ const model: PricingModel = {
   completion_ratio: 4,
   enable_groups: [],
   payable: price,
+  reference: {
+    input_cny_per_million: 125 / 3,
+    output_cny_per_million: 500 / 3,
+    source_type: 'official',
+    source_name: 'Fixture official pricing',
+    observed_at: '2026-10-22',
+    original_currency: 'CNY',
+  },
   acu_quote: {
     status: 'ready',
     protocol: 'chat_completions',
@@ -73,6 +104,13 @@ test('summary identifies the protocol, strategy, route count and token unit', ()
     assert.match(text, /1M tokens/)
     assert.match(text, /Chat · Balanced routing · 2 available routes/)
     assert.equal(
+      window.document.querySelector('[aria-label="Price multiplier"]')
+        ?.textContent,
+      '0.030x'
+    )
+    assert.match(text, /Official reference/)
+    assert.ok(text.indexOf('0.030x') < text.indexOf('¥1.25'))
+    assert.equal(
       window.document.querySelector('button')?.getAttribute('aria-label'),
       'Pricing details'
     )
@@ -94,7 +132,7 @@ test('details list the same prices and mark only the current estimated selection
       rows[1].textContent ?? '',
       /Alternative route.*¥2\.5.*Available/
     )
-    assert.equal(window.document.querySelectorAll('th[scope=col]').length, 4)
+    assert.equal(window.document.querySelectorAll('th[scope=col]').length, 5)
     assert.match(
       window.document.body.textContent ?? '',
       /Routing evaluation fees/

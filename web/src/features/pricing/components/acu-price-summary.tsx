@@ -6,9 +6,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { formatMultiplier } from '@/lib/format'
 
 import { TOKEN_UNIT_DIVISORS } from '../constants'
 import { formatACUCNY } from '../lib/price'
+import {
+  contextPricingRates,
+  relativePricingMultiplier,
+} from '../lib/pricing-comparison'
 import type { PricingModel, TokenUnit } from '../types'
 
 export function ACUPriceSummary(props: {
@@ -44,6 +49,15 @@ export function ACUPriceSummary(props: {
     )
   }
   const divisor = TOKEN_UNIT_DIVISORS[props.tokenUnit]
+  const inputTokens = quote?.input_tokens ?? 100_000
+  const outputTokens = quote?.output_tokens ?? 4_000
+  const reference = contextPricingRates(props.model.reference, inputTokens)
+  const multiplier = relativePricingMultiplier(
+    price,
+    reference,
+    inputTokens,
+    outputTokens
+  )
   const protocolLabels = {
     chat_completions: 'Chat',
     responses: 'Responses',
@@ -58,7 +72,11 @@ export function ACUPriceSummary(props: {
   return (
     <div className='min-w-0 space-y-1'>
       <div className='text-muted-foreground flex items-center gap-1 text-xs'>
-        <span>{t('Current estimated unit price')}</span>
+        <span>
+          {props.model.reference?.source_type === 'openrouter'
+            ? t('Relative to public reference')
+            : t('Relative to official price')}
+        </span>
         <Tooltip>
           <TooltipTrigger
             type='button'
@@ -68,26 +86,78 @@ export function ACUPriceSummary(props: {
             <Info className='size-3.5' aria-hidden='true' />
           </TooltipTrigger>
           <TooltipContent className='max-w-80'>
+            <p>
+              {t(
+                'Estimated model charge divided by reference cost for {{input}} input and {{output}} output tokens. Includes platform markup; excludes routing evaluation fees.',
+                {
+                  input: inputTokens.toLocaleString(),
+                  output: outputTokens.toLocaleString(),
+                }
+              )}
+            </p>
             {t(
               'ACU automatically selects an available route by price, speed, and reliability. The lowest price is not guaranteed. Routing evaluation fees, when incurred, are additional.'
             )}
           </TooltipContent>
         </Tooltip>
       </div>
-      <div className='flex flex-wrap gap-x-3 gap-y-1 text-sm'>
-        <span>
-          {t('Input')}{' '}
-          <strong className='font-mono tabular-nums'>
-            {formatACUCNY(price.input_cny_per_million / divisor)}
+      <div className='flex min-h-8 flex-wrap items-baseline gap-x-2 gap-y-1'>
+        {multiplier == null ? (
+          <span className='text-muted-foreground text-xs'>
+            {t('No comparable public reference price')}
+          </span>
+        ) : (
+          <strong
+            className='text-foreground font-mono text-2xl leading-8 font-semibold tabular-nums'
+            aria-label={t('Price multiplier')}
+          >
+            {formatMultiplier(multiplier)}
           </strong>
-        </span>
-        <span>
-          {t('Output')}{' '}
-          <strong className='font-mono tabular-nums'>
-            {formatACUCNY(price.output_cny_per_million / divisor)}
-          </strong>
-        </span>
+        )}
       </div>
+      <table className='text-muted-foreground w-full text-left text-xs'>
+        <thead>
+          <tr>
+            <th scope='col' className='pr-3 font-normal'>
+              {t('Price')}
+            </th>
+            <th scope='col' className='pr-3 font-normal'>
+              {t('Input')}
+            </th>
+            <th scope='col' className='font-normal'>
+              {t('Output')}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope='row' className='py-1 pr-3 font-normal'>
+              {t('Current estimate')}
+            </th>
+            <td className='pr-3 font-mono tabular-nums'>
+              {formatACUCNY(price.input_cny_per_million / divisor)}
+            </td>
+            <td className='font-mono tabular-nums'>
+              {formatACUCNY(price.output_cny_per_million / divisor)}
+            </td>
+          </tr>
+          {reference && (
+            <tr>
+              <th scope='row' className='py-1 pr-3 font-normal'>
+                {props.model.reference?.source_type === 'openrouter'
+                  ? t('Public reference')
+                  : t('Official reference')}
+              </th>
+              <td className='pr-3 font-mono tabular-nums'>
+                {formatACUCNY(reference.input_cny_per_million / divisor)}
+              </td>
+              <td className='font-mono tabular-nums'>
+                {formatACUCNY(reference.output_cny_per_million / divisor)}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
       <div className='text-muted-foreground text-[11px]'>
         / {props.tokenUnit === 'K' ? '1K' : '1M'} tokens
       </div>
@@ -111,6 +181,8 @@ export function ACURouteDetails(props: {
   if (quote?.status !== 'ready' || !props.model.payable) return null
   const divisor = TOKEN_UNIT_DIVISORS[props.tokenUnit]
   const price = props.model.payable
+  const inputTokens = quote.input_tokens ?? 100_000
+  const outputTokens = quote.output_tokens ?? 4_000
   return (
     <div className='mt-4 space-y-3'>
       <div className='max-w-full overflow-x-auto'>
@@ -127,6 +199,9 @@ export function ACURouteDetails(props: {
                 {t('Route')}
               </th>
               <th scope='col' className='py-2 pr-3 font-medium'>
+                {t('Price multiplier')}
+              </th>
+              <th scope='col' className='py-2 pr-3 font-medium'>
                 {t('Input')}
               </th>
               <th scope='col' className='py-2 pr-3 font-medium'>
@@ -138,27 +213,42 @@ export function ACURouteDetails(props: {
             </tr>
           </thead>
           <tbody>
-            {quote.routes.map((route) => (
-              <tr key={route.id} className='border-b last:border-0'>
-                <th
-                  scope='row'
-                  className='max-w-40 py-2 pr-3 font-normal break-words'
-                >
-                  {route.display_name}
-                </th>
-                <td className='py-2 pr-3 font-mono tabular-nums'>
-                  {formatACUCNY(route.payable.input_cny_per_million / divisor)}
-                </td>
-                <td className='py-2 pr-3 font-mono tabular-nums'>
-                  {formatACUCNY(route.payable.output_cny_per_million / divisor)}
-                </td>
-                <td className='py-2'>
-                  {route.selected
-                    ? t('Currently estimated selection')
-                    : t('Available')}
-                </td>
-              </tr>
-            ))}
+            {quote.routes.map((route) => {
+              const ratio = relativePricingMultiplier(
+                route.payable,
+                props.model.reference,
+                inputTokens,
+                outputTokens
+              )
+              return (
+                <tr key={route.id} className='border-b last:border-0'>
+                  <th
+                    scope='row'
+                    className='max-w-40 py-2 pr-3 font-normal break-words'
+                  >
+                    {route.display_name}
+                  </th>
+                  <td className='py-2 pr-3 font-mono font-semibold tabular-nums'>
+                    {ratio == null ? '-' : formatMultiplier(ratio)}
+                  </td>
+                  <td className='py-2 pr-3 font-mono tabular-nums'>
+                    {formatACUCNY(
+                      route.payable.input_cny_per_million / divisor
+                    )}
+                  </td>
+                  <td className='py-2 pr-3 font-mono tabular-nums'>
+                    {formatACUCNY(
+                      route.payable.output_cny_per_million / divisor
+                    )}
+                  </td>
+                  <td className='py-2'>
+                    {route.selected
+                      ? t('Currently estimated selection')
+                      : t('Available')}
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

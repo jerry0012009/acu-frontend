@@ -36,4 +36,46 @@ Validation:
 - No inference calls, provider changes, billing changes or Router changes.
 
 Browser evidence: `/tmp/acu-opus-pricing-20261022/`.
-Production replacement remains a separately confirmed Console-only rollout.
+This native-protocol change alone needs only Console replacement. The later
+multiplier and performance follow-up below requires both Router and Console.
+
+## Multiplier and Performance Follow-up
+
+Pricing summaries now lead with the selected route's estimated charge divided
+by the official or public reference charge. Both sides use the same context
+tier and preview input/output token quantities. Platform markup is included;
+routing evaluation fees are excluded and remain explicitly described.
+Input/output unit prices remain visible in the comparison table. Existing
+route details and chart tooltips also expose the multiplier. No pricing range
+controls or new billing behavior were added.
+
+ACU bypasses legacy relay settlement, so the legacy performance table was empty
+despite completed requests. The existing performance endpoints now aggregate
+finalized ACU log evidence alongside legacy counters. Logical requests are
+deduplicated; private ACU, pending, cancelled and invalid-timing records are
+excluded. TPS uses successful output tokens over generation time. Summary
+values are weighted by their underlying counters, not averages of group means.
+Reads use the requested time window and a bounded 15-second cache. There is no
+schema migration or billing-log rewrite.
+
+The pricing overview and list now show the selected Top 1 profile's first
+model-event latency, rather than average full-response duration. Router quotes
+carry the source and sample count: genuine probe first-event P50/P90 weighted
+75/25 is preferred when sufficient samples exist; otherwise production
+first-event P50 is used. Full-response latency is never substituted. This does
+not change route selection or utility scoring. TPS and success rate remain
+model-level request statistics, with a 24-hour request count in the overview.
+
+Read-only acceptance on October 22 used a sanitized 699-row log snapshot and
+the actual modified Router quote path against production runtime evidence.
+At that snapshot, Opus showed 0.036x, 2.09s first event from 19 probe samples,
+90.11 tokens/s and 98.44% success across 64 eligible requests. These are
+observations, not fixed prices or service guarantees. Desktop 1440x1000 and
+mobile 390x844 browser checks passed without page errors or horizontal overflow.
+Evidence: `/var/lib/acu/operations/pricing-performance-20261022/`.
+
+Release Router first so its additive quote fields are available, then Console.
+Both remain backward compatible during that transition; older Router quotes
+display no first-token sample instead of falling back to total latency.
+Prepare the independent rollout/rollback executor and obtain production
+confirmation before replacement. This document does not assert deployment.

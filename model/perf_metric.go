@@ -53,7 +53,7 @@ func GetPerfMetrics(modelName string, group string, startTs int64, endTs int64) 
 	query := DB.Model(&PerfMetric{}).
 		Where("model_name = ? AND bucket_ts >= ? AND bucket_ts <= ?", modelName, startTs, endTs)
 	if group != "" {
-		query = query.Where(commonGroupCol+" = ?", group)
+		query = query.Where(clause.Eq{Column: "group", Value: group})
 	}
 	err := query.Order("bucket_ts ASC").Find(&metrics).Error
 	return metrics, err
@@ -87,7 +87,7 @@ func GetPerfMetricsSummaryAll(startTs int64, endTs int64, groups []string) ([]Pe
 		if len(groups) == 0 {
 			return summaries, nil
 		}
-		query = query.Where(commonGroupCol+" IN ?", groups)
+		query = query.Where(map[string]interface{}{"group": groups})
 	}
 	err := query.
 		Group("model_name").
@@ -105,7 +105,7 @@ func GetPerfMetricsSummaryBucketsAll(startTs int64, endTs int64, groups []string
 		if len(groups) == 0 {
 			return summaries, nil
 		}
-		query = query.Where(commonGroupCol+" IN ?", groups)
+		query = query.Where(map[string]interface{}{"group": groups})
 	}
 	err := query.
 		Group("model_name, bucket_ts").
@@ -127,4 +127,36 @@ func PerfMetricStartTime(hours int) int64 {
 		hours = 24
 	}
 	return time.Now().Add(-time.Duration(hours) * time.Hour).Unix()
+}
+
+// ReadACUPerformanceLogs uses the finalized ACU telemetry rather than legacy
+// relay buckets. Scan only metric fields; never expose log bodies to callers.
+func ReadACUPerformanceLogs(modelName, group string, startTs, endTs int64, visit func(Log)) error {
+	query := LOG_DB.Model(&Log{}).
+		Select("id", "user_id", "request_id", "model_name", "group", "created_at", "completion_tokens", "other").
+		Where("created_at >= ? AND created_at <= ? AND type IN ?", startTs, endTs, []int{LogTypeConsume, LogTypeError}).
+		Where("other LIKE ?", `%"acu_cost_breakdown"%`)
+	if modelName != "" {
+		query = query.Where("model_name = ?", modelName)
+	}
+	if group != "" {
+		if group == "default" {
+			query = query.Where(map[string]interface{}{"group": []string{"", "default"}})
+		} else {
+			query = query.Where(clause.Eq{Column: "group", Value: group})
+		}
+	}
+	rows, err := query.Order("id DESC").Rows()
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var log Log
+		if err := LOG_DB.ScanRows(rows, &log); err != nil {
+			return err
+		}
+		visit(log)
+	}
+	return rows.Err()
 }
