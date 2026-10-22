@@ -32,6 +32,8 @@
     "Save note": "保存备注",
     "Edit public note": "编辑公开备注",
     "Line {{number}}": "线路 {{number}}",
+    "Manage routes": "管理线路",
+    "Manage route availability and priority weights in the Model Supply Monitor.": "在线路监控中管理线路启停和优先级权重。",
     "Profile weight": "线路权重",
     "Profile weight must be from 0 to 500": "线路权重必须在 0 到 500 之间",
     "Inherited": "继承全局",

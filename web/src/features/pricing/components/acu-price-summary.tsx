@@ -1,4 +1,4 @@
-import { Info } from 'lucide-react'
+import { ArrowUpRight, Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -260,6 +260,20 @@ export function ACURouteDetails(props: {
             })}
           </tbody>
         </table>
+      </div>
+      <div className='flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t pt-3'>
+        <p className='text-muted-foreground text-xs'>
+          {t(
+            'Manage route availability and priority weights in the Model Supply Monitor.'
+          )}
+        </p>
+        <a
+          href='/usage-logs/channel-monitor'
+          className='text-foreground hover:bg-muted inline-flex shrink-0 items-center gap-1 rounded-sm py-1 text-xs font-medium underline-offset-4 hover:underline'
+        >
+          {t('Manage routes')}
+          <ArrowUpRight className='size-3.5' aria-hidden='true' />
+        </a>
       </div>
       {price.cached_input_cny_per_million != null && (
         <p className='text-muted-foreground text-xs'>

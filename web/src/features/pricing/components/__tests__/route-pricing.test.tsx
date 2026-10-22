@@ -137,6 +137,15 @@ test('details list the same prices and mark only the current estimated selection
       /Private Supplier|Other Supplier/
     )
     assert.equal(window.document.querySelectorAll('th[scope=col]').length, 5)
+    const monitorLink = window.document.querySelector(
+      'a[href="/usage-logs/channel-monitor"]'
+    )
+    assert.ok(monitorLink)
+    assert.equal(monitorLink.textContent?.trim(), 'Manage routes')
+    assert.match(
+      window.document.body.textContent ?? '',
+      /Manage route availability and priority weights/
+    )
     assert.match(
       window.document.body.textContent ?? '',
       /Routing evaluation fees/
@@ -255,9 +264,7 @@ test('routes without a valid anonymous code never fall back to an internal displ
       ...model,
       acu_quote: {
         ...quote,
-        routes: [
-          { ...quote.routes[0], line_code, public_note: undefined },
-        ],
+        routes: [{ ...quote.routes[0], line_code, public_note: undefined }],
       },
     }
     const window = render(<ACURouteDetails model={current} tokenUnit='M' />)
