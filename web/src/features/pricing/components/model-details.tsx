@@ -210,6 +210,24 @@ function OverviewSummaryGrid(props: { model: PricingModel }) {
         value={formatUptimePct(successRate)}
         valueClassName={getSuccessRateTextClass(successRate)}
       />
+      {metricsQuery.isPending && (
+        <p
+          className='text-muted-foreground border-t px-3 py-2 text-xs sm:col-span-3'
+          role='status'
+        >
+          {t('Loading performance data')}
+        </p>
+      )}
+      {!metricsQuery.isPending && groups.length === 0 && (
+        <p
+          className='text-muted-foreground border-t px-3 py-2 text-xs sm:col-span-3'
+          role='status'
+        >
+          {metricsQuery.isError
+            ? t('Performance data could not be loaded')
+            : t('No performance samples in the last 24 hours')}
+        </p>
+      )}
     </div>
   )
 }

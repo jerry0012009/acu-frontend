@@ -154,7 +154,7 @@ export function filterAndSortModels(
 export function parseTags(tagsString?: string): string[] {
   if (!tagsString) return []
   return tagsString
-    .split(/[,;|\s]+/)
+    .split(/[,;|]/.test(tagsString) ? /[,;|]+/ : /\s+/)
     .map((t) => t.trim())
     .filter(Boolean)
 }
