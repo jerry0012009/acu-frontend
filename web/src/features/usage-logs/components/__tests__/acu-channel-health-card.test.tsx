@@ -471,6 +471,10 @@ test('renders administrator global routing details and keeps globally disabled P
   ].find((item) => item.textContent === 'Probe test')
   assert.ok(enable)
   assert.ok(probe)
+  assert.match(
+    container.textContent ?? '',
+    /ACU 线路 \d{4} · cx006:gpt-5\.6-luna:responses/
+  )
   await act(async () =>
     enable.dispatchEvent(new MouseEvent('click', { bubbles: true }))
   )

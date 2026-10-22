@@ -89,6 +89,7 @@ export function ACUMonitorProfile(
   const { t } = useTranslation()
   const profile = props.profile
   const id = profile.executionProfileId
+  const channelAlias = publicChannelAlias(profile.provider, profile.channel)
   const token = props.tokenProfileActions
   const scope = token?.scope
   const allowed = scope?.globalProfileIds.includes(id) ?? false
@@ -130,9 +131,15 @@ export function ACUMonitorProfile(
       <div className='grid min-w-0 items-start gap-3 xl:grid-cols-[minmax(12rem,1.5fr)_minmax(15rem,1fr)_minmax(19rem,1.2fr)]'>
         <div className='min-w-0 space-y-1'>
           <div className='text-sm font-medium break-words'>
-            {props.showModel
-              ? profile.canonicalModel
-              : publicChannelAlias(profile.provider, profile.channel)}
+            {props.showDiagnostics || !props.showModel
+              ? channelAlias
+              : profile.canonicalModel}
+            {props.showDiagnostics && (
+              <span className='text-muted-foreground font-mono text-xs font-normal break-all'>
+                {' · '}
+                {id}
+              </span>
+            )}
           </div>
           <div className='text-muted-foreground text-xs'>
             {profile.protocol
