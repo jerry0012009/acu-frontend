@@ -1,6 +1,9 @@
 import type { TFunction } from 'i18next'
 
-import type { ACUChannelMonitorProfile } from '../api'
+import type {
+  ACUChannelMonitorProfile,
+  ACUTokenProfileRoutingScope,
+} from '../api'
 import type {
   ACUChannelOverview,
   ACUModelOverview,
@@ -11,6 +14,50 @@ export type ACUMonitorProtocol =
   | 'responses'
   | 'messages'
   | 'chat_completions'
+
+export function modelProfilePriceRange(
+  profiles: ACUChannelMonitorProfile[],
+  profileIds: string[]
+): { minimum: number; maximum: number } | null {
+  const prices = profiles
+    .filter((profile) => profileIds.includes(profile.executionProfileId))
+    .map((profile) => profile.effectivePriceMultiplier)
+    .filter(
+      (price): price is number =>
+        price != null && Number.isFinite(price) && price >= 0
+    )
+  if (prices.length === 0) return null
+  return { minimum: Math.min(...prices), maximum: Math.max(...prices) }
+}
+
+export function previewModelPriceRange(
+  profiles: ACUChannelMonitorProfile[],
+  scope: ACUTokenProfileRoutingScope,
+  minimum: number,
+  maximum: number
+) {
+  const states: Record<string, boolean> = {}
+  const changes: Array<{
+    profile: ACUChannelMonitorProfile
+    enabled: boolean
+  }> = []
+  let matched = 0
+  let unknown = 0
+  for (const profile of profiles) {
+    const id = profile.executionProfileId
+    if (!scope.globalProfileIds.includes(id)) continue
+    const price = profile.effectivePriceMultiplier
+    const known = price != null && Number.isFinite(price) && price >= 0
+    const enabled = known && price >= minimum && price <= maximum
+    if (!known) unknown++
+    if (enabled) matched++
+    states[id] = enabled
+    if (scope.effectiveProfileIds.includes(id) !== enabled) {
+      changes.push({ profile, enabled })
+    }
+  }
+  return { states, changes, matched, unknown }
+}
 export type ACUMonitorSort =
   | 'recommended'
   | 'routing_rank'

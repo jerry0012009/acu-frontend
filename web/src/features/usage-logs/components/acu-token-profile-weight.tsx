@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { RotateCcw, Save } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -12,74 +13,124 @@ export function ACUTokenProfileWeight(props: {
   profile: ACUChannelMonitorProfile
   scope: ACUTokenProfileRoutingScope
   pending: boolean
-  onSetWeight: (profile: ACUChannelMonitorProfile, weight: number) => void
-  onInheritWeight: (profile: ACUChannelMonitorProfile) => void
+  onSetWeight: (
+    profile: ACUChannelMonitorProfile,
+    weight: number
+  ) => void | Promise<unknown>
+  onInheritWeight: (
+    profile: ACUChannelMonitorProfile
+  ) => void | Promise<unknown>
 }) {
   const { t } = useTranslation()
-  const profileId = props.profile.executionProfileId
-  const configured = props.scope.configuredWeights?.[profileId]
-  const globalWeight =
-    props.scope.globalWeights?.[profileId] ?? props.profile.routingWeight ?? 100
-  const effectiveWeight =
-    props.scope.effectiveWeights?.[profileId] ?? configured ?? globalWeight
-  const [value, setValue] = useState(String(configured ?? effectiveWeight))
+  const id = props.profile.executionProfileId
+  const configured = props.scope.configuredWeights?.[id]
+  const global =
+    props.scope.globalWeights?.[id] ?? props.profile.routingWeight ?? 100
+  const effective = props.scope.effectiveWeights?.[id] ?? configured ?? global
+  const [draft, setDraft] = useState<string | null>(null)
   const [error, setError] = useState('')
-
-  useEffect(() => {
-    setValue(String(configured ?? effectiveWeight))
-    setError('')
-  }, [configured, effectiveWeight, profileId])
-
-  const save = () => {
+  const [saved, setSaved] = useState(false)
+  const value = draft ?? String(effective)
+  const save = async () => {
     const weight = Number(value)
-    if (!Number.isFinite(weight) || weight < 0 || weight > 200) {
-      setError(t('Profile weight must be from 0 to 200'))
+    if (
+      !value.trim() ||
+      !Number.isFinite(weight) ||
+      weight < 0 ||
+      weight > 500
+    ) {
+      setError(t('Profile weight must be from 0 to 500'))
       return
     }
     setError('')
-    props.onSetWeight(props.profile, weight)
+    setSaved(false)
+    try {
+      await props.onSetWeight(props.profile, weight)
+      setDraft(null)
+      setSaved(true)
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : t('API key routing update failed')
+      )
+    }
   }
-
   return (
-    <div className='mt-2 flex flex-wrap items-end gap-2 text-[11px]'>
-      <span className='text-muted-foreground'>
-        {t('Global weight')}: {globalWeight}
-      </span>
-      <label className='space-y-1'>
-        <span className='text-muted-foreground block'>
-          {t('API key override')}
-        </span>
+    <form
+      className='flex flex-wrap items-center gap-2 text-xs'
+      onSubmit={(event) => {
+        event.preventDefault()
+        if (!props.pending) void save()
+      }}
+    >
+      <label className='flex items-center gap-2'>
+        <span>{t('Profile weight')}</span>
         <input
-          className='bg-background h-8 w-24 rounded border px-2'
+          aria-label={t('Profile weight')}
+          className='bg-background h-8 w-20 rounded border px-2 tabular-nums'
           type='number'
           min={0}
-          max={200}
+          max={500}
           step={0.1}
           value={value}
           disabled={props.pending}
-          onChange={(event) => setValue(event.target.value)}
+          onChange={(event) => {
+            setDraft(event.target.value)
+            setSaved(false)
+            setError('')
+          }}
         />
       </label>
-      <span className='text-muted-foreground pb-2'>
-        {t('Effective weight')}: {effectiveWeight}
-      </span>
       <Button
-        size='sm'
-        variant='outline'
-        disabled={props.pending}
-        onClick={save}
-      >
-        {t('Save weight')}
-      </Button>
-      <Button
-        size='sm'
+        size='icon-sm'
         variant='ghost'
-        disabled={props.pending || configured === undefined}
-        onClick={() => props.onInheritWeight(props.profile)}
+        type='submit'
+        title={t('Save weight')}
+        aria-label={t('Save weight')}
+        disabled={props.pending || draft === null}
       >
-        {t('Inherit global')}
+        <Save />
       </Button>
-      {error ? <span className='text-destructive'>{error}</span> : null}
-    </div>
+      <Button
+        size='icon-sm'
+        variant='ghost'
+        type='button'
+        title={t('Inherit global')}
+        aria-label={t('Inherit global')}
+        disabled={props.pending || configured === undefined}
+        onClick={async () => {
+          setError('')
+          setSaved(false)
+          try {
+            await props.onInheritWeight(props.profile)
+            setDraft(null)
+            setSaved(true)
+          } catch (reason) {
+            setError(
+              reason instanceof Error
+                ? reason.message
+                : t('API key routing update failed')
+            )
+          }
+        }}
+      >
+        <RotateCcw />
+      </Button>
+      <span className='text-muted-foreground'>
+        {configured === undefined ? t('Inherited') : t('Custom')} ·{' '}
+        {t('Global weight')}: {global}
+      </span>
+      {saved && (
+        <span role='status' className='text-muted-foreground'>
+          {t('Saved')}
+        </span>
+      )}
+      {error && (
+        <span role='alert' className='text-destructive w-full'>
+          {error}
+        </span>
+      )}
+    </form>
   )
 }

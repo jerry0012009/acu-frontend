@@ -121,16 +121,16 @@ func TestCurrentGlobalACUProfileIDsUsesDatabaseRoutingAndModelAccess(t *testing.
 		_, _ = w.Write([]byte(`{
 			"profiles":[{
 				"executionProfileId":"auto:gpt-5.6-sol:responses",
-				"canonicalModel":"gpt-5.6-sol","routingEnabled":true
+				"modelId":"gpt-5.6-sol","routingEnabled":true
 			},{
 				"executionProfileId":"explicit:mimo-v2.5:chat_completions",
-				"canonicalModel":"mimo-v2.5","routingEnabled":true
+				"modelId":"mimo-v2.5","routingEnabled":true
 			},{
 				"executionProfileId":"disabled:kimi-k2.6:messages",
-				"canonicalModel":"kimi-k2.6","routingEnabled":true
+				"modelId":"kimi-k2.6","routingEnabled":true
 			},{
 				"executionProfileId":"not-allowed:mimo-v2.5:responses",
-				"canonicalModel":"mimo-v2.5","routingEnabled":true
+				"modelId":"mimo-v2.5","routingEnabled":true
 			}],
 			"history":[],"cooldownIntervals":[],"probeHistory":[],
 			"supplyInventory":[],"modelPool":[]
@@ -349,13 +349,13 @@ func TestTokenProfilePreferencesPreserveExplicitNeutralAndValidateBounds(t *test
 	scores, err := NormalizeACUProfilePreferenceScores(map[string]float64{
 		"cockpit:gpt-5.6-sol:responses": 125.5,
 		"wawazz:gpt-5.6-sol:responses":  100,
-		"special:gpt-6-sol:responses":  500,
+		"special:gpt-6-sol:responses":   500,
 	})
 	require.NoError(t, err)
 	require.Equal(t, map[string]float64{
 		"cockpit:gpt-5.6-sol:responses": 125.5,
 		"wawazz:gpt-5.6-sol:responses":  100,
-		"special:gpt-6-sol:responses":  500,
+		"special:gpt-6-sol:responses":   500,
 	}, scores)
 
 	for _, invalid := range []map[string]float64{

@@ -204,12 +204,12 @@ func UpdateACUProfilePublicNote(
 	if len([]rune(input.Note)) > 500 {
 		return input, errors.New("Profile public note exceeds 500 characters")
 	}
-	monitor, err := GetACUChannelMonitor(ctx, "24h", "balanced", "standard", "48h", "all")
+	profiles, err := loadACUProfileConfiguration(ctx)
 	if err != nil {
 		return input, err
 	}
 	found := false
-	for _, profile := range monitor.Profiles {
+	for _, profile := range profiles {
 		if profile.ExecutionProfileID == input.ExecutionProfileID {
 			found = true
 			break
@@ -592,6 +592,35 @@ func acuExecutionProfileRequestWithTimeout(
 
 func GetACUExecutionProfiles(ctx context.Context) (map[string]interface{}, error) {
 	return acuExecutionProfileRequest(ctx, http.MethodGet, "/internal/admin/execution-profiles", nil)
+}
+
+type acuProfileConfiguration struct {
+	ExecutionProfileID string  `json:"executionProfileId"`
+	ModelID            string  `json:"modelId"`
+	RoutingEnabled     bool    `json:"routingEnabled"`
+	RoutingWeight      float64 `json:"routingWeight"`
+}
+
+// Configuration edits must not depend on historical monitoring aggregation.
+func loadACUProfileConfiguration(ctx context.Context) ([]acuProfileConfiguration, error) {
+	response, err := acuRouterAdminRequestWithTimeout(ctx, 20*time.Second, http.MethodGet, "/internal/admin/execution-profiles", nil)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("ACU Profile configuration returned HTTP %d", response.StatusCode)
+	}
+	var configuration struct {
+		Profiles []acuProfileConfiguration `json:"profiles"`
+	}
+	if err := common.DecodeJson(response.Body, &configuration); err != nil {
+		return nil, err
+	}
+	if configuration.Profiles == nil {
+		return nil, errors.New("ACU Profile configuration is missing")
+	}
+	return configuration.Profiles, nil
 }
 
 func CreateACUExecutionProfile(

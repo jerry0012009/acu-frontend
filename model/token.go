@@ -317,6 +317,30 @@ func (token *Token) Update() (err error) {
 	return err
 }
 
+// UpdateTokenACUProfiles merges an edit with the latest row and only writes routing fields.
+func UpdateTokenACUProfiles(userID, tokenID int, edit func(*Token) error) (*Token, error) {
+	var token Token
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		if err := lockForUpdate(tx).Where("id = ? AND user_id = ?", tokenID, userID).First(&token).Error; err != nil {
+			return err
+		}
+		if err := edit(&token); err != nil {
+			return err
+		}
+		return tx.Model(&token).Select("acu_profile_limits_enabled", "acu_profile_limits",
+			"acu_profile_preference_scores").Updates(&token).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	if common.RedisEnabled {
+		if err := cacheDeleteToken(token.Key); err != nil {
+			common.SysError("failed to invalidate token routing cache: " + err.Error())
+		}
+	}
+	return &token, nil
+}
+
 func (token *Token) SelectUpdate() (err error) {
 	defer func() {
 		if shouldUpdateRedis(true, err) {

@@ -156,6 +156,8 @@ func UpdateACUTokenProfileRouting(c *gin.Context) {
 			"enabled":              input.Enabled,
 			"weight":               input.Weight,
 			"inherit_weight":       input.InheritWeight,
+			"model_id":             input.ModelID,
+			"profile_states":       input.ProfileStates,
 		},
 		auditOperatorInfo(c),
 		nil,

@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  useMutation,
+  useMutationState,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import {
   Activity,
   AlertCircle,
@@ -339,48 +344,85 @@ export function ACUChannelMonitor(
     staleTime: 15_000,
   })
   const tokenProfileRoutingMutation = useMutation({
+    mutationKey: ['acu-token-profile-save'],
+    scope: { id: `acu-token-profile-save:${selectedTokenId}` },
     mutationFn: (input: {
       tokenId: number
-      executionProfileId: string
+      executionProfileId?: string
       enabled?: boolean
       weight?: number
       inheritWeight?: boolean
+      modelId?: string
+      profileStates?: Record<string, boolean>
     }) =>
       updateACUTokenProfileRouting(input.tokenId, input.executionProfileId, {
         enabled: input.enabled,
         weight: input.weight,
         inheritWeight: input.inheritWeight,
+        modelId: input.modelId,
+        profileStates: input.profileStates,
       }),
     onSuccess: async (response) => {
+      await queryClient.cancelQueries({
+        queryKey: ['acu-token-profile-routing', response.data?.tokenId],
+      })
       queryClient.setQueryData(
         ['acu-token-profile-routing', response.data?.tokenId],
         response
       )
-      await queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: ['channel-monitor-api-keys'],
       })
-      toast.success(t('API key routing updated'))
     },
-    onError: (error) =>
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : t('API key routing update failed')
-      ),
   })
+  const pendingTokenEdits = useMutationState({
+    filters: { mutationKey: ['acu-token-profile-save'], status: 'pending' },
+    select: (mutation) =>
+      mutation.state.variables as {
+        tokenId: number
+        executionProfileId?: string
+        profileStates?: Record<string, boolean>
+      },
+  })
+  const pendingNoteEdits = useMutationState({
+    filters: { mutationKey: ['acu-profile-note-save'], status: 'pending' },
+    select: (mutation) =>
+      (mutation.state.variables as { executionProfileId: string })
+        .executionProfileId,
+  })
+  const updateMonitorProfiles = (
+    update: (profile: ACUChannelMonitorProfile) => ACUChannelMonitorProfile
+  ) => {
+    queryClient.setQueriesData<
+      Awaited<ReturnType<typeof getACUChannelMonitor>>
+    >({ queryKey: ['acu-channel-monitor'] }, (current) =>
+      current?.data
+        ? {
+            ...current,
+            data: {
+              ...current.data,
+              profiles: current.data.profiles.map(update),
+            },
+          }
+        : current
+    )
+  }
   const profileNoteMutation = useMutation({
+    mutationKey: ['acu-profile-note-save'],
     mutationFn: (input: { executionProfileId: string; note: string }) =>
       updateACUProfilePublicNote(input.executionProfileId, input.note),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
+    onSuccess: async (response) => {
+      await queryClient.cancelQueries({ queryKey: ['acu-channel-monitor'] })
+      updateMonitorProfiles((profile) =>
+        profile.executionProfileId === response.data?.executionProfileId
+          ? { ...profile, publicNote: response.data.note }
+          : profile
+      )
+      void queryClient.invalidateQueries({
         queryKey: ['acu-channel-monitor'],
+        refetchType: 'none',
       })
-      toast.success(t('Profile note updated'))
     },
-    onError: (error) =>
-      toast.error(
-        error instanceof Error ? error.message : t('Profile note update failed')
-      ),
   })
   const pause = useMutation({
     mutationFn: ({
@@ -402,15 +444,23 @@ export function ACUChannelMonitor(
     enabled: isRoot,
   })
   const globalRoutingMutation = useMutation({
+    mutationKey: ['acu-global-profile-save'],
     mutationFn: (input: { profileId: string; enabled: boolean }) =>
       updateACUGlobalProfileRouting(input.profileId, input.enabled),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: ['acu-global-routing-policy'],
-        }),
-        queryClient.invalidateQueries({ queryKey: ['acu-channel-monitor'] }),
-      ])
+    onSuccess: async (_, input) => {
+      await queryClient.cancelQueries({ queryKey: ['acu-channel-monitor'] })
+      updateMonitorProfiles((profile) =>
+        profile.executionProfileId === input.profileId
+          ? { ...profile, routingEnabled: input.enabled }
+          : profile
+      )
+      void queryClient.invalidateQueries({
+        queryKey: ['acu-global-routing-policy'],
+      })
+      void queryClient.invalidateQueries({
+        queryKey: ['acu-token-profile-routing'],
+      })
+      void queryClient.invalidateQueries({ queryKey: ['acu-channel-monitor'] })
       toast.success(t('Global routing updated'))
     },
     onError: (error) =>
@@ -419,6 +469,11 @@ export function ACUChannelMonitor(
           ? error.message
           : t('Global routing update failed')
       ),
+  })
+  const pendingGlobalEdits = useMutationState({
+    filters: { mutationKey: ['acu-global-profile-save'], status: 'pending' },
+    select: (mutation) =>
+      (mutation.state.variables as { profileId: string }).profileId,
   })
   const probeMutation = useMutation({
     mutationFn: ({
@@ -536,15 +591,15 @@ export function ACUChannelMonitor(
         creditsPerCny: input.creditsPerCny,
         routingWeight: input.routingWeight,
       }),
-    onSuccess: async () => {
-      await Promise.all([
+    onSuccess: () => {
+      setCalibrationMessage(t('Saved'))
+      void Promise.all([
         queryClient.invalidateQueries({ queryKey: ['acu-channel-monitor'] }),
         queryClient.invalidateQueries({ queryKey: ['acu-execution-profiles'] }),
         queryClient.invalidateQueries({
           queryKey: ['acu-token-profile-routing'],
         }),
       ])
-      setCalibrationMessage(t('Saved'))
     },
     onError: (error) =>
       setCalibrationMessage(
@@ -630,8 +685,7 @@ export function ACUChannelMonitor(
     ? {
         policy: globalRoutingPolicyQuery.data,
         isTogglePending: (profileId: string) =>
-          globalRoutingMutation.isPending &&
-          globalRoutingMutation.variables?.profileId === profileId,
+          pendingGlobalEdits.includes(profileId),
         isProbePending: (profileId: string) =>
           probeMutation.isPending &&
           probeMutation.variables?.executionProfileId === profileId,
@@ -683,26 +737,26 @@ export function ACUChannelMonitor(
   }
   const gpttesticuActions =
     selectedTokenId != null
-    ? {
-        isPending: (profileId: string) =>
-          gpttesticuMutation.isPending &&
-          gpttesticuMutation.variables?.executionProfileId === profileId,
-        onCheck: (profile: ACUChannelMonitorProfile) => {
-          setVeridropInspector({
-            profile,
-            protocol: 'responses',
-            method: 'gpttesticu',
-            result: null,
-          })
-        },
-        onStart: (profile: ACUChannelMonitorProfile) => {
-          gpttesticuMutation.mutate({
-            executionProfileId: profile.executionProfileId,
-            tokenId: selectedTokenId,
-          })
-        },
-      }
-    : undefined
+      ? {
+          isPending: (profileId: string) =>
+            gpttesticuMutation.isPending &&
+            gpttesticuMutation.variables?.executionProfileId === profileId,
+          onCheck: (profile: ACUChannelMonitorProfile) => {
+            setVeridropInspector({
+              profile,
+              protocol: 'responses',
+              method: 'gpttesticu',
+              result: null,
+            })
+          },
+          onStart: (profile: ACUChannelMonitorProfile) => {
+            gpttesticuMutation.mutate({
+              executionProfileId: profile.executionProfileId,
+              tokenId: selectedTokenId,
+            })
+          },
+        }
+      : undefined
   const tokenProfileActions =
     selectedToken && selectedTokenId != null
       ? {
@@ -710,44 +764,46 @@ export function ACUChannelMonitor(
           maskedKey: selectedToken.key,
           scope: tokenProfileRoutingQuery.data?.data,
           isPending: (profileId: string) =>
-            tokenProfileRoutingMutation.isPending &&
-            tokenProfileRoutingMutation.variables?.executionProfileId ===
-              profileId,
+            pendingTokenEdits.some(
+              (edit) =>
+                edit.tokenId === selectedTokenId &&
+                (edit.executionProfileId === profileId ||
+                  edit.profileStates?.[profileId] !== undefined)
+            ),
           onToggle: (profile: ACUChannelMonitorProfile, enabled: boolean) => {
-            tokenProfileRoutingMutation.mutate({
+            return tokenProfileRoutingMutation.mutateAsync({
               tokenId: selectedTokenId,
               executionProfileId: profile.executionProfileId,
               enabled,
             })
           },
           onSetWeight: (profile: ACUChannelMonitorProfile, weight: number) => {
-            tokenProfileRoutingMutation.mutate({
+            return tokenProfileRoutingMutation.mutateAsync({
               tokenId: selectedTokenId,
               executionProfileId: profile.executionProfileId,
               weight,
             })
           },
           onInheritWeight: (profile: ACUChannelMonitorProfile) => {
-            tokenProfileRoutingMutation.mutate({
+            return tokenProfileRoutingMutation.mutateAsync({
               tokenId: selectedTokenId,
               executionProfileId: profile.executionProfileId,
               inheritWeight: true,
             })
           },
+          onApply: (modelId: string, profileStates: Record<string, boolean>) =>
+            tokenProfileRoutingMutation.mutateAsync({
+              tokenId: selectedTokenId,
+              modelId,
+              profileStates,
+            }),
         }
       : undefined
   const profileNoteActions = isAdmin
     ? {
-        isPending: (profileId: string) =>
-          profileNoteMutation.isPending &&
-          profileNoteMutation.variables?.executionProfileId === profileId,
-        onEdit: (profile: ACUChannelMonitorProfile) => {
-          const note = window.prompt(
-            t('Public note visible to users'),
-            profile.publicNote ?? ''
-          )
-          if (note == null) return
-          profileNoteMutation.mutate({
+        isPending: (profileId: string) => pendingNoteEdits.includes(profileId),
+        onEdit: (profile: ACUChannelMonitorProfile, note: string) => {
+          return profileNoteMutation.mutateAsync({
             executionProfileId: profile.executionProfileId,
             note,
           })
@@ -799,7 +855,14 @@ export function ACUChannelMonitor(
           <RefreshCw className='size-4' />
         </Button>
       </div>
-      {isRoot && <ACUMonitorQuickCalibration />}
+      {isRoot && (
+        <details className='border-y px-3 py-2 text-xs'>
+          <summary className='w-fit cursor-pointer font-medium'>
+            {t('Quick Profile configuration')}
+          </summary>
+          <ACUMonitorQuickCalibration />
+        </details>
+      )}
       <div className='bg-card/50 rounded-lg border p-3 sm:p-4'>
         <div className='grid gap-3 lg:grid-cols-[minmax(18rem,1.35fr)_minmax(16rem,1fr)]'>
           <label className='min-w-0 space-y-1 text-xs'>
@@ -1150,6 +1213,13 @@ export function ACUChannelMonitor(
                     focusedLine={props.focus?.line}
                     showDiagnostics={isAdmin}
                     probeRange={probeRange}
+                    priceScenario={
+                      {
+                        small: t('Small 2k/500'),
+                        standard: t('Standard 20k/2k'),
+                        long: t('Long context 100k/4k'),
+                      }[scenario]
+                    }
                     profileActions={profileActions}
                     veridropActions={veridropActions}
                     gpttesticuActions={gpttesticuActions}
@@ -1325,13 +1395,11 @@ export function ACUChannelMonitor(
           veridropInspector.profile &&
           selectedTokenId != null
             ? () =>
-                gpttesticuMutation.mutate(
-                  {
-                    executionProfileId:
-                      veridropInspector.profile.executionProfileId,
-                    tokenId: selectedTokenId,
-                  }
-                )
+                gpttesticuMutation.mutate({
+                  executionProfileId:
+                    veridropInspector.profile.executionProfileId,
+                  tokenId: selectedTokenId,
+                })
             : undefined
         }
         requestError={veridropInspector?.requestError}
