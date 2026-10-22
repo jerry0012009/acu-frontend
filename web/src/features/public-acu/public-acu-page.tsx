@@ -28,7 +28,7 @@ const ROUTING_FACTORS = [
 
 export function PublicACUPage() {
   const { t } = useTranslation()
-  const { models, isLoading, pricingDisplayMode } = usePricingData()
+  const { models, isLoading, pricingDisplayMode, preview } = usePricingData()
 
   return (
     <SectionPageLayout>
@@ -149,6 +149,7 @@ export function PublicACUPage() {
               <ACUModelCurves
                 models={models}
                 displayMode={pricingDisplayMode}
+                preview={preview}
               />
             )}
           </section>

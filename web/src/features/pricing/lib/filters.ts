@@ -84,6 +84,7 @@ export function filterByEndpointType(
  * Get model price for sorting
  */
 function getModelPrice(model: PricingModel): number {
+  if (model.acu_quote && !model.payable) return Number.POSITIVE_INFINITY
   return model.quota_type === 0 ? model.model_ratio : model.model_price || 0
 }
 
@@ -103,14 +104,16 @@ export function sortModels(
       sorted.sort(byName)
       break
     case SORT_OPTIONS.PRICE_LOW:
-      sorted.sort((a, b) => {
-        const difference = getModelPrice(a) - getModelPrice(b)
-        return difference || byName(a, b)
-      })
-      break
     case SORT_OPTIONS.PRICE_HIGH:
       sorted.sort((a, b) => {
-        const difference = getModelPrice(b) - getModelPrice(a)
+        const left = getModelPrice(a)
+        const right = getModelPrice(b)
+        if (!Number.isFinite(left)) {
+          return Number.isFinite(right) ? 1 : byName(a, b)
+        }
+        if (!Number.isFinite(right)) return -1
+        const difference =
+          sortBy === SORT_OPTIONS.PRICE_LOW ? left - right : right - left
         return difference || byName(a, b)
       })
       break

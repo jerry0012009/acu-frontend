@@ -44,6 +44,18 @@ export type PricingModel = {
   cached_input_price_per_million?: number
   payable?: PricingPayable
   payable_by_protocol?: Record<string, PricingPayable>
+  acu_quote?: {
+    status: 'loading' | 'error' | 'ready'
+    protocol: PricingProtocol
+    supply_strategy?: ACUSelectionCorridor['supplyStrategy']
+    generated_at?: string
+    routes: Array<{
+      id: string
+      display_name: string
+      selected: boolean
+      payable: PricingPayable
+    }>
+  }
   reference?: PricingReference
   acu_role?: string
   acu_protocol?: string
@@ -88,6 +100,34 @@ export type PricingPayable = {
   cache_write_cny_per_million?: number
   status: 'verified' | 'estimated'
   pricing_policy_version: string
+}
+
+export type PricingProtocol = 'chat_completions' | 'responses' | 'messages'
+
+export type ACURoutePayable = {
+  inputCnyPerMillion: number
+  outputCnyPerMillion: number
+  cachedInputCnyPerMillion?: number
+  cacheWriteCnyPerMillion?: number
+  contextTiers?: ContextTierPrices
+  status: 'verified' | 'estimated'
+  pricingPolicyVersion: string
+}
+
+export type ACURoutingPrice = {
+  executionProfileId: string
+  payableInputPriceCnyPerMillion: number
+  payableOutputPriceCnyPerMillion: number
+  payableCachedInputPriceCnyPerMillion?: number
+  payableCacheWritePriceCnyPerMillion?: number
+  payableContextTiers?: ContextTierPrices
+  effectiveCostStatus: 'verified' | 'estimated'
+  routes: Array<{
+    executionProfileId: string
+    displayName: string
+    selected: boolean
+    payable: ACURoutePayable
+  }>
 }
 
 export type PricingReference = {
@@ -203,10 +243,12 @@ export type ACUExecutionPresetSeries = {
     difficulty: number
     estimatedQuality: number
     estimatedCallCost: number
+    estimatedPayableCost?: number
   }>
 }
 
 export type ACUSelectionCorridor = {
+  pricing: Record<string, ACURoutingPrice>
   defaultPreference: 'economy' | 'balanced' | 'quality'
   formulaVersion: string
   routingUtilityVersion?: string

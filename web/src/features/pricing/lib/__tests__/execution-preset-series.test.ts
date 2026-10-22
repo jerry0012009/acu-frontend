@@ -20,9 +20,24 @@ const lunaMax = {
   expectedOutputTokenMultiplier: 1.6,
   estimatedOutputTokens: 6_400,
   points: [
-    { difficulty: 0, estimatedQuality: 90, estimatedCallCost: 0.2 },
-    { difficulty: 50, estimatedQuality: 80, estimatedCallCost: 0.2 },
-    { difficulty: 100, estimatedQuality: 70, estimatedCallCost: 0.2 },
+    {
+      difficulty: 0,
+      estimatedQuality: 90,
+      estimatedCallCost: 0.16,
+      estimatedPayableCost: 0.2,
+    },
+    {
+      difficulty: 50,
+      estimatedQuality: 80,
+      estimatedCallCost: 0.16,
+      estimatedPayableCost: 0.2,
+    },
+    {
+      difficulty: 100,
+      estimatedQuality: 70,
+      estimatedCallCost: 0.16,
+      estimatedPayableCost: 0.2,
+    },
   ],
 }
 
@@ -125,19 +140,5 @@ test('keeps smoothed chart data isolated from raw routing details', () => {
   assert.doesNotMatch(
     source,
     /C raw|S raw|R raw|Profile utility|Conservative quality|Quality satisfaction|Relative cost utility|Base utility|Candidate preference|Adjusted utility/
-  )
-})
-
-test('renders model curves while the routing corridor loads without retrying', () => {
-  const source = readFileSync(
-    new URL('../../components/acu-model-curves.tsx', import.meta.url),
-    'utf8'
-  )
-
-  assert.match(source, /retry: false/)
-  assert.doesNotMatch(source, /\{isPreviewLoading \? \(\s*<div/)
-  assert.match(
-    source,
-    /\{isPreviewLoading && \(\s*<span[\s\S]{0,240}Loading routing corridor/
   )
 })

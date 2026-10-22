@@ -1,4 +1,3 @@
-import { useQuery } from '@tanstack/react-query'
 import { VChart } from '@visactor/react-vchart'
 import type { EventParamsDefinition } from '@visactor/vchart'
 import {
@@ -6,26 +5,19 @@ import {
   BarChart3,
   Check,
   CircleDollarSign,
+  RefreshCw,
   Route,
 } from 'lucide-react'
-import {
-  useCallback,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { getApiKeys } from '@/features/keys/api'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { cn } from '@/lib/utils'
 import { VCHART_OPTION } from '@/lib/vchart'
-import { useAuthStore } from '@/stores/auth-store'
 
-import { getACUSelectionCorridor } from '../api'
+import type { usePricingData } from '../hooks/use-pricing-data'
 import {
   compareQualityAtDifficulty,
   qualityAtDifficulty,
@@ -61,7 +53,6 @@ import {
   isCorridorModelTooltipDatum,
   resolveEffectiveCorridorPreference,
   type CorridorPreference,
-  type PricingCurveProtocol,
 } from '../lib/selection-corridor'
 import type { PricingDisplayMode, PricingModel } from '../types'
 
@@ -84,10 +75,25 @@ const CORRIDOR_PREFERENCES: Array<{
 export function ACUModelCurves(props: {
   models: PricingModel[]
   displayMode: PricingDisplayMode
+  preview: ReturnType<typeof usePricingData>['preview']
 }) {
   const { t } = useTranslation()
   const { resolvedTheme, themeReady } = useChartTheme()
-  const currentUser = useAuthStore((state) => state.auth.user)
+  const {
+    inputTokens,
+    setInputTokens,
+    outputTokens,
+    setOutputTokens,
+    pricingProtocol,
+    setPricingProtocol,
+    previewTokenId,
+    setPreviewTokenId,
+    apiKeys,
+    loggedIn,
+    selectionCorridor,
+    selectionCorridorUnavailable,
+    isPreviewLoading,
+  } = props.preview
   const allCurveModels = useMemo(
     () =>
       props.models
@@ -105,55 +111,15 @@ export function ACUModelCurves(props: {
     [props.models]
   )
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([])
-  const [inputTokens, setInputTokens] = useState(100_000)
-  const [outputTokens, setOutputTokens] = useState(4_000)
-  const [pricingProtocol, setPricingProtocol] = useState<PricingCurveProtocol>(
-    PRICING_CURVE_PROTOCOL_OPTIONS[0].id
-  )
   const [sortMode, setSortMode] = useState<CurveSortMode>('price')
   const [corridorPreference, setCorridorPreference] =
     useState<CorridorPreference>('balanced')
-  const [previewTokenId, setPreviewTokenId] = useState<number | undefined>()
-  const { data: apiKeys } = useQuery({
-    queryKey: ['pricing-preview-api-keys', currentUser?.id],
-    queryFn: () => getApiKeys({ p: 1, size: 100 }),
-    enabled: currentUser != null,
-    staleTime: 60_000,
-  })
   const [hoveredDifficulty, setHoveredDifficulty] = useState<number | null>(
     null
   )
-  const deferredInputTokens = useDeferredValue(inputTokens)
-  const deferredOutputTokens = useDeferredValue(outputTokens)
-  const { data: selectionCorridor, isError: selectionCorridorUnavailable } =
-    useQuery({
-      queryKey: [
-        'acu-selection-corridor',
-        deferredInputTokens,
-        deferredOutputTokens,
-        previewTokenId,
-        pricingProtocol,
-      ],
-      queryFn: () =>
-        getACUSelectionCorridor(
-          deferredInputTokens,
-          deferredOutputTokens,
-          previewTokenId,
-          pricingProtocol
-        ),
-      staleTime: 60 * 1000,
-      retry: false,
-    })
   const curveModels = useMemo(
-    () =>
-      corridorVisibleModels(
-        allCurveModels,
-        pricingProtocol,
-        previewTokenId != null && selectionCorridor
-          ? corridorEligibleModelIds(selectionCorridor)
-          : undefined
-      ),
-    [allCurveModels, previewTokenId, pricingProtocol, selectionCorridor]
+    () => corridorVisibleModels(allCurveModels, pricingProtocol),
+    [allCurveModels, pricingProtocol]
   )
   const executionPresetSeries = useMemo(() => {
     const presets = selectionCorridor?.executionPresetSeries ?? []
@@ -171,7 +137,6 @@ export function ACUModelCurves(props: {
     selectionCorridor,
     corridorPreference
   )
-  const isPreviewLoading = !selectionCorridor && !selectionCorridorUnavailable
   const allCandidateIds = useMemo(
     () => [
       ...curveModels.map((model) => model.model_name),
@@ -325,7 +290,7 @@ export function ACUModelCurves(props: {
           quality: point.estimatedQuality,
           qualityLower: point.estimatedQuality,
           qualityUpper: point.estimatedQuality,
-          cost: point.estimatedCallCost,
+          cost: point.estimatedPayableCost,
         }))
       ),
     ],
@@ -749,8 +714,7 @@ export function ACUModelCurves(props: {
           <div
             className={cn(
               PRICING_PREVIEW_CONTROL_GRID_CLASS,
-              currentUser &&
-                'xl:grid-cols-[360px_minmax(160px,220px)_112px_112px]'
+              loggedIn && 'xl:grid-cols-[360px_minmax(160px,220px)_112px_112px]'
             )}
           >
             <div className='text-muted-foreground col-span-2 text-[11px] font-medium xl:col-span-1'>
@@ -777,7 +741,7 @@ export function ACUModelCurves(props: {
                 ))}
               </div>
             </div>
-            {currentUser && (
+            {loggedIn && (
               <label className='text-muted-foreground col-span-2 text-[11px] font-medium xl:col-span-1'>
                 {t('Preview API Key')}
                 <select
@@ -792,7 +756,7 @@ export function ACUModelCurves(props: {
                   }
                 >
                   <option value=''>{t('Default global routing')}</option>
-                  {(apiKeys?.data?.items ?? []).map((key) => (
+                  {apiKeys.map((key) => (
                     <option key={key.id} value={key.id}>
                       {key.name} · {key.acu_routing_preference || 'balanced'}
                     </option>
@@ -805,11 +769,17 @@ export function ACUModelCurves(props: {
               <Input
                 className='mt-1 h-8 w-full min-w-0 rounded-md font-mono'
                 type='number'
-                min={0}
+                min={1}
+                max={1_000_000}
                 step={1000}
                 value={inputTokens}
                 onChange={(event) =>
-                  setInputTokens(positiveInteger(event.target.value, 0))
+                  setInputTokens(
+                    Math.min(
+                      1_000_000,
+                      Math.max(1, positiveInteger(event.target.value, 1))
+                    )
+                  )
                 }
               />
             </label>
@@ -818,11 +788,17 @@ export function ACUModelCurves(props: {
               <Input
                 className='mt-1 h-8 w-full min-w-0 rounded-md font-mono'
                 type='number'
-                min={0}
+                min={1}
+                max={100_000}
                 step={100}
                 value={outputTokens}
                 onChange={(event) =>
-                  setOutputTokens(positiveInteger(event.target.value, 0))
+                  setOutputTokens(
+                    Math.min(
+                      100_000,
+                      Math.max(1, positiveInteger(event.target.value, 1))
+                    )
+                  )
                 }
               />
             </label>
@@ -942,10 +918,31 @@ export function ACUModelCurves(props: {
       </div>
 
       {selectedModels.length + selectedPresets.length === 0 ? (
-        <div className='text-muted-foreground flex h-56 items-center justify-center text-sm'>
-          {allCandidateIds.length === 0
-            ? t('No models found')
-            : t('Select at least one model')}
+        <div
+          className='text-muted-foreground flex h-56 flex-col items-center justify-center gap-3 text-sm'
+          role='status'
+          aria-busy={isPreviewLoading}
+        >
+          {isPreviewLoading && t('Updating price')}
+          {selectionCorridorUnavailable && (
+            <>
+              <span>{t('Unable to load current price')}</span>
+              <Button
+                type='button'
+                size='sm'
+                variant='outline'
+                onClick={() => props.preview.retry()}
+              >
+                <RefreshCw className='size-3.5' aria-hidden='true' />
+                {t('Retry')}
+              </Button>
+            </>
+          )}
+          {!isPreviewLoading &&
+            !selectionCorridorUnavailable &&
+            (allCandidateIds.length === 0
+              ? t('Unavailable for current settings')
+              : t('Select at least one model'))}
         </div>
       ) : (
         <div className='bg-border/60 grid min-w-0 gap-px xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,0.85fr)]'>

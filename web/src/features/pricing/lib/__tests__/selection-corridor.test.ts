@@ -215,6 +215,7 @@ test('renormalizes Gaussian weights at D0 and D100', () => {
 
 test('finds the nearest simulated difficulty point', () => {
   const corridor = {
+    pricing: {},
     defaultPreference: 'balanced' as const,
     formulaVersion: 'test',
     generatedAt: '2026-07-31T00:00:00Z',
@@ -236,6 +237,7 @@ test('finds the nearest simulated difficulty point', () => {
 
 test('aggregates eligible models from corridor points and presets', () => {
   const corridor = {
+    pricing: {},
     defaultPreference: 'economy' as const,
     formulaVersion: 'test',
     generatedAt: '2026-07-31T00:00:00Z',
@@ -285,6 +287,7 @@ test('aggregates eligible models from corridor points and presets', () => {
 
 test('uses the selected Token preference and keeps global mode interactive', () => {
   const corridor = {
+    pricing: {},
     defaultPreference: 'economy' as const,
     formulaVersion: 'test',
     generatedAt: '2026-07-31T00:00:00Z',

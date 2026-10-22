@@ -182,12 +182,16 @@ func loadACUPricingCatalog(ctx context.Context) (*acuPricingCatalog, error) {
 		err      error
 	}
 	protocols := []string{"responses", "messages", "chat_completions"}
+	policy, err := service.ResolveACUEffectiveRoutingPolicy(nil)
+	if err != nil {
+		return cacheACUPricingFallback(err, staleCatalog)
+	}
 	corridorCtx, cancel := context.WithTimeout(ctx, acuPricingCorridorTimeout)
 	defer cancel()
 	results := make(chan corridorResult, len(protocols))
 	for _, protocol := range protocols {
 		go func(protocol string) {
-			value, loadErr := service.GetACUSelectionCorridor(corridorCtx, 100000, 4000, nil, protocol)
+			value, loadErr := service.GetACUSelectionCorridor(corridorCtx, 100000, 4000, &policy, protocol)
 			results <- corridorResult{protocol: protocol, value: value, err: loadErr}
 		}(protocol)
 	}

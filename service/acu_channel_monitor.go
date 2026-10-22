@@ -448,6 +448,7 @@ func buildACUSelectionCorridorBody(inputTokens, expectedOutputTokens int, policy
 	payload := map[string]interface{}{
 		"inputTokens": inputTokens, "expectedOutputTokens": expectedOutputTokens,
 		"protocol":        protocol,
+		"modelAccess":     policy.ModelAccess,
 		"allowedModelIds": policy.AllowedModelIDs, "allowedProfileIds": policy.AllowedProfileIDs,
 		"allowedCandidateIds": policy.AllowedCandidateIDs,
 		"routingPreference":   policy.RoutingPreference, "qualityBias": policy.QualityBias,

@@ -23,6 +23,7 @@ import {
   stripTrailingZeros,
 } from '../lib/price'
 import type { PricingModel, TokenUnit } from '../types'
+import { ACUPriceSummary } from './acu-price-summary'
 import { ModelBillingModeBadge } from './model-billing-mode-badge'
 
 // ----------------------------------------------------------------------------
@@ -103,6 +104,9 @@ export function usePricingColumns(
       ),
       cell: ({ row }) => {
         const model = row.original
+        if (model.acu_quote) {
+          return <ACUPriceSummary model={model} tokenUnit={tokenUnit} />
+        }
         const dynamicSummary = getDynamicPricingSummary(model, {
           tokenUnit,
           showRechargePrice,
@@ -222,7 +226,7 @@ export function usePricingColumns(
           </div>
         )
       },
-      size: 180,
+      size: 240,
       enableSorting: false,
     },
 

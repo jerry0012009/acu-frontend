@@ -30,3 +30,20 @@ test('price sorting uses model name as a deterministic tie breaker', () => {
     ['gpt-5.6-sol', 'gpt-5.6-luna', 'gpt-6-sol']
   )
 })
+
+test('unavailable ACU quotes sort after priced models in both price directions', () => {
+  const unavailable = {
+    ...model('unavailable', 0),
+    acu_quote: {
+      status: 'ready' as const,
+      protocol: 'chat_completions' as const,
+      routes: [],
+    },
+  }
+  for (const order of [SORT_OPTIONS.PRICE_LOW, SORT_OPTIONS.PRICE_HIGH]) {
+    assert.equal(
+      sortModels([unavailable, model('priced', 2)], order)[1].model_name,
+      'unavailable'
+    )
+  }
+})

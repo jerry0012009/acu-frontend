@@ -58,6 +58,7 @@ import type {
   PricingModel,
   TokenUnit,
 } from '../types'
+import { ACUPriceSummary, ACURouteDetails } from './acu-price-summary'
 import { DynamicPricingBreakdown } from './dynamic-pricing-breakdown'
 import { ModelBillingModeBadge } from './model-billing-mode-badge'
 import { ModelDetailsApi } from './model-details-api'
@@ -611,6 +612,15 @@ function PriceSection(props: {
         props.model.audio_completion_ratio != null,
     },
   ]
+
+  if (props.model.acu_quote) {
+    return (
+      <section>
+        <ACUPriceSummary model={props.model} tokenUnit={props.tokenUnit} />
+        <ACURouteDetails model={props.model} tokenUnit={props.tokenUnit} />
+      </section>
+    )
+  }
 
   if (dynamicSummary) {
     if (dynamicSummary.isSpecialExpression) {
@@ -1168,16 +1178,18 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
             {isDynamic && (
               <DynamicPricingBreakdown billingExpr={props.model.billing_expr} />
             )}
-            <GroupPricingSection
-              model={props.model}
-              groupRatio={props.groupRatio}
-              usableGroup={props.usableGroup}
-              autoGroups={props.autoGroups}
-              priceRate={props.priceRate}
-              usdExchangeRate={props.usdExchangeRate}
-              tokenUnit={props.tokenUnit}
-              showRechargePrice={showRechargePrice}
-            />
+            {!props.model.acu_quote && (
+              <GroupPricingSection
+                model={props.model}
+                groupRatio={props.groupRatio}
+                usableGroup={props.usableGroup}
+                autoGroups={props.autoGroups}
+                priceRate={props.priceRate}
+                usdExchangeRate={props.usdExchangeRate}
+                tokenUnit={props.tokenUnit}
+                showRechargePrice={showRechargePrice}
+              />
+            )}
           </section>
 
           <ModelBackendDetailsSection model={props.model} />

@@ -36,6 +36,7 @@ export function Pricing() {
     priceRate,
     usdExchangeRate,
     pricingDisplayMode,
+    preview,
   } = usePricingData()
 
   const {
@@ -173,7 +174,7 @@ export function Pricing() {
             </p>
             <p className='text-muted-foreground/60 mx-auto mt-2 max-w-2xl text-xs leading-relaxed sm:text-sm'>
               {t(
-                'Current estimates are calculated from available routes and billing configuration. Actual payment may change with route availability, network status, and upstream price updates. Final billing prevails.'
+                'ACU automatically selects an available route by price, speed, and reliability. The lowest price is not guaranteed. Routing evaluation fees, when incurred, are additional.'
               )}
             </p>
             <SearchBar
@@ -191,6 +192,7 @@ export function Pricing() {
             <ACUModelCurves
               models={models || []}
               displayMode={pricingDisplayMode}
+              preview={preview}
             />
           </div>
 

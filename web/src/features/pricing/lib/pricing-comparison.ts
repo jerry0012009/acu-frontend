@@ -1,15 +1,102 @@
-import type { ContextTierPrices, PricingDisplayMode, PricingModel, PricingPayable } from '../types'
+import type {
+  ACUSelectionCorridor,
+  ContextTierPrices,
+  PricingDisplayMode,
+  PricingModel,
+  PricingPayable,
+  PricingProtocol,
+} from '../types'
 
-export function contextPricingRates<T extends {
-  input_cny_per_million: number
-  output_cny_per_million: number
-  cached_input_cny_per_million?: number
-  cache_write_cny_per_million?: number
-  context_tiers?: ContextTierPrices
-}>(price: T | undefined, inputTokens: number): T | undefined {
+export function applyPricingPreview(
+  models: PricingModel[],
+  corridor: ACUSelectionCorridor | undefined,
+  protocol: PricingProtocol,
+  status: 'loading' | 'error' | 'ready'
+): PricingModel[] {
+  return models.map((model) => {
+    if (
+      model.price_currency !== 'CNY' ||
+      !model.price_semantics?.startsWith('estimated_user_')
+    ) {
+      return model
+    }
+    const price =
+      status === 'ready' ? corridor?.pricing?.[model.model_name] : undefined
+    const routes = (price?.routes ?? []).map((route) => ({
+      id: route.executionProfileId,
+      display_name: route.displayName,
+      selected: route.selected,
+      payable: {
+        input_cny_per_million: route.payable.inputCnyPerMillion,
+        output_cny_per_million: route.payable.outputCnyPerMillion,
+        cached_input_cny_per_million: route.payable.cachedInputCnyPerMillion,
+        cache_write_cny_per_million: route.payable.cacheWriteCnyPerMillion,
+        context_tiers: route.payable.contextTiers,
+        status: route.payable.status,
+        pricing_policy_version: route.payable.pricingPolicyVersion,
+      },
+    }))
+    const selected = routes.find(
+      (route) => route.selected && route.id === price?.executionProfileId
+    )
+    const selectedPayable = selected?.payable
+    const payable =
+      selectedPayable &&
+      Number.isFinite(selectedPayable.input_cny_per_million) &&
+      Number.isFinite(selectedPayable.output_cny_per_million) &&
+      selectedPayable.input_cny_per_million >= 0 &&
+      selectedPayable.output_cny_per_million >= 0
+        ? selectedPayable
+        : undefined
+    return {
+      ...model,
+      payable,
+      payable_by_protocol: payable ? { [protocol]: payable } : {},
+      input_price_per_million: payable?.input_cny_per_million,
+      output_price_per_million: payable?.output_cny_per_million,
+      cached_input_price_per_million: payable?.cached_input_cny_per_million,
+      model_ratio: (payable?.input_cny_per_million ?? 0) / 2,
+      completion_ratio:
+        payable && payable.input_cny_per_million > 0
+          ? payable.output_cny_per_million / payable.input_cny_per_million
+          : 0,
+      cache_ratio:
+        payable &&
+        payable.cached_input_cny_per_million != null &&
+        payable.input_cny_per_million > 0
+          ? payable.cached_input_cny_per_million / payable.input_cny_per_million
+          : undefined,
+      create_cache_ratio:
+        payable &&
+        payable.cache_write_cny_per_million != null &&
+        payable.input_cny_per_million > 0
+          ? payable.cache_write_cny_per_million / payable.input_cny_per_million
+          : undefined,
+      acu_currently_eligible: payable != null,
+      acu_quote: {
+        status: status === 'ready' && price && !payable ? 'error' : status,
+        protocol,
+        supply_strategy: corridor?.supplyStrategy,
+        generated_at: corridor?.generatedAt,
+        routes,
+      },
+    }
+  })
+}
+
+export function contextPricingRates<
+  T extends {
+    input_cny_per_million: number
+    output_cny_per_million: number
+    cached_input_cny_per_million?: number
+    cache_write_cny_per_million?: number
+    context_tiers?: ContextTierPrices
+  },
+>(price: T | undefined, inputTokens: number): T | undefined {
   if (!price?.context_tiers) return price
   const tiers = price.context_tiers
-  const selected = inputTokens > tiers.thresholdTokens ? tiers.longContext : tiers.standard
+  const selected =
+    inputTokens > tiers.thresholdTokens ? tiers.longContext : tiers.standard
   return {
     ...price,
     input_cny_per_million: selected.inputPricePerMillion,
@@ -82,7 +169,9 @@ export function displayedPricingCost(
   const protocolPrice = contextPricingRates(
     selectedProtocol === undefined
       ? model.payable
-      : (model.payable_by_protocol?.[selectedProtocol] ?? model.payable), inputTokens)
+      : (model.payable_by_protocol?.[selectedProtocol] ?? model.payable),
+    inputTokens
+  )
   return (
     estimatedPricingCost(
       protocolPrice?.input_cny_per_million,

@@ -18,7 +18,9 @@ import (
 
 func TestLoadACUPricingCatalogKeepsCompleteSnapshotWhenOneProtocolFails(t *testing.T) {
 	previousOptions := common.OptionMap
-	common.OptionMap = map[string]string{}
+	common.OptionMap = map[string]string{
+		"ACUGlobalRoutingPolicy": `{"modelPolicy":"all_routing_eligible","modelAccess":{"blocked":"disabled"}}`,
+	}
 	acuPricingCatalogCache.Lock()
 	previousCatalog, previousExpiry, previousError := acuPricingCatalogCache.catalog, acuPricingCatalogCache.expiresAt, acuPricingCatalogCache.lastError
 	complete := &acuPricingCatalog{SourceCatalogVersion: "complete", Responses: []acuPricingResponse{{
@@ -41,6 +43,15 @@ func TestLoadACUPricingCatalogKeepsCompleteSnapshotWhenOneProtocolFails(t *testi
 		if r.URL.Path == "/internal/admin/channel-monitor" {
 			_, _ = w.Write([]byte(`{"catalogVersion":"fresh","pricingPolicyVersion":"test","modelPool":[{"modelId":"claude-test","modelCategory":"text_agent","routingEnabled":true,"protocols":["messages"]}],"profiles":[]}`))
 			return
+		}
+		var payload map[string]interface{}
+		if r.Method != http.MethodPost || common.DecodeJson(r.Body, &payload) != nil {
+			t.Error("pricing must request the effective global routing policy")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if payload["modelAccess"].(map[string]interface{})["blocked"] != "disabled" {
+			t.Error("pricing did not forward disabled model access")
 		}
 		if r.URL.Query().Get("protocol") == "messages" {
 			w.WriteHeader(http.StatusServiceUnavailable)

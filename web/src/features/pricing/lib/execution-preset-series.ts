@@ -40,7 +40,7 @@ export function executionPresetPricingCosts(
   difficulty: number
 ) {
   const point = executionPresetPointAtDifficulty(series, difficulty)
-  const payableCost = point?.estimatedCallCost
+  const payableCost = point?.estimatedPayableCost
   const reference = contextPricingRates(baseModel?.reference, inputTokens)
   const referenceCost = estimatedPricingCost(
     reference?.input_cny_per_million,

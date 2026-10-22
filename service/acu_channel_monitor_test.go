@@ -299,6 +299,33 @@ func TestGetACUSelectionCorridorSendsCandidatePolicy(t *testing.T) {
 	require.Equal(t, "messages", body["protocol"])
 }
 
+func TestGetACUSelectionCorridorForwardsModelAccessAndRetailRouteQuotes(t *testing.T) {
+	requests := make(chan map[string]interface{}, 1)
+	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		var payload map[string]interface{}
+		if err := common.DecodeJson(request.Body, &payload); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		requests <- payload
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"pricing":{"test":{"executionProfileId":"route-a","routes":[{"executionProfileId":"route-a","displayName":"Route A","selected":true,"payable":{"inputCnyPerMillion":1.25,"outputCnyPerMillion":5}}]}}}`))
+	}))
+	defer router.Close()
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
+	result, err := GetACUSelectionCorridor(context.Background(), 10000, 1000, &ACUEffectiveRoutingPolicy{
+		ModelAccess: map[string]string{"blocked": "disabled", "test": "auto"},
+	}, "chat_completions")
+	require.NoError(t, err)
+	require.Equal(t, map[string]interface{}{"blocked": "disabled", "test": "auto"}, (<-requests)["modelAccess"])
+	pricing := result["pricing"].(map[string]interface{})["test"].(map[string]interface{})
+	routes := pricing["routes"].([]interface{})
+	require.Len(t, routes, 1)
+	assert.Equal(t, "route-a", routes[0].(map[string]interface{})["executionProfileId"])
+	assert.Equal(t, 1.25, routes[0].(map[string]interface{})["payable"].(map[string]interface{})["inputCnyPerMillion"])
+}
+
 func TestGetACUSelectionCorridorPreservesChatCompletionsProtocol(t *testing.T) {
 	var requestBody []byte
 	var requestProtocol string

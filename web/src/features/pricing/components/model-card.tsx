@@ -37,6 +37,7 @@ import type {
   PricingReference,
   TokenUnit,
 } from '../types'
+import { ACUPriceSummary } from './acu-price-summary'
 import { ModelBillingModeBadge } from './model-billing-mode-badge'
 import { ModelPerfBadge, type ModelPerfBadgeData } from './model-perf-badge'
 
@@ -269,6 +270,8 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
         {props.model.pricing_label || t('Dynamic Pricing')}
       </span>
     )
+  } else if (props.model.acu_quote) {
+    priceSummary = <ACUPriceSummary model={props.model} tokenUnit={tokenUnit} />
   } else if (displayedACUPayable) {
     const displayed = displayedACUPayable
     priceSummary = (
