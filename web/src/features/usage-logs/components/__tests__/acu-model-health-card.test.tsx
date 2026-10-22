@@ -268,6 +268,12 @@ test('previews line details before applying a multiplier range to the current ke
     '[aria-label="Minimum factor"]'
   )
   assert.ok(minimum)
+  const maximum = container.querySelector<HTMLInputElement>(
+    '[aria-label="Maximum factor"]'
+  )
+  assert.ok(maximum)
+  assert.equal(minimum.value, '0.0300')
+  assert.equal(maximum.value, '0.200')
   await act(async () => {
     Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
@@ -282,7 +288,7 @@ test('previews line details before applying a multiplier range to the current ke
   assert.ok(openConfirmation)
   await act(async () => openConfirmation.click())
   assert.match(document.body.textContent ?? '', /channel-101/)
-  assert.match(document.body.textContent ?? '', /0\.030×/)
+  assert.match(document.body.textContent ?? '', /0\.0300×/)
   assert.match(document.body.textContent ?? '', /Lower cost/)
   assert.match(
     document.body.textContent ?? '',
@@ -606,6 +612,11 @@ test('missing profile preference multiplier is displayed as unavailable rather t
         </I18nextProvider>
       )
     )
+    const details = [...container.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Details')
+    )
+    assert.ok(details)
+    await act(async () => details.click())
     assert.match(container.textContent ?? '', /Profile Preference: n\/a · n\/a/)
     assert.doesNotMatch(container.textContent ?? '', /0\.000x/)
   } finally {

@@ -192,6 +192,16 @@ test('shows separate Production and Probe evidence and expands all Profile evide
   await act(async () =>
     button.dispatchEvent(new MouseEvent('click', { bubbles: true }))
   )
+  assert.equal(
+    container.querySelectorAll('[aria-label="Probe · 48h timeline"] span')
+      .length,
+    60
+  )
+  const detailsButton = [...container.querySelectorAll('button')].find((item) =>
+    item.textContent?.includes('Details')
+  )
+  assert.ok(detailsButton)
+  await act(async () => detailsButton.click())
   assert.match(container.textContent ?? '', /0\.812/)
   assert.match(container.textContent ?? '', /0\.030x/)
   assert.match(container.textContent ?? '', /11\/12/)
@@ -209,16 +219,13 @@ test('shows separate Production and Probe evidence and expands all Profile evide
     /success · 821 ms .*success · HTTP 200/
   )
   assert.equal(
-    container.querySelectorAll(
-      'details [aria-label="Probe · 48h timeline"] span'
-    ).length,
+    container.querySelectorAll('[aria-label="Probe · 48h timeline"] span')
+      .length,
     60
   )
   assert.match(
     container
-      .querySelector(
-        'details [aria-label="Probe · 48h timeline"] span:last-child'
-      )
+      .querySelector('[aria-label="Probe · 48h timeline"] span:last-child')
       ?.getAttribute('title') ?? '',
     /Latest: success · HTTP 200 · gpt-5\.6-luna · usage verified/
   )
@@ -351,6 +358,11 @@ test('redacts credentials from Latest Probe text and timeline titles', async () 
   await act(async () =>
     button.dispatchEvent(new MouseEvent('click', { bubbles: true }))
   )
+  const detailsButton = [...container.querySelectorAll('button')].find((item) =>
+    item.textContent?.includes('Details')
+  )
+  assert.ok(detailsButton)
+  await act(async () => detailsButton.click())
   assert.doesNotMatch(container.textContent ?? '', new RegExp(secret))
   assert.match(container.textContent ?? '', /redacted/)
 
@@ -443,6 +455,12 @@ test('renders administrator global routing details and keeps globally disabled P
   const enable = container.querySelector(
     '[role="switch"][aria-label="Global routing"]'
   )
+  const profileActions = container.querySelector(
+    '[role="group"][aria-label="Profile actions"]'
+  )
+  assert.ok(profileActions)
+  assert.match(profileActions.textContent ?? '', /Diagnostics/)
+  assert.match(profileActions.textContent ?? '', /Details/)
   const diagnostics = [...container.querySelectorAll('button')].find(
     (button) => button.textContent === 'Diagnostics'
   )

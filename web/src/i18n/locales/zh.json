@@ -21,6 +21,7 @@
     "Line": "线路",
     "Execution Profile ID": "执行配置 ID",
     "Enable this Profile for global routing?": "确定将此线路加入全局路由？",
+    "Profile actions": "线路操作",
     "Apply once": "一次性应用",
     "{{count}} matching Profiles": "{{count}} 条线路符合范围",
     "Enable {{enabled}}, disable {{disabled}}": "将启用 {{enabled}} 条，停用 {{disabled}} 条",

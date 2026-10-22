@@ -15,7 +15,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { publicChannelAlias } from '@/features/acu/lib/public-channel-alias'
-import { formatMultiplier } from '@/lib/format'
 
 import type {
   ACUChannelMonitorProfile,
@@ -41,6 +40,23 @@ const priceRangeSchema = z
   })
   .refine((value) => Number(value.minimum) <= Number(value.maximum))
 
+function formatFactor(value: number): string {
+  return `${value === 0 ? '0' : value.toPrecision(3)}×`
+}
+
+// Outward rounding keeps a prefilled range from excluding a route at its edge.
+function formatFactorBound(
+  value: number,
+  bound: 'minimum' | 'maximum'
+): string {
+  if (value === 0) return '0'
+  const scale = 10 ** (2 - Math.floor(Math.log10(value)))
+  if (!Number.isFinite(scale)) return String(value)
+  const scaled = value * scale
+  const rounded = bound === 'minimum' ? Math.floor(scaled) : Math.ceil(scaled)
+  return (rounded / scale).toPrecision(3)
+}
+
 export function ACUModelPriceRange(props: {
   modelId: string
   profiles: ACUChannelMonitorProfile[]
@@ -65,8 +81,14 @@ export function ACUModelPriceRange(props: {
   const form = useForm({
     resolver: zodResolver(priceRangeSchema),
     defaultValues: {
-      minimum: initialRange == null ? '' : String(initialRange.minimum),
-      maximum: initialRange == null ? '' : String(initialRange.maximum),
+      minimum:
+        initialRange == null
+          ? ''
+          : formatFactorBound(initialRange.minimum, 'minimum'),
+      maximum:
+        initialRange == null
+          ? ''
+          : formatFactorBound(initialRange.maximum, 'maximum'),
     },
   })
   // react-hook-form's watch subscription drives these derived previews.
@@ -119,87 +141,56 @@ export function ACUModelPriceRange(props: {
         setConfirmOpen(true)
       })}
     >
-      <dl className='flex flex-wrap gap-x-6 gap-y-2 text-xs'>
-        <div>
-          <dt className='text-muted-foreground'>
+      <div className='flex flex-wrap items-center gap-x-4 gap-y-2 text-xs'>
+        <div className='flex min-w-0 flex-wrap items-center gap-x-1'>
+          <span className='text-muted-foreground'>
             {t('Current API key factor range')}
-          </dt>
-          <dd className='mt-1 font-medium tabular-nums'>
+          </span>
+          <span className='font-medium tabular-nums'>
             {currentRange == null
               ? t('No priced Profiles enabled')
-              : `${formatMultiplier(currentRange.minimum, '×')} ~ ${formatMultiplier(currentRange.maximum, '×')}`}
-          </dd>
+              : `${formatFactor(currentRange.minimum)} ~ ${formatFactor(currentRange.maximum)}`}
+          </span>
         </div>
-        <div>
-          <dt className='text-muted-foreground'>
+        <div className='flex min-w-0 flex-wrap items-center gap-x-1'>
+          <span className='text-muted-foreground'>
             {t('Selectable factor range')}
-          </dt>
-          <dd className='mt-1 font-medium tabular-nums'>
+          </span>
+          <span className='font-medium tabular-nums'>
             {availableRange == null
               ? t('No price data')
-              : `${formatMultiplier(availableRange.minimum, '×')} ~ ${formatMultiplier(availableRange.maximum, '×')}`}
-          </dd>
+              : `${formatFactor(availableRange.minimum)} ~ ${formatFactor(availableRange.maximum)}`}
+          </span>
         </div>
-      </dl>
-      <div className='flex flex-wrap items-end gap-3'>
-        <span className='self-center text-xs font-medium'>
-          {t('Price factor range')}
-        </span>
-        <label className='min-w-0 text-xs'>
-          <span className='text-muted-foreground mb-1 block'>
-            {t('Minimum factor')}
-          </span>
-          <div className='flex items-center gap-1'>
-            <input
-              className='bg-background h-8 w-24 rounded border px-2 tabular-nums'
-              type='number'
-              min={0}
-              step='any'
-              aria-label={t('Minimum factor')}
-              disabled={pending}
-              {...form.register('minimum')}
-            />
-            <span>×</span>
-          </div>
+        <label className='flex items-center gap-1 whitespace-nowrap'>
+          <span className='text-muted-foreground'>{t('Minimum factor')}</span>
+          <input
+            className='bg-background h-8 w-20 rounded border px-2 tabular-nums'
+            type='text'
+            inputMode='decimal'
+            aria-label={t('Minimum factor')}
+            disabled={pending}
+            {...form.register('minimum')}
+          />
+          <span>×</span>
         </label>
-        <label className='min-w-0 text-xs'>
-          <span className='text-muted-foreground mb-1 block'>
-            {t('Maximum factor')}
-          </span>
-          <div className='flex items-center gap-1'>
-            <input
-              className='bg-background h-8 w-24 rounded border px-2 tabular-nums'
-              type='number'
-              min={0}
-              step='any'
-              aria-label={t('Maximum factor')}
-              disabled={pending}
-              {...form.register('maximum')}
-            />
-            <span>×</span>
-          </div>
+        <label className='flex items-center gap-1 whitespace-nowrap'>
+          <span className='text-muted-foreground'>{t('Maximum factor')}</span>
+          <input
+            className='bg-background h-8 w-20 rounded border px-2 tabular-nums'
+            type='text'
+            inputMode='decimal'
+            aria-label={t('Maximum factor')}
+            disabled={pending}
+            {...form.register('maximum')}
+          />
+          <span>×</span>
         </label>
-        <Button
-          size='sm'
-          type='submit'
-          disabled={
-            pending || !valid || !preview.matched || !preview.changes.length
-          }
-        >
-          <Check className='size-3.5' />
-          {pending ? t('Saving...') : t('Apply once')}
-        </Button>
-      </div>
-      {!valid ? (
-        <p role='alert' className='text-destructive text-xs'>
-          {t('Enter a valid factor range with minimum no greater than maximum')}
-        </p>
-      ) : (
-        <div className='flex flex-wrap gap-x-4 gap-y-1 text-xs'>
+        <div className='flex flex-wrap items-center gap-x-2 gap-y-1'>
           <span>
             {t('{{count}} matching Profiles', { count: preview.matched })}
           </span>
-          <span>
+          <span className='text-muted-foreground'>
             {t('Enable {{enabled}}, disable {{disabled}}', {
               enabled: enableCount,
               disabled: disableCount,
@@ -213,6 +204,21 @@ export function ACUModelPriceRange(props: {
             </span>
           )}
         </div>
+        <Button
+          size='sm'
+          type='submit'
+          disabled={
+            pending || !valid || !preview.matched || !preview.changes.length
+          }
+        >
+          <Check className='size-3.5' />
+          {pending ? t('Saving...') : t('Apply once')}
+        </Button>
+      </div>
+      {!valid && (
+        <p role='alert' className='text-destructive text-xs'>
+          {t('Enter a valid factor range with minimum no greater than maximum')}
+        </p>
       )}
       {error && (
         <p role='alert' className='text-destructive text-xs'>
@@ -263,10 +269,7 @@ export function ACUModelPriceRange(props: {
                 <span className='tabular-nums'>
                   {change.profile.effectivePriceMultiplier == null
                     ? t('No price data')
-                    : formatMultiplier(
-                        change.profile.effectivePriceMultiplier,
-                        '×'
-                      )}
+                    : formatFactor(change.profile.effectivePriceMultiplier)}
                 </span>
                 <span className='min-w-0 break-words'>
                   {change.profile.publicNote || t('No public note')}

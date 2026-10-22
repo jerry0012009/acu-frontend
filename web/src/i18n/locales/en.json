@@ -21,6 +21,7 @@
     "Line": "Line",
     "Execution Profile ID": "Execution Profile ID",
     "Enable this Profile for global routing?": "Enable this Profile for global routing?",
+    "Profile actions": "Profile actions",
     "Apply once": "Apply once",
     "{{count}} matching Profiles": "{{count}} matching Profiles",
     "Enable {{enabled}}, disable {{disabled}}": "Enable {{enabled}}, disable {{disabled}}",

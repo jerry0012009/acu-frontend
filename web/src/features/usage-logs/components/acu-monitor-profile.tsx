@@ -100,6 +100,7 @@ export function ACUMonitorProfile(
   const [noteSaved, setNoteSaved] = useState(false)
   const [toggleMessage, setToggleMessage] = useState('')
   const [toggleError, setToggleError] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
   const notePending = props.profileNoteActions?.isPending(id) ?? false
   const latency = profileLatencyDisplay(profile, t)
   const eligible = profile.routingEnabled && monitorProfileEligible(profile)
@@ -312,7 +313,11 @@ export function ACUMonitorProfile(
           </div>
         )}
       </div>
-      <div className='mt-3 flex flex-wrap items-center gap-3'>
+      <div
+        role='group'
+        aria-label={t('Profile actions')}
+        className='mt-3 flex flex-wrap items-start gap-3'
+      >
         {(props.profileActions ||
           props.veridropActions ||
           props.gpttesticuActions) && (
@@ -391,12 +396,30 @@ export function ACUMonitorProfile(
             <span>{profile.routingEnabled ? t('Enabled') : t('Disabled')}</span>
           </div>
         )}
-      </div>
-      <details className='mt-2 text-xs'>
-        <summary className='text-muted-foreground w-fit cursor-pointer py-1'>
+        <Button
+          size='sm'
+          variant='ghost'
+          aria-expanded={detailsOpen}
+          onClick={() => setDetailsOpen((open) => !open)}
+        >
           {t('Details')}
-        </summary>
-        <div className='mt-2 space-y-3'>
+          <ChevronDown
+            className={`size-3.5 transition-transform ${detailsOpen ? 'rotate-180' : ''}`}
+          />
+        </Button>
+      </div>
+      <div className='mt-2'>
+        <StatusTimeline
+          label={`${t('Probe')} · ${props.probeRange ?? '48h'}`}
+          buckets={(profile.probeBuckets ?? []).map((bucket) => ({
+            key: bucket.bucket,
+            tone: classifyProbeBucket(bucket),
+            title: probeBucketTitle(bucket),
+          }))}
+        />
+      </div>
+      {detailsOpen && (
+        <div className='mt-3 space-y-3 text-xs'>
           {props.showDiagnostics && (
             <>
               <div className='text-muted-foreground font-mono text-[11px] break-all'>
@@ -478,14 +501,6 @@ export function ACUMonitorProfile(
               )}
             </>
           )}
-          <StatusTimeline
-            label={`${t('Probe')} · ${props.probeRange ?? '48h'}`}
-            buckets={(profile.probeBuckets ?? []).map((bucket) => ({
-              key: bucket.bucket,
-              tone: classifyProbeBucket(bucket),
-              title: probeBucketTitle(bucket),
-            }))}
-          />
           <div className='text-muted-foreground break-words'>
             {t('Latest Probe')}:{' '}
             {profile.latestProbe
@@ -497,7 +512,7 @@ export function ACUMonitorProfile(
               ` · ${profile.probeLatencyMs} ms`}
           </div>
         </div>
-      </details>
+      )}
     </article>
   )
 }
