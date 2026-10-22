@@ -54,6 +54,8 @@ export type PricingModel = {
     routes: Array<{
       id: string
       display_name: string
+      line_code?: string
+      public_note?: string
       selected: boolean
       first_token_latency_ms?: number
       first_token_latency_source?: 'probe' | 'production'
@@ -130,6 +132,8 @@ export type ACURoutingPrice = {
   routes: Array<{
     executionProfileId: string
     displayName: string
+    lineCode?: string
+    publicNote?: string
     selected: boolean
     firstTokenLatencyMs?: number
     firstTokenLatencySource?: 'probe' | 'production'

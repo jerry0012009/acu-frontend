@@ -18,6 +18,12 @@
 - Repository maintenance must not stop services. A container restart does not
   load a new image, and `up --no-deps` can still interrupt users. Prepare an
   independent rollout/rollback executor before replacing live services.
+- Before Console or Router releases, read the shared runbook at
+  `/root/jerry/claw-router/docs/operations/acu-service-release.md` (canonical
+  Router repo). Preserve the running image before building, launch the host-owned
+  executor once, and observe the same release after an agent disconnect. Console
+  also serves the public API; a healthy container or HTTP 200 does not prove
+  that streaming requests completed. Documentation-only updates need no restart.
 
 DO NOT send optional commentary
 

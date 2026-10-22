@@ -73,13 +73,16 @@ const model: PricingModel = {
     routes: [
       {
         id: 'a',
-        display_name: 'Selected route',
+        display_name: 'Private Supplier',
+        line_code: '1234',
+        public_note: 'Suitable for long conversations',
         selected: true,
         payable: price,
       },
       {
         id: 'b',
-        display_name: 'Alternative route',
+        display_name: 'Other Supplier',
+        line_code: '5678',
         selected: false,
         payable: { ...price, input_cny_per_million: 2.5 },
       },
@@ -126,11 +129,12 @@ test('details list the same prices and mark only the current estimated selection
     assert.equal(rows.length, 2)
     assert.match(
       rows[0].textContent ?? '',
-      /Selected route.*¥1\.25.*¥5.*Currently estimated selection/
+      /Line 1234.*Suitable for long conversations.*¥1\.25.*¥5.*Currently estimated selection/
     )
-    assert.match(
-      rows[1].textContent ?? '',
-      /Alternative route.*¥2\.5.*Available/
+    assert.match(rows[1].textContent ?? '', /Line 5678.*¥2\.5.*Available/)
+    assert.doesNotMatch(
+      window.document.body.textContent ?? '',
+      /Private Supplier|Other Supplier/
     )
     assert.equal(window.document.querySelectorAll('th[scope=col]').length, 5)
     assert.match(
@@ -208,6 +212,8 @@ test('a Messages-only model renders Messages retail prices and routes from a Cha
           {
             executionProfileId: 'messages-only',
             displayName: 'Messages route',
+            lineCode: '4321',
+            publicNote: 'Public Messages note',
             selected: true,
             payable: {
               inputCnyPerMillion: 1.225,
@@ -232,9 +238,40 @@ test('a Messages-only model renders Messages retail prices and routes from a Cha
     assert.match(text, /Messages · Balanced routing/)
     assert.match(text, /¥1\.225/)
     assert.match(text, /¥6\.125/)
-    assert.match(text, /Messages route/)
+    assert.match(text, /Line 4321/)
+    assert.match(text, /Public Messages note/)
+    assert.doesNotMatch(text, /Messages route/)
     assert.doesNotMatch(text, /Unavailable for current settings/)
   } finally {
     window.close()
+  }
+})
+
+test('routes without a valid anonymous code never fall back to an internal display name', () => {
+  const quote = model.acu_quote
+  assert.ok(quote)
+  for (const line_code of [undefined, 'supplier:model', '<unsafe>']) {
+    const current: PricingModel = {
+      ...model,
+      acu_quote: {
+        ...quote,
+        routes: [
+          { ...quote.routes[0], line_code, public_note: undefined },
+        ],
+      },
+    }
+    const window = render(<ACURouteDetails model={current} tokenUnit='M' />)
+    try {
+      assert.equal(
+        window.document.querySelector('tbody th')?.textContent,
+        'Route'
+      )
+      assert.doesNotMatch(
+        window.document.body.textContent ?? '',
+        /Private Supplier|supplier:model|unsafe/
+      )
+    } finally {
+      window.close()
+    }
   }
 })

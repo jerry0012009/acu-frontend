@@ -79,3 +79,20 @@ Both remain backward compatible during that transition; older Router quotes
 display no first-token sample instead of falling back to total latency.
 Prepare the independent rollout/rollback executor and obtain production
 confirmation before replacement. This document does not assert deployment.
+
+## Public Route Identity Revision
+
+Pricing is a public surface, including when an administrator visits it. Both
+global and API-key pricing previews now replace internal profile IDs with
+stable anonymous IDs and expose only anonymous line labels and the existing
+administrator-maintained public notes. Line numbers match the monitor's
+existing four-digit numbering. Missing notes remain empty; provider, channel,
+endpoint, internal names and non-public notes are not forwarded in route quotes.
+The existing route table displays the note below the line label and safely
+wraps long text. There is no new note editor or storage. Administrator monitor
+and configuration endpoints retain their existing identities and permissions.
+
+Controller regression tests exercise anonymous, regular-user and administrator
+visits, checking response bodies as well as selected route and first-event
+values. Tests also cover note changes/deletion, malformed routes, and a UI
+fallback that never uses a supplier name if an anonymous code is missing.

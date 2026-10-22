@@ -118,6 +118,10 @@ func GetACUSelectionCorridor(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	if err := service.PublicACUPricingCorridor(result); err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	c.JSON(200, gin.H{"success": true, "data": result})
 }
 
@@ -150,6 +154,10 @@ func GetACUTokenSelectionCorridor(c *gin.Context) {
 	}
 	result, err := service.GetACUSelectionCorridor(c.Request.Context(), inputTokens, expectedOutputTokens, &policy, protocol)
 	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := service.PublicACUPricingCorridor(result); err != nil {
 		common.ApiError(c, err)
 		return
 	}
