@@ -70,7 +70,7 @@ export function ACUPriceSummary(props: {
     high_reliability: t('High reliability routing'),
   }
   return (
-    <div className='min-w-0 space-y-1'>
+    <div className='w-full min-w-0 space-y-2'>
       <div className='text-muted-foreground flex items-center gap-1 text-xs'>
         <span>
           {props.model.reference?.source_type === 'openrouter'
@@ -115,43 +115,43 @@ export function ACUPriceSummary(props: {
           </strong>
         )}
       </div>
-      <table className='text-muted-foreground w-full text-left text-xs'>
+      <table className='text-muted-foreground w-full table-fixed text-left text-xs'>
         <thead>
           <tr>
-            <th scope='col' className='pr-3 font-normal'>
+            <th scope='col' className='pr-2 font-normal'>
               {t('Price')}
             </th>
-            <th scope='col' className='pr-3 font-normal'>
+            <th scope='col' className='text-right font-normal'>
               {t('Input')}
             </th>
-            <th scope='col' className='font-normal'>
+            <th scope='col' className='text-right font-normal'>
               {t('Output')}
             </th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <th scope='row' className='py-1 pr-3 font-normal'>
+            <th scope='row' className='py-1 pr-2 font-normal'>
               {t('Current estimate')}
             </th>
-            <td className='pr-3 font-mono tabular-nums'>
+            <td className='text-foreground text-right font-mono break-all tabular-nums'>
               {formatACUCNY(price.input_cny_per_million / divisor)}
             </td>
-            <td className='font-mono tabular-nums'>
+            <td className='text-foreground text-right font-mono break-all tabular-nums'>
               {formatACUCNY(price.output_cny_per_million / divisor)}
             </td>
           </tr>
           {reference && (
             <tr>
-              <th scope='row' className='py-1 pr-3 font-normal'>
+              <th scope='row' className='py-1 pr-2 font-normal'>
                 {props.model.reference?.source_type === 'openrouter'
                   ? t('Public reference')
                   : t('Official reference')}
               </th>
-              <td className='pr-3 font-mono tabular-nums'>
+              <td className='text-right font-mono break-all tabular-nums'>
                 {formatACUCNY(reference.input_cny_per_million / divisor)}
               </td>
-              <td className='font-mono tabular-nums'>
+              <td className='text-right font-mono break-all tabular-nums'>
                 {formatACUCNY(reference.output_cny_per_million / divisor)}
               </td>
             </tr>
