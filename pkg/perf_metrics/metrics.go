@@ -25,7 +25,7 @@ func Init() {
 }
 
 func RecordRelaySample(info *relaycommon.RelayInfo, success bool, outputTokens int64) {
-	if info == nil {
+	if info == nil || info.IsACUChannel {
 		return
 	}
 	now := time.Now()
@@ -85,6 +85,7 @@ func Query(params QueryParams) (QueryResult, error) {
 	}
 	endTs := time.Now().Unix()
 	startTs := endTs - int64(params.Hours)*3600
+	allowedGroups := allowedGroupSet(params.Groups)
 
 	merged := map[bucketKey]counters{}
 	rows, err := model.GetPerfMetrics(params.Model, params.Group, startTs, endTs)
@@ -92,6 +93,11 @@ func Query(params QueryParams) (QueryResult, error) {
 		return QueryResult{}, err
 	}
 	for _, row := range rows {
+		if allowedGroups != nil {
+			if _, ok := allowedGroups[row.Group]; !ok {
+				continue
+			}
+		}
 		mergeCounters(merged, bucketKey{
 			model:    row.ModelName,
 			group:    row.Group,
@@ -107,6 +113,19 @@ func Query(params QueryParams) (QueryResult, error) {
 		})
 	}
 
+	acuBuckets, err := acuPerformanceBuckets(params, startTs, endTs)
+	if err != nil {
+		return QueryResult{}, err
+	}
+	for key, value := range acuBuckets {
+		if allowedGroups != nil {
+			if _, ok := allowedGroups[key.group]; !ok {
+				continue
+			}
+		}
+		mergeCounters(merged, key, value)
+	}
+
 	hotBuckets.Range(func(key, value any) bool {
 		k := key.(bucketKey)
 		if k.model != params.Model || k.bucketTs < startTs || k.bucketTs > endTs {
@@ -114,6 +133,11 @@ func Query(params QueryParams) (QueryResult, error) {
 		}
 		if params.Group != "" && k.group != params.Group {
 			return true
+		}
+		if allowedGroups != nil {
+			if _, ok := allowedGroups[k.group]; !ok {
+				return true
+			}
 		}
 		mergeCounters(merged, k, value.(*atomicBucket).snapshot())
 		return true
@@ -150,6 +174,20 @@ func QuerySummaryAll(hours int, groups []string) (SummaryAllResult, error) {
 		}
 		mergeModelTotals(totals, row.ModelName, value)
 		mergeModelBucket(modelBuckets, row.ModelName, row.BucketTs, value)
+	}
+
+	acuBuckets, err := acuPerformanceBuckets(QueryParams{}, startTs, endTs)
+	if err != nil {
+		return SummaryAllResult{}, err
+	}
+	for key, value := range acuBuckets {
+		if allowedGroups != nil {
+			if _, ok := allowedGroups[key.group]; !ok {
+				continue
+			}
+		}
+		mergeModelTotals(totals, key.model, value)
+		mergeModelBucket(modelBuckets, key.model, key.bucketTs, value)
 	}
 
 	hotBuckets.Range(func(key, value any) bool {
@@ -305,6 +343,7 @@ func buildQueryResult(modelName string, merged map[bucketKey]counters) QueryResu
 	sort.Strings(groups)
 
 	results := make([]GroupResult, 0, len(groups))
+	overall := counters{}
 	for _, group := range groups {
 		buckets := groupBuckets[group]
 		timestamps := make([]int64, 0, len(buckets))
@@ -337,12 +376,26 @@ func buildQueryResult(modelName string, merged map[bucketKey]counters) QueryResu
 			AvgTps:       avgTps(total),
 			Series:       series,
 		})
+		overall.requestCount += total.requestCount
+		overall.successCount += total.successCount
+		overall.totalLatencyMs += total.totalLatencyMs
+		overall.outputTokens += total.outputTokens
+		overall.generationMs += total.generationMs
 	}
 
+	var summary *ModelSummary
+	if overall.requestCount > 0 {
+		summary = &ModelSummary{
+			ModelName: modelName, RequestCount: overall.requestCount,
+			AvgLatencyMs: avg(overall.totalLatencyMs, overall.requestCount),
+			SuccessRate:  successRate(overall), AvgTps: avgTps(overall),
+		}
+	}
 	return QueryResult{
 		ModelName:    modelName,
 		SeriesSchema: seriesSchema,
 		Groups:       results,
+		Summary:      summary,
 	}
 }
 

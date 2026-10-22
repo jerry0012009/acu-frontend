@@ -475,7 +475,10 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
             </span>
           )}
           <ModelBillingModeBadge model={props.model} />
-          <ModelPerfBadge perf={props.perf} />
+          <ModelPerfBadge perf={props.perf} latency={props.model.acu_quote ? {
+            label: t('Top route first token'),
+            value: props.model.acu_quote.routes.find((route) => route.selected)?.first_token_latency_ms,
+          } : undefined} />
         </div>
 
         <div className='flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1'>

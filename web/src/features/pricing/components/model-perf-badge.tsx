@@ -1,7 +1,10 @@
 import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { getSuccessRateDotClass } from '@/features/performance-metrics/lib/format'
+import {
+  formatLatency,
+  getSuccessRateDotClass,
+} from '@/features/performance-metrics/lib/format'
 import { cn } from '@/lib/utils'
 
 export type ModelPerfBadgeData = {
@@ -13,6 +16,7 @@ export type ModelPerfBadgeData = {
 
 export interface ModelPerfBadgeProps extends React.HTMLAttributes<HTMLDivElement> {
   perf: ModelPerfBadgeData | undefined
+  latency?: { label: string; value?: number }
 }
 
 function formatCompactNumber(value: number): string {
@@ -60,12 +64,17 @@ export const ModelPerfBadge = memo(function ModelPerfBadge(
         props.className
       )}
     >
-      <div title={t('Average latency')} className='min-w-0'>
-        <div className='text-muted-foreground/55 text-[10px] leading-4'>
-          {t('Latency short')}
+      <div
+        title={props.latency?.label ?? t('Average latency')}
+        className='min-w-0'
+      >
+        <div className='text-muted-foreground/55 truncate text-[10px] leading-4'>
+          {props.latency ? t('First token') : t('Latency short')}
         </div>
         <div className='text-muted-foreground/80 font-mono text-xs leading-4 whitespace-nowrap'>
-          {formatCompactLatency(avg_latency_ms)}
+          {props.latency
+            ? formatLatency(props.latency.value ?? Number.NaN)
+            : formatCompactLatency(avg_latency_ms)}
         </div>
       </div>
       <div title={t('Throughput')} className='min-w-0'>
@@ -84,22 +93,24 @@ export const ModelPerfBadge = memo(function ModelPerfBadge(
           {t('Status short')}
         </div>
         <div className='flex h-4 items-center justify-end gap-0.5'>
-          {statusBars.map((rate, index) => (
-            <span
-              key={`${index}-${rate ?? 'empty'}`}
-              className={cn(
-                'w-1 rounded-full',
-                index === 0 && 'h-2',
-                index === 1 && 'h-2.5',
-                index === 2 && 'h-3',
-                rate == null
-                  ? index === 0
-                    ? 'bg-muted-foreground/10'
-                    : 'bg-muted-foreground/15'
-                  : getSuccessRateDotClass(rate)
-              )}
-            />
-          ))}
+          {statusBars.map((rate, index) => {
+            const position = ['oldest', 'middle', 'latest'][index]
+            let color =
+              index === 0 ? 'bg-muted-foreground/10' : 'bg-muted-foreground/15'
+            if (rate != null) color = getSuccessRateDotClass(rate)
+            return (
+              <span
+                key={position}
+                className={cn(
+                  'w-1 rounded-full',
+                  index === 0 && 'h-2',
+                  index === 1 && 'h-2.5',
+                  index === 2 && 'h-3',
+                  color
+                )}
+              />
+            )
+          })}
         </div>
       </div>
     </div>

@@ -47,6 +47,9 @@ export function applyPricingPreview(
       id: route.executionProfileId,
       display_name: route.displayName,
       selected: route.selected,
+      first_token_latency_ms: route.firstTokenLatencyMs,
+      first_token_latency_source: route.firstTokenLatencySource,
+      first_token_sample_count: route.firstTokenSampleCount,
       payable: {
         input_cny_per_million: route.payable.inputCnyPerMillion,
         output_cny_per_million: route.payable.outputCnyPerMillion,
@@ -118,6 +121,8 @@ export function applyPricingPreview(
         protocol,
         supply_strategy: corridor?.supplyStrategy,
         generated_at: corridor?.generatedAt,
+        input_tokens: corridor?.inputTokens,
+        output_tokens: corridor?.expectedOutputTokens,
         routes,
       },
     }
@@ -144,6 +149,38 @@ export function contextPricingRates<
     cached_input_cny_per_million: selected.cachedInputPricePerMillion,
     cache_write_cny_per_million: selected.cacheWritePricePerMillion,
   }
+}
+
+export function relativePricingMultiplier(
+  payable: Parameters<typeof contextPricingRates>[0],
+  reference: Parameters<typeof contextPricingRates>[0],
+  inputTokens: number,
+  outputTokens: number
+): number | undefined {
+  const current = contextPricingRates(payable, inputTokens)
+  const official = contextPricingRates(reference, inputTokens)
+  if (!current || !official) return undefined
+  if (
+    ![
+      inputTokens,
+      outputTokens,
+      current.input_cny_per_million,
+      current.output_cny_per_million,
+      official.input_cny_per_million,
+      official.output_cny_per_million,
+    ].every((n) => Number.isFinite(n) && n >= 0)
+  ) {
+    return undefined
+  }
+  const base =
+    inputTokens * official.input_cny_per_million +
+    outputTokens * official.output_cny_per_million
+  if (base <= 0) return undefined
+  const ratio =
+    (inputTokens * current.input_cny_per_million +
+      outputTokens * current.output_cny_per_million) /
+    base
+  return Number.isFinite(ratio) ? ratio : undefined
 }
 
 export type PricingCostDatum = {

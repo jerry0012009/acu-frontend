@@ -167,6 +167,11 @@ function OverviewSummaryGrid(props: { model: PricingModel }) {
   })
 
   const groups = metricsQuery.data?.data.groups ?? []
+  const summary = metricsQuery.data?.data.summary
+  const selectedRoute = props.model.acu_quote?.routes.find(
+    (route) => route.selected
+  )
+  const firstTokenLatency = selectedRoute?.first_token_latency_ms
   const successRates = groups
     .map((group) => group.success_rate)
     .filter((rate) => Number.isFinite(rate))
@@ -191,25 +196,55 @@ function OverviewSummaryGrid(props: { model: PricingModel }) {
             latencyValues.length
         )
       : 0
+  let latencyValue = formatLatency(summary?.avg_latency_ms ?? avgLatency)
+  if (props.model.acu_quote) {
+    latencyValue =
+      firstTokenLatency != null
+        ? formatLatency(firstTokenLatency)
+        : t('No first-token samples')
+  }
 
   return (
     <div className='bg-muted/20 grid overflow-hidden rounded-lg border sm:grid-cols-3 sm:divide-x'>
       <OverviewMetric
         icon={Timer}
         label='TPS'
-        value={formatThroughput(avgTps)}
+        value={formatThroughput(summary?.avg_tps ?? avgTps)}
       />
       <OverviewMetric
         icon={Timer}
-        label={t('Average latency')}
-        value={formatLatency(avgLatency)}
+        label={
+          props.model.acu_quote
+            ? t('Top route first token')
+            : t('Average latency')
+        }
+        value={latencyValue}
       />
       <OverviewMetric
         icon={HeartPulse}
         label={t('Success rate')}
-        value={formatUptimePct(successRate)}
-        valueClassName={getSuccessRateTextClass(successRate)}
+        value={formatUptimePct(summary?.success_rate ?? successRate)}
+        valueClassName={getSuccessRateTextClass(
+          summary?.success_rate ?? successRate
+        )}
       />
+      {selectedRoute?.first_token_latency_source && (
+        <p className='text-muted-foreground border-t px-3 py-2 text-xs sm:col-span-3'>
+          {t('Top route first token')}:{' '}
+          {selectedRoute.first_token_latency_source === 'probe'
+            ? t('Probe first event, P50/P90 weighted')
+            : t('Production first event, P50')}
+          {' · '}
+          {selectedRoute.first_token_sample_count ?? 0} {t('samples')}
+        </p>
+      )}
+      {summary?.request_count != null && summary.request_count > 0 && (
+        <p className='text-muted-foreground border-t px-3 py-2 text-xs sm:col-span-3'>
+          {t('Last 24 hours: {{count}} completed or failed requests', {
+            count: summary.request_count,
+          })}
+        </p>
+      )}
       {metricsQuery.isPending && (
         <p
           className='text-muted-foreground border-t px-3 py-2 text-xs sm:col-span-3'

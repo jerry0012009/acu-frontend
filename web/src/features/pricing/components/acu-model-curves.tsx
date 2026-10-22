@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { formatMultiplier } from '@/lib/format'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { cn } from '@/lib/utils'
 import { VCHART_OPTION } from '@/lib/vchart'
@@ -656,6 +657,15 @@ export function ACUModelCurves(props: {
           mark: {
             title: { value: (datum: { modelName: string }) => datum.modelName },
             content: [
+              {
+                key: t('Price multiplier'),
+                value: (datum: PricingCostDatum) =>
+                  datum.payableCost != null &&
+                  datum.referenceCost != null &&
+                  datum.referenceCost > 0
+                    ? formatMultiplier(datum.payableCost / datum.referenceCost)
+                    : t('No comparable public reference price'),
+              },
               {
                 key: t('Current routed estimate'),
                 value: (datum: PricingCostDatum) =>

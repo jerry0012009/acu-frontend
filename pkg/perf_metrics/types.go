@@ -19,9 +19,10 @@ type Sample struct {
 }
 
 type QueryParams struct {
-	Model string
-	Group string
-	Hours int
+	Model  string
+	Group  string
+	Hours  int
+	Groups []string
 }
 
 type BucketPoint struct {
@@ -45,6 +46,7 @@ type QueryResult struct {
 	ModelName    string        `json:"model_name"`
 	SeriesSchema string        `json:"series_schema"`
 	Groups       []GroupResult `json:"groups"`
+	Summary      *ModelSummary `json:"summary,omitempty"`
 }
 
 type ModelSummary struct {
@@ -53,7 +55,7 @@ type ModelSummary struct {
 	SuccessRate        float64   `json:"success_rate"`
 	AvgTps             float64   `json:"avg_tps"`
 	RecentSuccessRates []float64 `json:"recent_success_rates,omitempty"`
-	RequestCount       int64     `json:"-"`
+	RequestCount       int64     `json:"request_count"`
 }
 
 type SummaryAllResult struct {

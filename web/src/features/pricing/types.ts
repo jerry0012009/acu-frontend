@@ -49,10 +49,15 @@ export type PricingModel = {
     protocol: PricingProtocol
     supply_strategy?: ACUSelectionCorridor['supplyStrategy']
     generated_at?: string
+    input_tokens?: number
+    output_tokens?: number
     routes: Array<{
       id: string
       display_name: string
       selected: boolean
+      first_token_latency_ms?: number
+      first_token_latency_source?: 'probe' | 'production'
+      first_token_sample_count?: number
       payable: PricingPayable
     }>
   }
@@ -126,6 +131,9 @@ export type ACURoutingPrice = {
     executionProfileId: string
     displayName: string
     selected: boolean
+    firstTokenLatencyMs?: number
+    firstTokenLatencySource?: 'probe' | 'production'
+    firstTokenSampleCount?: number
     payable: ACURoutePayable
   }>
 }
