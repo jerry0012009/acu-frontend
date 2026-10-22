@@ -239,10 +239,12 @@ type ACUTokenProfileRoutingScope struct {
 }
 
 type ACUTokenProfileRoutingUpdate struct {
-	ExecutionProfileID string   `json:"executionProfileId" binding:"required"`
-	Enabled            *bool    `json:"enabled"`
-	Weight             *float64 `json:"weight"`
-	InheritWeight      bool     `json:"inheritWeight"`
+	ExecutionProfileID string          `json:"executionProfileId"`
+	Enabled            *bool           `json:"enabled"`
+	Weight             *float64        `json:"weight"`
+	InheritWeight      bool            `json:"inheritWeight"`
+	ModelID            string          `json:"modelId"`
+	ProfileStates      map[string]bool `json:"profileStates"`
 }
 
 type ACUProfilePublicNoteUpdate struct {

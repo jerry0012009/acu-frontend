@@ -598,7 +598,19 @@ func containsACUID(values []string, target string) bool {
 }
 
 func currentGlobalACUProfileIDs(ctx context.Context) ([]string, error) {
-	monitor, err := GetACUChannelMonitor(ctx, "24h", "balanced", "standard", "48h", "all")
+	profiles, err := globalACUProfileConfiguration(ctx)
+	if err != nil {
+		return nil, err
+	}
+	profileIDs := make([]string, 0, len(profiles))
+	for _, profile := range profiles {
+		profileIDs = append(profileIDs, profile.ExecutionProfileID)
+	}
+	return normalizeACUIDs(profileIDs), nil
+}
+
+func globalACUProfileConfiguration(ctx context.Context) ([]acuProfileConfiguration, error) {
+	profiles, err := loadACUProfileConfiguration(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -606,18 +618,15 @@ func currentGlobalACUProfileIDs(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	profileIDs := make([]string, 0, len(monitor.Profiles))
-	for _, profile := range monitor.Profiles {
-		if profile.ExecutionProfileID == "" ||
-			!profile.RoutingEnabled {
+	allowed := make([]acuProfileConfiguration, 0, len(profiles))
+	for _, profile := range profiles {
+		if profile.ExecutionProfileID == "" || !profile.RoutingEnabled ||
+			scope.ModelAccess[profile.ModelID] == ACUModelAccessDisabled {
 			continue
 		}
-		if scope.ModelAccess[profile.CanonicalModel] == ACUModelAccessDisabled {
-			continue
-		}
-		profileIDs = append(profileIDs, profile.ExecutionProfileID)
+		allowed = append(allowed, profile)
 	}
-	return normalizeACUIDs(profileIDs), nil
+	return allowed, nil
 }
 
 func CurrentGlobalACUProfileIDs(ctx context.Context) ([]string, error) {
@@ -654,25 +663,26 @@ func GetACUTokenProfileRoutingScope(
 	if err != nil {
 		return dto.ACUTokenProfileRoutingScope{}, err
 	}
-	globalProfileIDs, err := currentGlobalACUProfileIDs(ctx)
+	profiles, err := globalACUProfileConfiguration(ctx)
 	if err != nil {
 		return dto.ACUTokenProfileRoutingScope{}, err
 	}
+	return acuTokenProfileRoutingScope(token, profiles)
+}
+
+func acuTokenProfileRoutingScope(token *model.Token, profiles []acuProfileConfiguration) (dto.ACUTokenProfileRoutingScope, error) {
+	globalProfileIDs := make([]string, 0, len(profiles))
+	globalWeights := make(map[string]float64, len(profiles))
+	for _, profile := range profiles {
+		globalProfileIDs = append(globalProfileIDs, profile.ExecutionProfileID)
+		globalWeights[profile.ExecutionProfileID] = profile.RoutingWeight
+	}
+	globalProfileIDs = normalizeACUIDs(globalProfileIDs)
 	effectiveProfileIDs := globalProfileIDs
 	configuredProfileIDs := []string{}
 	if token.ACUProfileLimitsEnabled {
 		configuredProfileIDs = normalizeACUIDs(token.ACUProfileLimits)
 		effectiveProfileIDs = intersectACUIDs(globalProfileIDs, configuredProfileIDs)
-	}
-	monitor, err := GetACUChannelMonitor(ctx, "24h", "balanced", "standard", "48h", "all")
-	if err != nil {
-		return dto.ACUTokenProfileRoutingScope{}, err
-	}
-	globalWeights := make(map[string]float64, len(globalProfileIDs))
-	for _, profile := range monitor.Profiles {
-		if containsACUID(globalProfileIDs, profile.ExecutionProfileID) {
-			globalWeights[profile.ExecutionProfileID] = profile.RoutingWeight
-		}
 	}
 	configuredWeights, err := NormalizeACUProfilePreferenceScores(token.ACUProfilePreferenceScores)
 	if err != nil {
@@ -703,59 +713,41 @@ func UpdateACUTokenProfileRouting(
 	tokenID int,
 	input dto.ACUTokenProfileRoutingUpdate,
 ) (dto.ACUTokenProfileRoutingScope, error) {
-	token, err := model.GetTokenByIds(tokenID, userID)
+	if _, err := model.GetTokenByIds(tokenID, userID); err != nil {
+		return dto.ACUTokenProfileRoutingScope{}, err
+	}
+	profiles, err := globalACUProfileConfiguration(ctx)
 	if err != nil {
 		return dto.ACUTokenProfileRoutingScope{}, err
 	}
-	globalProfileIDs, err := currentGlobalACUProfileIDs(ctx)
-	if err != nil {
-		return dto.ACUTokenProfileRoutingScope{}, err
+	globalProfileIDs := make([]string, 0, len(profiles))
+	globalSet := make(map[string]acuProfileConfiguration, len(profiles))
+	for _, profile := range profiles {
+		globalProfileIDs = append(globalProfileIDs, profile.ExecutionProfileID)
+		globalSet[profile.ExecutionProfileID] = profile
 	}
-	globalSet := make(map[string]struct{}, len(globalProfileIDs))
-	for _, profileID := range globalProfileIDs {
-		globalSet[profileID] = struct{}{}
-	}
-	if _, ok := globalSet[input.ExecutionProfileID]; !ok {
+	bulk := input.ProfileStates != nil
+	if bulk {
+		if input.ModelID == "" || len(input.ProfileStates) == 0 || len(input.ProfileStates) > 512 ||
+			input.ExecutionProfileID != "" || input.Enabled != nil || input.Weight != nil || input.InheritWeight {
+			return dto.ACUTokenProfileRoutingScope{}, fmt.Errorf("provide a model and Profile states without single-Profile settings")
+		}
+		hasEnabled := false
+		for id, enabled := range input.ProfileStates {
+			profile, ok := globalSet[id]
+			if !ok || profile.ModelID != input.ModelID {
+				return dto.ACUTokenProfileRoutingScope{}, fmt.Errorf("ACU Profile is not allowed for this model")
+			}
+			hasEnabled = hasEnabled || enabled
+		}
+		if !hasEnabled {
+			return dto.ACUTokenProfileRoutingScope{}, fmt.Errorf("at least one matching ACU Profile must remain enabled")
+		}
+	} else if _, ok := globalSet[input.ExecutionProfileID]; !ok {
 		return dto.ACUTokenProfileRoutingScope{}, fmt.Errorf("ACU Profile is not allowed by global routing")
 	}
-	if input.Enabled == nil && input.Weight == nil && !input.InheritWeight {
+	if !bulk && input.Enabled == nil && input.Weight == nil && !input.InheritWeight {
 		return dto.ACUTokenProfileRoutingScope{}, fmt.Errorf("at least one Profile setting is required")
-	}
-	if input.Enabled != nil {
-		effectiveProfileIDs := append([]string(nil), globalProfileIDs...)
-		if token.ACUProfileLimitsEnabled {
-			effectiveProfileIDs = intersectACUIDs(globalProfileIDs, token.ACUProfileLimits)
-		}
-		selected := make(map[string]struct{}, len(effectiveProfileIDs))
-		for _, profileID := range effectiveProfileIDs {
-			selected[profileID] = struct{}{}
-		}
-		if *input.Enabled {
-			selected[input.ExecutionProfileID] = struct{}{}
-		} else {
-			delete(selected, input.ExecutionProfileID)
-		}
-		nextProfileIDs := make([]string, 0, len(selected))
-		for profileID := range selected {
-			nextProfileIDs = append(nextProfileIDs, profileID)
-		}
-		nextProfileIDs = normalizeACUIDs(nextProfileIDs)
-		if len(nextProfileIDs) == 0 {
-			return dto.ACUTokenProfileRoutingScope{}, fmt.Errorf("at least one ACU Profile must remain enabled")
-		}
-		if len(nextProfileIDs) == len(globalProfileIDs) {
-			token.ACUProfileLimitsEnabled = false
-			token.ACUProfileLimits = []string{}
-		} else {
-			token.ACUProfileLimitsEnabled = true
-			token.ACUProfileLimits = nextProfileIDs
-		}
-	}
-	if token.ACUProfilePreferenceScores == nil {
-		token.ACUProfilePreferenceScores = map[string]float64{}
-	}
-	if input.InheritWeight {
-		delete(token.ACUProfilePreferenceScores, input.ExecutionProfileID)
 	}
 	if input.Weight != nil {
 		if input.InheritWeight {
@@ -764,12 +756,60 @@ func UpdateACUTokenProfileRouting(
 		if math.IsNaN(*input.Weight) || math.IsInf(*input.Weight, 0) || *input.Weight < 0 || *input.Weight > 500 {
 			return dto.ACUTokenProfileRoutingScope{}, fmt.Errorf("ACU Profile preference must be from 0 to 500")
 		}
-		token.ACUProfilePreferenceScores[input.ExecutionProfileID] = *input.Weight
 	}
-	if err := token.Update(); err != nil {
+	token, err := model.UpdateTokenACUProfiles(userID, tokenID, func(token *model.Token) error {
+		if input.Enabled != nil || bulk {
+			effectiveProfileIDs := append([]string(nil), globalProfileIDs...)
+			if token.ACUProfileLimitsEnabled {
+				effectiveProfileIDs = token.ACUProfileLimits
+			}
+			selected := make(map[string]struct{}, len(effectiveProfileIDs))
+			for _, profileID := range effectiveProfileIDs {
+				selected[profileID] = struct{}{}
+			}
+			states := input.ProfileStates
+			if !bulk {
+				states = map[string]bool{input.ExecutionProfileID: *input.Enabled}
+			}
+			for id, enabled := range states {
+				if enabled {
+					selected[id] = struct{}{}
+				} else {
+					delete(selected, id)
+				}
+			}
+			nextProfileIDs := make([]string, 0, len(selected))
+			for profileID := range selected {
+				nextProfileIDs = append(nextProfileIDs, profileID)
+			}
+			nextProfileIDs = normalizeACUIDs(nextProfileIDs)
+			effective := intersectACUIDs(globalProfileIDs, nextProfileIDs)
+			if len(effective) == 0 {
+				return fmt.Errorf("at least one ACU Profile must remain enabled")
+			}
+			if len(effective) == len(globalProfileIDs) && len(nextProfileIDs) == len(globalProfileIDs) {
+				token.ACUProfileLimitsEnabled = false
+				token.ACUProfileLimits = []string{}
+			} else {
+				token.ACUProfileLimitsEnabled = true
+				token.ACUProfileLimits = nextProfileIDs
+			}
+		}
+		if token.ACUProfilePreferenceScores == nil {
+			token.ACUProfilePreferenceScores = map[string]float64{}
+		}
+		if input.InheritWeight {
+			delete(token.ACUProfilePreferenceScores, input.ExecutionProfileID)
+		}
+		if input.Weight != nil {
+			token.ACUProfilePreferenceScores[input.ExecutionProfileID] = *input.Weight
+		}
+		return nil
+	})
+	if err != nil {
 		return dto.ACUTokenProfileRoutingScope{}, err
 	}
-	return GetACUTokenProfileRoutingScope(ctx, userID, tokenID)
+	return acuTokenProfileRoutingScope(token, profiles)
 }
 
 func globalACURoutingScope() (ACURoutingScope, error) {

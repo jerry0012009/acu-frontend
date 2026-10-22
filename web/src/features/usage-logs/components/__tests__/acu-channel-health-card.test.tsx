@@ -202,20 +202,23 @@ test('shows separate Production and Probe evidence and expands all Profile evide
   assert.match(container.textContent ?? '', /first_event_p50/)
   assert.match(
     container.textContent ?? '',
-    /success · 821 ms .*HTTP 200 · gpt-5\.6-luna · usage verified/
+    /success · HTTP 200 · gpt-5\.6-luna · usage verified/
   )
   assert.doesNotMatch(
     container.textContent ?? '',
     /success · 821 ms .*success · HTTP 200/
   )
   assert.equal(
-    container.querySelectorAll('details [aria-label="Probe timeline"] span')
-      .length,
+    container.querySelectorAll(
+      'details [aria-label="Probe · 48h timeline"] span'
+    ).length,
     60
   )
   assert.match(
     container
-      .querySelector('details [aria-label="Probe timeline"] span:last-child')
+      .querySelector(
+        'details [aria-label="Probe · 48h timeline"] span:last-child'
+      )
       ?.getAttribute('title') ?? '',
     /Latest: success · HTTP 200 · gpt-5\.6-luna · usage verified/
   )
@@ -429,12 +432,17 @@ test('renders Root Profile actions and keeps globally disabled Profiles probeabl
     channelToggle.dispatchEvent(new MouseEvent('click', { bubbles: true }))
   )
 
-  const enable = [...container.querySelectorAll('button')].find(
-    (button) => button.textContent === 'Enable routing'
+  const enable = container.querySelector(
+    '[role="switch"][aria-label="Global routing"]'
   )
-  const probe = [...container.querySelectorAll('button')].find(
-    (button) => button.textContent === 'Probe test'
+  const diagnostics = [...container.querySelectorAll('button')].find(
+    (button) => button.textContent === 'Diagnostics'
   )
+  assert.ok(diagnostics)
+  await act(async () => diagnostics.click())
+  const probe = [
+    ...document.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+  ].find((item) => item.textContent === 'Probe test')
   assert.ok(enable)
   assert.ok(probe)
   await act(async () =>
@@ -519,15 +527,15 @@ test('allows explicit-only Profile enablement independently of the Auto model al
   await act(async () =>
     channelToggle.dispatchEvent(new MouseEvent('click', { bubbles: true }))
   )
-  const enable = [...container.querySelectorAll('button')].find(
-    (button) => button.textContent === 'Enable routing'
-  ) as HTMLButtonElement | undefined
+  const enable = container.querySelector<HTMLButtonElement>(
+    '[role="switch"][aria-label="Global routing"]'
+  )
   const probe = [...container.querySelectorAll('button')].find(
-    (button) => button.textContent === 'Probe test'
+    (button) => button.textContent === 'Checking...'
   ) as HTMLButtonElement | undefined
   assert.ok(enable)
   assert.ok(probe)
-  assert.equal(enable.disabled, false)
+  assert.notEqual(enable.getAttribute('aria-disabled'), 'true')
   assert.equal(probe.disabled, true)
   await act(async () => root.unmount())
   container.remove()

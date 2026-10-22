@@ -1,131 +1,81 @@
-import { ChevronDown, ChevronRight, Pencil } from 'lucide-react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { StatusBadge } from '@/components/status-badge'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { publicChannelAlias } from '@/features/acu/lib/public-channel-alias'
-import { formatMultiplier } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
-import type {
-  ACUChannelMonitorProfile,
-  ACUGlobalRoutingPolicy,
-  ACUProbeTimelineRange,
-  ACUTokenProfileRoutingScope,
-} from '../api'
+import type { ACUProbeTimelineRange } from '../api'
 import {
   classifyHistoryBucket,
   classifyModelProbeBucket,
-  classifyProbeBucket,
-  formatProbeResult,
   probeBucketTitle,
   type ACUModelOverview,
 } from './acu-channel-health-model'
-import { modelAccessFor } from './acu-global-routing-policy'
 import { StatusTimeline } from './acu-health-timeline'
+import { ACUModelPriceRange } from './acu-model-price-range'
 import {
-  monitorProfileEligible,
-  monitorStateLabel,
-  profileLatencyDisplay,
-  protocolShortLabel,
-} from './acu-monitor-presentation'
-import { ACUTokenProfileWeight } from './acu-token-profile-weight'
+  ACUMonitorProfile,
+  type ACUMonitorProfileActions,
+} from './acu-monitor-profile'
 
-const stateVariant = {
-  healthy: 'success',
-  degraded: 'warning',
-  cooldown: 'warning',
-  unavailable: 'danger',
-  disabled: 'neutral',
-} as const
-
-export function ACUModelHealthCard(props: {
-  model: ACUModelOverview
-  focusedLine?: string
-  showDiagnostics?: boolean
-  probeRange?: ACUProbeTimelineRange
-  tokenProfileActions?: {
-    tokenName: string
-    maskedKey: string
-    scope?: ACUTokenProfileRoutingScope
-    isPending: (profileId: string) => boolean
-    onToggle: (profile: ACUChannelMonitorProfile, enabled: boolean) => void
-    onSetWeight?: (profile: ACUChannelMonitorProfile, weight: number) => void
-    onInheritWeight?: (profile: ACUChannelMonitorProfile) => void
+export function ACUModelHealthCard(
+  props: ACUMonitorProfileActions & {
+    model: ACUModelOverview
+    focusedLine?: string
+    showDiagnostics?: boolean
+    probeRange?: ACUProbeTimelineRange
+    priceScenario?: string
   }
-  profileNoteActions?: {
-    isPending: (profileId: string) => boolean
-    onEdit: (profile: ACUChannelMonitorProfile) => void
-  }
-  profileActions?: {
-    policy?: ACUGlobalRoutingPolicy
-    isTogglePending: (profileId: string) => boolean
-    isProbePending: (profileId: string) => boolean
-    onToggleRouting: (
-      profile: ACUChannelMonitorProfile,
-      enabled: boolean
-    ) => void
-    onProbe: (profile: ACUChannelMonitorProfile, protocol: string) => void
-  }
-  veridropActions?: {
-    isPending: (profileId: string) => boolean
-    onCheck: (profile: ACUChannelMonitorProfile, protocol: string) => void
-  }
-  gpttesticuActions?: {
-    isPending: (profileId: string) => boolean
-    onCheck: (profile: ACUChannelMonitorProfile) => void
-    onStart: (profile: ACUChannelMonitorProfile) => void
-  }
-}) {
+) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(() =>
-    props.focusedLine
-      ? props.model.profiles.some(
-          (profile) =>
-            publicChannelAlias(profile.provider, profile.channel) ===
-            props.focusedLine
-        )
-      : false
+    Boolean(
+      props.focusedLine &&
+      props.model.profiles.some(
+        (profile) =>
+          publicChannelAlias(profile.provider, profile.channel) ===
+          props.focusedLine
+      )
+    )
   )
-  const probeRange = props.probeRange ?? '48h'
-  const visibleProfiles = props.focusedLine
+  const profiles = props.focusedLine
     ? props.model.profiles.filter(
         (profile) =>
           publicChannelAlias(profile.provider, profile.channel) ===
           props.focusedLine
       )
     : props.model.profiles
+  const token = props.tokenProfileActions
   return (
-    <section className='bg-background min-w-0 overflow-hidden rounded-lg border'>
+    <section
+      className={cn(
+        'bg-background min-w-0 self-start overflow-hidden rounded-lg border',
+        expanded && 'xl:col-span-2'
+      )}
+    >
       <button
         type='button'
-        className='flex w-full min-w-0 items-start justify-between gap-3 p-3 text-left sm:p-4'
+        className='flex w-full min-w-0 items-center gap-2 p-3 text-left sm:p-4'
         aria-expanded={expanded}
         onClick={() => setExpanded((current) => !current)}
       >
-        <div className='min-w-0'>
-          <div className='flex min-w-0 flex-wrap items-center gap-2'>
-            {expanded ? (
-              <ChevronDown className='size-4 shrink-0' aria-hidden='true' />
-            ) : (
-              <ChevronRight className='size-4 shrink-0' aria-hidden='true' />
-            )}
-            <h3 className='text-sm font-semibold break-all'>
-              {props.model.modelId}
-            </h3>
-            <Badge variant='outline'>
-              {props.model.eligibleCount}/{props.model.totalCount}{' '}
-              {t('available lines')}
-            </Badge>
-          </div>
-          <div className='text-muted-foreground mt-2 pl-6 text-xs'>
-            {props.model.totalCount} {t('lines')}
-          </div>
-        </div>
+        {expanded ? (
+          <ChevronDown className='size-4 shrink-0' />
+        ) : (
+          <ChevronRight className='size-4 shrink-0' />
+        )}
+        <h3 className='min-w-0 text-sm font-semibold break-all'>
+          {props.model.modelId}
+        </h3>
+        <Badge variant='outline'>
+          {props.model.eligibleCount}/{props.model.totalCount}{' '}
+          {t('available lines')}
+        </Badge>
       </button>
-      <div className='bg-muted/10 space-y-3 border-t p-3 sm:p-4'>
-        {props.showDiagnostics ? (
+      <div className='bg-muted/10 space-y-2 border-t p-3 sm:px-4'>
+        {props.showDiagnostics && (
           <StatusTimeline
             label={t('Production')}
             buckets={props.model.buckets.map((bucket) => ({
@@ -134,366 +84,56 @@ export function ACUModelHealthCard(props: {
               title: `${new Date(bucket.bucket).toLocaleString()} · ${bucket.success_count}/${bucket.request_count}`,
             }))}
           />
-        ) : null}
+        )}
         <StatusTimeline
-          label={`${t('Probe')} · ${probeRange}`}
+          label={`${t('Probe')} · ${props.probeRange ?? '48h'}`}
           buckets={props.model.probeBuckets.map((bucket) => ({
             key: bucket.bucket,
             tone: classifyModelProbeBucket(bucket),
             title: probeBucketTitle(bucket),
           }))}
         />
-        {props.showDiagnostics ? (
+        {props.showDiagnostics && (
           <div className='text-muted-foreground text-xs'>
             {props.model.availability === null
               ? t('No production traffic')
               : `${props.model.successCount}/${props.model.requestCount} · ${(props.model.availability * 100).toFixed(2)}%`}
           </div>
-        ) : null}
+        )}
       </div>
       {expanded && (
-        <div className='bg-muted/20 space-y-2 border-t p-3'>
-          {visibleProfiles.map((profile, index) => (
-            <ModelProfile
-              key={profile.executionProfileId}
-              index={index + 1}
-              profile={profile}
-              showDiagnostics={props.showDiagnostics}
-              probeRange={probeRange}
-              actions={props.profileActions}
-              veridropActions={props.veridropActions}
-              gpttesticuActions={props.gpttesticuActions}
-              tokenActions={props.tokenProfileActions}
-              noteActions={props.profileNoteActions}
-            />
-          ))}
-        </div>
+        <>
+          {token && (
+            <div className='bg-muted/20 border-t px-3 py-3 sm:px-4'>
+              <div className='mb-2 text-xs font-medium break-words'>
+                {t('This API key')}: {token.tokenName}
+              </div>
+              {token.scope && token.onApply && (
+                <ACUModelPriceRange
+                  key={`${token.scope.tokenId}:${props.model.modelId}:${props.priceScenario}`}
+                  modelId={props.model.modelId}
+                  profiles={profiles}
+                  scope={token.scope}
+                  scenario={props.priceScenario}
+                  pending={profiles.some((profile) =>
+                    token.isPending(profile.executionProfileId)
+                  )}
+                  onApply={token.onApply}
+                />
+              )}
+            </div>
+          )}
+          <div className='border-t'>
+            {profiles.map((profile) => (
+              <ACUMonitorProfile
+                {...props}
+                key={`${token?.scope?.tokenId ?? ''}:${profile.executionProfileId}`}
+                profile={profile}
+              />
+            ))}
+          </div>
+        </>
       )}
     </section>
-  )
-}
-
-function ModelProfile(props: {
-  index: number
-  profile: ACUChannelMonitorProfile
-  showDiagnostics?: boolean
-  probeRange: ACUProbeTimelineRange
-  tokenActions?: {
-    tokenName: string
-    maskedKey: string
-    scope?: ACUTokenProfileRoutingScope
-    isPending: (profileId: string) => boolean
-    onToggle: (profile: ACUChannelMonitorProfile, enabled: boolean) => void
-    onSetWeight?: (profile: ACUChannelMonitorProfile, weight: number) => void
-    onInheritWeight?: (profile: ACUChannelMonitorProfile) => void
-  }
-  noteActions?: {
-    isPending: (profileId: string) => boolean
-    onEdit: (profile: ACUChannelMonitorProfile) => void
-  }
-  actions?: {
-    policy?: ACUGlobalRoutingPolicy
-    isTogglePending: (profileId: string) => boolean
-    isProbePending: (profileId: string) => boolean
-    onToggleRouting: (
-      profile: ACUChannelMonitorProfile,
-      enabled: boolean
-    ) => void
-    onProbe: (profile: ACUChannelMonitorProfile, protocol: string) => void
-  }
-  veridropActions?: {
-    isPending: (profileId: string) => boolean
-    onCheck: (profile: ACUChannelMonitorProfile, protocol: string) => void
-  }
-  gpttesticuActions?: {
-    isPending: (profileId: string) => boolean
-    onCheck: (profile: ACUChannelMonitorProfile) => void
-    onStart: (profile: ACUChannelMonitorProfile) => void
-  }
-}) {
-  const { t } = useTranslation()
-  const profile = props.profile
-  const policy = props.actions?.policy
-  const globallyAllowed = profile.routingEnabled
-  const modelAccess =
-    policy &&
-    modelAccessFor(policy, profile.canonicalModel, true, profile.routingEnabled)
-  const modelExposed = modelAccess !== 'disabled'
-  let globalRoutingStatus = t('Loading...')
-  if (policy) {
-    if (!modelExposed) {
-      globalRoutingStatus = t('Model not externally exposed')
-    } else {
-      globalRoutingStatus = globallyAllowed ? t('allowed') : t('disabled')
-    }
-  }
-  const firstProtocol = profile.protocol[0]
-  const latency = profileLatencyDisplay(profile, t)
-  const togglePending =
-    props.actions?.isTogglePending(profile.executionProfileId) ?? false
-  const probePending =
-    props.actions?.isProbePending(profile.executionProfileId) ?? false
-  const veridropPending =
-    props.veridropActions?.isPending(profile.executionProfileId) ?? false
-  const gpttesticuPending =
-    props.gpttesticuActions?.isPending(profile.executionProfileId) ?? false
-  const supportsResponses = profile.protocol.includes('responses')
-  const tokenScope = props.tokenActions?.scope
-  const tokenActions = props.tokenActions
-  const globallyAvailableForToken =
-    tokenScope?.globalProfileIds.includes(profile.executionProfileId) ?? false
-  const tokenAllowed =
-    tokenScope?.effectiveProfileIds.includes(profile.executionProfileId) ??
-    false
-  const tokenTogglePending =
-    props.tokenActions?.isPending(profile.executionProfileId) ?? false
-  const isLastTokenProfile =
-    tokenAllowed && tokenScope?.effectiveProfileIds.length === 1
-  const notePending =
-    props.noteActions?.isPending(profile.executionProfileId) ?? false
-  return (
-    <div className='bg-background rounded-md border p-3 text-xs'>
-      <div className='flex min-w-0 flex-wrap items-start justify-between gap-2'>
-        <div className='min-w-0'>
-          <div className='font-medium'>
-            #{props.index} {t('ACU Route')}{' '}
-            {publicChannelAlias(profile.provider, profile.channel)}
-          </div>
-          {props.showDiagnostics ? (
-            <div className='text-muted-foreground mt-1 font-mono text-[11px] break-all'>
-              {profile.provider} · {profile.channel} ·{' '}
-              {profile.executionProfileId}
-            </div>
-          ) : null}
-          {profile.publicNote || props.noteActions ? (
-            <div className='mt-1 flex min-w-0 items-center gap-1 text-[11px]'>
-              <span className='text-muted-foreground shrink-0'>
-                {t('Route note')}:
-              </span>
-              <span
-                className='min-w-0 truncate'
-                title={profile.publicNote || t('No public note')}
-              >
-                {profile.publicNote || t('No public note')}
-              </span>
-              {props.noteActions ? (
-                <Button
-                  size='icon-xs'
-                  variant='ghost'
-                  className='shrink-0'
-                  title={t('Edit note')}
-                  aria-label={t('Edit note')}
-                  disabled={notePending}
-                  onClick={() => props.noteActions?.onEdit(profile)}
-                >
-                  <Pencil aria-hidden='true' />
-                </Button>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-        <StatusBadge
-          label={monitorStateLabel(
-            monitorProfileEligible(profile) ? 'eligible' : profile.state,
-            t
-          )}
-          variant={
-            stateVariant[
-              monitorProfileEligible(profile) ? 'healthy' : 'unavailable'
-            ]
-          }
-          copyable={false}
-        />
-      </div>
-      <div className='mt-3 grid gap-2 sm:grid-cols-3'>
-        <ProfileMetric
-          label={t('Price factor')}
-          value={
-            profile.effectivePriceMultiplier == null
-              ? t('No price data')
-              : (formatMultiplier(profile.effectivePriceMultiplier, '×') ??
-                t('No price data'))
-          }
-        />
-        <ProfileMetric
-          label={t('Response latency')}
-          value={latency.value}
-          detail={latency.source}
-        />
-        {props.showDiagnostics ? (
-          <ProfileMetric
-            label={t('Production')}
-            value={
-              profile.requestCount > 0
-                ? `${((profile.successCount / profile.requestCount) * 100).toFixed(1)}% · ${profile.successCount}/${profile.requestCount}`
-                : t('No production sample')
-            }
-          />
-        ) : null}
-      </div>
-      {props.actions || props.veridropActions || props.gpttesticuActions ? (
-        <div className='mt-3 flex flex-wrap items-center gap-2 border-t pt-3'>
-          {props.actions ? (
-            <>
-              <span className='text-muted-foreground'>
-                {t('Global routing')}: {globalRoutingStatus}
-              </span>
-              <Button
-                size='sm'
-                variant='outline'
-                disabled={!policy || togglePending || !modelExposed}
-                onClick={() => {
-                  if (!policy) return
-                  if (
-                    globallyAllowed &&
-                    !window.confirm(
-                      t('Disable this Profile from global routing?')
-                    )
-                  ) {
-                    return
-                  }
-                  props.actions?.onToggleRouting(profile, !globallyAllowed)
-                }}
-              >
-                {globallyAllowed ? t('Disable routing') : t('Enable routing')}
-              </Button>
-              <Button
-                size='sm'
-                variant='outline'
-                disabled={!firstProtocol || probePending}
-                onClick={() => {
-                  if (firstProtocol) {
-                    props.actions?.onProbe(profile, firstProtocol)
-                  }
-                }}
-              >
-                {t('Probe test')}
-              </Button>
-            </>
-          ) : null}
-          {props.veridropActions ? (
-            <Button
-              size='sm'
-              variant='outline'
-              disabled={!firstProtocol || veridropPending}
-              onClick={() => {
-                if (firstProtocol) {
-                  props.veridropActions?.onCheck(profile, firstProtocol)
-                }
-              }}
-            >
-              {veridropPending ? t('Checking...') : t('Veridrop')}
-            </Button>
-          ) : null}
-          {props.gpttesticuActions ? (
-            <Button
-              size='sm'
-              variant='outline'
-              disabled={!supportsResponses || gpttesticuPending}
-              onClick={() => props.gpttesticuActions?.onCheck(profile)}
-            >
-              {gpttesticuPending ? t('Checking...') : t('SVG behavior')}
-            </Button>
-          ) : null}
-          {tokenActions?.onSetWeight &&
-          tokenActions.onInheritWeight &&
-          tokenScope &&
-          globallyAvailableForToken ? (
-            <ACUTokenProfileWeight
-              profile={profile}
-              scope={tokenScope}
-              pending={tokenTogglePending}
-              onSetWeight={tokenActions.onSetWeight}
-              onInheritWeight={tokenActions.onInheritWeight}
-            />
-          ) : null}
-        </div>
-      ) : null}
-      {props.tokenActions ? (
-        <div className='mt-3 flex flex-wrap items-center gap-2 border-t pt-3'>
-          <span className='text-muted-foreground'>
-            {t('Global routing')}:{' '}
-            {globallyAvailableForToken ? t('Allowed') : t('Disabled')}
-          </span>
-          <span className='text-muted-foreground'>
-            {t('This API key')}: {tokenAllowed ? t('Allowed') : t('Disabled')}
-          </span>
-          <Button
-            size='sm'
-            variant='outline'
-            title={
-              isLastTokenProfile
-                ? t('At least one ACU Profile must remain enabled')
-                : undefined
-            }
-            disabled={
-              !tokenScope ||
-              !globallyAvailableForToken ||
-              tokenTogglePending ||
-              isLastTokenProfile
-            }
-            onClick={() => {
-              const action = tokenAllowed ? t('Disable') : t('Enable')
-              const confirmed = window.confirm(
-                t(
-                  'Confirm {{action}} this Profile for API key {{name}} ({{key}})?',
-                  {
-                    action,
-                    name: props.tokenActions?.tokenName,
-                    key: props.tokenActions?.maskedKey,
-                  }
-                )
-              )
-              if (confirmed) {
-                props.tokenActions?.onToggle(profile, !tokenAllowed)
-              }
-            }}
-          >
-            {tokenAllowed
-              ? t('Disable for this API key')
-              : t('Enable for this API key')}
-          </Button>
-        </div>
-      ) : null}
-      <div className='mt-3 border-t pt-3'>
-        <StatusTimeline
-          label={`${t('Probe')} · ${props.probeRange}`}
-          buckets={(profile.probeBuckets ?? []).map((bucket) => ({
-            key: bucket.bucket,
-            tone: classifyProbeBucket(bucket),
-            title: probeBucketTitle(bucket),
-          }))}
-        />
-      </div>
-      <div className='text-muted-foreground mt-2 text-[11px]'>
-        {t('Latest Probe')}:{' '}
-        {profile.latestProbe
-          ? formatProbeResult(profile.latestProbe)
-          : profile.probeStatus || t('never')}
-      </div>
-      <div className='text-muted-foreground mt-2'>
-        {profile.protocol
-          .map((value) => protocolShortLabel(value, t))
-          .join(', ')}
-      </div>
-    </div>
-  )
-}
-
-function ProfileMetric(props: {
-  label: string
-  value: string
-  detail?: string
-}) {
-  return (
-    <div className='min-w-0'>
-      <div className='text-muted-foreground text-[11px]'>{props.label}</div>
-      <div className='mt-0.5 font-medium break-words'>{props.value}</div>
-      {props.detail ? (
-        <div className='text-muted-foreground mt-0.5 text-[10px]'>
-          {props.detail}
-        </div>
-      ) : null}
-    </div>
   )
 }

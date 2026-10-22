@@ -14,6 +14,7 @@ for (const key of [
   'document',
   'navigator',
   'HTMLElement',
+  'HTMLInputElement',
   'SVGElement',
   'Node',
   'Element',
@@ -41,6 +42,7 @@ const { createRoot } = await import('react-dom/client')
 const { createInstance } = await import('i18next')
 const { I18nextProvider, initReactI18next } = await import('react-i18next')
 const { ACUModelHealthCard } = await import('../acu-model-health-card')
+const { ACUMonitorProfile } = await import('../acu-monitor-profile')
 
 const i18n = createInstance()
 await i18n
@@ -116,13 +118,13 @@ test('renders anonymous model lines and isolates user-facing supply evidence', a
   )
   const text = container.textContent ?? ''
   assert.match(text, /gpt-5\.6-luna/)
-  assert.match(text, /ACU Route ACU 线路 \d{4}/)
+  assert.match(text, /ACU 线路 \d{4}/)
   assert.match(text, /0\.030×/)
   assert.match(text, /Price factor/)
   assert.match(text, /Response latency/)
   assert.match(text, /Preferred route for long coding tasks/)
   assert.match(text, /7\.8 s/)
-  assert.match(text, /Probe-led latency score/)
+  assert.ok(container.querySelector('[title="Probe-led latency score"]'))
   assert.doesNotMatch(text, /0\.85x/)
   assert.doesNotMatch(text, /P50 first event/)
   assert.doesNotMatch(text, /lucen/)
@@ -229,15 +231,18 @@ test('toggles only the selected API key profile from the profile row', async () 
               ],
             },
             isPending: () => false,
-            onToggle: (profile, enabled) =>
+            onToggle: (profile, enabled) => {
               toggles.push({
                 profileId: profile.executionProfileId,
                 enabled,
-              }),
+              })
+            },
           }}
           profileNoteActions={{
             isPending: () => false,
-            onEdit: (profile) => editedNotes.push(profile.executionProfileId),
+            onEdit: (profile) => {
+              editedNotes.push(profile.executionProfileId)
+            },
           }}
           model={{
             modelId: 'gpt-5.6-luna',
@@ -271,12 +276,12 @@ test('toggles only the selected API key profile from the profile row', async () 
   await act(async () =>
     header.dispatchEvent(new MouseEvent('click', { bubbles: true }))
   )
-  const profileButton = [...container.querySelectorAll('button')].find(
-    (button) => button.textContent === 'Disable for this API key'
+  const profileButton = container.querySelector(
+    '[role="switch"][aria-label="Enable for this API key"]'
   )
   assert.ok(profileButton)
-  assert.match(container.textContent ?? '', /Global routing: Allowed/)
-  assert.match(container.textContent ?? '', /This API key: Allowed/)
+  assert.equal(profileButton.getAttribute('aria-checked'), 'true')
+  assert.match(container.textContent ?? '', /This API key: Enabled/)
   await act(async () =>
     profileButton.dispatchEvent(new MouseEvent('click', { bubbles: true }))
   )
@@ -287,11 +292,22 @@ test('toggles only the selected API key profile from the profile row', async () 
     },
   ])
   const noteButton = [...container.querySelectorAll('button')].find(
-    (button) => button.getAttribute('aria-label') === 'Edit note'
+    (button) => button.getAttribute('aria-label') === 'Edit public note'
   )
   assert.ok(noteButton)
   await act(async () =>
     noteButton.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  )
+  assert.equal(
+    container
+      .querySelector('input[aria-label="Public note visible to users"]')
+      ?.getAttribute('value'),
+    'Low-latency route'
+  )
+  await act(async () =>
+    container
+      .querySelector('form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
   )
   assert.deepEqual(editedNotes, ['cx006:gpt-5.6-luna:responses'])
   await act(async () => root.unmount())
@@ -351,9 +367,14 @@ test('focused anonymous route opens directly and Veridrop only checks the select
       )
     })
   await render(false)
-  const buttons = [...container.querySelectorAll('button')].filter(
-    (button) => button.textContent === 'Veridrop'
+  const diagnostics = [...container.querySelectorAll('button')].find(
+    (button) => button.textContent === 'Diagnostics'
   )
+  assert.ok(diagnostics)
+  await act(async () => diagnostics.click())
+  const buttons = [
+    ...document.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+  ].filter((item) => item.textContent === 'Veridrop')
   assert.equal(buttons.length, 1)
   await act(async () => buttons[0].click())
   assert.deepEqual(calls, ['fixture:responses/responses'])
@@ -371,4 +392,123 @@ test('focused anonymous route opens directly and Veridrop only checks the select
   assert.equal(calls.length, 1)
   await act(async () => root.unmount())
   container.remove()
+})
+
+test('failed public note save retains the draft and permits retry without closing the editor', async () => {
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  let fail = true
+  const saved: string[] = []
+  try {
+    await act(async () =>
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <ACUMonitorProfile
+            profile={
+              {
+                executionProfileId: 'test',
+                provider: 'fixture',
+                channel: 'fixture',
+                canonicalModel: 'model',
+                protocol: ['responses'],
+                routingEnabled: true,
+                state: 'healthy',
+                publicNote: 'Original',
+              } as never
+            }
+            profileNoteActions={{
+              isPending: () => false,
+              onEdit: async (_, note) => {
+                if (fail) throw new Error('Save rejected')
+                saved.push(note)
+              },
+            }}
+          />
+        </I18nextProvider>
+      )
+    )
+    const edit = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Edit public note"]'
+    )
+    assert.ok(edit)
+    await act(async () => edit.click())
+    const input = container.querySelector<HTMLInputElement>(
+      '[aria-label="Public note visible to users"]'
+    )
+    assert.ok(input)
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value'
+      )?.set?.call(input, 'New note')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await act(async () =>
+      container
+        .querySelector('form')
+        ?.dispatchEvent(
+          new Event('submit', { bubbles: true, cancelable: true })
+        )
+    )
+    assert.equal(
+      container.querySelector('[role="alert"]')?.textContent,
+      'Save rejected'
+    )
+    assert.equal(input.value, 'New note')
+    assert.equal(saved.length, 0)
+    fail = false
+    await act(async () =>
+      container
+        .querySelector('form')
+        ?.dispatchEvent(
+          new Event('submit', { bubbles: true, cancelable: true })
+        )
+    )
+    assert.deepEqual(saved, ['New note'])
+    assert.equal(container.querySelector('input'), null)
+    assert.equal(
+      container.querySelector('[role="status"]')?.textContent,
+      'Saved'
+    )
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+  }
+})
+
+test('missing profile preference multiplier is displayed as unavailable rather than zero', async () => {
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () =>
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <ACUMonitorProfile
+            showDiagnostics
+            profile={
+              {
+                executionProfileId: 'test',
+                provider: 'fixture',
+                channel: 'fixture',
+                canonicalModel: 'model',
+                protocol: ['responses'],
+                routingEnabled: true,
+                state: 'healthy',
+                profilePreferenceScore: null,
+                profilePreferenceMultiplier: null,
+              } as never
+            }
+          />
+        </I18nextProvider>
+      )
+    )
+    assert.match(container.textContent ?? '', /Profile Preference: n\/a · n\/a/)
+    assert.doesNotMatch(container.textContent ?? '', /0\.000x/)
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+  }
 })

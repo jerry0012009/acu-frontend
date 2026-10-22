@@ -44,6 +44,7 @@ const { api } = await import('@/lib/api')
 const { useAuthStore } = await import('@/stores/auth-store')
 const { ACUChannelMonitor, MonitorTable } =
   await import('../acu-channel-monitor')
+const { ACUTokenProfileWeight } = await import('../acu-token-profile-weight')
 
 const i18n = createInstance()
 await i18n.use(initReactI18next).init({
@@ -73,6 +74,82 @@ const profile = {
   profileCost: null,
   multiplier: 1,
 } as ACUChannelMonitorProfile
+
+test('a weight draft survives background changes and accepts 400 while rejecting blank input', async () => {
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  const values: number[] = []
+  const render = (weight: number) =>
+    act(async () =>
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <ACUTokenProfileWeight
+            profile={profile}
+            pending={false}
+            scope={{
+              tokenId: 7,
+              custom: false,
+              globalProfileIds: [profile.executionProfileId],
+              configuredProfileIds: [],
+              effectiveProfileIds: [profile.executionProfileId],
+              effectiveWeights: { [profile.executionProfileId]: weight },
+            }}
+            onSetWeight={async (_, value) => {
+              values.push(value)
+            }}
+            onInheritWeight={() => undefined}
+          />
+        </I18nextProvider>
+      )
+    )
+  try {
+    await render(100)
+    const input = host.querySelector('input')
+    assert.ok(input)
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value'
+      )?.set?.call(input, '400')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await render(200)
+    assert.equal(input.value, '400')
+    await act(async () =>
+      host
+        .querySelector('form')
+        ?.dispatchEvent(
+          new Event('submit', { bubbles: true, cancelable: true })
+        )
+    )
+    assert.deepEqual(values, [400])
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value'
+      )?.set?.call(input, '')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    await act(async () =>
+      host
+        .querySelector('form')
+        ?.dispatchEvent(
+          new Event('submit', { bubbles: true, cancelable: true })
+        )
+    )
+    assert.deepEqual(values, [400])
+    assert.match(
+      host.querySelector('[role="alert"]')?.textContent ?? '',
+      /0 to 500/
+    )
+  } finally {
+    await act(async () => root.unmount())
+    host.remove()
+  }
+})
 
 test('Current Profiles shows global weight and routing score without a selected API key', async () => {
   const host = document.createElement('div')
@@ -317,9 +394,14 @@ test('saving a global Profile weight invalidates cached token routing for other 
     await act(async () => {
       details.open = true
     })
-    const probe = [...host.querySelectorAll('button')].find((button) =>
-      button.textContent?.includes('Probe test')
+    const diagnostics = [...host.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Diagnostics'
     )
+    assert.ok(diagnostics)
+    await act(async () => diagnostics.click())
+    const probe = [
+      ...document.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+    ].find((item) => item.textContent === 'Probe test')
     assert.ok(probe)
     await act(async () => probe.click())
     const save = [...document.querySelectorAll('button')].find((button) =>

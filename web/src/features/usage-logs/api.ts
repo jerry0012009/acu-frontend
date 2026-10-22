@@ -915,8 +915,14 @@ export async function getACUTokenProfileRouting(tokenId: number) {
 
 export async function updateACUTokenProfileRouting(
   tokenId: number,
-  executionProfileId: string,
-  update: { enabled?: boolean; weight?: number; inheritWeight?: boolean }
+  executionProfileId: string | undefined,
+  update: {
+    enabled?: boolean
+    weight?: number
+    inheritWeight?: boolean
+    modelId?: string
+    profileStates?: Record<string, boolean>
+  }
 ) {
   const res = await api.put(`/api/token/${tokenId}/acu-profile-routing`, {
     executionProfileId,

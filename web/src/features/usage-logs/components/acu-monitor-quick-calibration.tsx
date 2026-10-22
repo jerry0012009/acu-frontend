@@ -136,7 +136,7 @@ export function ACUMonitorQuickCalibration() {
       return { saved, failed }
     },
     onSuccess: async (result) => {
-      await Promise.all([
+      void Promise.all([
         queryClient.invalidateQueries({ queryKey: ['acu-execution-profiles'] }),
         queryClient.invalidateQueries({ queryKey: ['acu-channel-monitor'] }),
         queryClient.invalidateQueries({

@@ -10,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
@@ -32,16 +33,20 @@ func TestACUTokenProfileRoutingUpdatesOnlyTheSelectedTokenScope(t *testing.T) {
 		common.RedisEnabled = previousRedis
 	})
 
-	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/internal/admin/execution-profiles" {
+			http.Error(w, "monitor aggregation is unavailable", http.StatusServiceUnavailable)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{
 			"profiles":[{
 				"executionProfileId":"provider:model:responses",
-				"canonicalModel":"model","routingEnabled":true,
+				"modelId":"model","routingEnabled":true,
 				"routingWeight":130
 			},{
 				"executionProfileId":"provider:model:messages",
-				"canonicalModel":"model","routingEnabled":true,
+				"modelId":"model","routingEnabled":true,
 				"routingWeight":80
 			}],
 			"history":[],"cooldownIntervals":[],"probeHistory":[],
@@ -163,5 +168,67 @@ func TestACUTokenProfileRoutingUpdatesOnlyTheSelectedTokenScope(t *testing.T) {
 	require.Equal(t, 130.0, scope.EffectiveWeights["provider:model:responses"])
 
 	_, err = GetACUTokenProfileRoutingScope(context.Background(), 8, token.Id)
+	require.Error(t, err)
+}
+
+func TestACUTokenProfileBatchPreservesOtherModelsAndRejectsInvalidSelections(t *testing.T) {
+	previousDB, previousOptions, previousRedis := model.DB, common.OptionMap, common.RedisEnabled
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Token{}))
+	model.DB, common.OptionMap, common.RedisEnabled = db, map[string]string{}, false
+	t.Cleanup(func() {
+		model.DB, common.OptionMap, common.RedisEnabled = previousDB, previousOptions, previousRedis
+	})
+	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/internal/admin/execution-profiles" {
+			http.Error(w, "monitor unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"profiles":[
+			{"executionProfileId":"a","modelId":"target","routingEnabled":true,"routingWeight":100},
+			{"executionProfileId":"b","modelId":"target","routingEnabled":true,"routingWeight":100},
+			{"executionProfileId":"other","modelId":"other","routingEnabled":true,"routingWeight":100},
+			{"executionProfileId":"blocked","modelId":"target","routingEnabled":false,"routingWeight":100}
+		]}`))
+	}))
+	defer router.Close()
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test")
+	token := model.Token{UserId: 7, Key: "batch-key", Name: "keep name", RemainQuota: 123,
+		ACUProfileLimitsEnabled: true, ACUProfileLimits: []string{"b", "other", "temporarily-offline"},
+		ACUProfilePreferenceScores: map[string]float64{"other": 175}}
+	require.NoError(t, db.Create(&token).Error)
+	scope, err := UpdateACUTokenProfileRouting(context.Background(), 7, token.Id, dto.ACUTokenProfileRoutingUpdate{
+		ModelID: "target", ProfileStates: map[string]bool{"a": true, "b": false},
+	})
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"a", "other"}, scope.EffectiveProfileIDs)
+	stored, err := model.GetTokenByIds(token.Id, 7)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"a", "other", "temporarily-offline"}, stored.ACUProfileLimits)
+	assert.Equal(t, 175.0, stored.ACUProfilePreferenceScores["other"])
+	assert.Equal(t, "keep name", stored.Name)
+	assert.Equal(t, 123, stored.RemainQuota)
+
+	for _, states := range []map[string]bool{
+		{"a": false, "b": false},
+		{"a": false, "other": true},
+		{"a": false, "blocked": true},
+		{"a": false, "missing": true},
+		{},
+	} {
+		_, err := UpdateACUTokenProfileRouting(context.Background(), 7, token.Id, dto.ACUTokenProfileRoutingUpdate{
+			ModelID: "target", ProfileStates: states,
+		})
+		require.Error(t, err)
+		unchanged, err := model.GetTokenByIds(token.Id, 7)
+		require.NoError(t, err)
+		assert.Equal(t, stored.ACUProfileLimits, unchanged.ACUProfileLimits)
+	}
+	_, err = UpdateACUTokenProfileRouting(context.Background(), 8, token.Id, dto.ACUTokenProfileRoutingUpdate{
+		ModelID: "target", ProfileStates: map[string]bool{"b": true},
+	})
 	require.Error(t, err)
 }

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -30,7 +31,12 @@ func TestACUProfilePublicNoteIsEditableAndVisibleInMonitor(t *testing.T) {
 		common.OptionMap = previousOptions
 	})
 
-	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	var monitorAvailable atomic.Bool
+	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/internal/admin/channel-monitor" && !monitorAvailable.Load() {
+			http.Error(w, "monitor unavailable", http.StatusServiceUnavailable)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{
 			"profiles":[{
@@ -56,6 +62,7 @@ func TestACUProfilePublicNoteIsEditableAndVisibleInMonitor(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "Stable Messages route", updated.Note)
 
+	monitorAvailable.Store(true)
 	monitor, err := GetACUChannelMonitor(
 		context.Background(),
 		"24h",
