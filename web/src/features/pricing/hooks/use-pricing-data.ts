@@ -1,13 +1,26 @@
-import { useQuery } from '@tanstack/react-query'
-import { useDeferredValue, useEffect, useMemo, useState } from 'react'
+import {
+  useQueries,
+  useQuery,
+  type UseQueryResult,
+} from '@tanstack/react-query'
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 
 import { getApiKeys } from '@/features/keys/api'
 import { useStatus } from '@/hooks/use-status'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { getACUSelectionCorridor, getPricing } from '../api'
-import { applyPricingPreview } from '../lib/pricing-comparison'
-import type { PricingProtocol } from '../types'
+import {
+  applyPricingPreview,
+  modelPricingProtocol,
+} from '../lib/pricing-comparison'
+import type { ACUSelectionCorridor, PricingProtocol } from '../types'
 
 export function usePricingData() {
   const { status } = useStatus()
@@ -20,31 +33,61 @@ export function usePricingData() {
   useEffect(() => setPreviewTokenId(undefined), [currentUser?.id])
   const deferredInputTokens = useDeferredValue(inputTokens)
   const deferredOutputTokens = useDeferredValue(outputTokens)
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['pricing'],
+    queryFn: getPricing,
+    staleTime: 30 * 1000,
+    refetchOnMount: 'always',
+  })
+  // Share at most one query per native protocol across every card and drawer.
+  const protocols = useMemo(
+    () => [
+      ...new Set([
+        pricingProtocol,
+        ...(data?.data ?? []).map((model) =>
+          modelPricingProtocol(model, pricingProtocol)
+        ),
+      ]),
+    ],
+    [data, pricingProtocol]
+  )
   const { data: apiKeys } = useQuery({
     queryKey: ['pricing-preview-api-keys', currentUser?.id],
     queryFn: () => getApiKeys({ p: 1, size: 100 }),
     enabled: currentUser != null,
     staleTime: 60_000,
   })
-  const previewQuery = useQuery({
-    queryKey: [
-      'acu-selection-corridor',
-      currentUser?.id,
-      deferredInputTokens,
-      deferredOutputTokens,
-      previewTokenId,
-      pricingProtocol,
-    ],
-    queryFn: () =>
-      getACUSelectionCorridor(
+  const previewQueries = useQueries({
+    queries: protocols.map((protocol) => ({
+      queryKey: [
+        'acu-selection-corridor',
+        currentUser?.id,
         deferredInputTokens,
         deferredOutputTokens,
         previewTokenId,
-        pricingProtocol
-      ),
-    staleTime: 60_000,
-    retry: false,
+        protocol,
+      ],
+      queryFn: () =>
+        getACUSelectionCorridor(
+          deferredInputTokens,
+          deferredOutputTokens,
+          previewTokenId,
+          protocol
+        ),
+      staleTime: 60_000,
+      retry: false,
+    })),
+    combine: useCallback(
+      (results: UseQueryResult<ACUSelectionCorridor>[]) =>
+        results.map((result) => ({
+          data: result.data,
+          isError: result.isError,
+          refetch: result.refetch,
+        })),
+      []
+    ),
   })
+  const previewQuery = previewQueries[0]
   const previewPending =
     inputTokens !== deferredInputTokens || outputTokens !== deferredOutputTokens
   const selectionCorridor =
@@ -52,13 +95,6 @@ export function usePricingData() {
   let quoteStatus: 'loading' | 'error' | 'ready' = 'loading'
   if (previewQuery.isError && !previewPending) quoteStatus = 'error'
   else if (selectionCorridor) quoteStatus = 'ready'
-
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['pricing'],
-    queryFn: getPricing,
-    staleTime: 30 * 1000,
-    refetchOnMount: 'always',
-  })
 
   // Ensure rates never reach zero to prevent division errors
   const priceRate = useMemo(
@@ -88,13 +124,15 @@ export function usePricingData() {
         group_ratio: data.group_ratio,
       }
     })
-    return applyPricingPreview(
-      catalogModels,
-      selectionCorridor,
-      pricingProtocol,
-      quoteStatus
-    )
-  }, [data, selectionCorridor, pricingProtocol, quoteStatus])
+    return catalogModels.map((model) => {
+      const protocol = modelPricingProtocol(model, pricingProtocol)
+      const query = previewQueries[protocols.indexOf(protocol)]
+      let status: 'loading' | 'error' | 'ready' = 'loading'
+      if (!previewPending && query?.isError) status = 'error'
+      else if (!previewPending && query?.data) status = 'ready'
+      return applyPricingPreview([model], query?.data, protocol, status)[0]
+    })
+  }, [data, previewQueries, protocols, pricingProtocol, previewPending])
 
   return {
     models,
@@ -123,7 +161,7 @@ export function usePricingData() {
       selectionCorridor,
       selectionCorridorUnavailable: quoteStatus === 'error',
       isPreviewLoading: quoteStatus === 'loading',
-      retry: () => previewQuery.refetch(),
+      retry: () => Promise.all(previewQueries.map((query) => query.refetch())),
     },
   }
 }

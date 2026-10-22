@@ -7,7 +7,11 @@ import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { I18nextProvider } from 'react-i18next'
 
-import type { PricingModel } from '../../types'
+import {
+  applyPricingPreview,
+  modelPricingProtocol,
+} from '../../lib/pricing-comparison'
+import type { ACUSelectionCorridor, PricingModel } from '../../types'
 import { ACUPriceSummary, ACURouteDetails } from '../acu-price-summary'
 
 const i18n = createInstance()
@@ -143,6 +147,55 @@ test('1K display scales the summary and each route consistently', () => {
       window.document.querySelector('tbody tr')?.textContent ?? '',
       /¥0\.00125.*¥0\.005/
     )
+  } finally {
+    window.close()
+  }
+})
+
+test('a Messages-only model renders Messages retail prices and routes from a Chat-default page', () => {
+  const opus: PricingModel = {
+    ...model,
+    model_name: 'claude-opus-5-5',
+    supported_endpoint_types: ['anthropic'],
+    price_currency: 'CNY',
+    price_semantics: 'estimated_user_payable_price',
+  }
+  const protocol = modelPricingProtocol(opus, 'chat_completions')
+  const corridor = {
+    supplyStrategy: 'balanced',
+    pricing: {
+      [opus.model_name]: {
+        executionProfileId: 'messages-only',
+        routes: [
+          {
+            executionProfileId: 'messages-only',
+            displayName: 'Messages route',
+            selected: true,
+            payable: {
+              inputCnyPerMillion: 1.225,
+              outputCnyPerMillion: 6.125,
+              status: 'estimated',
+              pricingPolicyVersion: 'test',
+            },
+          },
+        ],
+      },
+    },
+  } as unknown as ACUSelectionCorridor
+  const current = applyPricingPreview([opus], corridor, protocol, 'ready')[0]
+  const window = render(
+    <>
+      <ACUPriceSummary model={current} tokenUnit='M' />
+      <ACURouteDetails model={current} tokenUnit='M' />
+    </>
+  )
+  try {
+    const text = window.document.body.textContent ?? ''
+    assert.match(text, /Messages · Balanced routing/)
+    assert.match(text, /¥1\.225/)
+    assert.match(text, /¥6\.125/)
+    assert.match(text, /Messages route/)
+    assert.doesNotMatch(text, /Unavailable for current settings/)
   } finally {
     window.close()
   }

@@ -7,6 +7,27 @@ import type {
   PricingProtocol,
 } from '../types'
 
+export function modelPricingProtocol(
+  model: PricingModel,
+  preferred: PricingProtocol
+): PricingProtocol {
+  const endpoints: Record<PricingProtocol, string> = {
+    chat_completions: 'openai',
+    responses: 'openai-response',
+    messages: 'anthropic',
+  }
+  const supported = model.supported_endpoint_types ?? []
+  if (supported.includes(endpoints[preferred])) return preferred
+  for (const protocol of [
+    'chat_completions',
+    'responses',
+    'messages',
+  ] as const) {
+    if (supported.includes(endpoints[protocol])) return protocol
+  }
+  return preferred
+}
+
 export function applyPricingPreview(
   models: PricingModel[],
   corridor: ACUSelectionCorridor | undefined,
@@ -50,6 +71,25 @@ export function applyPricingPreview(
         : undefined
     return {
       ...model,
+      // Catalog health is a different snapshot from the current quote.
+      description: model.description
+        ?.split(' · ')
+        .filter(
+          (label) =>
+            label !== model.acu_status &&
+            !['routing_active', 'temporarily_unavailable'].includes(label)
+        )
+        .join(' · '),
+      tags: model.tags
+        ?.split(',')
+        .map((tag) => tag.trim())
+        .filter(
+          (tag) =>
+            tag !== model.acu_status &&
+            !['routing_active', 'temporarily_unavailable'].includes(tag)
+        )
+        .join(','),
+      acu_status: payable ? 'routing_active' : 'temporarily_unavailable',
       payable,
       payable_by_protocol: payable ? { [protocol]: payable } : {},
       input_price_per_million: payable?.input_cny_per_million,
