@@ -108,7 +108,11 @@ function ACUPricingTooltip(props: {
                 {defaultProtocolLabel ? ` · ${defaultProtocolLabel}` : ''}
               </p>
               {props.payable.context_tiers && (
-                <p>{t('Standard')}: {t('Input')} &lt;= {props.payable.context_tiers.thresholdTokens.toLocaleString()} Tokens</p>
+                <p>
+                  {t('Standard')}: {t('Input')} &lt;={' '}
+                  {props.payable.context_tiers.thresholdTokens.toLocaleString()}{' '}
+                  Tokens
+                </p>
               )}
               <p>
                 {t('Input')}:{' '}
@@ -132,10 +136,38 @@ function ACUPricingTooltip(props: {
               )}
               {props.payable.context_tiers && (
                 <div className='border-background/20 mt-2 border-t pt-2'>
-                  <p>{t('Input')} &gt; {props.payable.context_tiers.thresholdTokens.toLocaleString()} Tokens</p>
-                  <p>{t('Input')}: {formatACUCNY(props.payable.context_tiers.longContext.inputPricePerMillion)} / 1M</p>
-                  <p>{t('Output')}: {formatACUCNY(props.payable.context_tiers.longContext.outputPricePerMillion)} / 1M</p>
-                  {props.payable.context_tiers.longContext.cachedInputPricePerMillion !== undefined && <p>{t('Cached')}: {formatACUCNY(props.payable.context_tiers.longContext.cachedInputPricePerMillion)} / 1M</p>}
+                  <p>
+                    {t('Input')} &gt;{' '}
+                    {props.payable.context_tiers.thresholdTokens.toLocaleString()}{' '}
+                    Tokens
+                  </p>
+                  <p>
+                    {t('Input')}:{' '}
+                    {formatACUCNY(
+                      props.payable.context_tiers.longContext
+                        .inputPricePerMillion
+                    )}{' '}
+                    / 1M
+                  </p>
+                  <p>
+                    {t('Output')}:{' '}
+                    {formatACUCNY(
+                      props.payable.context_tiers.longContext
+                        .outputPricePerMillion
+                    )}{' '}
+                    / 1M
+                  </p>
+                  {props.payable.context_tiers.longContext
+                    .cachedInputPricePerMillion !== undefined && (
+                    <p>
+                      {t('Cached')}:{' '}
+                      {formatACUCNY(
+                        props.payable.context_tiers.longContext
+                          .cachedInputPricePerMillion
+                      )}{' '}
+                      / 1M
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -170,9 +202,27 @@ function ACUPricingTooltip(props: {
               </p>
               {props.reference.context_tiers && (
                 <div className='border-background/20 mt-2 border-t pt-2'>
-                  <p>{t('Input')} &gt; {props.reference.context_tiers.thresholdTokens.toLocaleString()} Tokens</p>
-                  <p>{t('Input')}: {formatACUCNY(props.reference.context_tiers.longContext.inputPricePerMillion)} / 1M</p>
-                  <p>{t('Output')}: {formatACUCNY(props.reference.context_tiers.longContext.outputPricePerMillion)} / 1M</p>
+                  <p>
+                    {t('Input')} &gt;{' '}
+                    {props.reference.context_tiers.thresholdTokens.toLocaleString()}{' '}
+                    Tokens
+                  </p>
+                  <p>
+                    {t('Input')}:{' '}
+                    {formatACUCNY(
+                      props.reference.context_tiers.longContext
+                        .inputPricePerMillion
+                    )}{' '}
+                    / 1M
+                  </p>
+                  <p>
+                    {t('Output')}:{' '}
+                    {formatACUCNY(
+                      props.reference.context_tiers.longContext
+                        .outputPricePerMillion
+                    )}{' '}
+                    / 1M
+                  </p>
                 </div>
               )}
               {props.reference.cached_input_cny_per_million !== undefined && (
@@ -239,12 +289,25 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
       })
     : null
 
-  const primaryGroup = groups[0]
-  const bottomTags = [...endpoints.slice(0, 2), ...tags.slice(0, 2)]
-  const hiddenCount =
-    Math.max(groups.length - 1, 0) +
-    Math.max(endpoints.length - 2, 0) +
-    Math.max(tags.length - 2, 0)
+  const hasRouteQuote = props.model.acu_quote != null
+  const primaryGroup = groups.find(
+    (group) => !hasRouteQuote || group !== 'default'
+  )
+  const bottomTags = hasRouteQuote
+    ? [...new Set(tags)].filter(
+        (tag) =>
+          !['Messages', 'Responses', 'Chat', 'Chat Completions'].includes(tag)
+      )
+    : [...endpoints.slice(0, 2), ...tags.slice(0, 2)]
+  const hiddenCount = hasRouteQuote
+    ? 0
+    : Math.max(groups.length - 1, 0) +
+      Math.max(endpoints.length - 2, 0) +
+      Math.max(tags.length - 2, 0)
+  const description = props.model.description
+  const repeatedDescription =
+    hasRouteQuote &&
+    description?.split(' · ').every((part) => tags.includes(part.trim()))
   const defaultProtocol = defaultACUPricingProtocol(
     props.model.payable_by_protocol
   )
@@ -411,16 +474,16 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   }
 
   return (
-    <div
+    <article
+      aria-label={displayName}
       className={cn(
-        'group relative flex h-full flex-col rounded-xl border p-3 transition-colors sm:p-5',
+        'group relative flex h-full min-w-0 flex-col rounded-lg border p-4 transition-colors sm:p-5',
         'hover:bg-muted/20'
       )}
     >
-      {/* Header: icon + name + price + actions */}
-      <div className='flex items-start justify-between gap-2.5 sm:gap-3'>
+      <header className='flex items-start justify-between gap-3'>
         <div className='flex min-w-0 items-start gap-2.5 sm:gap-3'>
-          <div className='bg-muted/40 flex size-9 shrink-0 items-center justify-center rounded-lg sm:size-10 sm:rounded-xl'>
+          <div className='bg-muted/40 flex size-9 shrink-0 items-center justify-center rounded-lg sm:size-10'>
             {modelIcon || (
               <span className='text-muted-foreground text-sm font-bold'>
                 {initial}
@@ -428,75 +491,89 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
             )}
           </div>
           <div className='min-w-0'>
-            <h3 className='text-foreground truncate font-mono text-[15px] leading-tight font-bold'>
+            <h3 className='text-foreground text-[15px] leading-snug font-semibold [overflow-wrap:anywhere] break-words'>
               {displayName}
             </h3>
             {props.model.display_name && (
-              <div className='text-muted-foreground truncate font-mono text-[11px]'>
+              <div className='text-muted-foreground mt-1 font-mono text-[11px] leading-relaxed [overflow-wrap:anywhere] break-words'>
                 {props.model.model_name}
               </div>
             )}
-            <div className='mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm sm:mt-1 sm:gap-x-3'>
-              {priceSummary}
-            </div>
           </div>
         </div>
 
-        <div className='flex shrink-0 items-center gap-1.5'>
-          <button
-            type='button'
-            onClick={props.onClick}
-            className='text-muted-foreground hover:text-foreground hover:bg-muted inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors sm:px-2.5 sm:py-1.5'
-          >
-            {t('Details')}
-            <ChevronRight className='size-3.5' />
-          </button>
+        <div className='shrink-0'>
           <button
             type='button'
             onClick={handleCopy}
             className='text-muted-foreground hover:text-foreground hover:bg-muted rounded-md border p-1.5 transition-colors'
             title={t('Copy')}
+            aria-label={t('Copy')}
           >
             <Copy className='size-3.5' />
           </button>
         </div>
+      </header>
+
+      <div
+        className={cn(
+          'mt-4 min-w-0 text-sm',
+          !hasRouteQuote && 'flex flex-wrap items-baseline gap-x-3 gap-y-1'
+        )}
+      >
+        {priceSummary}
       </div>
 
-      {/* Description */}
-      <p className='text-muted-foreground mt-2 line-clamp-1 flex-1 text-[13px] leading-relaxed sm:mt-4 sm:line-clamp-2 sm:min-h-[2.5rem]'>
-        {props.model.description || t('No description available.')}
-      </p>
+      {description && !repeatedDescription && (
+        <p className='text-muted-foreground mt-3 line-clamp-2 text-xs leading-relaxed'>
+          {description}
+        </p>
+      )}
 
-      <div className='mt-auto flex flex-col gap-2 pt-4'>
-        <div className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1'>
-          {primaryGroup && (
-            <span className='text-muted-foreground text-sm font-medium'>
-              {primaryGroup}
+      <footer className='mt-4 flex flex-1 flex-col justify-end gap-3'>
+        <div className='text-muted-foreground flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs'>
+          {primaryGroup && <span className='font-medium'>{primaryGroup}</span>}
+          {bottomTags.map((item) => (
+            <span key={item}>{item}</span>
+          ))}
+          {!hasRouteQuote && (
+            <span className='text-muted-foreground/50 text-xs'>
+              {tokenUnitLabel}
             </span>
           )}
-          <ModelBillingModeBadge model={props.model} />
-          <ModelPerfBadge perf={props.perf} latency={props.model.acu_quote ? {
-            label: t('Top route first token'),
-            value: props.model.acu_quote.routes.find((route) => route.selected)?.first_token_latency_ms,
-          } : undefined} />
-        </div>
-
-        <div className='flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1'>
-          {bottomTags.map((item) => (
-            <span key={item} className='text-muted-foreground/70 text-xs'>
-              {item}
-            </span>
-          ))}
-          <span className='text-muted-foreground/50 text-xs'>
-            {tokenUnitLabel}
-          </span>
           {hiddenCount > 0 && (
             <span className='text-muted-foreground/40 text-xs'>
               +{hiddenCount}
             </span>
           )}
         </div>
-      </div>
-    </div>
+        <div className='flex flex-wrap items-center justify-between gap-3 border-t pt-3'>
+          <div className='flex min-w-0 flex-wrap items-center gap-3'>
+            <ModelBillingModeBadge model={props.model} />
+            <ModelPerfBadge
+              perf={props.perf}
+              latency={
+                props.model.acu_quote
+                  ? {
+                      label: t('Top route first token'),
+                      value: props.model.acu_quote.routes.find(
+                        (route) => route.selected
+                      )?.first_token_latency_ms,
+                    }
+                  : undefined
+              }
+            />
+          </div>
+          <button
+            type='button'
+            onClick={props.onClick}
+            className='text-muted-foreground hover:text-foreground inline-flex shrink-0 items-center gap-1 py-1 text-xs transition-colors'
+          >
+            {t('Details')}
+            <ChevronRight className='size-3.5' />
+          </button>
+        </div>
+      </footer>
+    </article>
   )
 })
