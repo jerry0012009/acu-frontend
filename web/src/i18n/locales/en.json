@@ -1,6 +1,9 @@
 {
   "translation": {
     "Price factor range": "Price factor range",
+    "Current API key factor range": "Current API key factor range",
+    "Selectable factor range": "Selectable factor range",
+    "No priced Profiles enabled": "No priced Profiles enabled",
     "available lines": "available lines",
     "Production": "Production",
     "Probe": "Probe",

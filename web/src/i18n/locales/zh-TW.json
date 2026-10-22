@@ -1,6 +1,9 @@
 {
   "translation": {
     "Price factor range": "價格倍率範圍",
+    "Current API key factor range": "目前 Key 已啟用倍率範圍",
+    "Selectable factor range": "可選線路倍率範圍",
+    "No priced Profiles enabled": "暫無已啟用且價格已知的線路",
     "available lines": "條可用線路",
     "Production": "正式呼叫",
     "Probe": "探測",

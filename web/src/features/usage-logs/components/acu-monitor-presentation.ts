@@ -15,6 +15,21 @@ export type ACUMonitorProtocol =
   | 'messages'
   | 'chat_completions'
 
+export function modelProfilePriceRange(
+  profiles: ACUChannelMonitorProfile[],
+  profileIds: string[]
+): { minimum: number; maximum: number } | null {
+  const prices = profiles
+    .filter((profile) => profileIds.includes(profile.executionProfileId))
+    .map((profile) => profile.effectivePriceMultiplier)
+    .filter(
+      (price): price is number =>
+        price != null && Number.isFinite(price) && price >= 0
+    )
+  if (prices.length === 0) return null
+  return { minimum: Math.min(...prices), maximum: Math.max(...prices) }
+}
+
 export function previewModelPriceRange(
   profiles: ACUChannelMonitorProfile[],
   scope: ACUTokenProfileRoutingScope,

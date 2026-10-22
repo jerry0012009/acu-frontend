@@ -5,7 +5,10 @@ import type {
   ACUChannelMonitorProfile,
   ACUTokenProfileRoutingScope,
 } from '../../api'
-import { previewModelPriceRange } from '../acu-monitor-presentation'
+import {
+  modelProfilePriceRange,
+  previewModelPriceRange,
+} from '../acu-monitor-presentation'
 
 const profiles = [
   { executionProfileId: 'low', effectivePriceMultiplier: 0.03 },
@@ -71,4 +74,32 @@ test('already applied selection produces no changes and retains zero prices', ()
   assert.deepEqual(result.states, { free: true })
   assert.equal(result.changes.length, 0)
   assert.equal(result.unknown, 0)
+})
+
+test('current and selectable ranges use only known prices in their respective API key scopes', () => {
+  assert.deepEqual(
+    modelProfilePriceRange(profiles, scope.effectiveProfileIds),
+    { minimum: 0.029, maximum: 0.201 }
+  )
+  assert.deepEqual(
+    modelProfilePriceRange(profiles, ['low', 'high', 'unknown']),
+    { minimum: 0.03, maximum: 0.2 }
+  )
+  assert.equal(modelProfilePriceRange(profiles, ['unknown']), null)
+  assert.equal(modelProfilePriceRange(profiles, []), null)
+  assert.deepEqual(
+    modelProfilePriceRange(
+      [
+        {
+          executionProfileId: 'free',
+          effectivePriceMultiplier: 0,
+        } as ACUChannelMonitorProfile,
+      ],
+      ['free']
+    ),
+    {
+      minimum: 0,
+      maximum: 0,
+    }
+  )
 })

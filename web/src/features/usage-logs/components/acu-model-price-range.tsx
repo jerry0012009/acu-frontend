@@ -7,12 +7,16 @@ import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
 import { publicChannelAlias } from '@/features/acu/lib/public-channel-alias'
+import { formatMultiplier } from '@/lib/format'
 
 import type {
   ACUChannelMonitorProfile,
   ACUTokenProfileRoutingScope,
 } from '../api'
-import { previewModelPriceRange } from './acu-monitor-presentation'
+import {
+  modelProfilePriceRange,
+  previewModelPriceRange,
+} from './acu-monitor-presentation'
 
 const priceRangeSchema = z
   .object({
@@ -41,9 +45,21 @@ export function ACUModelPriceRange(props: {
   ) => Promise<unknown>
 }) {
   const { t } = useTranslation()
+  const currentRange = modelProfilePriceRange(
+    props.profiles,
+    props.scope.effectiveProfileIds
+  )
+  const availableRange = modelProfilePriceRange(
+    props.profiles,
+    props.scope.globalProfileIds
+  )
+  const initialRange = currentRange ?? availableRange
   const form = useForm({
     resolver: zodResolver(priceRangeSchema),
-    defaultValues: { minimum: '0.03', maximum: '0.20' },
+    defaultValues: {
+      minimum: initialRange == null ? '' : String(initialRange.minimum),
+      maximum: initialRange == null ? '' : String(initialRange.maximum),
+    },
   })
   const values = form.watch()
   const valid = priceRangeSchema.safeParse(values).success
@@ -96,6 +112,28 @@ export function ACUModelPriceRange(props: {
         }
       })}
     >
+      <dl className='flex flex-wrap gap-x-6 gap-y-2 text-xs'>
+        <div>
+          <dt className='text-muted-foreground'>
+            {t('Current API key factor range')}
+          </dt>
+          <dd className='mt-1 font-medium tabular-nums'>
+            {currentRange == null
+              ? t('No priced Profiles enabled')
+              : `${formatMultiplier(currentRange.minimum, '×')} ~ ${formatMultiplier(currentRange.maximum, '×')}`}
+          </dd>
+        </div>
+        <div>
+          <dt className='text-muted-foreground'>
+            {t('Selectable factor range')}
+          </dt>
+          <dd className='mt-1 font-medium tabular-nums'>
+            {availableRange == null
+              ? t('No price data')
+              : `${formatMultiplier(availableRange.minimum, '×')} ~ ${formatMultiplier(availableRange.maximum, '×')}`}
+          </dd>
+        </div>
+      </dl>
       <div className='flex flex-wrap items-end gap-3'>
         <span className='self-center text-xs font-medium'>
           {t('Price factor range')}
