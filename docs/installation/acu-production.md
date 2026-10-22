@@ -20,54 +20,25 @@ New API Console 以域名根路径运行，不设置 `/console` 或 `/acu` basen
 
 ## 2. 版本化配置来源
 
-- New API 源码：`/root/jerry/new-api` 的 `main`；
+- New API 源码：`/root/jerry/acu-frontend` 的 `main`；
 - Alpha Compose：Claw Router 仓库的 `deploy/alpha/docker-compose.yml`；
 - 公网路由：Claw Router 仓库的 `deploy/alpha/nginx-acu-public-locations.conf`；
-- Secret：`/root/jerry/new-api/.env`，仅服务器本地保存，不提交；
+- Secret：`/root/jerry/claw-router/deploy/alpha/.env`，仅服务器本地保存，不提交；
 - 数据：Compose 的 PostgreSQL / ACU 数据卷，不随镜像重建。
 
 当前 Alpha 不使用本仓库根目录的通用 `docker-compose.yml` 发布生产 New API，也不使用公共 `calciumion/new-api:latest` 覆盖定制镜像。
 
 ## 3. 发布步骤
 
-先确保 New API 与 Claw Router 都在已推送的 `main`，工作树干净：
+Router 和 Console 统一遵循 [Router / Console 发布与连接连续性流程](https://github.com/jerry0012009/acu-router/blob/main/docs/operations/acu-service-release.md)。本机文件为 `/root/jerry/claw-router/docs/operations/acu-service-release.md`。选择 `release_service=new-api`，只替换本服务。
 
-```bash
-git -C /root/jerry/new-api fetch origin
-git -C /root/jerry/new-api status --short --branch
-git -C /root/jerry/claw-router fetch origin
-git -C /root/jerry/claw-router status --short --branch
-```
+1. 在独立 worktree 中完成相关 Go / 前端测试、类型检查与构建，合入远端 main；保持 canonical main 干净且与已 fetch 的 origin/main 一致。前端优先使用 Bun，遵循本仓库 AGENTS.md。
+2. 使用 Router 仓库的 `deploy-production.sh --check new-api` 核对构建来源，**构建前保留 running image 的回滚标签**。应用源固定 `/root/jerry/acu-frontend`，生产环境唯一文件为 `/root/jerry/claw-router/deploy/alpha/.env`。
+3. 在旧 Console 运行时构建带 revision 的镜像，并用 Router 的 `release-executor.py prepare new-api <revision>` 准备发布；实际参数按共享流程执行。
+4. `launch` 一次，由宿主机 systemd 独立执行切换与回滚。若 agent 因 API 断连，读取原 manifest 和 unit 继续观察，不要重复部署。
+5. 等到 completed，核对运行 revision、健康、自动重启策略及公网状态，再验证页面和完整流式请求与结算；仅 HTTP 200 不能证明请求完整。
 
-执行前端检查：
-
-```bash
-cd /root/jerry/new-api/web
-bun run typecheck
-bun run lint
-bun run build
-```
-
-使用 Claw Router Compose 构建带可追溯 Commit 的镜像：
-
-```bash
-cd /root/jerry/claw-router/deploy/alpha
-NEW_API_BUILD_COMMIT_SHA=$(git -C /root/jerry/new-api rev-parse HEAD) \
-NEW_API_BUILD_BRANCH=main \
-BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
-docker compose --env-file /root/jerry/claw-router/.env build new-api
-
-docker compose --env-file /root/jerry/claw-router/.env \
-  up -d --no-deps new-api
-```
-
-等待健康检查变为 `healthy`，不要在新容器健康前删除旧镜像：
-
-```bash
-docker inspect acu-router-alpha-new-api-1 \
-  --format 'status={{.State.Status}} health={{.State.Health.Status}}'
-curl -fsS http://127.0.0.1:3200/api/status
-```
+当前生产仍是单实例替换，可能短暂中断。先启动再切流的隔离测试与接入条件见共享流程；不要直接用 Compose `up`、普通 `restart` 或重启 Router 来替代该流程。只改文档或宿主机发布脚本不需要重启应用。
 
 ## 4. Nginx 接入
 
