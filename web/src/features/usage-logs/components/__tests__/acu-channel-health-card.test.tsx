@@ -358,14 +358,18 @@ test('redacts credentials from Latest Probe text and timeline titles', async () 
   container.remove()
 })
 
-test('renders Root Profile actions and keeps globally disabled Profiles probeable', async () => {
+test('renders administrator global routing details and keeps globally disabled Profiles probeable', async () => {
   const container = document.createElement('div')
   document.body.append(container)
   const root = createRoot(container)
   const routingChanges: Array<{ id: string; enabled: boolean }> = []
   const probes: Array<{ id: string; protocol: string }> = []
   const originalConfirm = window.confirm
-  window.confirm = () => true
+  let confirmMessage = ''
+  window.confirm = (message) => {
+    confirmMessage = message ?? ''
+    return true
+  }
   await act(async () => {
     root.render(
       <I18nextProvider i18n={i18n}>
@@ -382,6 +386,8 @@ test('renders Root Profile actions and keeps globally disabled Profiles probeabl
                 channel: 'cx006',
                 protocol: ['responses', 'chat_completions'],
                 state: 'healthy',
+                effectivePriceMultiplier: 0.045,
+                publicNote: 'Preferred line',
                 routingEligible: true,
                 enabled: true,
                 administratorAllowed: true,
@@ -407,18 +413,20 @@ test('renders Root Profile actions and keeps globally disabled Profiles probeabl
             targetedProbeSuccessCount: 0,
             latestHealthEvent: null,
           }}
-          profileActions={{
+          globalProfileActions={{
             policy: {
               modelPolicy: 'all_routing_eligible',
               allowedModelIds: [],
             },
             isTogglePending: () => false,
-            isProbePending: () => false,
             onToggleRouting: (profile, enabled) =>
               routingChanges.push({
                 id: profile.executionProfileId,
                 enabled,
               }),
+          }}
+          profileActions={{
+            isProbePending: () => false,
             onProbe: (profile, protocol) =>
               probes.push({ id: profile.executionProfileId, protocol }),
           }}
@@ -454,6 +462,13 @@ test('renders Root Profile actions and keeps globally disabled Profiles probeabl
   assert.deepEqual(routingChanges, [
     { id: 'cx006:gpt-5.6-luna:responses', enabled: true },
   ])
+  assert.match(confirmMessage, /Line: cx006/)
+  assert.match(confirmMessage, /0\.045×/)
+  assert.match(confirmMessage, /Preferred line/)
+  assert.match(
+    confirmMessage,
+    /Execution Profile ID: cx006:gpt-5\.6-luna:responses/
+  )
   assert.deepEqual(probes, [
     { id: 'cx006:gpt-5.6-luna:responses', protocol: 'responses' },
   ])
@@ -508,14 +523,16 @@ test('allows explicit-only Profile enablement independently of the Auto model al
             targetedProbeSuccessCount: 0,
             latestHealthEvent: null,
           }}
-          profileActions={{
+          globalProfileActions={{
             policy: {
               modelPolicy: 'custom_allowlist',
               allowedModelIds: ['gpt-5.6-luna'],
             },
             isTogglePending: () => false,
-            isProbePending: () => true,
             onToggleRouting: () => undefined,
+          }}
+          profileActions={{
+            isProbePending: () => true,
             onProbe: () => undefined,
           }}
         />

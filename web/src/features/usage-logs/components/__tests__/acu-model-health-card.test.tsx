@@ -199,6 +199,107 @@ test('shows production evidence for an admin model view', async () => {
   container.remove()
 })
 
+test('previews line details before applying a multiplier range to the current key', async () => {
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  const applied: Array<Record<string, boolean>> = []
+  await act(async () => {
+    root.render(
+      <I18nextProvider i18n={i18n}>
+        <ACUModelHealthCard
+          showDiagnostics
+          tokenProfileActions={{
+            tokenName: 'primary',
+            maskedKey: 'sk-test',
+            scope: {
+              tokenId: 7,
+              custom: true,
+              globalProfileIds: ['line-low', 'line-high'],
+              configuredProfileIds: [],
+              effectiveProfileIds: ['line-low', 'line-high'],
+            },
+            isPending: () => false,
+            onToggle: () => undefined,
+            onApply: async (_modelId, states) => {
+              applied.push(states)
+            },
+          }}
+          model={{
+            modelId: 'opus-5.5',
+            eligibleCount: 2,
+            totalCount: 2,
+            requestCount: 0,
+            successCount: 0,
+            availability: null,
+            buckets: [],
+            probeBuckets: [],
+            profiles: [
+              {
+                executionProfileId: 'line-low',
+                canonicalModel: 'opus-5.5',
+                provider: 'provider-a',
+                channel: 'channel-101',
+                protocol: ['responses'],
+                publicNote: 'Lower cost',
+                effectivePriceMultiplier: 0.03,
+              },
+              {
+                executionProfileId: 'line-high',
+                canonicalModel: 'opus-5.5',
+                provider: 'provider-b',
+                channel: 'channel-202',
+                protocol: ['responses'],
+                publicNote: 'Fast response',
+                effectivePriceMultiplier: 0.2,
+              },
+            ] as never,
+          }}
+        />
+      </I18nextProvider>
+    )
+  })
+  const heading = container.querySelector('button[aria-expanded]')
+  assert.ok(heading)
+  await act(async () =>
+    heading.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  )
+  const minimum = container.querySelector<HTMLInputElement>(
+    '[aria-label="Minimum factor"]'
+  )
+  assert.ok(minimum)
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value'
+    )?.set?.call(minimum, '0.1')
+    minimum.dispatchEvent(new Event('input', { bubbles: true }))
+    minimum.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+  const openConfirmation = [...container.querySelectorAll('button')].find(
+    (button) => button.textContent?.includes('Apply once')
+  )
+  assert.ok(openConfirmation)
+  await act(async () => openConfirmation.click())
+  assert.match(document.body.textContent ?? '', /channel-101/)
+  assert.match(document.body.textContent ?? '', /0\.030×/)
+  assert.match(document.body.textContent ?? '', /Lower cost/)
+  assert.match(
+    document.body.textContent ?? '',
+    /Execution Profile ID: line-low/
+  )
+  const confirm = [
+    ...(document
+      .querySelector('[data-slot="dialog-content"]')
+      ?.querySelectorAll('button') ?? []),
+  ].find((button) => button.textContent?.includes('Apply once'))
+  assert.ok(confirm)
+  await act(async () => confirm.click())
+  assert.deepEqual(applied, [{ 'line-low': false, 'line-high': true }])
+  await act(async () => root.unmount())
+  container.remove()
+})
+
 test('toggles only the selected API key profile from the profile row', async () => {
   const container = document.createElement('div')
   document.body.append(container)

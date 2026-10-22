@@ -6,6 +6,14 @@ import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { publicChannelAlias } from '@/features/acu/lib/public-channel-alias'
 import { formatMultiplier } from '@/lib/format'
 
@@ -37,7 +45,7 @@ export function ACUModelPriceRange(props: {
   modelId: string
   profiles: ACUChannelMonitorProfile[]
   scope: ACUTokenProfileRoutingScope
-  scenario?: string
+  isAdmin: boolean
   pending: boolean
   onApply: (
     modelId: string,
@@ -61,6 +69,8 @@ export function ACUModelPriceRange(props: {
       maximum: initialRange == null ? '' : String(initialRange.maximum),
     },
   })
+  // react-hook-form's watch subscription drives these derived previews.
+  // oxlint-disable-next-line react(incompatible-library)
   const values = form.watch()
   const valid = priceRangeSchema.safeParse(values).success
   const preview = previewModelPriceRange(
@@ -71,9 +81,29 @@ export function ACUModelPriceRange(props: {
   )
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
-  const pending = props.pending || form.formState.isSubmitting
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const pending = props.pending || saving
   const enableCount = preview.changes.filter((change) => change.enabled).length
   const disableCount = preview.changes.length - enableCount
+  const applySelection = async () => {
+    setError('')
+    setSaved(false)
+    setSaving(true)
+    try {
+      await props.onApply(props.modelId, preview.states)
+      setSaved(true)
+      setConfirmOpen(false)
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : t('API key routing update failed')
+      )
+    } finally {
+      setSaving(false)
+    }
+  }
   return (
     <form
       className='space-y-2'
@@ -84,32 +114,9 @@ export function ACUModelPriceRange(props: {
       }}
       onSubmit={form.handleSubmit(async () => {
         if (pending || !preview.matched || !preview.changes.length) return
-        if (
-          !window.confirm(
-            t(
-              'Apply this selection to {{model}} for the current API key? Enable {{enabled}}, disable {{disabled}}.',
-              {
-                model: props.modelId,
-                enabled: enableCount,
-                disabled: disableCount,
-              }
-            )
-          )
-        ) {
-          return
-        }
         setError('')
         setSaved(false)
-        try {
-          await props.onApply(props.modelId, preview.states)
-          setSaved(true)
-        } catch (reason) {
-          setError(
-            reason instanceof Error
-              ? reason.message
-              : t('API key routing update failed')
-          )
-        }
+        setConfirmOpen(true)
       })}
     >
       <dl className='flex flex-wrap gap-x-6 gap-y-2 text-xs'>
@@ -182,11 +189,6 @@ export function ACUModelPriceRange(props: {
           <Check className='size-3.5' />
           {pending ? t('Saving...') : t('Apply once')}
         </Button>
-        {props.scenario && (
-          <span className='text-muted-foreground self-center text-xs'>
-            {t('Request size')}: {props.scenario}
-          </span>
-        )}
       </div>
       {!valid ? (
         <p role='alert' className='text-destructive text-xs'>
@@ -212,34 +214,6 @@ export function ACUModelPriceRange(props: {
           )}
         </div>
       )}
-      {valid && preview.changes.length > 0 && (
-        <details className='text-xs'>
-          <summary className='text-muted-foreground w-fit cursor-pointer'>
-            {t('Pending changes')} ({preview.changes.length})
-          </summary>
-          <ul className='mt-2 max-h-40 space-y-1 overflow-y-auto'>
-            {preview.changes.map((change) => (
-              <li
-                key={change.profile.executionProfileId}
-                className='flex min-w-0 gap-2'
-              >
-                <span className='shrink-0'>
-                  {change.enabled ? t('Enable') : t('Disable')}
-                </span>
-                <span className='min-w-0 break-words'>
-                  {publicChannelAlias(
-                    change.profile.provider,
-                    change.profile.channel
-                  )}
-                  {change.profile.publicNote
-                    ? ` · ${change.profile.publicNote}`
-                    : ''}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
       {error && (
         <p role='alert' className='text-destructive text-xs'>
           {error}
@@ -250,6 +224,87 @@ export function ACUModelPriceRange(props: {
           {t('Selection saved')}
         </p>
       )}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className='max-h-[90vh] w-[min(46rem,calc(100%-1rem))] max-w-none overflow-y-auto'>
+          <DialogHeader>
+            <DialogTitle>{t('Apply price factor range')}</DialogTitle>
+            <DialogDescription className='break-words'>
+              {t('Apply this selection to {{model}} for the current API key.', {
+                model: props.modelId,
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className='text-xs'>
+            {t('Enable {{enabled}}, disable {{disabled}}', {
+              enabled: enableCount,
+              disabled: disableCount,
+            })}
+          </div>
+          <ul className='max-h-[50vh] space-y-2 overflow-y-auto rounded border p-2 text-xs'>
+            {preview.changes.map((change) => (
+              <li
+                key={change.profile.executionProfileId}
+                className='grid min-w-0 gap-x-3 gap-y-1 border-b pb-2 last:border-0 last:pb-0 sm:grid-cols-[5rem_minmax(8rem,1fr)_6rem_minmax(8rem,1fr)]'
+              >
+                <span className='font-medium'>
+                  {change.enabled ? t('Enable') : t('Disable')}
+                </span>
+                <span className='min-w-0 break-words'>
+                  {publicChannelAlias(
+                    change.profile.provider,
+                    change.profile.channel
+                  )}
+                  {props.isAdmin && (
+                    <span className='text-muted-foreground block break-all'>
+                      {t('Channel ID')}: {change.profile.channel}
+                    </span>
+                  )}
+                </span>
+                <span className='tabular-nums'>
+                  {change.profile.effectivePriceMultiplier == null
+                    ? t('No price data')
+                    : formatMultiplier(
+                        change.profile.effectivePriceMultiplier,
+                        '×'
+                      )}
+                </span>
+                <span className='min-w-0 break-words'>
+                  {change.profile.publicNote || t('No public note')}
+                </span>
+                {props.isAdmin && (
+                  <span className='text-muted-foreground min-w-0 break-all sm:col-span-4'>
+                    {t('Execution Profile ID')}:{' '}
+                    {change.profile.executionProfileId}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+          {error && (
+            <p role='alert' className='text-destructive text-xs'>
+              {error}
+            </p>
+          )}
+          <DialogFooter>
+            <Button
+              type='button'
+              variant='outline'
+              disabled={saving}
+              onClick={() => setConfirmOpen(false)}
+            >
+              {t('Cancel')}
+            </Button>
+            <Button
+              type='button'
+              disabled={pending || !preview.changes.length}
+              onClick={() => void applySelection()}
+            >
+              <Check className='size-3.5' />
+              {saving ? t('Saving...') : t('Apply once')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </form>
   )
 }

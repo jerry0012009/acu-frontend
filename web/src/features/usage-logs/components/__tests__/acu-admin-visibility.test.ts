@@ -6,6 +6,10 @@ const monitorSource = readFileSync(
   new URL('../acu-channel-monitor.tsx', import.meta.url),
   'utf8'
 )
+const routerSource = readFileSync(
+  new URL('../../../../../../router/api-router.go', import.meta.url),
+  'utf8'
+)
 const usageApiSource = readFileSync(
   new URL('../../api.ts', import.meta.url),
   'utf8'
@@ -73,11 +77,13 @@ test('root Router configuration is lazy and keeps saved state separate from draf
   assert.match(monitorSource, /structuredClone\(savedUtilityConfig\)/)
 })
 
-test('overview Profile routing controls stay Root-only and reuse existing policy and Probe APIs', () => {
+test('global Profile routing controls are admin-visible while Probe actions remain Root-only', () => {
   assert.match(
     monitorSource,
-    /const profileActions = isRoot[\s\S]{0,260}globalRoutingPolicyQuery/
+    /const globalProfileActions = isAdmin[\s\S]{0,260}globalRoutingPolicyQuery/
   )
+  assert.match(monitorSource, /const profileActions = isRoot/)
+  assert.match(monitorSource, /enabled: isAdmin/)
   assert.match(monitorSource, /probeACUExecutionProfileById/)
   assert.match(
     usageApiSource,
@@ -102,7 +108,22 @@ test('overview Profile routing controls stay Root-only and reuse existing policy
     /getACUChannelMonitor[\s\S]{0,260}probeRange[\s\S]{0,180}URLSearchParams/
   )
   assert.match(monitorSource, /showDiagnostics=\{isAdmin\}/)
-  assert.match(monitorSource, /const profileActions = isRoot/)
+  assert.match(monitorSource, /globalProfileActions=\{globalProfileActions\}/)
+  assert.match(
+    routerSource,
+    /adminOptionRoute\.Use\(middleware\.AdminAuth\(\)\)[\s\S]{0,220}GET\("\/acu-routing-policy"[\s\S]{0,120}PUT\("\/acu-routing-policy\/profile"/
+  )
+  assert.match(routerSource, /optionRoute\.Use\(middleware\.RootAuth\(\)\)/)
+  assert.match(
+    routerSource,
+    /optionRoute\.PUT\("\/acu-routing-policy", controller\.UpdateACUGlobalRoutingPolicy\)/
+  )
+})
+
+test('monitor hides request size controls and keeps the default pricing scenario', () => {
+  assert.doesNotMatch(monitorSource, /t\('Request size'\)/)
+  assert.doesNotMatch(monitorSource, /setScenario/)
+  assert.match(monitorSource, /getACUChannelMonitor\([\s\S]{0,100}'standard'/)
 })
 
 test('ordinary users get only the anonymous Model Overview presentation', () => {

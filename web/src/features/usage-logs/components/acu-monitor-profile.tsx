@@ -59,11 +59,13 @@ export type ACUMonitorProfileActions = {
     onEdit: (profile: Profile, note: string) => SaveResult
   }
   profileActions?: {
+    isProbePending: (id: string) => boolean
+    onProbe: (profile: Profile, protocol: string) => void
+  }
+  globalProfileActions?: {
     policy?: ACUGlobalRoutingPolicy
     isTogglePending: (id: string) => boolean
-    isProbePending: (id: string) => boolean
     onToggleRouting: (profile: Profile, enabled: boolean) => void
-    onProbe: (profile: Profile, protocol: string) => void
   }
   veridropActions?: {
     isPending: (id: string) => boolean
@@ -101,7 +103,7 @@ export function ACUMonitorProfile(
   const notePending = props.profileNoteActions?.isPending(id) ?? false
   const latency = profileLatencyDisplay(profile, t)
   const eligible = profile.routingEnabled && monitorProfileEligible(profile)
-  const policy = props.profileActions?.policy
+  const policy = props.globalProfileActions?.policy
   const modelExposed =
     policy &&
     modelAccessFor(
@@ -355,7 +357,7 @@ export function ACUMonitorProfile(
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-        {props.profileActions && (
+        {props.globalProfileActions && (
           <div className='ml-auto flex flex-wrap items-center gap-2 text-xs'>
             <span className='text-muted-foreground'>{t('Global routing')}</span>
             <Switch
@@ -363,18 +365,27 @@ export function ACUMonitorProfile(
               aria-label={t('Global routing')}
               checked={profile.routingEnabled}
               disabled={
-                !modelExposed || props.profileActions.isTogglePending(id)
+                !modelExposed || props.globalProfileActions.isTogglePending(id)
               }
               onCheckedChange={(checked) => {
                 if (
-                  !checked &&
                   !window.confirm(
-                    t('Disable this Profile from global routing?')
+                    [
+                      t(
+                        checked
+                          ? 'Enable this Profile for global routing?'
+                          : 'Disable this Profile from global routing?'
+                      ),
+                      `${t('Line')}: ${profile.channel}`,
+                      `${t('Price factor')}: ${profile.effectivePriceMultiplier == null ? t('No price data') : formatMultiplier(profile.effectivePriceMultiplier, '×')}`,
+                      `${t('Note')}: ${profile.publicNote || t('No public note')}`,
+                      `${t('Execution Profile ID')}: ${profile.executionProfileId}`,
+                    ].join('\n')
                   )
                 ) {
                   return
                 }
-                props.profileActions?.onToggleRouting(profile, checked)
+                props.globalProfileActions?.onToggleRouting(profile, checked)
               }}
             />
             <span>{profile.routingEnabled ? t('Enabled') : t('Disabled')}</span>

@@ -52,7 +52,6 @@ import {
   type ACUProbeHistoryRow,
   type ACUMonitorRange,
   type ACUProbeTimelineRange,
-  type ACUMonitorScenario,
   type ACUSupplyStrategy,
   type ACUGlobalRoutingPolicy,
   type ACURoutingUtilityConfig,
@@ -268,7 +267,6 @@ export function ACUChannelMonitor(
   const [probeRange, setProbeRange] = useState<ACUProbeTimelineRange>('48h')
   const [supplyStrategy, setSupplyStrategy] =
     useState<ACUSupplyStrategy>('balanced')
-  const [scenario, setScenario] = useState<ACUMonitorScenario>('standard')
   const [protocol, setProtocol] = useState<ACUMonitorProtocol>('responses')
   const [sort, setSort] = useState<ACUMonitorSort>('recommended')
   const [filters, setFilters] = useState<ProfileFilters>(EMPTY_PROFILE_FILTERS)
@@ -286,8 +284,11 @@ export function ACUChannelMonitor(
     // The focus prop intentionally resets the monitor view for deep links.
     // oxlint-disable-next-line react(set-state-in-effect)
     setProtocol(props.focus.protocol)
+    // oxlint-disable-next-line react(set-state-in-effect)
     setActiveTab('overview')
+    // oxlint-disable-next-line react(set-state-in-effect)
     setSort((current) => (current === 'routing_rank' ? 'recommended' : current))
+    // oxlint-disable-next-line react(set-state-in-effect)
     setOverviewLayout('model')
   }, [props.focus])
   const query = useQuery({
@@ -295,7 +296,7 @@ export function ACUChannelMonitor(
       'acu-channel-monitor',
       range,
       supplyStrategy,
-      scenario,
+      'standard',
       probeRange,
       protocol,
     ],
@@ -303,7 +304,7 @@ export function ACUChannelMonitor(
       getACUChannelMonitor(
         range,
         supplyStrategy,
-        scenario,
+        'standard',
         probeRange,
         protocol
       ),
@@ -441,7 +442,7 @@ export function ACUChannelMonitor(
   const globalRoutingPolicyQuery = useQuery({
     queryKey: ['acu-global-routing-policy'],
     queryFn: getACUGlobalRoutingPolicy,
-    enabled: isRoot,
+    enabled: isAdmin,
   })
   const globalRoutingMutation = useMutation({
     mutationKey: ['acu-global-profile-save'],
@@ -681,14 +682,11 @@ export function ACUChannelMonitor(
     range,
     sort,
   ])
-  const profileActions = isRoot
+  const globalProfileActions = isAdmin
     ? {
         policy: globalRoutingPolicyQuery.data,
         isTogglePending: (profileId: string) =>
           pendingGlobalEdits.includes(profileId),
-        isProbePending: (profileId: string) =>
-          probeMutation.isPending &&
-          probeMutation.variables?.executionProfileId === profileId,
         onToggleRouting: (
           profile: ACUChannelMonitorProfile,
           enabled: boolean
@@ -698,6 +696,13 @@ export function ACUChannelMonitor(
             enabled,
           })
         },
+      }
+    : undefined
+  const profileActions = isRoot
+    ? {
+        isProbePending: (profileId: string) =>
+          probeMutation.isPending &&
+          probeMutation.variables?.executionProfileId === profileId,
         onProbe: (profile: ACUChannelMonitorProfile, probeProtocol: string) => {
           setCalibrationMessage('')
           setProbeInspector({
@@ -959,23 +964,6 @@ export function ACUChannelMonitor(
                 </select>
               </label>
               <label className='min-w-0 space-y-1 text-xs'>
-                <span className='text-muted-foreground'>
-                  {t('Request size')}
-                </span>
-                <select
-                  aria-label={t('Request size')}
-                  className='bg-background h-8 w-full rounded-md border px-2 text-xs'
-                  value={scenario}
-                  onChange={(event) =>
-                    setScenario(event.target.value as ACUMonitorScenario)
-                  }
-                >
-                  <option value='small'>{t('Small 2k/500')}</option>
-                  <option value='standard'>{t('Standard 20k/2k')}</option>
-                  <option value='long'>{t('Long context 100k/4k')}</option>
-                </select>
-              </label>
-              <label className='min-w-0 space-y-1 text-xs'>
                 <span className='text-muted-foreground'>{t('Sort')}</span>
                 <select
                   aria-label={t('Sort')}
@@ -1200,6 +1188,7 @@ export function ACUChannelMonitor(
                     channel={channel}
                     generatedAt={query.data?.data?.generatedAt ?? ''}
                     profileActions={profileActions}
+                    globalProfileActions={globalProfileActions}
                     veridropActions={veridropActions}
                     gpttesticuActions={gpttesticuActions}
                     profileNoteActions={profileNoteActions}
@@ -1213,14 +1202,8 @@ export function ACUChannelMonitor(
                     focusedLine={props.focus?.line}
                     showDiagnostics={isAdmin}
                     probeRange={probeRange}
-                    priceScenario={
-                      {
-                        small: t('Small 2k/500'),
-                        standard: t('Standard 20k/2k'),
-                        long: t('Long context 100k/4k'),
-                      }[scenario]
-                    }
                     profileActions={profileActions}
+                    globalProfileActions={globalProfileActions}
                     veridropActions={veridropActions}
                     gpttesticuActions={gpttesticuActions}
                     tokenProfileActions={tokenProfileActions}

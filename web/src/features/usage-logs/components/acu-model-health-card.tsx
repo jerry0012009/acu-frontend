@@ -26,7 +26,6 @@ export function ACUModelHealthCard(
     focusedLine?: string
     showDiagnostics?: boolean
     probeRange?: ACUProbeTimelineRange
-    priceScenario?: string
   }
 ) {
   const { t } = useTranslation()
@@ -110,11 +109,11 @@ export function ACUModelHealthCard(
               </div>
               {token.scope && token.onApply && (
                 <ACUModelPriceRange
-                  key={`${token.scope.tokenId}:${props.model.modelId}:${props.priceScenario}`}
+                  key={`${token.scope.tokenId}:${props.model.modelId}`}
                   modelId={props.model.modelId}
                   profiles={profiles}
                   scope={token.scope}
-                  scenario={props.priceScenario}
+                  isAdmin={props.showDiagnostics ?? false}
                   pending={profiles.some((profile) =>
                     token.isPending(profile.executionProfileId)
                   )}

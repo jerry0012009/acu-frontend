@@ -227,15 +227,19 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/subscription/epay/notify", controller.SubscriptionEpayNotify)
 		apiRouter.GET("/subscription/epay/return", controller.SubscriptionEpayReturn)
 		apiRouter.POST("/subscription/epay/return", anonymousRequestBodyLimit, controller.SubscriptionEpayReturn)
+		adminOptionRoute := apiRouter.Group("/option")
+		adminOptionRoute.Use(middleware.AdminAuth())
+		{
+			adminOptionRoute.GET("/acu-routing-policy", controller.GetACUGlobalRoutingPolicy)
+			adminOptionRoute.PUT("/acu-routing-policy/profile", controller.UpdateACUGlobalProfileRouting)
+		}
 		optionRoute := apiRouter.Group("/option")
 		optionRoute.Use(middleware.RootAuth())
 		{
 			optionRoute.GET("/", controller.GetOptions)
 			optionRoute.PUT("/", controller.UpdateOption)
 			optionRoute.POST("/acu-quick-start-media", controller.UploadAcuQuickStartMedia)
-			optionRoute.GET("/acu-routing-policy", controller.GetACUGlobalRoutingPolicy)
 			optionRoute.PUT("/acu-routing-policy", controller.UpdateACUGlobalRoutingPolicy)
-			optionRoute.PUT("/acu-routing-policy/profile", controller.UpdateACUGlobalProfileRouting)
 			optionRoute.GET("/acu-routing-utility-config", controller.GetACURoutingUtilityConfig)
 			optionRoute.PUT("/acu-routing-utility-config", controller.UpdateACURoutingUtilityConfig)
 			optionRoute.POST("/payment_compliance", controller.ConfirmPaymentCompliance)
