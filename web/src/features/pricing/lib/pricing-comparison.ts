@@ -45,7 +45,11 @@ export function applyPricingPreview(
       status === 'ready' ? corridor?.pricing?.[model.model_name] : undefined
     const routes = (price?.routes ?? []).map((route) => ({
       id: route.executionProfileId,
-      display_name: route.displayName,
+      display_name: /^\d{4}$/.test(route.lineCode ?? '')
+        ? `Line ${route.lineCode}`
+        : 'Route',
+      line_code: route.lineCode,
+      public_note: route.publicNote,
       selected: route.selected,
       first_token_latency_ms: route.firstTokenLatencyMs,
       first_token_latency_source: route.firstTokenLatencySource,

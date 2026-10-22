@@ -26,6 +26,7 @@
     "Selection saved": "线路选择已保存",
     "Save note": "保存备注",
     "Edit public note": "编辑公开备注",
+    "Line {{number}}": "线路 {{number}}",
     "Profile weight": "线路权重",
     "Profile weight must be from 0 to 500": "线路权重必须在 0 到 500 之间",
     "Inherited": "继承全局",

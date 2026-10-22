@@ -46,6 +46,8 @@ const corridor = {
         {
           executionProfileId: 'chat-route',
           displayName: 'Chat route',
+          lineCode: '2468',
+          publicNote: 'Public Chat note',
           selected: true,
           payable: {
             inputCnyPerMillion: 1.25,
@@ -74,6 +76,8 @@ test('a live Chat quote replaces directory prices and legacy ratios consistently
   ])
   assert.equal(current.acu_quote?.routes.length, 1)
   assert.equal(current.acu_quote?.routes[0].payable.output_cny_per_million, 5)
+  assert.equal(current.acu_quote?.routes[0].display_name, 'Line 2468')
+  assert.equal(current.acu_quote?.routes[0].public_note, 'Public Chat note')
 })
 
 test('a missing protocol quote never falls back to another protocol or directory price', () => {

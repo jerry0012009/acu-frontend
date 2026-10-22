@@ -226,7 +226,16 @@ export function ACURouteDetails(props: {
                     scope='row'
                     className='max-w-40 py-2 pr-3 font-normal break-words'
                   >
-                    {route.display_name}
+                    <span className='block whitespace-nowrap'>
+                      {/^\d{4}$/.test(route.line_code ?? '')
+                        ? t('Line {{number}}', { number: route.line_code })
+                        : t('Route')}
+                    </span>
+                    {route.public_note && (
+                      <span className='text-muted-foreground mt-1 block max-w-48 [overflow-wrap:anywhere] break-words whitespace-pre-wrap'>
+                        {route.public_note}
+                      </span>
+                    )}
                   </th>
                   <td className='py-2 pr-3 font-mono font-semibold tabular-nums'>
                     {ratio == null ? '-' : formatMultiplier(ratio)}
