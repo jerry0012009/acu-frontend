@@ -47,6 +47,8 @@ export function ACUModelHealthCard(
       )
     : props.model.profiles
   const token = props.tokenProfileActions
+  const priceRangeScope = props.priceRangeActions?.scope ?? token?.scope
+  const applyPriceRange = props.priceRangeActions?.onApply ?? token?.onApply
   return (
     <section
       className={cn(
@@ -102,22 +104,30 @@ export function ACUModelHealthCard(
       </div>
       {expanded && (
         <>
-          {token && (
+          {(token || props.priceRangeActions) && (
             <div className='bg-muted/20 border-t px-3 py-3 sm:px-4'>
-              <div className='mb-2 text-xs font-medium break-words'>
-                {t('This API key')}: {token.tokenName}
-              </div>
-              {token.scope && token.onApply && (
+              {token && !props.priceRangeActions && (
+                <div className='mb-2 text-xs font-medium break-words'>
+                  {t('This API key')}: {token.tokenName}
+                </div>
+              )}
+              {priceRangeScope && applyPriceRange && (
                 <ACUModelPriceRange
-                  key={`${token.scope.tokenId}:${props.model.modelId}`}
+                  key={`${props.priceRangeActions?.targetLabel ?? token?.scope?.tokenId ?? 'key'}:${props.model.modelId}`}
                   modelId={props.model.modelId}
                   profiles={profiles}
-                  scope={token.scope}
+                  scope={priceRangeScope}
                   isAdmin={props.showDiagnostics ?? false}
-                  pending={profiles.some((profile) =>
-                    token.isPending(profile.executionProfileId)
+                  pending={profiles.some(
+                    (profile) =>
+                      props.priceRangeActions?.pending ??
+                      token?.isPending(profile.executionProfileId) ??
+                      false
                   )}
-                  onApply={token.onApply}
+                  targetLabel={
+                    props.priceRangeActions?.targetLabel ?? t('This API key')
+                  }
+                  onApply={applyPriceRange}
                 />
               )}
             </div>

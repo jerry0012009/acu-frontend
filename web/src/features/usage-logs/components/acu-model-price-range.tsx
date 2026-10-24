@@ -60,9 +60,14 @@ function formatFactorBound(
 export function ACUModelPriceRange(props: {
   modelId: string
   profiles: ACUChannelMonitorProfile[]
-  scope: ACUTokenProfileRoutingScope
+  scope: Pick<
+    ACUTokenProfileRoutingScope,
+    'globalProfileIds' | 'effectiveProfileIds'
+  >
   isAdmin: boolean
   pending: boolean
+  targetLabel: string
+  currentRangeLabel?: string
   onApply: (
     modelId: string,
     states: Record<string, boolean>
@@ -144,7 +149,7 @@ export function ACUModelPriceRange(props: {
       <div className='flex flex-wrap items-center gap-x-4 gap-y-2 text-xs'>
         <div className='flex min-w-0 flex-wrap items-center gap-x-1'>
           <span className='text-muted-foreground'>
-            {t('Current API key factor range')}
+            {t(props.currentRangeLabel ?? 'Current API key factor range')}
           </span>
           <span className='font-medium tabular-nums'>
             {currentRange == null
@@ -235,8 +240,9 @@ export function ACUModelPriceRange(props: {
           <DialogHeader>
             <DialogTitle>{t('Apply price factor range')}</DialogTitle>
             <DialogDescription className='break-words'>
-              {t('Apply this selection to {{model}} for the current API key.', {
+              {t('Apply this selection to {{model}} for {{target}}.', {
                 model: props.modelId,
+                target: t(props.targetLabel),
               })}
             </DialogDescription>
           </DialogHeader>

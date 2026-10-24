@@ -288,6 +288,74 @@ test('switching from Current Profiles resets model-local routing rank and hides 
   }
 })
 
+test('admins can switch between global and API-key configuration targets', async () => {
+  const originalUser = useAuthStore.getState().auth.user
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+  })
+  queryClient.setQueryData(
+    ['acu-channel-monitor', '24h', 'balanced', 'standard', '48h', 'responses'],
+    {
+      success: true,
+      data: {
+        profiles: [profile],
+        history: [],
+        probeHistory: [],
+        modelPool: [],
+        generatedAt: '2026-09-28T12:00:00Z',
+      },
+    }
+  )
+  queryClient.setQueryData(['channel-monitor-api-keys'], {
+    data: { items: [] },
+  })
+  useAuthStore.getState().auth.setUser({
+    id: 1,
+    username: 'admin',
+    role: 10,
+  })
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  try {
+    await act(async () =>
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <I18nextProvider i18n={i18n}>
+            <ACUChannelMonitor />
+          </I18nextProvider>
+        </QueryClientProvider>
+      )
+    )
+    const global = [...host.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Global configuration'
+    )
+    const key = [...host.querySelectorAll('button')].find(
+      (button) => button.textContent === 'API key configuration'
+    )
+    assert.ok(global)
+    assert.ok(key)
+    assert.equal(
+      host.querySelector('select[aria-label="API key"]') !== null,
+      true
+    )
+    await act(async () => global.click())
+    assert.equal(global.getAttribute('aria-pressed'), 'true')
+    assert.equal(host.querySelector('select[aria-label="API key"]'), null)
+    await act(async () => key.click())
+    assert.equal(key.getAttribute('aria-pressed'), 'true')
+    assert.equal(
+      host.querySelector('select[aria-label="API key"]') !== null,
+      true
+    )
+  } finally {
+    await act(async () => root.unmount())
+    queryClient.clear()
+    useAuthStore.getState().auth.setUser(originalUser)
+    host.remove()
+  }
+})
+
 test('saving a global Profile weight invalidates cached token routing for other keys', async () => {
   const originalAdapter = api.defaults.adapter
   const originalUser = useAuthStore.getState().auth.user

@@ -80,7 +80,7 @@ test('root Router configuration is lazy and keeps saved state separate from draf
 test('global Profile routing controls are admin-visible while Probe actions remain Root-only', () => {
   assert.match(
     monitorSource,
-    /const globalProfileActions = isAdmin[\s\S]{0,260}globalRoutingPolicyQuery/
+    /const globalProfileActions =\s*isAdmin && adminConfigScope === 'global'[\s\S]{0,260}globalRoutingPolicyQuery/
   )
   assert.match(monitorSource, /const profileActions = isRoot/)
   assert.match(monitorSource, /enabled: isAdmin/)

@@ -1,6 +1,12 @@
 {
   "translation": {
     "Price factor range": "价格倍率范围",
+    "Configuration target": "配置对象",
+    "Global configuration": "全局配置",
+    "API key configuration": "API Key 配置",
+    "Current global factor range": "当前全局启用倍率范围",
+    "Apply this selection to {{model}} for {{target}}.": "将此线路选择应用到 {{target}} 的 {{model}}。",
+    "{{enabled}} of {{total}} Profiles enabled": "已启用 {{enabled}} / {{total}} 条线路",
     "Current API key factor range": "当前 Key 已启用倍率范围",
     "Selectable factor range": "可选线路倍率范围",
     "No priced Profiles enabled": "暂无已启用且价格已知的线路",

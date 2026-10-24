@@ -790,11 +790,11 @@ export async function updateACUGlobalRoutingPolicy(
 
 export async function updateACUGlobalProfileRouting(
   executionProfileId: string,
-  enabled: boolean
+  update: { enabled?: boolean; weight?: number }
 ) {
   const res = await api.put('/api/option/acu-routing-policy/profile', {
     executionProfileId,
-    enabled,
+    ...update,
   })
   return requireACUSuccess(
     res.data as {

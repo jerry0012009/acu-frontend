@@ -32,7 +32,10 @@ export function modelProfilePriceRange(
 
 export function previewModelPriceRange(
   profiles: ACUChannelMonitorProfile[],
-  scope: ACUTokenProfileRoutingScope,
+  scope: Pick<
+    ACUTokenProfileRoutingScope,
+    'globalProfileIds' | 'effectiveProfileIds'
+  >,
   minimum: number,
   maximum: number
 ) {

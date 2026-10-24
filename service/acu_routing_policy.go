@@ -493,14 +493,30 @@ func ApplyACUGlobalRoutingScope(
 func UpdateACUGlobalProfileRouting(
 	ctx context.Context,
 	executionProfileID string,
-	enabled bool,
+	enabled *bool,
+	weight *float64,
 ) (ACURoutingScope, error) {
 	executionProfileID = strings.TrimSpace(executionProfileID)
 	if executionProfileID == "" {
 		return ACURoutingScope{}, fmt.Errorf("executionProfileId is required")
 	}
-	if _, err := UpdateACUExecutionProfileRouting(ctx, executionProfileID, enabled); err != nil {
-		return ACURoutingScope{}, err
+	if enabled == nil && weight == nil {
+		return ACURoutingScope{}, fmt.Errorf("enabled or weight is required")
+	}
+	if weight != nil {
+		if math.IsNaN(*weight) || math.IsInf(*weight, 0) || *weight < 0 || *weight > 500 {
+			return ACURoutingScope{}, fmt.Errorf("ACU Profile weight must be from 0 to 500")
+		}
+		if _, err := UpdateACUExecutionProfile(ctx, executionProfileID, map[string]interface{}{
+			"routingWeight": *weight,
+		}); err != nil {
+			return ACURoutingScope{}, err
+		}
+	}
+	if enabled != nil {
+		if _, err := UpdateACUExecutionProfileRouting(ctx, executionProfileID, *enabled); err != nil {
+			return ACURoutingScope{}, err
+		}
 	}
 	clearACUChannelMonitorCache()
 	return GetACUGlobalRoutingScope()

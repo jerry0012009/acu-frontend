@@ -44,8 +44,9 @@ func UpdateACUGlobalRoutingPolicy(c *gin.Context) {
 
 func UpdateACUGlobalProfileRouting(c *gin.Context) {
 	var input struct {
-		ExecutionProfileID string `json:"executionProfileId"`
-		Enabled            bool   `json:"enabled"`
+		ExecutionProfileID string   `json:"executionProfileId"`
+		Enabled            *bool    `json:"enabled"`
+		Weight             *float64 `json:"weight"`
 	}
 	if err := common.DecodeJson(c.Request.Body, &input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "invalid ACU Profile routing update"})
@@ -55,6 +56,7 @@ func UpdateACUGlobalProfileRouting(c *gin.Context) {
 		c.Request.Context(),
 		input.ExecutionProfileID,
 		input.Enabled,
+		input.Weight,
 	)
 	if err != nil {
 		common.ApiError(c, err)
@@ -68,6 +70,7 @@ func UpdateACUGlobalProfileRouting(c *gin.Context) {
 		map[string]interface{}{
 			"execution_profile_id": input.ExecutionProfileID,
 			"enabled":              input.Enabled,
+			"routing_weight":       input.Weight,
 		},
 		auditOperatorInfo(c),
 		nil,

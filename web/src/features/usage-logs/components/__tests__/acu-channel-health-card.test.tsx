@@ -436,6 +436,7 @@ test('renders administrator global routing details and keeps globally disabled P
                 id: profile.executionProfileId,
                 enabled,
               }),
+            onSetWeight: async () => undefined,
           }}
           profileActions={{
             isProbePending: () => false,
@@ -552,6 +553,7 @@ test('allows explicit-only Profile enablement independently of the Auto model al
             },
             isTogglePending: () => false,
             onToggleRouting: () => undefined,
+            onSetWeight: async () => undefined,
           }}
           profileActions={{
             isProbePending: () => true,

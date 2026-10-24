@@ -1,6 +1,12 @@
 {
   "translation": {
     "Price factor range": "Price factor range",
+    "Configuration target": "Configuration target",
+    "Global configuration": "Global configuration",
+    "API key configuration": "API key configuration",
+    "Current global factor range": "Current global factor range",
+    "Apply this selection to {{model}} for {{target}}.": "Apply this selection to {{model}} for {{target}}.",
+    "{{enabled}} of {{total}} Profiles enabled": "{{enabled}} of {{total}} Profiles enabled",
     "Current API key factor range": "Current API key factor range",
     "Selectable factor range": "Selectable factor range",
     "No priced Profiles enabled": "No priced Profiles enabled",

@@ -66,6 +66,20 @@ export type ACUMonitorProfileActions = {
     policy?: ACUGlobalRoutingPolicy
     isTogglePending: (id: string) => boolean
     onToggleRouting: (profile: Profile, enabled: boolean) => void
+    onSetWeight: (profile: Profile, weight: number) => Promise<unknown>
+  }
+  priceRangeActions?: {
+    scope: Pick<
+      ACUTokenProfileRoutingScope,
+      'globalProfileIds' | 'effectiveProfileIds'
+    >
+    pending: boolean
+    targetLabel: string
+    currentRangeLabel?: string
+    onApply: (
+      modelId: string,
+      states: Record<string, boolean>
+    ) => Promise<unknown>
   }
   veridropActions?: {
     isPending: (id: string) => boolean
@@ -102,6 +116,11 @@ export function ACUMonitorProfile(
   const [toggleMessage, setToggleMessage] = useState('')
   const [toggleError, setToggleError] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [globalWeightDraft, setGlobalWeightDraft] = useState<string | null>(
+    null
+  )
+  const [globalWeightMessage, setGlobalWeightMessage] = useState('')
+  const [globalWeightError, setGlobalWeightError] = useState(false)
   const notePending = props.profileNoteActions?.isPending(id) ?? false
   const latency = profileLatencyDisplay(profile, t)
   const eligible = profile.routingEnabled && monitorProfileEligible(profile)
@@ -370,7 +389,7 @@ export function ACUMonitorProfile(
           </DropdownMenu>
         )}
         {props.globalProfileActions && (
-          <div className='ml-auto flex flex-wrap items-center gap-2 text-xs'>
+          <div className='ml-auto flex min-w-0 flex-wrap items-center gap-2 text-xs'>
             <span className='text-muted-foreground'>{t('Global routing')}</span>
             <Switch
               size='sm'
@@ -401,6 +420,82 @@ export function ACUMonitorProfile(
               }}
             />
             <span>{profile.routingEnabled ? t('Enabled') : t('Disabled')}</span>
+            <form
+              className='flex items-center gap-1'
+              onSubmit={async (event) => {
+                event.preventDefault()
+                const weight = Number(globalWeightDraft)
+                if (
+                  globalWeightDraft === null ||
+                  !Number.isFinite(weight) ||
+                  weight < 0 ||
+                  weight > 500
+                ) {
+                  setGlobalWeightError(true)
+                  setGlobalWeightMessage(
+                    t('Profile weight must be from 0 to 500')
+                  )
+                  return
+                }
+                setGlobalWeightError(false)
+                setGlobalWeightMessage(t('Saving...'))
+                try {
+                  await props.globalProfileActions?.onSetWeight(profile, weight)
+                  setGlobalWeightDraft(null)
+                  setGlobalWeightMessage(t('Saved'))
+                } catch (error) {
+                  setGlobalWeightError(true)
+                  setGlobalWeightMessage(
+                    error instanceof Error
+                      ? error.message
+                      : t('Global routing update failed')
+                  )
+                }
+              }}
+            >
+              <label className='flex items-center gap-1'>
+                <span>{t('Global weight')}</span>
+                <input
+                  aria-label={t('Global weight')}
+                  className='bg-background h-7 w-16 rounded border px-1.5 tabular-nums'
+                  type='number'
+                  min={0}
+                  max={500}
+                  step={0.1}
+                  value={globalWeightDraft ?? String(profile.routingWeight)}
+                  disabled={props.globalProfileActions.isTogglePending(id)}
+                  onChange={(event) => {
+                    setGlobalWeightDraft(event.target.value)
+                    setGlobalWeightMessage('')
+                  }}
+                />
+              </label>
+              <Button
+                size='icon-sm'
+                variant='ghost'
+                type='submit'
+                title={t('Save weight')}
+                aria-label={t('Save weight')}
+                disabled={
+                  props.globalProfileActions.isTogglePending(id) ||
+                  globalWeightDraft === null
+                }
+              >
+                <Save />
+              </Button>
+              {globalWeightMessage && (
+                <span
+                  role={globalWeightError ? 'alert' : 'status'}
+                  className={
+                    globalWeightError
+                      ? 'text-destructive'
+                      : 'text-muted-foreground'
+                  }
+                >
+                  {globalWeightMessage}
+                </span>
+              )}
+            </form>
           </div>
         )}
         <Button

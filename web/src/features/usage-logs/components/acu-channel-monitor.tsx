@@ -279,6 +279,9 @@ export function ACUChannelMonitor(
     useState<VeridropInspectorState | null>(null)
   const [calibrationMessage, setCalibrationMessage] = useState('')
   const [selectedTokenId, setSelectedTokenId] = useState<number | null>(null)
+  const [adminConfigScope, setAdminConfigScope] = useState<'global' | 'key'>(
+    'key'
+  )
   useEffect(() => {
     if (!props.focus) return
     // The focus prop intentionally resets the monitor view for deep links.
@@ -446,13 +449,28 @@ export function ACUChannelMonitor(
   })
   const globalRoutingMutation = useMutation({
     mutationKey: ['acu-global-profile-save'],
-    mutationFn: (input: { profileId: string; enabled: boolean }) =>
-      updateACUGlobalProfileRouting(input.profileId, input.enabled),
+    mutationFn: (input: {
+      profileId: string
+      enabled?: boolean
+      weight?: number
+    }) =>
+      updateACUGlobalProfileRouting(input.profileId, {
+        enabled: input.enabled,
+        weight: input.weight,
+      }),
     onSuccess: async (_, input) => {
       await queryClient.cancelQueries({ queryKey: ['acu-channel-monitor'] })
       updateMonitorProfiles((profile) =>
         profile.executionProfileId === input.profileId
-          ? { ...profile, routingEnabled: input.enabled }
+          ? {
+              ...profile,
+              ...(input.enabled === undefined
+                ? {}
+                : { routingEnabled: input.enabled }),
+              ...(input.weight === undefined
+                ? {}
+                : { routingWeight: input.weight }),
+            }
           : profile
       )
       void queryClient.invalidateQueries({
@@ -470,11 +488,6 @@ export function ACUChannelMonitor(
           ? error.message
           : t('Global routing update failed')
       ),
-  })
-  const pendingGlobalEdits = useMutationState({
-    filters: { mutationKey: ['acu-global-profile-save'], status: 'pending' },
-    select: (mutation) =>
-      (mutation.state.variables as { profileId: string }).profileId,
   })
   const probeMutation = useMutation({
     mutationFn: ({
@@ -682,22 +695,30 @@ export function ACUChannelMonitor(
     range,
     sort,
   ])
-  const globalProfileActions = isAdmin
-    ? {
-        policy: globalRoutingPolicyQuery.data,
-        isTogglePending: (profileId: string) =>
-          pendingGlobalEdits.includes(profileId),
-        onToggleRouting: (
-          profile: ACUChannelMonitorProfile,
-          enabled: boolean
-        ) => {
-          globalRoutingMutation.mutate({
-            profileId: profile.executionProfileId,
-            enabled,
-          })
-        },
-      }
-    : undefined
+  const globalProfileActions =
+    isAdmin && adminConfigScope === 'global'
+      ? {
+          policy: globalRoutingPolicyQuery.data,
+          isTogglePending: (profileId: string) =>
+            globalRoutingMutation.isPending &&
+            globalRoutingMutation.variables?.profileId === profileId,
+          onToggleRouting: (
+            profile: ACUChannelMonitorProfile,
+            enabled: boolean
+          ) => {
+            globalRoutingMutation.mutate({
+              profileId: profile.executionProfileId,
+              enabled,
+            })
+          },
+          onSetWeight: (profile: ACUChannelMonitorProfile, weight: number) => {
+            return globalRoutingMutation.mutateAsync({
+              profileId: profile.executionProfileId,
+              weight,
+            })
+          },
+        }
+      : undefined
   const profileActions = isRoot
     ? {
         isProbePending: (profileId: string) =>
@@ -763,7 +784,9 @@ export function ACUChannelMonitor(
         }
       : undefined
   const tokenProfileActions =
-    selectedToken && selectedTokenId != null
+    selectedToken &&
+    selectedTokenId != null &&
+    (!isAdmin || adminConfigScope === 'key')
       ? {
           tokenName: selectedToken.name,
           maskedKey: selectedToken.key,
@@ -802,6 +825,44 @@ export function ACUChannelMonitor(
               modelId,
               profileStates,
             }),
+        }
+      : undefined
+  const globalPriceRangeScope = useMemo(() => {
+    const profiles = query.data?.data?.profiles ?? []
+    return {
+      globalProfileIds: profiles.map((profile) => profile.executionProfileId),
+      effectiveProfileIds: profiles
+        .filter((profile) => profile.routingEnabled)
+        .map((profile) => profile.executionProfileId),
+    }
+  }, [query.data?.data?.profiles])
+  const priceRangeActions =
+    isAdmin && adminConfigScope === 'global'
+      ? {
+          scope: globalPriceRangeScope,
+          pending: globalRoutingMutation.isPending,
+          onApply: async (
+            _modelId: string,
+            states: Record<string, boolean>
+          ) => {
+            await Promise.all(
+              Object.entries(states).map(([profileId, enabled]) =>
+                updateACUGlobalProfileRouting(profileId, { enabled })
+              )
+            )
+            await Promise.all([
+              queryClient.invalidateQueries({
+                queryKey: ['acu-global-routing-policy'],
+              }),
+              queryClient.invalidateQueries({
+                queryKey: ['acu-channel-monitor'],
+              }),
+              queryClient.invalidateQueries({
+                queryKey: ['acu-token-profile-routing'],
+              }),
+            ])
+          },
+          targetLabel: t('Global routing'),
         }
       : undefined
   const profileNoteActions = isAdmin
@@ -870,30 +931,55 @@ export function ACUChannelMonitor(
       )}
       <div className='bg-card/50 rounded-lg border p-3 sm:p-4'>
         <div className='grid gap-3 lg:grid-cols-[minmax(18rem,1.35fr)_minmax(16rem,1fr)]'>
-          <label className='min-w-0 space-y-1 text-xs'>
-            <span className='text-muted-foreground'>{t('API key')}</span>
-            <select
-              aria-label={t('API key')}
-              className='bg-background h-9 w-full min-w-0 rounded-md border px-2.5 text-sm'
-              value={selectedTokenId ?? ''}
-              disabled={apiKeysQuery.isLoading || apiKeys.length === 0}
-              onChange={(event) =>
-                setSelectedTokenId(
-                  event.target.value ? Number(event.target.value) : null
-                )
-              }
-            >
-              {apiKeys.length === 0 ? (
-                <option value=''>{t('No API keys')}</option>
-              ) : null}
-              {apiKeys.map((token) => (
-                <option key={token.id} value={token.id}>
-                  {token.name} · {token.key}
-                </option>
-              ))}
-            </select>
-          </label>
-          {selectedToken ? (
+          <div className='space-y-2'>
+            {isAdmin && (
+              <div
+                className='bg-muted inline-flex h-8 rounded-md p-0.5'
+                aria-label={t('Configuration target')}
+              >
+                {(['global', 'key'] as const).map((scope) => (
+                  <Button
+                    key={scope}
+                    size='sm'
+                    variant={adminConfigScope === scope ? 'default' : 'ghost'}
+                    className='h-7 px-3 text-xs'
+                    aria-pressed={adminConfigScope === scope}
+                    onClick={() => setAdminConfigScope(scope)}
+                  >
+                    {scope === 'global'
+                      ? t('Global configuration')
+                      : t('API key configuration')}
+                  </Button>
+                ))}
+              </div>
+            )}
+            {(!isAdmin || adminConfigScope === 'key') && (
+              <label className='block min-w-0 space-y-1 text-xs'>
+                <span className='text-muted-foreground'>{t('API key')}</span>
+                <select
+                  aria-label={t('API key')}
+                  className='bg-background h-9 w-full min-w-0 rounded-md border px-2.5 text-sm'
+                  value={selectedTokenId ?? ''}
+                  disabled={apiKeysQuery.isLoading || apiKeys.length === 0}
+                  onChange={(event) =>
+                    setSelectedTokenId(
+                      event.target.value ? Number(event.target.value) : null
+                    )
+                  }
+                >
+                  {apiKeys.length === 0 ? (
+                    <option value=''>{t('No API keys')}</option>
+                  ) : null}
+                  {apiKeys.map((token) => (
+                    <option key={token.id} value={token.id}>
+                      {token.name} · {token.key}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+          {selectedToken && (!isAdmin || adminConfigScope === 'key') && (
             <div className='bg-muted/35 flex min-w-0 flex-wrap content-center gap-x-5 gap-y-2 rounded-md px-3 py-2 text-xs'>
               <div className='min-w-0'>
                 <div className='text-muted-foreground'>
@@ -922,7 +1008,28 @@ export function ACUChannelMonitor(
                 </div>
               </div>
             </div>
-          ) : null}
+          )}
+          {isAdmin && adminConfigScope === 'global' && (
+            <div className='bg-muted/35 flex min-w-0 flex-wrap content-center gap-x-5 gap-y-2 rounded-md px-3 py-2 text-xs'>
+              <div>
+                <div className='text-muted-foreground'>
+                  {t('Configuration target')}
+                </div>
+                <div className='mt-0.5 font-medium'>
+                  {t('Global configuration')}
+                </div>
+              </div>
+              <div>
+                <div className='text-muted-foreground'>{t('Scope')}</div>
+                <div className='mt-0.5 font-medium tabular-nums'>
+                  {t('{{enabled}} of {{total}} Profiles enabled', {
+                    enabled: globalPriceRangeScope.effectiveProfileIds.length,
+                    total: globalPriceRangeScope.globalProfileIds.length,
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         <div className='mt-3 grid gap-2 border-t pt-3 sm:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))_minmax(14rem,1.35fr)]'>
           {isAdmin && (
@@ -1207,6 +1314,14 @@ export function ACUChannelMonitor(
                     veridropActions={veridropActions}
                     gpttesticuActions={gpttesticuActions}
                     tokenProfileActions={tokenProfileActions}
+                    priceRangeActions={
+                      priceRangeActions
+                        ? {
+                            ...priceRangeActions,
+                            currentRangeLabel: t('Current global factor range'),
+                          }
+                        : undefined
+                    }
                     profileNoteActions={profileNoteActions}
                   />
                 ))}
