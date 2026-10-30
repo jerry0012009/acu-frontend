@@ -30,6 +30,50 @@ test('legacy null Profile limits normalize to an empty array', () => {
   assert.deepEqual(result.acu_profile_limits, [])
 })
 
+test('API Key list and edit forms retain Profile weights through the supported 500 limit', () => {
+  const weights = {
+    'sub2api:gpt-6-astra:responses': 220,
+    'sub2api:gpt-6-luna:responses': 400,
+    'sub2api:gpt-6.1-sol:responses': 500,
+  }
+  const apiKey = apiKeySchema.parse({
+    id: 1,
+    name: 'weighted-token',
+    key: 'masked',
+    status: 1,
+    remain_quota: 0,
+    used_quota: 0,
+    unlimited_quota: true,
+    expired_time: -1,
+    created_time: 0,
+    accessed_time: 0,
+    model_limits_enabled: false,
+    acu_profile_preference_scores: weights,
+  })
+  assert.deepEqual(apiKey.acu_profile_preference_scores, weights)
+
+  const schema = getApiKeyFormSchema(((value: string) => value) as never)
+  const defaults = transformApiKeyToFormDefaults(apiKey)
+  const form = schema.parse(defaults)
+  assert.deepEqual(
+    transformFormDataToPayload(form).acu_profile_preference_scores,
+    weights
+  )
+})
+
+test('API Key Profile weights still reject values outside 0 to 500', () => {
+  const schema = getApiKeyFormSchema(((value: string) => value) as never)
+  const defaults = getApiKeyFormDefaultValues(false)
+  for (const weight of [-1, 500.01, Number.NaN, Number.POSITIVE_INFINITY]) {
+    const result = schema.safeParse({
+      ...defaults,
+      name: 'invalid-weight',
+      acu_profile_preference_scores: { 'sub2api:astra:responses': weight },
+    })
+    assert.equal(result.success, false)
+  }
+})
+
 test('all verified mode disables existing Token ModelLimits', () => {
   const payload = transformFormDataToPayload({
     name: 'all-models',

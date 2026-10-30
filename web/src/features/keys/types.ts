@@ -47,7 +47,7 @@ export const apiKeySchema = z.object({
     .nullish()
     .transform((value) => value ?? {}),
   acu_profile_preference_scores: z
-    .record(z.string(), z.number().min(0).max(200))
+    .record(z.string(), z.number().min(0).max(500))
     .nullish()
     .optional(),
   allow_ips: z.string().nullish().default(''),

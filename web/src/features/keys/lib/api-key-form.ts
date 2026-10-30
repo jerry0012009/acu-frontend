@@ -36,7 +36,7 @@ export function getApiKeyFormSchema(t: TFunction) {
         z.number().min(0).max(200)
       ),
       acu_profile_preference_scores: z
-        .record(z.string(), z.number().min(0).max(200))
+        .record(z.string(), z.number().min(0).max(500))
         .optional(),
       allow_ips: z.string().optional(),
       group: z.string().optional(),
