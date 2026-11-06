@@ -120,7 +120,7 @@ func GetACUChannelMonitor(ctx context.Context, rangeValue, supplyStrategy, scena
 	if probeRange != "24h" && probeRange != "48h" && probeRange != "7d" {
 		probeRange = "48h"
 	}
-	if protocol != "all" && protocol != "responses" && protocol != "messages" && protocol != "chat_completions" {
+	if protocol != "all" && protocol != "responses" && protocol != "messages" && protocol != "chat_completions" && protocol != "gemini" {
 		protocol = "responses"
 	}
 	query := url.Values{}
@@ -434,7 +434,7 @@ func routingCatalogCandidates(value interface{}) []dto.ACURoutingCatalogCandidat
 
 func normalizedACUSelectionProtocol(protocol string) string {
 	switch protocol {
-	case "messages", "chat_completions", "responses":
+	case "messages", "chat_completions", "responses", "gemini":
 		return protocol
 	}
 	return "responses"
@@ -771,7 +771,7 @@ func RunACUProfileVeridrop(
 		return nil, errors.New("executionProfileId is required")
 	}
 	protocol, ok := input["protocol"].(string)
-	if !ok || (protocol != "responses" && protocol != "messages" && protocol != "chat_completions") {
+	if !ok || (protocol != "responses" && protocol != "messages" && protocol != "chat_completions" && protocol != "gemini") {
 		return nil, errors.New("unsupported Profile protocol")
 	}
 	if len(input) != 2 {

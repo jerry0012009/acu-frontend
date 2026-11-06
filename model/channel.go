@@ -347,6 +347,10 @@ func (channel *Channel) SupportsRequestPath(requestPath string, modelName string
 			return channel.Type == constant.ChannelTypeOpenAI
 		case strings.HasPrefix(requestPath, "/pg/chat/completions"):
 			return channel.Type == constant.ChannelTypeOpenAI
+		case strings.HasPrefix(requestPath, "/v1beta/models/"):
+			return channel.Type == constant.ChannelTypeOpenAI &&
+				(strings.HasSuffix(strings.SplitN(requestPath, "?", 2)[0], ":generateContent") ||
+					strings.HasSuffix(strings.SplitN(requestPath, "?", 2)[0], ":streamGenerateContent"))
 		default:
 			return false
 		}

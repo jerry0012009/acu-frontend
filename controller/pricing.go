@@ -104,7 +104,7 @@ func GetACUSelectionCorridor(c *gin.Context) {
 	inputTokens, _ := strconv.Atoi(c.DefaultQuery("input_tokens", "100000"))
 	expectedOutputTokens, _ := strconv.Atoi(c.DefaultQuery("output_tokens", "4000"))
 	protocol := c.DefaultQuery("protocol", "responses")
-	if protocol != "responses" && protocol != "messages" && protocol != "chat_completions" {
+	if protocol != "responses" && protocol != "messages" && protocol != "chat_completions" && protocol != "gemini" {
 		c.JSON(400, gin.H{"success": false, "message": "invalid protocol"})
 		return
 	}
@@ -129,7 +129,7 @@ func GetACUTokenSelectionCorridor(c *gin.Context) {
 	inputTokens, _ := strconv.Atoi(c.DefaultQuery("input_tokens", "100000"))
 	expectedOutputTokens, _ := strconv.Atoi(c.DefaultQuery("output_tokens", "4000"))
 	protocol := c.DefaultQuery("protocol", "responses")
-	if protocol != "responses" && protocol != "messages" && protocol != "chat_completions" {
+	if protocol != "responses" && protocol != "messages" && protocol != "chat_completions" && protocol != "gemini" {
 		c.JSON(400, gin.H{"success": false, "message": "invalid protocol"})
 		return
 	}

@@ -223,6 +223,8 @@ func hasPublicACURouterModel(ownerGroups []string, modelName string) bool {
 			"/v1/chat/completions",
 			"/v1/responses",
 			"/v1/messages",
+			"/v1beta/models/" + modelName + ":generateContent",
+			"/v1beta/models/" + modelName + ":streamGenerateContent",
 		} {
 			if model.HasEnabledChannelTagForGroupModel(
 				group, modelName, requestPath, constant.ChannelTagACURouter,
@@ -365,7 +367,22 @@ func ListModels(c *gin.Context, modelType int) {
 	}
 	userOpenAiModels := make([]dto.OpenAIModels, 0, len(userModelNames))
 	for _, modelName := range userModelNames {
-		userOpenAiModels = append(userOpenAiModels, buildOpenAIModel(modelName, ownerByModel))
+		entry := buildOpenAIModel(modelName, ownerByModel)
+		if hasPublicACURouterModel(ownerGroups, modelName) {
+			for _, path := range []string{
+				"/v1/chat/completions", "/v1/responses", "/v1/messages",
+				"/v1beta/models/" + modelName + ":generateContent",
+				"/v1beta/models/" + modelName + ":streamGenerateContent",
+			} {
+				for _, group := range ownerGroups {
+					if model.HasEnabledChannelTagForGroupModel(group, modelName, path, constant.ChannelTagACURouter) {
+						entry.SupportedEndpoints = append(entry.SupportedEndpoints, path)
+						break
+					}
+				}
+			}
+		}
+		userOpenAiModels = append(userOpenAiModels, entry)
 	}
 
 	switch modelType {
@@ -379,11 +396,15 @@ func ListModels(c *gin.Context, modelType int) {
 				Type:        "model",
 			}
 		}
+		firstID, lastID := "", ""
+		if len(useranthropicModels) > 0 {
+			firstID, lastID = useranthropicModels[0].ID, useranthropicModels[len(useranthropicModels)-1].ID
+		}
 		c.JSON(200, gin.H{
 			"data":     useranthropicModels,
-			"first_id": useranthropicModels[0].ID,
+			"first_id": firstID,
 			"has_more": false,
-			"last_id":  useranthropicModels[len(useranthropicModels)-1].ID,
+			"last_id":  lastID,
 		})
 	case constant.ChannelTypeGemini:
 		userGeminiModels := make([]dto.GeminiModel, len(userOpenAiModels))

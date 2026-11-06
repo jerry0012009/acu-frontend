@@ -182,6 +182,12 @@ func loadACUPricingCatalog(ctx context.Context) (*acuPricingCatalog, error) {
 		err      error
 	}
 	protocols := []string{"responses", "messages", "chat_completions"}
+	for _, catalogModel := range routingCatalog.Models {
+		if containsString(catalogModel.Protocols, "gemini") {
+			protocols = append(protocols, "gemini")
+			break
+		}
+	}
 	policy, err := service.ResolveACUEffectiveRoutingPolicy(nil)
 	if err != nil {
 		return cacheACUPricingFallback(err, staleCatalog)
@@ -441,7 +447,7 @@ func acuCurveFromCatalog(points []dto.ACURoutingCatalogCurvePoint) []acuCurvePoi
 
 func acuProtocolLabel(protocols []string) string {
 	labels := make([]string, 0, len(protocols))
-	for _, protocol := range []string{"chat_completions", "messages", "responses"} {
+	for _, protocol := range []string{"chat_completions", "messages", "responses", "gemini"} {
 		if containsString(protocols, protocol) {
 			switch protocol {
 			case "chat_completions":
@@ -450,6 +456,8 @@ func acuProtocolLabel(protocols []string) string {
 				labels = append(labels, "Messages")
 			case "responses":
 				labels = append(labels, "Responses")
+			case "gemini":
+				labels = append(labels, "Gemini")
 			}
 		}
 	}
@@ -457,7 +465,7 @@ func acuProtocolLabel(protocols []string) string {
 }
 
 func preferredACUPayable(prices map[string]*acuCatalogPayable) *acuCatalogPayable {
-	for _, protocol := range []string{"responses", "messages", "chat_completions"} {
+	for _, protocol := range []string{"responses", "messages", "chat_completions", "gemini"} {
 		if price := prices[protocol]; price != nil {
 			return price
 		}
@@ -526,6 +534,9 @@ func acuEndpointTypes(protocol string) []constant.EndpointType {
 	if strings.Contains(protocol, "Messages") {
 		result = append(result, constant.EndpointTypeAnthropic)
 	}
+	if strings.Contains(protocol, "Gemini") {
+		result = append(result, constant.EndpointTypeOpenAI)
+	}
 	return result
 }
 
@@ -545,6 +556,10 @@ func acuDisplayPayable(source acuPricingResponse) *acuCatalogPayable {
 		}
 	case strings.Contains(protocol, "chat_completions"):
 		if payable := source.PayableByProtocol["chat_completions"]; payable != nil {
+			return payable
+		}
+	case strings.Contains(protocol, "gemini"):
+		if payable := source.PayableByProtocol["gemini"]; payable != nil {
 			return payable
 		}
 	}

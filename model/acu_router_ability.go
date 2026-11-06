@@ -24,7 +24,7 @@ func ReconcileACURouterAbilities(catalog dto.ACURoutingCatalog) error {
 	for _, catalogModel := range catalog.Models {
 		for _, protocol := range catalogModel.Protocols {
 			switch protocol {
-			case "responses", "chat_completions":
+			case "responses", "chat_completions", "gemini":
 				desiredByType[constant.ChannelTypeOpenAI][catalogModel.ModelID] = struct{}{}
 			case "messages":
 				desiredByType[constant.ChannelTypeAnthropic][catalogModel.ModelID] = struct{}{}
