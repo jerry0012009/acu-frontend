@@ -28,7 +28,15 @@ func ACURawHelper(c *gin.Context, info *relaycommon.RelayInfo) *types.NewAPIErro
 	}
 	info.UpstreamRequestBodySize = storage.Size()
 	info.DisablePing = true
-	resp, err := channel.DoApiRequest(acuWireAdaptor{Adaptor: adaptor}, c, info, common.ReaderOnly(storage))
+	requestPath := info.RequestURLPath
+	// RelayInfo normalizes legacy /pg paths by adding /v1. Gemini's native
+	// endpoint is /v1beta and must not become /v1/v1beta on the ACU channel.
+	if strings.HasPrefix(requestPath, "/v1/v1beta/") {
+		requestPath = strings.TrimPrefix(requestPath, "/v1")
+	}
+	requestInfo := *info
+	requestInfo.RequestURLPath = requestPath
+	resp, err := channel.DoApiRequest(acuWireAdaptor{Adaptor: adaptor}, c, &requestInfo, common.ReaderOnly(storage))
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeDoRequestFailed, types.ErrOptionWithSkipRetry())
 	}
