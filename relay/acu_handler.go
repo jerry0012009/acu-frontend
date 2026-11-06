@@ -64,7 +64,12 @@ func ACURawHelper(c *gin.Context, info *relaycommon.RelayInfo) *types.NewAPIErro
 type acuWireAdaptor struct{ channel.Adaptor }
 
 func (a acuWireAdaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
-	return strings.TrimRight(info.ChannelBaseUrl, "/") + info.RequestURLPath, nil
+	base := strings.TrimRight(info.ChannelBaseUrl, "/")
+	path := info.RequestURLPath
+	if strings.HasPrefix(path, "/v1beta/") && strings.HasSuffix(base, "/v1") {
+		base = strings.TrimSuffix(base, "/v1")
+	}
+	return base + path, nil
 }
 
 type acuStreamWriter struct{ context *gin.Context }
