@@ -50,6 +50,7 @@ import {
   preferenceDisplayText,
   preferenceDocumentLabel,
 } from './preference-display'
+import { PreferenceStarfish } from './preference-starfish'
 
 export type PrivateACUSection =
   | 'overview'
@@ -1438,7 +1439,12 @@ export function PrivateACUWorkspace(props: {
 
   let content: React.ReactNode
   if (props.section === 'overview') {
-    content = isAdmin ? <OverviewPage isAdmin /> : <PrivateACUUserOverview />
+    content = (
+      <div className='space-y-6'>
+        <PreferenceStarfish />
+        {isAdmin ? <OverviewPage isAdmin /> : <PrivateACUUserOverview />}
+      </div>
+    )
   } else if (props.section === 'account') {
     content = isAdmin ? (
       <PrivateACUAdmin view='account' />
