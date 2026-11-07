@@ -84,14 +84,11 @@ export function PreferenceStarfishChart(props: {
       category: group.category,
       x: 320 + Math.cos(angle) * 310,
       y: 320 + Math.sin(angle) * 310,
-      lines: [...group.category].reduce<string[]>(
-        (lines, character, index) => {
-          const line = Math.floor(index / 14)
-          lines[line] = (lines[line] ?? '') + character
-          return lines
-        },
-        []
-      ),
+      lines: [...group.category].reduce<string[]>((lines, character, index) => {
+        const line = Math.floor(index / 14)
+        lines[line] = (lines[line] ?? '') + character
+        return lines
+      }, []),
     }
   })
   const focusId = activeId || rays[0]?.id
