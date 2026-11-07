@@ -133,6 +133,22 @@ try {
     assert.equal(await chart.locator('[role="button"]').count(), rays.length);
     assert.equal(await chart.locator('[role="button"] path.preference-starfish-hit').count(), rays.length, 'every ray ends in an arrow');
     assert.equal(await chart.locator('[role="button"] circle').count(), 0, 'arrows replace endpoint dots');
+    assert.equal(await chart.locator('polygon').count(), 0, 'rays must not be joined by a filled area or outline');
+    const lengths = await chart.locator('[role="button"]').evaluateAll((groups) => groups.map((group) => {
+      const shaft = group.querySelector('.preference-starfish-ray');
+      return { label: group.getAttribute('aria-label'), length: Math.hypot(shaft.x2.baseVal.value - shaft.x1.baseVal.value, shaft.y2.baseVal.value - shaft.y1.baseVal.value) };
+    }));
+    const byLabel = new Map(lengths.map((entry) => [entry.label, entry.length]));
+    const sortedRays = [...rays].sort((a, b) => a.score - b.score);
+    for (let index = 1; index < sortedRays.length; index++) {
+      const previous = byLabel.get(sortedRays[index - 1].label);
+      const current = byLabel.get(sortedRays[index].label);
+      assert(current >= previous - 0.001, 'longer rays must represent higher strengths');
+      if (sortedRays[index].score === sortedRays[index - 1].score) assert(Math.abs(current - previous) < 0.001, 'equal strengths must remain equal lengths');
+    }
+    if (sortedRays.at(-1).score - sortedRays[0].score >= 10) {
+      assert(Math.max(...lengths.map((entry) => entry.length)) / Math.min(...lengths.map((entry) => entry.length)) > 2, 'meaningful strength differences must be visible');
+    }
     await verifyArrowPlacement(chart);
     assert.equal(await chart.locator('text').count(), expectedDomains.length);
     assert.equal(await chart.locator('text').allTextContents().then((labels) => labels.every((label) => expectedDomains.includes(label))), true);

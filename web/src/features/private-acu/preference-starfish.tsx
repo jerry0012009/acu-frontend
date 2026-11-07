@@ -11,6 +11,7 @@ import {
   getPreferenceProfile,
   type PreferenceProfileView,
 } from './preference-profile-api'
+import { preferenceRayLengths } from './preference-ray-lengths'
 
 const STARFISH_CSS = `
   @keyframes preference-starfish-pulse {
@@ -61,9 +62,10 @@ export function PreferenceStarfishChart(props: {
     staleTime: 30_000,
     retry: false,
   })
+  const rayLengths = preferenceRayLengths(groupedRays.map((ray) => ray.score))
   const points = groupedRays.map((ray, index) => {
     const angle = (index * Math.PI * 2) / groupedRays.length - Math.PI / 2
-    const radius = 45 + (ray.score / 100) * 205
+    const radius = rayLengths[index]
     return {
       ray,
       angle,
@@ -179,17 +181,6 @@ export function PreferenceStarfishChart(props: {
                   opacity={radius === 250 ? '.16' : '.08'}
                 />
               ))}
-              {points.length > 2 && (
-                <polygon
-                  points={points
-                    .map((point) => `${point.x},${point.y}`)
-                    .join(' ')}
-                  fill='currentColor'
-                  fillOpacity='.025'
-                  stroke='currentColor'
-                  strokeOpacity='.18'
-                />
-              )}
               <circle
                 cx='320'
                 cy='320'
