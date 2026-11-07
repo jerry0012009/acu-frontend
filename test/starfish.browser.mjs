@@ -38,7 +38,7 @@ try {
   const context = await browser.newContext({ locale: "en-US" });
   await context.route("**/api/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
-    let data = {};
+    let data = "";
     if (path.endsWith("/setup")) data = { status: true, root_init: true };
     else if (path.endsWith("/auth/refresh"))
       data = {
@@ -78,6 +78,9 @@ try {
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  page.on("console", (message) => {
+    if (message.type() === "error") console.log("Browser diagnostic:", message.text().slice(0, 1200));
+  });
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 });
     await page.goto(`${base}/private-acu/overview`);
@@ -87,10 +90,18 @@ try {
       throw error;
     });
     assert.equal(await chart.locator('[role="button"]').count(), 100);
-    await chart.locator('[role="button"]').nth(75).focus();
+    assert.equal(await chart.locator('text').count(), 5);
+    assert.equal(await chart.locator('text').allTextContents().then((labels) => labels.every((label) => ["Decisions", "Collaboration", "Delivery", "Design", "Risk"].includes(label))), true);
+    assert.equal(await chart.locator('.preference-starfish-ray').evaluateAll((lines) => lines.every((line) => line.getAttribute('stroke') === '#ffffff')), true);
+    const hoverTarget = chart.getByRole('button', { name: rays[40].label, exact: true });
+    await hoverTarget.dispatchEvent('mouseover');
+    await page.getByRole('heading', { name: rays[40].label, exact: true }).waitFor();
+    await hoverTarget.dispatchEvent('mouseout');
+    const target = chart.getByRole("button", { name: rays[75].label, exact: true });
+    await target.focus();
     await page.keyboard.press("Enter");
     assert.equal(
-      await chart.locator('[role="button"]').nth(75).getAttribute("aria-pressed"),
+      await target.getAttribute("aria-pressed"),
       "true",
     );
     assert.equal(await page.getByRole("heading", { name: rays[75].label, exact: true }).count(), 1);
