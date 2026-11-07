@@ -92,6 +92,8 @@ try {
       throw error;
     });
     assert.equal(await chart.locator('[role="button"]').count(), 100);
+    assert.equal(await chart.locator('[role="button"] path.preference-starfish-hit').count(), 100, 'every ray ends in an arrow');
+    assert.equal(await chart.locator('[role="button"] circle').count(), 0, 'arrows replace endpoint dots');
     assert.equal(await chart.locator('text').count(), 5);
     assert.equal(await chart.locator('text').allTextContents().then((labels) => labels.every((label) => domains.includes(label))), true);
     await page.evaluate((theme) => {

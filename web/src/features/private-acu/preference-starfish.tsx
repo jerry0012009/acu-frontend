@@ -30,7 +30,7 @@ const STARFISH_CSS = `
   .preference-starfish-core { animation: preference-starfish-core 2.4s ease-in-out infinite; }
   .preference-starfish-scan { stroke-dasharray: 120 400; animation: preference-starfish-scan 4.8s cubic-bezier(.4,0,.2,1) infinite; }
   .preference-starfish-ray { transition: opacity .28s ease, stroke-width .28s ease, filter .28s ease; }
-  .preference-starfish-hit { transition: opacity .28s ease, r .28s ease; }
+  .preference-starfish-hit { transition: opacity .28s ease, stroke-width .28s ease, filter .28s ease, scale .28s ease; transform-box: fill-box; transform-origin: center; }
   @media (prefers-reduced-motion: reduce) {
     .preference-starfish-pulse, .preference-starfish-core, .preference-starfish-scan { animation: none; }
     .preference-starfish-ray, .preference-starfish-hit { transition: none; }
@@ -302,11 +302,15 @@ export function PreferenceStarfishChart(props: {
                     stroke='transparent'
                     strokeWidth='14'
                   />
-                  <circle
-                    cx={point.x}
-                    cy={point.y}
-                    r={focusId === point.ray.id ? 6 : 3}
-                    fill='currentColor'
+                  <path
+                    d='M -7 -3 L 0 0 L -7 3'
+                    transform={`translate(${point.x} ${point.y}) rotate(${(point.angle * 180) / Math.PI})`}
+                    fill='none'
+                    stroke='currentColor'
+                    strokeWidth={focusId === point.ray.id ? 2.2 : 1.5}
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    style={{ scale: focusId === point.ray.id ? '1.18' : '1' }}
                     opacity={
                       hasFocus && focusId !== point.ray.id ? '.34' : '.92'
                     }
