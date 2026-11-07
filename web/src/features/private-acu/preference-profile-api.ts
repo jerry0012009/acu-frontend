@@ -9,6 +9,21 @@ export type PreferenceRay = {
   summary: string
   scope: string
   sourceIds: string[]
+  bipolar?: {
+    axis_id: string
+    schema_version: 'acu-preference-v5-bipolar'
+    name: string
+    end_a: string
+    end_b: string
+    position: number
+    acceptable_interval: [number, number]
+    importance: number
+    confidence: number
+    applicability: boolean
+    origin: 'authorized_initialization' | 'learned' | 'user_explicit'
+    evidence: string[]
+    scope: { task: string; subtype: string; project: string }
+  }
 }
 
 export type PreferenceProfileView = {
@@ -18,6 +33,8 @@ export type PreferenceProfileView = {
     rays: PreferenceRay[]
     sourceCount: number
     excluded: Array<{ sourceId: string; reason: string }>
+    schemaVersion?: string
+    acceptanceConditions?: string[]
   } | null
   generatedAt: string | null
   error: string | null

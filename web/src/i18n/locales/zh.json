@@ -1,5 +1,10 @@
 {
   "translation": {
+    "Preference position": "取向位置",
+    "Preference importance": "在意程度",
+    "Acceptable interval": "接受区间",
+    "Profile version": "画像版本",
+    "Acceptance conditions": "独立验收条件",
     "Price factor range": "价格倍率范围",
     "Configuration target": "配置对象",
     "Global configuration": "全局配置",

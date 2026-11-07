@@ -53,9 +53,15 @@ async function verifyArrowPlacement(chart, frames = 1) {
         const arrow = group.querySelector('path.preference-starfish-hit');
         const length = arrow.getTotalLength();
         const matrix = arrow.getScreenCTM();
-        const tip = arrow.getPointAtLength(length / 2).matrixTransform(matrix);
+        const tipCoordinates = arrow.getAttribute('d').match(/L\s+([-\d.e]+)\s+([-\d.e]+)/);
+        const tip = new DOMPoint(Number(tipCoordinates[1]), Number(tipCoordinates[2])).matrixTransform(matrix);
         const left = arrow.getPointAtLength(0).matrixTransform(matrix);
-        const right = arrow.getPointAtLength(length).matrixTransform(matrix);
+        let wingLength = length / 2;
+        if (arrow.getAttribute('fill') !== 'none') {
+          const wingCoordinates = [...arrow.getAttribute('d').matchAll(/[ML]\s+([-\d.e]+)\s+([-\d.e]+)/g)];
+          wingLength = Math.hypot(Number(wingCoordinates[0][1]) - Number(wingCoordinates[1][1]), Number(wingCoordinates[0][2]) - Number(wingCoordinates[1][2]));
+        }
+        const right = arrow.getPointAtLength(wingLength * 2).matrixTransform(matrix);
         const start = new DOMPoint(shaft.x1.baseVal.value, shaft.y1.baseVal.value).matrixTransform(shaft.getScreenCTM());
         const end = new DOMPoint(shaft.x2.baseVal.value, shaft.y2.baseVal.value).matrixTransform(shaft.getScreenCTM());
         maximum = Math.max(maximum, Math.hypot(tip.x - end.x, tip.y - end.y));
@@ -139,7 +145,12 @@ try {
       return { label: group.getAttribute('aria-label'), length: Math.hypot(shaft.x2.baseVal.value - shaft.x1.baseVal.value, shaft.y2.baseVal.value - shaft.y1.baseVal.value) };
     }));
     const byLabel = new Map(lengths.map((entry) => [entry.label, entry.length]));
+    const isBipolar = view.profile.schemaVersion === 'acu-preference-v5-bipolar';
     const sortedRays = [...rays].sort((a, b) => a.score - b.score);
+    if (isBipolar) {
+      for (const ray of rays) assert(Math.abs(byLabel.get(ray.label) - 250 * Math.abs((ray.bipolar.position - 60) / 60)) < 0.001, 'bipolar length must reflect distance from midpoint only');
+      assert.equal(await chart.locator('path.preference-starfish-hit[fill="currentColor"]').count(), rays.length);
+    } else {
     for (let index = 1; index < sortedRays.length; index++) {
       const previous = byLabel.get(sortedRays[index - 1].label);
       const current = byLabel.get(sortedRays[index].label);
@@ -148,6 +159,7 @@ try {
     }
     if (sortedRays.at(-1).score - sortedRays[0].score >= 10) {
       assert(Math.max(...lengths.map((entry) => entry.length)) / Math.min(...lengths.map((entry) => entry.length)) > 2, 'meaningful strength differences must be visible');
+    }
     }
     await verifyArrowPlacement(chart);
     assert.equal(await chart.locator('text').count(), expectedDomains.length);
@@ -181,6 +193,11 @@ try {
       "true",
     );
     assert.equal(await page.getByRole("heading", { name: pinnedRay.label, exact: true }).count(), 1);
+    if (isBipolar) {
+      await page.getByText(`A · ${pinnedRay.bipolar.end_a}`, { exact: true }).waitFor();
+      await page.getByText(`B · ${pinnedRay.bipolar.end_b}`, { exact: true }).waitFor();
+      await page.getByText(`${pinnedRay.bipolar.position}/120`, { exact: true }).first().waitFor();
+    }
     await page.getByText(`Source documents (${pinnedRay.sourceIds.length})`, { exact: true }).click();
     if (!process.env.STARFISH_PROFILE_FILE)
       await page.getByText("Preference source evidence", { exact: true }).waitFor();
