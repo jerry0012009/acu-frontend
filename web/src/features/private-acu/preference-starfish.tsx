@@ -367,22 +367,29 @@ export function PreferenceStarfishChart(props: {
               </details>
             </article>
           )}
-          <ol className='max-h-64 overflow-y-auto border-t pt-3'>
-            {rays.map((ray) => (
-              <li key={ray.id}>
-                <button
-                  type='button'
-                  aria-pressed={focusId === ray.id}
-                  onMouseEnter={() => setHoveredId(ray.id)}
-                  onMouseLeave={() => setHoveredId('')}
-                  className='hover:bg-muted aria-pressed:bg-muted flex w-full items-start gap-2 rounded-sm px-2 py-2 text-left text-xs'
-                  onClick={() => setSelectedId(ray.id)}
-                >
-                  <span className='min-w-0 break-words'>{ray.label}</span>
-                </button>
-              </li>
-            ))}
-          </ol>
+          <div className='border-t pt-3'>
+            <div className='text-muted-foreground mb-2 text-xs'>
+              {t('Preference domains')}
+            </div>
+            <ul className='space-y-1'>
+              {categoryGroups.map((group) => (
+                <li key={group.category}>
+                  <button
+                    type='button'
+                    className='hover:bg-muted flex w-full items-center justify-between gap-3 rounded-sm px-2 py-2 text-left text-xs'
+                    onClick={() => setSelectedId(group.rays[0]?.id ?? '')}
+                  >
+                    <span className='min-w-0 break-words'>
+                      {group.category}
+                    </span>
+                    <span className='text-muted-foreground shrink-0 tabular-nums'>
+                      {group.rays.length}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </div>
     </div>
