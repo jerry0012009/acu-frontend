@@ -18,10 +18,11 @@ const user = {
   language: "en",
   setting: "{}",
 };
+const domains = ["证据核验与交付闭环", "Collaboration and production control", "模型路由与计费策略", "Design and user experience", "架构与生产运行"];
 const rays = Array.from({ length: 100 }, (_, index) => ({
   id: `pref-${index}`,
   label: `Preference ${index + 1}: evidence and verifiable outcomes`,
-  category: ["Decisions", "Collaboration", "Delivery", "Design", "Risk"][index % 5],
+  category: domains[index % 5],
   score: 30 + (index % 70),
   confidence: 50 + (index % 50),
   summary: "Prefers evidence-backed results with explicit uncertainty and verifiable delivery.",
@@ -81,7 +82,8 @@ try {
   page.on("console", (message) => {
     if (message.type() === "error") console.log("Browser diagnostic:", message.text().slice(0, 1200));
   });
-  for (const width of [1440, 390]) {
+  for (const [width, theme] of [[1440, 'dark'], [390, 'dark'], [1440, 'light'], [390, 'light']]) {
+    await page.addInitScript((theme) => localStorage.setItem('theme', theme), theme);
     await page.setViewportSize({ width, height: 1000 });
     await page.goto(`${base}/private-acu/overview`);
     const chart = page.locator('svg[aria-label="Preference starfish"]');
@@ -91,8 +93,20 @@ try {
     });
     assert.equal(await chart.locator('[role="button"]').count(), 100);
     assert.equal(await chart.locator('text').count(), 5);
-    assert.equal(await chart.locator('text').allTextContents().then((labels) => labels.every((label) => ["Decisions", "Collaboration", "Delivery", "Design", "Risk"].includes(label))), true);
-    assert.equal(await chart.locator('.preference-starfish-ray').evaluateAll((lines) => lines.every((line) => line.getAttribute('stroke') === '#ffffff')), true);
+    assert.equal(await chart.locator('text').allTextContents().then((labels) => labels.every((label) => domains.includes(label))), true);
+    await page.evaluate((theme) => {
+      document.documentElement.classList.toggle('dark', theme === 'dark');
+      document.documentElement.classList.toggle('light', theme === 'light');
+    }, theme);
+    const ink = await chart.locator('.preference-starfish-ray').first().evaluate((line) => getComputedStyle(line).stroke);
+    assert.equal(ink === 'rgb(255, 255, 255)', theme === 'dark', 'rays must contrast with the active theme');
+    const viewport = page.getByTestId("preference-chart-viewport");
+    assert.equal(await viewport.evaluate((element) => getComputedStyle(element).backgroundColor), 'rgba(0, 0, 0, 0)', 'chart must blend into page background');
+    assert(await chart.locator('text').evaluateAll((labels) => labels.every((label) => {
+      const bounds = label.getBoundingClientRect();
+      const frame = label.ownerSVGElement.getBoundingClientRect();
+      return bounds.left >= frame.left && bounds.right <= frame.right && bounds.top >= frame.top && bounds.bottom <= frame.bottom;
+    })), 'all domain labels must fit inside the chart');
     const hoverTarget = chart.getByRole('button', { name: rays[40].label, exact: true });
     await hoverTarget.dispatchEvent('mouseover');
     await page.getByRole('heading', { name: rays[40].label, exact: true }).waitFor();
@@ -108,14 +122,18 @@ try {
     await page.getByText("Source documents (1)", { exact: true }).click();
     await page.getByText("Preference source evidence", { exact: true }).waitFor();
     await page.getByRole("button", { name: "Zoom in", exact: true }).click();
-    const viewport = page.getByTestId("preference-chart-viewport");
     assert(await viewport.evaluate((element) => element.scrollWidth > element.clientWidth));
     await page.getByRole("button", { name: "Zoom out", exact: true }).click();
+    const defaultSize = await chart.evaluate((element) => element.viewBox.baseVal.width);
+    await page.getByRole("button", { name: "Zoom out", exact: true }).click();
+    assert(await chart.evaluate((element) => element.viewBox.baseVal.width) > defaultSize, 'zoom out must work below the initial size');
+    assert(await viewport.evaluate((element) => element.scrollWidth <= element.clientWidth), 'zoomed-out chart must fit viewport');
+    await page.getByRole("button", { name: "Zoom in", exact: true }).click();
     assert.equal(
       await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
       false,
     );
-    await page.screenshot({ path: `${output}/starfish-${width}.png`, fullPage: true });
+    await page.screenshot({ path: `${output}/starfish-${width}-${theme}.png`, fullPage: true });
   }
   for (const status of ["queued", "error", "empty"]) {
     view = { ...view, status, profile: status === "error" ? view.profile : null };
