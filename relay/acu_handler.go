@@ -1,6 +1,8 @@
 package relay
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -9,13 +11,33 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/relay/channel"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/relay/helper"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 )
 
 // ACURawHelper keeps the authenticated ACU wire untouched. Router owns protocol
 // adaptation and reports authoritative usage through Usage Finalize.
-func ACURawHelper(c *gin.Context, info *relaycommon.RelayInfo) *types.NewAPIError {
+func ACURawHelper(c *gin.Context, info *relaycommon.RelayInfo) (result *types.NewAPIError) {
+	defer func() {
+		if result == nil {
+			return
+		}
+		if errors.Is(c.Request.Context().Err(), context.Canceled) {
+			result = types.NewErrorWithStatusCode(context.Canceled, types.ErrorCodeClientCancelled, 499, types.ErrOptionWithSkipRetry())
+			return
+		}
+		if c.Writer.Written() {
+			// A pre-header heartbeat has committed SSE. Fail in the stream,
+			// never append bare JSON or a successful terminal marker.
+			payload, err := common.Marshal(gin.H{"type": "error", "error": result.ToOpenAIError(), "status_code": result.StatusCode})
+			if err == nil {
+				_, _ = fmt.Fprintf(c.Writer, "\nevent: error\ndata: %s\n\n", payload)
+				c.Writer.Flush()
+			}
+		}
+	}()
 	info.InitChannelMeta(c)
 	adaptor := GetAdaptor(info.ApiType)
 	if adaptor == nil {
@@ -41,10 +63,19 @@ func ACURawHelper(c *gin.Context, info *relaycommon.RelayInfo) *types.NewAPIErro
 		return types.NewError(err, types.ErrorCodeDoRequestFailed, types.ErrOptionWithSkipRetry())
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode >= 400 && c.Writer.Written() {
+		return types.NewError(service.RelayErrorHandler(c, resp, false), types.ErrorCodeBadResponseStatusCode, types.ErrOptionWithSkipRetry())
+	}
+	if c.Writer.Written() && !strings.Contains(strings.ToLower(resp.Header.Get("Content-Type")), "text/event-stream") {
+		return types.NewErrorWithStatusCode(errors.New("ACU returned a non-streaming response after stream keepalive"), types.ErrorCodeBadResponse, http.StatusBadGateway, types.ErrOptionWithSkipRetry())
+	}
 	for name, values := range resp.Header {
 		switch strings.ToLower(name) {
 		case "connection", "content-length", "content-encoding", "transfer-encoding", "keep-alive", "upgrade",
 			"proxy-authenticate", "proxy-authorization", "set-cookie":
+			continue
+		}
+		if c.Writer.Written() {
 			continue
 		}
 		for _, value := range values {
@@ -75,6 +106,7 @@ func (a acuWireAdaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, erro
 type acuStreamWriter struct{ context *gin.Context }
 
 func (w acuStreamWriter) Write(b []byte) (int, error) {
+	helper.ExtendWriteDeadline(w.context)
 	n, err := w.context.Writer.Write(b)
 	if err == nil {
 		w.context.Writer.Flush()
