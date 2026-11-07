@@ -32,6 +32,15 @@ func GetPrivateACUMemoryForUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
 }
 
+func GetPrivateACUPreferenceProfile(c *gin.Context) {
+	result, err := service.GetPrivateACUPreferenceProfile(c.Request.Context(), c.GetInt("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
+}
+
 func GetPrivateACUUserConfig(c *gin.Context) {
 	result, err := service.GetPrivateACUUserConfig(c.Request.Context(), c.GetInt("id"))
 	if err != nil {

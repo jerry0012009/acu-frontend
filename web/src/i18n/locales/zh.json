@@ -6280,5 +6280,17 @@
   "Update {{count}} selected Profiles?": "确定更新选中的 {{count}} 个 Profile 吗？",
   "Update {{selected}} selected Profiles? Recharge conversion affects {{affected}} Profiles across shared providers.": "确定更新选中的 {{selected}} 个 Profile 吗？共享的充值换算将影响 {{affected}} 个 Profile。",
   "{{saved}} saved; {{failed}} failed. Review and retry.": "成功 {{saved}} 个，失败 {{failed}} 个。请检查后重试。",
-  "{{count}} Profiles updated": "已更新 {{count}} 个 Profile"
+  "{{count}} Profiles updated": "已更新 {{count}} 个 Profile",
+  "Preference starfish": "偏好海星图",
+  "Your preference starfish": "ACU 眼中的工作偏好",
+  "Preference strength estimate": "偏好强度估计",
+  "Evidence confidence estimate": "证据置信度估计",
+  "Source documents": "来源偏好文档",
+  "Source documents unavailable": "来源文档暂不可用",
+  "{{count}} source documents": "基于 {{count}} 份偏好文档",
+  "Updating preference starfish": "偏好海星图更新中",
+  "Preference refresh unavailable. Last saved profile is retained.": "偏好更新暂不可用，已保留上次生成的画像。",
+  "No learned preferences yet": "尚未形成可展示的偏好",
+  "Documents without reusable preferences": "未形成可复用偏好的文档"
+  ,"Preference domains": "偏好领域"
 }
