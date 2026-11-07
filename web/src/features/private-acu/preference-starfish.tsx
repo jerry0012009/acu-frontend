@@ -12,26 +12,48 @@ import {
   type PreferenceProfileView,
 } from './preference-profile-api'
 
-const COLORS = [
-  '#059669',
-  '#0284c7',
-  '#d97706',
-  '#db2777',
-  '#7c3aed',
-  '#dc2626',
-  '#0d9488',
-  '#657b25',
-]
+const STARFISH_CSS = `
+  @keyframes preference-starfish-pulse {
+    0%, 100% { opacity: .28; transform: scale(.82); }
+    50% { opacity: .72; transform: scale(1.08); }
+  }
+  @keyframes preference-starfish-scan {
+    0% { stroke-dashoffset: 520; opacity: 0; }
+    18%, 72% { opacity: .8; }
+    100% { stroke-dashoffset: 0; opacity: 0; }
+  }
+  @keyframes preference-starfish-core {
+    0%, 100% { opacity: .6; }
+    50% { opacity: 1; }
+  }
+  .preference-starfish-pulse { animation: preference-starfish-pulse 3.8s ease-in-out infinite; transform-origin: 320px 320px; }
+  .preference-starfish-core { animation: preference-starfish-core 2.4s ease-in-out infinite; }
+  .preference-starfish-scan { stroke-dasharray: 120 400; animation: preference-starfish-scan 4.8s cubic-bezier(.4,0,.2,1) infinite; }
+  .preference-starfish-ray { transition: opacity .28s ease, stroke-width .28s ease, filter .28s ease; }
+  .preference-starfish-hit { transition: opacity .28s ease, r .28s ease; }
+  @media (prefers-reduced-motion: reduce) {
+    .preference-starfish-pulse, .preference-starfish-core, .preference-starfish-scan { animation: none; }
+    .preference-starfish-ray, .preference-starfish-hit { transition: none; }
+  }
+`
 
 export function PreferenceStarfishChart(props: {
   view: PreferenceProfileView
 }) {
   const { t } = useTranslation()
   const [selectedId, setSelectedId] = useState('')
+  const [hoveredId, setHoveredId] = useState('')
   const [zoom, setZoom] = useState(1)
   const rays = props.view.profile?.rays ?? []
-  const selected = rays.find((ray) => ray.id === selectedId) ?? rays[0]
-  const categories = [...new Set(rays.map((ray) => ray.category))].sort()
+  const activeId = hoveredId || selectedId
+  const selected = rays.find((ray) => ray.id === activeId) ?? rays[0]
+  const categoryGroups = [...new Set(rays.map((ray) => ray.category))]
+    .sort((a, b) => a.localeCompare(b))
+    .map((category) => ({
+      category,
+      rays: rays.filter((ray) => ray.category === category),
+    }))
+  const groupedRays = categoryGroups.flatMap((group) => group.rays)
   const memory = useQuery({
     queryKey: ['private-acu', 'self-memory'],
     queryFn: getPrivateACUMemory,
@@ -39,31 +61,39 @@ export function PreferenceStarfishChart(props: {
     staleTime: 30_000,
     retry: false,
   })
-  const points = rays.map((ray, index) => {
-    const angle = (index * Math.PI * 2) / rays.length - Math.PI / 2
+  const points = groupedRays.map((ray, index) => {
+    const angle = (index * Math.PI * 2) / groupedRays.length - Math.PI / 2
     const radius = 45 + (ray.score / 100) * 205
     return {
       ray,
+      angle,
       x: 320 + Math.cos(angle) * radius,
       y: 320 + Math.sin(angle) * radius,
-      outerX: 320 + Math.cos(angle) * 270,
-      outerY: 320 + Math.sin(angle) * 270,
-      color: COLORS[categories.indexOf(ray.category) % COLORS.length],
+      outerX: 320 + Math.cos(angle) * 272,
+      outerY: 320 + Math.sin(angle) * 272,
     }
   })
+  const categoryLabels = categoryGroups.map((group) => {
+    const groupPoints = points.filter(
+      (point) => point.ray.category === group.category
+    )
+    const first = groupPoints.at(0)?.angle ?? -Math.PI / 2
+    const last = groupPoints.at(-1)?.angle ?? first
+    const angle = first + (last - first) / 2
+    let anchor: 'start' | 'end' | 'middle' = 'middle'
+    if (Math.cos(angle) > 0.24) anchor = 'start'
+    else if (Math.cos(angle) < -0.24) anchor = 'end'
+    return {
+      category: group.category,
+      x: 320 + Math.cos(angle) * 302,
+      y: 320 + Math.sin(angle) * 302,
+      anchor,
+    }
+  })
+  const focusId = activeId || rays[0]?.id
+  const hasFocus = Boolean(activeId)
   return (
     <div className='min-w-0 space-y-4'>
-      <div className='flex flex-wrap items-center gap-x-5 gap-y-2 text-xs'>
-        {categories.map((category, index) => (
-          <span key={category} className='flex items-center gap-2 break-words'>
-            <span
-              className='size-2.5 shrink-0 rounded-full'
-              style={{ background: COLORS[index % COLORS.length] }}
-            />
-            {category}
-          </span>
-        ))}
-      </div>
       <div className='grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)]'>
         <div className='min-w-0'>
           <div className='flex justify-end gap-1'>
@@ -89,9 +119,10 @@ export function PreferenceStarfishChart(props: {
             </Button>
           </div>
           <div
-            className='aspect-square w-full overflow-auto'
+            className='aspect-square w-full overflow-auto rounded-lg border border-white/10 bg-[#071016] shadow-[0_18px_70px_rgba(0,0,0,0.24)]'
             data-testid='preference-chart-viewport'
           >
+            <style>{STARFISH_CSS}</style>
             <svg
               viewBox='0 0 640 640'
               role='group'
@@ -102,15 +133,35 @@ export function PreferenceStarfishChart(props: {
                 maxWidth: 'none',
               }}
             >
-              {[45, 96, 147, 198, 250].map((radius) => (
+              <defs>
+                <filter
+                  id='preference-starfish-glow'
+                  x='-100%'
+                  y='-100%'
+                  width='300%'
+                  height='300%'
+                >
+                  <feGaussianBlur stdDeviation='4' result='blur' />
+                  <feMerge>
+                    <feMergeNode in='blur' />
+                    <feMergeNode in='SourceGraphic' />
+                  </feMerge>
+                </filter>
+                <radialGradient id='preference-starfish-core-gradient'>
+                  <stop offset='0%' stopColor='#ffffff' stopOpacity='.95' />
+                  <stop offset='42%' stopColor='#d7f7ff' stopOpacity='.7' />
+                  <stop offset='100%' stopColor='#5ce1ff' stopOpacity='0' />
+                </radialGradient>
+              </defs>
+              {[48, 99, 150, 201, 250].map((radius) => (
                 <circle
                   key={radius}
                   cx='320'
                   cy='320'
                   r={radius}
                   fill='none'
-                  stroke='currentColor'
-                  opacity='.09'
+                  stroke='#dff9ff'
+                  opacity={radius === 250 ? '.16' : '.08'}
                 />
               ))}
               {points.length > 2 && (
@@ -118,21 +169,72 @@ export function PreferenceStarfishChart(props: {
                   points={points
                     .map((point) => `${point.x},${point.y}`)
                     .join(' ')}
-                  fill='#059669'
-                  fillOpacity='.07'
-                  stroke='#059669'
-                  strokeOpacity='.2'
+                  fill='#ffffff'
+                  fillOpacity='.025'
+                  stroke='#ffffff'
+                  strokeOpacity='.18'
                 />
               )}
-              {points.map((point, index) => (
+              <circle
+                cx='320'
+                cy='320'
+                r='28'
+                fill='none'
+                stroke='#bff4ff'
+                strokeOpacity='.15'
+                className='preference-starfish-pulse'
+              />
+              <circle
+                cx='320'
+                cy='320'
+                r='12'
+                fill='url(#preference-starfish-core-gradient)'
+                filter='url(#preference-starfish-glow)'
+                className='preference-starfish-core'
+              />
+              <circle
+                cx='320'
+                cy='320'
+                r='3'
+                fill='#ffffff'
+                filter='url(#preference-starfish-glow)'
+              />
+              <circle
+                cx='320'
+                cy='320'
+                r='250'
+                fill='none'
+                stroke='#dff9ff'
+                strokeWidth='1.5'
+                strokeDasharray='120 400'
+                className='preference-starfish-scan'
+              />
+              {categoryLabels.map((label) => (
+                <text
+                  key={label.category}
+                  x={label.x}
+                  y={label.y}
+                  textAnchor={label.anchor}
+                  fontSize='11'
+                  letterSpacing='.04em'
+                  fill='#dff9ff'
+                  opacity='.72'
+                >
+                  {label.category}
+                </text>
+              ))}
+              {points.map((point) => (
                 <g
                   key={point.ray.id}
                   role='button'
                   tabIndex={0}
                   aria-label={point.ray.label}
-                  aria-pressed={selected?.id === point.ray.id}
+                  aria-pressed={focusId === point.ray.id}
                   onClick={() => setSelectedId(point.ray.id)}
-                  onFocus={() => setSelectedId(point.ray.id)}
+                  onFocus={() => setHoveredId(point.ray.id)}
+                  onBlur={() => setHoveredId('')}
+                  onMouseEnter={() => setHoveredId(point.ray.id)}
+                  onMouseLeave={() => setHoveredId('')}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault()
@@ -147,17 +249,29 @@ export function PreferenceStarfishChart(props: {
                     y1='320'
                     x2={point.outerX}
                     y2={point.outerY}
-                    stroke='currentColor'
-                    strokeOpacity='.1'
+                    stroke='#dff9ff'
+                    strokeOpacity={
+                      hasFocus && focusId !== point.ray.id ? '.045' : '.12'
+                    }
                   />
                   <line
                     x1='320'
                     y1='320'
                     x2={point.x}
                     y2={point.y}
-                    stroke={point.color}
-                    strokeWidth={selected?.id === point.ray.id ? 4 : 2}
-                    opacity={0.35 + (point.ray.confidence / 100) * 0.65}
+                    stroke='#ffffff'
+                    strokeWidth={focusId === point.ray.id ? 4 : 1.5}
+                    opacity={
+                      hasFocus && focusId !== point.ray.id
+                        ? '.16'
+                        : 0.42 + (point.ray.confidence / 100) * 0.58
+                    }
+                    filter={
+                      focusId === point.ray.id
+                        ? 'url(#preference-starfish-glow)'
+                        : undefined
+                    }
+                    className='preference-starfish-ray'
                   />
                   <line
                     x1='320'
@@ -165,46 +279,25 @@ export function PreferenceStarfishChart(props: {
                     x2={point.outerX}
                     y2={point.outerY}
                     stroke='transparent'
-                    strokeWidth='10'
+                    strokeWidth='14'
                   />
                   <circle
                     cx={point.x}
                     cy={point.y}
-                    r={selected?.id === point.ray.id ? 6 : 3.5}
-                    fill={point.color}
+                    r={focusId === point.ray.id ? 6 : 3}
+                    fill='#ffffff'
+                    opacity={
+                      hasFocus && focusId !== point.ray.id ? '.34' : '.92'
+                    }
+                    filter={
+                      focusId === point.ray.id
+                        ? 'url(#preference-starfish-glow)'
+                        : undefined
+                    }
+                    className='preference-starfish-hit'
                   />
-                  <text
-                    x={point.outerX}
-                    y={point.outerY}
-                    dy='4'
-                    textAnchor='middle'
-                    fontSize='10'
-                    fill='currentColor'
-                  >
-                    {index + 1}
-                  </text>
                 </g>
               ))}
-              <circle cx='320' cy='320' r='32' className='fill-background' />
-              <text
-                x='320'
-                y='318'
-                textAnchor='middle'
-                fontSize='18'
-                fontWeight='600'
-                fill='currentColor'
-              >
-                {rays.length}
-              </text>
-              <text
-                x='320'
-                y='335'
-                textAnchor='middle'
-                fontSize='10'
-                fill='currentColor'
-              >
-                {t('Preferences')}
-              </text>
             </svg>
           </div>
         </div>
@@ -275,17 +368,16 @@ export function PreferenceStarfishChart(props: {
             </article>
           )}
           <ol className='max-h-64 overflow-y-auto border-t pt-3'>
-            {rays.map((ray, index) => (
+            {rays.map((ray) => (
               <li key={ray.id}>
                 <button
                   type='button'
-                  aria-pressed={selected?.id === ray.id}
+                  aria-pressed={focusId === ray.id}
+                  onMouseEnter={() => setHoveredId(ray.id)}
+                  onMouseLeave={() => setHoveredId('')}
                   className='hover:bg-muted aria-pressed:bg-muted flex w-full items-start gap-2 rounded-sm px-2 py-2 text-left text-xs'
                   onClick={() => setSelectedId(ray.id)}
                 >
-                  <span className='text-muted-foreground w-6 shrink-0 tabular-nums'>
-                    {index + 1}
-                  </span>
                   <span className='min-w-0 break-words'>{ray.label}</span>
                 </button>
               </li>
