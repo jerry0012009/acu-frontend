@@ -1,5 +1,10 @@
 {
   "translation": {
+    "Preference position": "Preference position",
+    "Preference importance": "Preference importance",
+    "Acceptable interval": "Acceptable interval",
+    "Profile version": "Profile version",
+    "Acceptance conditions": "Acceptance conditions",
     "Price factor range": "Price factor range",
     "Configuration target": "Configuration target",
     "Global configuration": "Global configuration",

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || "playwright");
 const base = process.env.STARFISH_BASE_URL || "http://127.0.0.1:4317";
@@ -19,7 +19,7 @@ const user = {
   setting: "{}",
 };
 const domains = ["证据核验与交付闭环", "Collaboration and production control", "模型路由与计费策略", "Design and user experience", "架构与生产运行"];
-const rays = Array.from({ length: 100 }, (_, index) => ({
+let rays = Array.from({ length: 100 }, (_, index) => ({
   id: `pref-${index}`,
   label: `Preference ${index + 1}: evidence and verifiable outcomes`,
   category: domains[index % 5],
@@ -35,6 +35,51 @@ let view = {
   generatedAt: "2026-11-06T12:00:00Z",
   error: null,
 };
+if (process.env.STARFISH_PROFILE_FILE) {
+  view = JSON.parse(readFileSync(process.env.STARFISH_PROFILE_FILE, 'utf8'));
+  rays = view.profile.rays;
+}
+const expectedDomains = [...new Set(rays.map((ray) => ray.category))];
+const hoverRay = rays[Math.floor(rays.length * 0.4)];
+const pinnedRay = rays[Math.floor(rays.length * 0.75)];
+
+async function verifyArrowPlacement(chart, frames = 1) {
+  const maximumOffset = await chart.evaluate(async (svg, frames) => {
+    let maximum = 0;
+    for (let frame = 0; frame < frames; frame++) {
+      await new Promise(requestAnimationFrame);
+      for (const group of svg.querySelectorAll('[role="button"]')) {
+        const shaft = group.querySelector('.preference-starfish-ray');
+        const arrow = group.querySelector('path.preference-starfish-hit');
+        const length = arrow.getTotalLength();
+        const matrix = arrow.getScreenCTM();
+        const tipCoordinates = arrow.getAttribute('d').match(/L\s+([-\d.e]+)\s+([-\d.e]+)/);
+        const tip = new DOMPoint(Number(tipCoordinates[1]), Number(tipCoordinates[2])).matrixTransform(matrix);
+        const left = arrow.getPointAtLength(0).matrixTransform(matrix);
+        let wingLength = length / 2;
+        if (arrow.getAttribute('fill') !== 'none') {
+          const wingCoordinates = [...arrow.getAttribute('d').matchAll(/[ML]\s+([-\d.e]+)\s+([-\d.e]+)/g)];
+          wingLength = Math.hypot(Number(wingCoordinates[0][1]) - Number(wingCoordinates[1][1]), Number(wingCoordinates[0][2]) - Number(wingCoordinates[1][2]));
+        }
+        const right = arrow.getPointAtLength(wingLength * 2).matrixTransform(matrix);
+        const start = new DOMPoint(shaft.x1.baseVal.value, shaft.y1.baseVal.value).matrixTransform(shaft.getScreenCTM());
+        const end = new DOMPoint(shaft.x2.baseVal.value, shaft.y2.baseVal.value).matrixTransform(shaft.getScreenCTM());
+        maximum = Math.max(maximum, Math.hypot(tip.x - end.x, tip.y - end.y));
+        const dx = end.x - start.x;
+        const dy = end.y - start.y;
+        // Both wings must sit behind the tip, symmetrically across the ray.
+        if ((left.x - tip.x) * dx + (left.y - tip.y) * dy >= 0 ||
+            (right.x - tip.x) * dx + (right.y - tip.y) * dy >= 0 ||
+            Math.abs((left.x + right.x - 2 * tip.x) * dy - (left.y + right.y - 2 * tip.y) * dx) > 0.1) {
+          return Infinity;
+        }
+      }
+    }
+    return maximum;
+  }, frames);
+  assert(maximumOffset < 0.1, `arrow tips must remain at ray endpoints and point outward; maximum offset ${maximumOffset}px`);
+}
+
 try {
   const context = await browser.newContext({ locale: "en-US" });
   await context.route("**/api/**", async (route) => {
@@ -91,9 +136,34 @@ try {
       console.log(page.url(), (await page.locator("body").innerText()).slice(0, 2000), errors);
       throw error;
     });
-    assert.equal(await chart.locator('[role="button"]').count(), 100);
-    assert.equal(await chart.locator('text').count(), 5);
-    assert.equal(await chart.locator('text').allTextContents().then((labels) => labels.every((label) => domains.includes(label))), true);
+    assert.equal(await chart.locator('[role="button"]').count(), rays.length);
+    assert.equal(await chart.locator('[role="button"] path.preference-starfish-hit').count(), rays.length, 'every ray ends in an arrow');
+    assert.equal(await chart.locator('[role="button"] circle').count(), 0, 'arrows replace endpoint dots');
+    assert.equal(await chart.locator('polygon').count(), 0, 'rays must not be joined by a filled area or outline');
+    const lengths = await chart.locator('[role="button"]').evaluateAll((groups) => groups.map((group) => {
+      const shaft = group.querySelector('.preference-starfish-ray');
+      return { label: group.getAttribute('aria-label'), length: Math.hypot(shaft.x2.baseVal.value - shaft.x1.baseVal.value, shaft.y2.baseVal.value - shaft.y1.baseVal.value) };
+    }));
+    const byLabel = new Map(lengths.map((entry) => [entry.label, entry.length]));
+    const isBipolar = view.profile.schemaVersion === 'acu-preference-v5-bipolar';
+    const sortedRays = [...rays].sort((a, b) => a.score - b.score);
+    if (isBipolar) {
+      for (const ray of rays) assert(Math.abs(byLabel.get(ray.label) - 250 * Math.abs((ray.bipolar.position - 60) / 60)) < 0.001, 'bipolar length must reflect distance from midpoint only');
+      assert.equal(await chart.locator('path.preference-starfish-hit[fill="currentColor"]').count(), rays.length);
+    } else {
+    for (let index = 1; index < sortedRays.length; index++) {
+      const previous = byLabel.get(sortedRays[index - 1].label);
+      const current = byLabel.get(sortedRays[index].label);
+      assert(current >= previous - 0.001, 'longer rays must represent higher strengths');
+      if (sortedRays[index].score === sortedRays[index - 1].score) assert(Math.abs(current - previous) < 0.001, 'equal strengths must remain equal lengths');
+    }
+    if (sortedRays.at(-1).score - sortedRays[0].score >= 10) {
+      assert(Math.max(...lengths.map((entry) => entry.length)) / Math.min(...lengths.map((entry) => entry.length)) > 2, 'meaningful strength differences must be visible');
+    }
+    }
+    await verifyArrowPlacement(chart);
+    assert.equal(await chart.locator('text').count(), expectedDomains.length);
+    assert.equal(await chart.locator('text').allTextContents().then((labels) => labels.every((label) => expectedDomains.includes(label))), true);
     await page.evaluate((theme) => {
       document.documentElement.classList.toggle('dark', theme === 'dark');
       document.documentElement.classList.toggle('light', theme === 'light');
@@ -107,27 +177,39 @@ try {
       const frame = label.ownerSVGElement.getBoundingClientRect();
       return bounds.left >= frame.left && bounds.right <= frame.right && bounds.top >= frame.top && bounds.bottom <= frame.bottom;
     })), 'all domain labels must fit inside the chart');
-    const hoverTarget = chart.getByRole('button', { name: rays[40].label, exact: true });
+    const hoverTarget = chart.getByRole('button', { name: hoverRay.label, exact: true });
     await hoverTarget.dispatchEvent('mouseover');
-    await page.getByRole('heading', { name: rays[40].label, exact: true }).waitFor();
+    await verifyArrowPlacement(chart, 24);
+    await page.getByRole('heading', { name: hoverRay.label, exact: true }).waitFor();
+    await chart.screenshot({ path: `${output}/arrows-hover-${width}-${theme}.png` });
     await hoverTarget.dispatchEvent('mouseout');
-    const target = chart.getByRole("button", { name: rays[75].label, exact: true });
+    await verifyArrowPlacement(chart, 24);
+    const target = chart.getByRole("button", { name: pinnedRay.label, exact: true });
     await target.focus();
     await page.keyboard.press("Enter");
+    await verifyArrowPlacement(chart, 24);
     assert.equal(
       await target.getAttribute("aria-pressed"),
       "true",
     );
-    assert.equal(await page.getByRole("heading", { name: rays[75].label, exact: true }).count(), 1);
-    await page.getByText("Source documents (1)", { exact: true }).click();
-    await page.getByText("Preference source evidence", { exact: true }).waitFor();
+    assert.equal(await page.getByRole("heading", { name: pinnedRay.label, exact: true }).count(), 1);
+    if (isBipolar) {
+      await page.getByText(`A · ${pinnedRay.bipolar.end_a}`, { exact: true }).waitFor();
+      await page.getByText(`B · ${pinnedRay.bipolar.end_b}`, { exact: true }).waitFor();
+      await page.getByText(`${pinnedRay.bipolar.position}/120`, { exact: true }).first().waitFor();
+    }
+    await page.getByText(`Source documents (${pinnedRay.sourceIds.length})`, { exact: true }).click();
+    if (!process.env.STARFISH_PROFILE_FILE)
+      await page.getByText("Preference source evidence", { exact: true }).waitFor();
     await page.getByRole("button", { name: "Zoom in", exact: true }).click();
     assert(await viewport.evaluate((element) => element.scrollWidth > element.clientWidth));
+    await verifyArrowPlacement(chart);
     await page.getByRole("button", { name: "Zoom out", exact: true }).click();
     const defaultSize = await chart.evaluate((element) => element.viewBox.baseVal.width);
     await page.getByRole("button", { name: "Zoom out", exact: true }).click();
     assert(await chart.evaluate((element) => element.viewBox.baseVal.width) > defaultSize, 'zoom out must work below the initial size');
     assert(await viewport.evaluate((element) => element.scrollWidth <= element.clientWidth), 'zoomed-out chart must fit viewport');
+    await verifyArrowPlacement(chart);
     await page.getByRole("button", { name: "Zoom in", exact: true }).click();
     assert.equal(
       await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
@@ -135,6 +217,10 @@ try {
     );
     await page.screenshot({ path: `${output}/starfish-${width}-${theme}.png`, fullPage: true });
   }
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const reducedMotionChart = page.locator('svg[aria-label="Preference starfish"]');
+  await reducedMotionChart.getByRole('button', { name: hoverRay.label, exact: true }).dispatchEvent('mouseover');
+  await verifyArrowPlacement(reducedMotionChart, 4);
   for (const status of ["queued", "error", "empty"]) {
     view = { ...view, status, profile: status === "error" ? view.profile : null };
     await page.reload();
@@ -151,7 +237,7 @@ try {
   }
   assert.deepEqual(errors, []);
   console.log(
-    "Passed: 100 rays, selection, keyboard, sources, zoom, desktop/mobile overflow, loading/error/empty states",
+    `Passed: ${rays.length} arrow tips aligned in all directions, static/hover/leave/pinned animation frames, zoom, reduced motion, desktop/mobile themes, selection, sources, loading/error/empty states`,
   );
 } finally {
   await browser.close();
