@@ -523,6 +523,11 @@ func applyHeaderOverrideToRequest(req *http.Request, headerOverride map[string]s
 }
 
 func DoApiRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody io.Reader) (*http.Response, error) {
+	if info != nil && info.IsACUChannel && strings.HasPrefix(info.RequestURLPath, "/v1/v1beta/") {
+		copyInfo := *info
+		copyInfo.RequestURLPath = strings.TrimPrefix(info.RequestURLPath, "/v1")
+		info = &copyInfo
+	}
 	fullRequestURL, err := a.GetRequestURL(info)
 	if err != nil {
 		return nil, fmt.Errorf("get request url failed: %w", err)
