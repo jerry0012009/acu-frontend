@@ -220,6 +220,10 @@ function Test-AcuAsset([string]$Path, [string]$Kind) {
         $text.Contains('gpt-6-luna') -and
         $text.Contains('gpt-6-sol') -and
         $text.Contains('gpt-6.1-sol') -and
+        $text.Contains('deepseek-v4.1-flash-1017') -and
+        $text.Contains('claude-opus-5-5') -and
+        $text.Contains('claude-fable-5-1') -and
+        $text.Contains('glm-5.3-flash') -and
         $text.Contains('Test-AllowedModel')
     }
     if ($Kind -eq 'catalog') {
@@ -233,7 +237,10 @@ function Test-AcuAsset([string]$Path, [string]$Kind) {
         'gpt-6-astra',
         'gpt-6-luna',
         'gpt-6-sol',
-        'gpt-6.1-sol'
+        'gpt-6.1-sol',
+        'deepseek-v4.1-flash-1017', 'deepseek-v4.1-flash',
+        'claude-opus-5-5', 'claude-fable-5', 'claude-fable-5-1',
+        'claude-sonnet-5', 'claude-opus-4-8', 'glm-5.3', 'glm-5.3-flash'
       )) {
         if ($slugs -notcontains $required) { return $false }
       }
@@ -411,7 +418,7 @@ model = "acu-auto"
 model_provider = "acu-founder-alpha"
 model_reasoning_effort = "medium"
 model_context_window = 1050000
-model_auto_compact_token_limit = 922000
+model_auto_compact_token_limit = 900000
 model_auto_compact_token_limit_scope = "total"
 model_catalog_json = "$catalogTomlPath"
 
@@ -429,7 +436,7 @@ if (Test-Path $ConfigPath) {
   $missing = [System.Collections.Generic.List[string]]::new()
   $managedValues = @(
     @{ Pattern = '(?m)^model_context_window\s*=[^\r\n]*(?=\r?$)'; Line = 'model_context_window = 1050000' },
-    @{ Pattern = '(?m)^model_auto_compact_token_limit\s*=[^\r\n]*(?=\r?$)'; Line = 'model_auto_compact_token_limit = 922000' },
+    @{ Pattern = '(?m)^model_auto_compact_token_limit\s*=[^\r\n]*(?=\r?$)'; Line = 'model_auto_compact_token_limit = 900000' },
     @{ Pattern = '(?m)^model_auto_compact_token_limit_scope\s*=[^\r\n]*(?=\r?$)'; Line = 'model_auto_compact_token_limit_scope = "total"' },
     @{ Pattern = '(?m)^model_catalog_json\s*=[^\r\n]*(?=\r?$)'; Line = "model_catalog_json = `"$catalogTomlPath`"" }
   )
@@ -474,7 +481,10 @@ function Test-AllowedModel([string]$Model) {
     'gpt-6-astra',
     'gpt-6-luna',
     'gpt-6-sol',
-    'gpt-6.1-sol'
+    'gpt-6.1-sol',
+    'deepseek-v4.1-flash-1017', 'deepseek-v4.1-flash',
+    'claude-opus-5-5', 'claude-fable-5', 'claude-fable-5-1',
+    'claude-sonnet-5', 'claude-opus-4-8', 'glm-5.3', 'glm-5.3-flash'
   )
 }
 
@@ -565,6 +575,13 @@ $effectiveModel = if ($selectedModel) { $selectedModel } elseif ($configuredMode
 } else {
   $null
 }
+switch -Wildcard ($effectiveModel) {
+  { $_ -in @('claude-fable-5', 'claude-sonnet-5', 'claude-opus-4-8') } { $context = 200000; $compact = 170000; break }
+  { $_ -in @('claude-opus-5-5', 'claude-fable-5-1', 'glm-5.3', 'glm-5.3-flash') } { $context = 1000000; $compact = 850000; break }
+  'deepseek-v4.1-flash*' { $context = 1048576; $compact = 891289; break }
+  default { $context = 1050000; $compact = 900000 }
+}
+$nativeArgs += @('-c', "model_context_window=$context", '-c', "model_auto_compact_token_limit=$compact")
 $nativeArgs += $args
 & $NativeCodexPath @nativeArgs
 exit $LASTEXITCODE

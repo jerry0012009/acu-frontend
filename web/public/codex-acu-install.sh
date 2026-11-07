@@ -199,6 +199,10 @@ asset_is_current() {
         grep -Fq "gpt-6-luna" "$asset_path" &&
         grep -Fq "gpt-6-sol" "$asset_path" &&
         grep -Fq "gpt-6.1-sol" "$asset_path" &&
+        grep -Fq "deepseek-v4.1-flash-1017" "$asset_path" &&
+        grep -Fq "claude-opus-5-5" "$asset_path" &&
+        grep -Fq "claude-fable-5-1" "$asset_path" &&
+        grep -Fq "glm-5.3-flash" "$asset_path" &&
         grep -Fq "allowed_model" "$asset_path"
       ;;
     catalog)
@@ -210,7 +214,10 @@ asset_is_current() {
         gpt-6-astra \
         gpt-6-luna \
         gpt-6-sol \
-        gpt-6.1-sol; do
+        gpt-6.1-sol \
+        deepseek-v4.1-flash-1017 deepseek-v4.1-flash \
+        claude-opus-5-5 claude-fable-5 claude-fable-5-1 \
+        claude-sonnet-5 claude-opus-4-8 glm-5.3 glm-5.3-flash; do
         grep -Fq "\"slug\": \"$model\"" "$asset_path" || return 1
       done
       ;;
@@ -383,7 +390,7 @@ model = "acu-auto"
 model_provider = "acu-founder-alpha"
 model_reasoning_effort = "medium"
 model_context_window = 1050000
-model_auto_compact_token_limit = 922000
+model_auto_compact_token_limit = 900000
 model_auto_compact_token_limit_scope = "total"
 model_catalog_json = "$acu_home/model-catalog.json"
 
@@ -400,7 +407,7 @@ if [ -f "$acu_home/config.toml" ]; then
     function emit_missing(    line) {
       if (emitted) return
       if (!context) print "model_context_window = 1050000"
-      if (!compact) print "model_auto_compact_token_limit = 922000"
+      if (!compact) print "model_auto_compact_token_limit = 900000"
       if (!scope) print "model_auto_compact_token_limit_scope = \"total\""
       if (!catalog) print "model_catalog_json = \"" catalog_path "\""
       emitted=1
@@ -417,7 +424,7 @@ if [ -f "$acu_home/config.toml" ]; then
       next
     }
     !emitted && /^model_auto_compact_token_limit[[:space:]]*=/ {
-      print "model_auto_compact_token_limit = 922000"
+      print "model_auto_compact_token_limit = 900000"
       compact=1
       next
     }

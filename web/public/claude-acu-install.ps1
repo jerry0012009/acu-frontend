@@ -215,7 +215,7 @@ if ([string]::IsNullOrWhiteSpace($ExistingToken) -or $Token -ne $ExistingToken) 
 [System.IO.File]::WriteAllText($NativePathFile, $nativeClaude, [System.Text.UTF8Encoding]::new($false))
 [System.IO.File]::WriteAllText(
   $ModelSettingsPath,
-  '{"availableModels":["acu-auto","claude-opus-5-5","claude-opus-4-8","claude-sonnet-5","claude-fable-5"]}',
+  '{"availableModels":["acu-auto","claude-opus-5-5","claude-opus-4-8","claude-sonnet-5","claude-fable-5","claude-fable-5-1","deepseek-v4.1-flash-1017","deepseek-v4.1-flash","gpt-6-astra","gpt-6.1-sol","gpt-6-sol","gpt-6-luna","gpt-5.6-sol","gpt-5.6-terra","gpt-5.6-luna","glm-5.3","glm-5.3-flash"]}',
   [System.Text.UTF8Encoding]::new($false)
 )
 if ($RunningOnWindows) {
@@ -249,7 +249,7 @@ Remove-Item Env:ANTHROPIC_DEFAULT_HAIKU_MODEL_DESCRIPTION -ErrorAction SilentlyC
 Remove-Item Env:CLAUDE_CODE_SUBAGENT_MODEL -ErrorAction SilentlyContinue
 if (-not (Test-Path $NativeClaude)) { throw 'Native Claude Code is missing; rerun the installer.' }
 
-$allowedModels = @('acu-auto', 'claude-opus-5-5', 'claude-opus-4-8', 'claude-sonnet-5', 'claude-fable-5', 'opus', 'sonnet', 'fable')
+$allowedModels = @('acu-auto', 'claude-opus-5-5', 'claude-opus-4-8', 'claude-sonnet-5', 'claude-fable-5', 'claude-fable-5-1', 'deepseek-v4.1-flash-1017', 'deepseek-v4.1-flash', 'gpt-6-astra', 'gpt-6.1-sol', 'gpt-6-sol', 'gpt-6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna', 'glm-5.3', 'glm-5.3-flash', 'opus', 'sonnet', 'fable')
 $selectedModel = $null
 for ($index = 0; $index -lt $args.Count; $index++) {
   if ($args[$index] -eq '--model') {

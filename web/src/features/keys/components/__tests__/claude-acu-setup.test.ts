@@ -15,6 +15,20 @@ const shellInstaller = readFileSync(
   new URL('../../../../../public/claude-acu-install.sh', import.meta.url),
   'utf8'
 )
+const frontierModels = [
+  'claude-fable-5-1',
+  'deepseek-v4.1-flash-1017',
+  'deepseek-v4.1-flash',
+  'gpt-6-astra',
+  'gpt-6.1-sol',
+  'gpt-6-sol',
+  'gpt-6-luna',
+  'gpt-5.6-sol',
+  'gpt-5.6-terra',
+  'gpt-5.6-luna',
+  'glm-5.3',
+  'glm-5.3-flash',
+]
 const powerShellInstaller = readFileSync(
   new URL('../../../../../public/claude-acu-install.ps1', import.meta.url),
   'utf8'
@@ -215,6 +229,15 @@ test('Codex installers install the latest CLI with China and overseas fallbacks'
       'gpt-6-luna',
       'gpt-6-sol',
       'gpt-6.1-sol',
+      'deepseek-v4.1-flash-1017',
+      'deepseek-v4.1-flash',
+      'claude-opus-5-5',
+      'claude-fable-5',
+      'claude-fable-5-1',
+      'claude-sonnet-5',
+      'claude-opus-4-8',
+      'glm-5.3',
+      'glm-5.3-flash',
     ]
   )
   assert.deepEqual(
@@ -230,6 +253,15 @@ test('Codex installers install the latest CLI with China and overseas fallbacks'
       ['low', 'medium', 'high', 'max'],
       ['low', 'medium', 'high', 'xhigh'],
       ['low', 'medium', 'high', 'xhigh', 'max'],
+      ['none', 'low', 'high', 'max'],
+      ['none', 'low', 'high', 'max'],
+      ['low', 'medium', 'high'],
+      ['low', 'medium', 'high'],
+      ['low', 'medium', 'high'],
+      ['low', 'medium', 'high'],
+      ['low', 'medium', 'high'],
+      [],
+      [],
     ]
   )
 })
@@ -395,6 +427,7 @@ chmod 755 "$prefix/bin/claude"
         'claude-opus-4-8',
         'claude-sonnet-5',
         'claude-fable-5',
+        ...frontierModels,
       ],
     }
   )
@@ -433,6 +466,18 @@ chmod 755 "$prefix/bin/claude"
     }
   )
   assert.equal(explicitLaunch.status, 0, explicitLaunch.stderr)
+  for (const model of frontierModels) {
+    for (const modelArgs of [['--model', model], [`--model=${model}`]]) {
+      const launch = spawnSync(launcher, [...modelArgs, '-p', 'test task'], {
+        env: launcherEnv,
+        encoding: 'utf8',
+      })
+      assert.equal(launch.status, 0, launch.stderr)
+      assert.ok(readFileSync(claudeLog, 'utf8').includes(modelArgs.join(' ')))
+    }
+    assert.ok(powerShellInstaller.includes(`'${model}'`))
+    assert.ok(powerShellInstaller.includes(`"${model}"`))
+  }
   const invalidLaunch = spawnSync(launcher, ['--model', 'claude-unknown'], {
     env: launcherEnv,
     encoding: 'utf8',
@@ -549,6 +594,7 @@ printf '%s\\n' "$ANTHROPIC_BASE_URL|$*"
       'claude-opus-4-8',
       'claude-sonnet-5',
       'claude-fable-5',
+      ...frontierModels,
     ],
   })
   assert.doesNotMatch(firstSettings, /haiku/i)
