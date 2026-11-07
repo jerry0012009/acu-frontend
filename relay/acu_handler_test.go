@@ -137,6 +137,39 @@ func TestACURawClientCancellationIsNotProvider500(t *testing.T) {
 	}
 }
 
+func TestACURawGeminiKeepsNativeStreamWithoutComments(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Setenv("ACU_TRUSTED_IDENTITY_SECRET", "test-only-shared-secret")
+	service.InitHttpClient()
+	settings := operation_setting.GetGeneralSetting()
+	enabled, seconds := settings.PingIntervalEnabled, settings.PingIntervalSeconds
+	settings.PingIntervalEnabled, settings.PingIntervalSeconds = true, 1
+	t.Cleanup(func() { settings.PingIntervalEnabled, settings.PingIntervalSeconds = enabled, seconds })
+	const reply = "data: {\"candidates\":[{\"finishReason\":\"STOP\"}]}\n\n"
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.Copy(io.Discard, r.Body)
+		// Leave enough time for an incorrectly enabled one-second pinger.
+		select {
+		case <-time.After(2 * time.Second):
+		case <-r.Context().Done():
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		io.WriteString(w, reply)
+	}))
+	defer up.Close()
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest("POST", "/v1beta/models/m:streamGenerateContent", strings.NewReader(`{"contents":[]}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+	common.SetContextKey(c, constant.ContextKeyChannelType, constant.ChannelTypeOpenAI)
+	common.SetContextKey(c, constant.ContextKeyChannelBaseUrl, up.URL)
+	common.SetContextKey(c, constant.ContextKeyChannelKey, "test-router-key")
+	got := ACURawHelper(c, &relaycommon.RelayInfo{IsACUChannel: true, IsStream: true, RelayFormat: types.RelayFormatGemini, UserId: 17, TokenId: 29, RequestId: "req_gemini", RequestURLPath: "/v1beta/models/m:streamGenerateContent"})
+	require.Nil(t, got)
+	require.Equal(t, reply, rec.Body.String())
+}
+
 type acuCancelWriter struct {
 	*httptest.ResponseRecorder
 	cancel context.CancelFunc

@@ -728,7 +728,9 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 		helper.SetEventStreamHeaders(c)
 		// 处理流式请求的 ping 保活
 		generalSettings := operation_setting.GetGeneralSetting()
-		if info.IsACUChannel || (generalSettings.PingIntervalEnabled && !info.DisablePing) {
+		// Match Magpie: some Gemini clients reject SSE comments.
+		acuPing := info.IsACUChannel && info.RelayFormat != types.RelayFormatGemini
+		if acuPing || (generalSettings.PingIntervalEnabled && !info.DisablePing) {
 			pingInterval := time.Duration(generalSettings.PingIntervalSeconds) * time.Second
 			if info.IsACUChannel && (!generalSettings.PingIntervalEnabled || pingInterval <= 0) {
 				// ACU may still be selecting/recovering a Profile before it
