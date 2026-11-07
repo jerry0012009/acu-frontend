@@ -724,12 +724,19 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 
 	var stopPinger context.CancelFunc
 	var pingerDone <-chan struct{}
-	if info.IsStream && !info.IsACUChannel {
+	if info.IsStream {
 		helper.SetEventStreamHeaders(c)
 		// 处理流式请求的 ping 保活
 		generalSettings := operation_setting.GetGeneralSetting()
-		if generalSettings.PingIntervalEnabled && !info.DisablePing {
+		// Match Magpie: some Gemini clients reject SSE comments.
+		acuPing := info.IsACUChannel && info.RelayFormat != types.RelayFormatGemini
+		if acuPing || (generalSettings.PingIntervalEnabled && !info.DisablePing) {
 			pingInterval := time.Duration(generalSettings.PingIntervalSeconds) * time.Second
+			if info.IsACUChannel && (!generalSettings.PingIntervalEnabled || pingInterval <= 0) {
+				// ACU may still be selecting/recovering a Profile before it
+				// sends headers. Keep the HTTP connection alive in that wait.
+				pingInterval = helper.DefaultPingInterval
+			}
 			stopPinger, pingerDone = startPingKeepAlive(c, pingInterval)
 			// 使用defer确保在任何情况下都能停止ping goroutine
 			defer func() {
