@@ -145,3 +145,24 @@ narrative when switching to API mode. Both public status endpoints succeed.
 Public screenshots: `/tmp/acu-usage-guide-browser/public-*.png`.
 Final guide release: `completed`, no error or rollback, 80.707 seconds including
 observation. Console is healthy with `unless-stopped`; Router remains unchanged.
+
+## Storefront candidate, not deployed
+
+The next local candidate restores a more expressive product/tool composition:
+equal desktop columns, larger product-purpose typography, primary start action
+and secondary demo, compact three-column value detail, and one framed connection
+tool with a header, mode navigation, download controls and quieter installation
+detail. Styling is scoped to `.acu-usage-guide`; `/connect` remains unchanged.
+
+The guide browser suite adds tool-surface/radius and keyboard-order assertions;
+all seven guide viewport/theme/language cases and the independent Runtime
+browser suite pass. Typecheck, affected-file lint, 19 related tests and the
+production frontend build pass. No production build, replacement or restart is
+performed for this candidate. Human visual approval remains outstanding.
+
+Current-online/candidate first-viewport screenshots and the side-by-side HTML
+are in `/tmp/acu-guide-comparison-20261108/index.html`. This is a comparison to
+the current public page, not a reconstructed original-release screenshot.
+Direct image viewing is unavailable to this agent; layout assertions must not
+be represented as aesthetic approval. Keep the local preview separate from
+production and review the actual composition before another rollout.

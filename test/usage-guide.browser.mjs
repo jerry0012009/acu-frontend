@@ -38,6 +38,17 @@ try {
     const evidence = await page.locator('.acu-product-evidence').boundingBox();
     const download = await page.locator('.acu-guide-access .acu-download-button').boundingBox();
     assert(intro && access && evidence && download);
+    const frame = await page.locator('.acu-guide-access').evaluate(element => {
+      const style = getComputedStyle(element);
+      return { border: parseFloat(style.borderTopWidth), radius: parseFloat(style.borderRadius), background: style.backgroundColor };
+    });
+    assert(frame.border >= 1 && frame.radius <= 8, 'access is a single restrained tool frame');
+    assert.notEqual(frame.background, 'rgba(0, 0, 0, 0)', 'tool frame has its own theme surface');
+    const purposeType = await page.locator('.acu-product-purpose').evaluate(element => parseFloat(getComputedStyle(element).fontSize));
+    assert(purposeType >= (width >= 1024 ? 29 : 22), 'product purpose retains display hierarchy');
+    await page.locator('.acu-product-console').focus();
+    await page.keyboard.press('Tab');
+    assert.equal(await page.locator('.acu-product-demo').evaluate(element => element === document.activeElement), true, 'demo follows the primary action in keyboard order');
     if (width >= 1024) {
       assert(intro.x + intro.width <= access.x, 'product narrative and access panel never overlap');
       assert(Math.abs(intro.y - access.y) < 2, 'desktop columns share a top alignment');

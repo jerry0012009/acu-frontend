@@ -50,6 +50,15 @@ export function Hero(props: HeroProps) {
           </p>
           <div className='acu-product-actions'>
             <Button
+              render={
+                <Link to={props.isAuthenticated ? '/dashboard' : '/sign-up'} />
+              }
+              className='acu-product-console'
+            >
+              {t(props.isAuthenticated ? 'Enter Console' : 'Get Started')}
+              <ArrowRight aria-hidden='true' />
+            </Button>
+            <Button
               render={<a href='https://demo.acucompute.com/' />}
               variant='outline'
               className='acu-product-demo'
@@ -58,13 +67,6 @@ export function Hero(props: HeroProps) {
               {t('Product Demo')}
               <ArrowUpRight aria-hidden='true' />
             </Button>
-            <Link
-              to={props.isAuthenticated ? '/dashboard' : '/sign-up'}
-              className='acu-product-console'
-            >
-              {t(props.isAuthenticated ? 'Enter Console' : 'Get Started')}
-              <ArrowRight aria-hidden='true' />
-            </Link>
             <Link to='/pricing' className='acu-product-pricing'>
               {t('View Pricing')}
             </Link>
