@@ -49,3 +49,27 @@
 Use the shared independent Console release executor with a preserved rollback
 image. Keep Router running. Record the final manifest, image and revision after
 the executor completes. Do not equate health checks with complete user streams.
+
+Candidate application revision: `a23b0c9dfc1dc249303fa0f91be7959eecd389e4`.
+Console image:
+`sha256:1ca80f3e153489e2cd229741e1784490ece8372553ae002fe57b9824abee6991`.
+Independent manifest:
+`/var/lib/acu/releases/20261108T145249-462821de/manifest.json`.
+Replacement took 19.742 seconds, healthy at 31.574 seconds, business smoke at
+32.023 seconds. A public HTTP 502 was observed during replacement; no continuous
+traffic measurement or paid streaming acceptance was performed.
+Final executor status: `completed`, no error or rollback, 93.069 seconds total
+including the stability observation. Console is healthy with `unless-stopped`.
+All 20 existing public installer asset comparisons pass across both mirrors.
+
+Public Playwright checks at 1280px and 390px verified `/connect`, the pinned
+Runtime Windows download, direct API entry and no horizontal overflow. Public
+screenshots are in `/tmp/acu-runtime-onboarding-browser/public-*.png`.
+Both API and Console status endpoints report success. Production had no explicit
+`GENERATE_DEFAULT_TOKEN` override. Registration/login acceptance used isolated
+test databases rather than creating test accounts in production. Native desktop
+Runtime sign-in remains outside the acceptance scope.
+
+The implementation branch is `feat/runtime-first-onboarding-20261108`, pushed
+to the canonical Console remote. Main is not modified. Router application stays
+at `3bab08f`; its service is not rebuilt or restarted.
