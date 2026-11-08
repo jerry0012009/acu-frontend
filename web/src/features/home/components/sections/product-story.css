@@ -1,0 +1,215 @@
+.acu-product-story,
+.acu-process-story {
+  padding: 104px 32px;
+  letter-spacing: 0;
+}
+.acu-story-inner,
+.acu-process-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+.acu-story-heading {
+  max-width: 760px;
+  margin-bottom: 60px;
+}
+.acu-story-heading > p {
+  margin-bottom: 20px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.acu-story-heading h2 {
+  font-size: 32px;
+  line-height: 1.5;
+  font-weight: 500;
+  text-wrap: balance;
+}
+.acu-story-heading h2 > span {
+  color: var(--muted-foreground);
+}
+.acu-story-composition {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 88px;
+}
+.acu-story-index {
+  font:
+    11px/1.8 ui-monospace,
+    monospace;
+  color: var(--muted-foreground);
+}
+.acu-story-lead {
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+.acu-story-lead h3 {
+  margin-top: 26px;
+  font-size: 28px;
+  line-height: 1.4;
+  font-weight: 500;
+}
+.acu-story-lead > p {
+  margin-top: 16px;
+  max-width: 400px;
+  font-size: 14px;
+  line-height: 1.95;
+  color: var(--muted-foreground);
+}
+.acu-story-models {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 28px;
+  font-size: 12px;
+  line-height: 2;
+}
+.acu-story-models > span {
+  color: var(--muted-foreground);
+}
+.acu-story-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 25px;
+  font-size: 12px;
+}
+.acu-story-link svg {
+  width: 15px;
+  height: 15px;
+}
+.acu-story-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+.acu-story-chapters > article {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 18px;
+  padding: 25px 0;
+  border-top: 1px solid var(--border);
+}
+.acu-story-chapters h3 {
+  font-size: 17px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+.acu-story-chapters p {
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--muted-foreground);
+  max-width: 400px;
+}
+.acu-story-details {
+  margin-top: 64px;
+  border-bottom: 1px solid var(--border);
+}
+.acu-story-details > details {
+  border-top: 1px solid var(--border);
+}
+.acu-story-details summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  list-style: none;
+  padding: 20px 0;
+  font-size: 13px;
+  cursor: pointer;
+}
+.acu-story-details summary::-webkit-details-marker {
+  display: none;
+}
+.acu-story-details summary svg {
+  width: 15px;
+  height: 15px;
+  color: var(--muted-foreground);
+  transition: transform 150ms ease;
+}
+.acu-story-details details[open] summary svg {
+  transform: rotate(180deg);
+}
+.acu-story-details details > p {
+  max-width: 680px;
+  padding-bottom: 24px;
+  font-size: 13px;
+  color: var(--muted-foreground);
+  line-height: 1.9;
+}
+.acu-process-story {
+  border-top: 1px solid var(--border);
+}
+.acu-process-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 100px;
+}
+.acu-process-inner header h2 {
+  font-size: 30px;
+  line-height: 1.5;
+  font-weight: 500;
+  margin-top: 18px;
+  text-wrap: balance;
+}
+.acu-process-inner ol > li {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 24px;
+  padding: 25px 0;
+  border-top: 1px solid var(--border);
+}
+.acu-process-inner ol > li:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+.acu-process-inner ol > li:last-child {
+  padding-bottom: 0;
+}
+.acu-process-inner h3 {
+  font-size: 17px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+.acu-process-inner li p {
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--muted-foreground);
+  margin-top: 8px;
+}
+@media (max-width: 767px) {
+  .acu-product-story,
+  .acu-process-story {
+    padding: 64px 24px;
+  }
+  .acu-story-heading {
+    margin-bottom: 36px;
+  }
+  .acu-story-heading h2 {
+    font-size: 25px;
+  }
+  .acu-story-composition,
+  .acu-process-inner {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 36px;
+  }
+  .acu-story-lead h3 {
+    font-size: 24px;
+    margin-top: 20px;
+  }
+  .acu-story-lead > p {
+    font-size: 13px;
+  }
+  .acu-story-details {
+    margin-top: 36px;
+  }
+  .acu-process-inner header h2 {
+    font-size: 25px;
+  }
+  .acu-process-inner ol > li {
+    gap: 16px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .acu-story-details summary svg {
+    transition: none;
+  }
+}

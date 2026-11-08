@@ -180,22 +180,17 @@
   margin-top: 7px;
 }
 .acu-guide-access .acu-app-list {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
   margin-top: 18px;
 }
 .acu-guide-access .acu-app-list > span {
-  flex-direction: column;
-  gap: 7px;
-  font-size: 10px;
-  padding: 8px 0;
+  font-size: 11px;
+  padding: 0;
 }
 .acu-guide-access .acu-app-list svg {
-  width: 17px;
-  height: 17px;
-  stroke-width: 1.5;
-  color: var(--foreground);
+  display: none;
 }
 .acu-guide-access .acu-download-area {
   margin-top: 18px;
@@ -236,10 +231,15 @@
   padding-top: 7px;
 }
 .acu-guide-access .acu-setup-steps {
+  grid-template-columns: minmax(0, 1fr);
   padding: 0 0 20px;
 }
 .acu-guide-access .acu-setup-steps > li {
-  padding-inline: 13px;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 2px 12px;
+  border-left: 0;
+  padding: 8px 0;
 }
 .acu-guide-access .acu-setup-steps > li:first-child {
   padding-left: 0;
@@ -248,7 +248,11 @@
   padding-right: 0;
 }
 .acu-guide-access .acu-step-top {
-  margin-bottom: 10px;
+  grid-row: span 2;
+  margin: 1px 0 0;
+}
+.acu-guide-access .acu-step-icon {
+  display: none;
 }
 .acu-guide-access .acu-step-title {
   font-size: 11px;
@@ -292,35 +296,21 @@
   display: none;
 }
 .acu-product-values {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
-  padding: 23px 0;
+  padding: 12px 0;
   border-top: 1px solid var(--border);
 }
+.acu-product-values > div {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 16px;
+  padding: 10px 0;
+}
 .acu-product-values dt {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
   font-size: 12px;
   font-weight: 600;
 }
-.acu-product-values dt svg {
-  width: 17px;
-  height: 17px;
-  stroke-width: 1.5;
-}
-.acu-product-values > div:nth-child(1) dt svg {
-  color: var(--primary);
-}
-.acu-product-values > div:nth-child(2) dt svg {
-  color: var(--success);
-}
-.acu-product-values > div:nth-child(3) dt svg {
-  color: var(--warning);
-}
 .acu-product-values dd {
-  margin-top: 9px;
+  margin: 0;
   font-size: 11px;
   line-height: 1.9;
   color: var(--muted-foreground);
@@ -555,7 +545,11 @@
     padding-inline: 16px;
   }
   .acu-product-values {
-    gap: 16px;
+    padding-block: 8px;
+  }
+  .acu-product-values > div {
+    grid-template-columns: 80px minmax(0, 1fr);
+    gap: 12px;
   }
   .acu-product-values dt {
     font-size: 11px;

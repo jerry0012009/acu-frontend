@@ -1,13 +1,6 @@
 import { CherryStudio } from '@lobehub/icons'
 import { Link } from '@tanstack/react-router'
-import {
-  ArrowRight,
-  Play,
-  Route,
-  ShieldCheck,
-  ChartNoAxesCombined,
-  ArrowUpRight,
-} from 'lucide-react'
+import { ArrowRight, Play, Route, ArrowUpRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -89,24 +82,20 @@ export function Hero(props: HeroProps) {
                 title: 'Dynamic Routing',
                 description:
                   'Automatically match models and execution paths based on task difficulty, quality requirements, and cost.',
-                icon: Route,
               },
               {
                 title: 'Cost × Quality',
                 description:
                   'Optimize the full cost of qualified results across quality, cost, and reliability.',
-                icon: ChartNoAxesCombined,
               },
               {
                 title: 'Result Assurance',
                 description:
                   'Validate results through Validator and Fallback, retrying or upgrading the path when necessary.',
-                icon: ShieldCheck,
               },
             ].map((value) => (
               <div key={value.title}>
                 <dt>
-                  <value.icon aria-hidden='true' />
                   <span>{t(value.title)}</span>
                 </dt>
                 <dd>{t(value.description)}</dd>

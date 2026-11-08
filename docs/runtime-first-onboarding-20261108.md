@@ -166,3 +166,32 @@ the current public page, not a reconstructed original-release screenshot.
 Direct image viewing is unavailable to this agent; layout assertions must not
 be represented as aesthetic approval. Keep the local preview separate from
 production and review the actual composition before another rollout.
+
+## Editorial refinement candidate
+
+The next pass follows the user's preference for the closing section's spacious
+typography and removes repetitive icon tiles. Reference pages were fetched and
+opened with Chromium: `https://linear.app/features` and `https://vercel.com/home`.
+Their chapter hierarchy informed the composition; no assets or branding were
+copied, and screenshots were not visually inspected by the agent.
+
+- Pass 1: Replace the capability bento/icon grids with a lead routing chapter,
+  three secondary editorial entries and four keyboard-accessible disclosure rows.
+- Pass 2: Convert the process section to a vertical numbered sequence; remove
+  first-viewport three/four-column icon repetition. Keep all existing value copy
+  and the closing headline/actions. Remove decorative background blobs from CTA.
+- Pass 3: Verify the complete page's responsive chapter order, disclosure
+  click/Enter behavior, tool framing, no overflow, original narrative, links,
+  loaded assets, and independent Runtime/API/Key interactions.
+
+Typecheck, affected-file lint, production frontend build and 19 related tests
+pass. Seven guide viewport/language/theme scenarios and the independent Runtime
+browser suite pass. Full-page screenshots are in `/tmp/acu-usage-guide-browser`;
+the online/candidate comparison remains in `/tmp/acu-guide-comparison-20261108`.
+The existing managed preview at port 5178 serves this candidate.
+
+The user explicitly requires visual acceptance before deployment. The image
+viewer again returned `view_image is not allowed because you do not support
+image inputs`; computed-layout assertions do not fulfill that requirement.
+Accordingly this remains a preview-only commit. Production stays at `c24c1f7b8`;
+no production build/replacement/restart was initiated for this pass.
