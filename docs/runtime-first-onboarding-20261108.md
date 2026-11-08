@@ -133,3 +133,15 @@ Screenshots: `/tmp/acu-usage-guide-browser`. Direct image inspection is not
 available in this session; browser geometry and interaction checks are the
 visual-verification evidence. The focused Runtime browser suite and 19 related
 unit/installer tests also pass. No backend, account, Key or billing changes.
+
+Guide application revision: `c24c1f7b82c222ad01a46f31d93d81cc5d34bb74`.
+Release manifest: `/var/lib/acu/releases/20261108T172809-f219bd81/manifest.json`.
+Image: `sha256:e87225981fea6b9e06de10dbd4ce8c2ccf2c1940813f3f225337d74938bc19a1`.
+Replacement 7.971 seconds, healthy at 20.119 seconds, smoke at 20.760 seconds.
+A sampled public 502 and an initial browser timeout occurred during replacement;
+after health recovery all four public desktop/mobile light/dark checks passed,
+including product purpose, all three values, no horizontal overflow, and retained
+narrative when switching to API mode. Both public status endpoints succeed.
+Public screenshots: `/tmp/acu-usage-guide-browser/public-*.png`.
+Final guide release: `completed`, no error or rollback, 80.707 seconds including
+observation. Console is healthy with `unless-stopped`; Router remains unchanged.
