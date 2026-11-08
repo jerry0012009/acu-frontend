@@ -91,3 +91,20 @@ icon, keyboard order, download text contrast >= 4.5, and stable step placement
 after download feedback. Existing reveal/hide, dismissal, Linux/Mac choices,
 empty Key and retry coverage is retained. Screenshots use theme-qualified names
 under `/tmp/acu-runtime-onboarding-browser`.
+
+Visual application revision: `ba37580c59d671ad07df1c005c635f5e1839e8e2`.
+Independent release manifest:
+`/var/lib/acu/releases/20261108T170648-c75e445b/manifest.json`.
+Candidate image:
+`sha256:6cd9d3141457843510e52bea04eca49bc982af954bec49368eea23f27176785a`.
+Public browser checks confirm the new download controls, three steps, correct
+release URL and theme-inherited API panel at 1280px/390px, light and dark.
+Additional local English checks at 320px/768px/1920px have no horizontal overflow.
+Screenshot files were generated, but direct image inspection was unavailable in
+this agent session; verification uses browser geometry, computed styles, loaded
+assets, contrast and interaction assertions, not a claim of human visual review.
+Replacement took 7.312 seconds, health recovered at 19.247 seconds, business
+smoke passed at 19.799 seconds. Sampled public requests succeeded; no continuous
+traffic or paid streaming acceptance was performed.
+Final visual release status: `completed`, no error or rollback, 81.132 seconds
+total including observation. Console is healthy with `unless-stopped`.
