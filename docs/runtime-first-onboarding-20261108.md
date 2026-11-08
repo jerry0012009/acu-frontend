@@ -108,3 +108,28 @@ smoke passed at 19.799 seconds. Sampled public requests succeeded; no continuous
 traffic or paid streaming acceptance was performed.
 Final visual release status: `completed`, no error or rollback, 81.132 seconds
 total including observation. Console is healthy with `unless-stopped`.
+
+## Product narrative and usage guide
+
+Restore `Usage Guide` to `/` in both dynamic and fallback navigation while
+retaining the explicit `/connect` download entry. First-login redirects remain
+unchanged. The guide keeps ACUindex as the product, and Runtime as its optional
+access assistant. Existing task-level orchestration positioning, value copy,
+demo, pricing and workflow links remain accessible.
+
+The desktop guide uses aligned product/access columns, with unframed routing,
+cost/quality and assurance value rows on the left. Mobile places a brief product
+introduction before access, and the complete description and value detail after
+access. Theme tokens, inherited fonts, fixed type sizes and restrained dividers
+replace the previous gradients, animation-dependent hidden content and pill
+collections. Remaining homepage sections are unchanged.
+
+`test/usage-guide.browser.mjs` checks product purpose, demo and onboarding links,
+all three values, loaded image assets, desktop non-overlap/top alignment, mobile
+reading order and first-viewport download, guide navigation, retained `/connect`,
+and narrative persistence when changing API/Runtime modes. Viewports cover
+320px, 390px, 768px, 1440px and 1920px with Chinese/English and light/dark themes.
+Screenshots: `/tmp/acu-usage-guide-browser`. Direct image inspection is not
+available in this session; browser geometry and interaction checks are the
+visual-verification evidence. The focused Runtime browser suite and 19 related
+unit/installer tests also pass. No backend, account, Key or billing changes.

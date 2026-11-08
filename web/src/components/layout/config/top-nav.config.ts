@@ -12,6 +12,7 @@ import type { TopNavLink } from '../types'
  */
 export const defaultTopNavLinks: TopNavLink[] = [
   { title: 'Home', href: PUBLIC_HOME_URL },
+  { title: 'Usage Guide', href: '/' },
   { title: 'Connect & Download', href: '/connect' },
   { title: 'Console', href: '/dashboard' },
   { title: 'Model Pricing', href: '/pricing' },

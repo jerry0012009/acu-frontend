@@ -1,0 +1,408 @@
+.acu-usage-guide {
+  padding: 108px 32px 48px;
+  letter-spacing: 0;
+  color: var(--foreground);
+}
+.acu-guide-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  grid-template-rows: auto 1fr;
+  column-gap: 64px;
+  row-gap: 32px;
+  max-width: 1240px;
+  margin: 0 auto;
+  align-items: start;
+}
+.acu-product-intro {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+}
+.acu-product-category {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.acu-product-category svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: var(--primary);
+  stroke-width: 1.5;
+}
+.acu-product-intro h1 {
+  margin: 20px 0 24px;
+  font-size: 46px;
+  line-height: 1.1;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.acu-product-intro h1 > span {
+  font-weight: 400;
+}
+.acu-product-purpose {
+  font-size: 24px;
+  line-height: 1.6;
+  font-weight: 400;
+}
+.acu-product-purpose > span,
+.acu-product-purpose > strong {
+  display: block;
+}
+.acu-product-purpose > strong {
+  font-weight: 600;
+}
+.acu-product-description {
+  margin-top: 18px;
+  color: var(--muted-foreground);
+  font-size: 14px;
+  line-height: 1.95;
+  max-width: 510px;
+}
+.acu-product-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px 22px;
+  margin-top: 24px;
+}
+.acu-product-actions .acu-product-demo {
+  height: 38px;
+  gap: 8px;
+  padding: 0 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: transparent;
+}
+.acu-product-actions .acu-product-demo svg {
+  width: 14px;
+  height: 14px;
+}
+.acu-product-console {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+}
+.acu-product-console svg {
+  width: 14px;
+  height: 14px;
+}
+.acu-product-pricing {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.acu-product-console:hover,
+.acu-product-pricing:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.acu-guide-access {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  min-width: 0;
+  border-left: 1px solid var(--border);
+  padding-left: 40px;
+}
+.acu-guide-access .acu-connect-heading {
+  padding-bottom: 12px;
+}
+.acu-guide-access .acu-connect-heading h2 {
+  font-size: 18px;
+}
+.acu-guide-access .acu-connect-heading p {
+  font-size: 12px;
+  margin-top: 6px;
+}
+.acu-guide-access .acu-connection-switch {
+  margin-bottom: 24px;
+  gap: 16px;
+}
+.acu-guide-access .acu-connection-switch .acu-connection-option {
+  height: 44px;
+  font-size: 12px;
+}
+.acu-guide-access .acu-runtime-title-row h3 {
+  font-size: 23px;
+}
+.acu-guide-access .acu-runtime-mark {
+  width: 40px;
+  height: 40px;
+}
+.acu-guide-access .acu-runtime-heading {
+  gap: 12px;
+}
+.acu-guide-access .acu-runtime-intro {
+  margin-top: 20px;
+}
+.acu-guide-access .acu-runtime-intro h4 {
+  font-size: 16px;
+}
+.acu-guide-access .acu-runtime-intro > p {
+  font-size: 12px;
+}
+.acu-guide-access .acu-app-list {
+  gap: 12px 18px;
+  margin-top: 16px;
+}
+.acu-guide-access .acu-download-area {
+  margin-top: 20px;
+  padding: 18px 0;
+}
+.acu-guide-access .acu-download-controls {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+.acu-guide-access .acu-download-button {
+  width: 100%;
+}
+.acu-guide-access .acu-download-meta {
+  font-size: 10px;
+  gap: 5px;
+}
+.acu-guide-access .acu-setup-steps > li {
+  padding-left: 14px;
+  padding-right: 14px;
+}
+.acu-guide-access .acu-setup-steps > li:first-child {
+  padding-left: 0;
+}
+.acu-guide-access .acu-setup-steps > li:last-child {
+  padding-right: 0;
+}
+.acu-guide-access .acu-step-title {
+  font-size: 12px;
+}
+.acu-guide-access .acu-step-description {
+  font-size: 11px;
+}
+.acu-product-evidence {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+}
+.acu-mobile-product-description {
+  display: none;
+}
+.acu-product-values {
+  border-top: 1px solid var(--border);
+}
+.acu-product-values > div {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.acu-product-values dt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.acu-product-values dt svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.5;
+}
+.acu-product-values > div:nth-child(1) dt svg {
+  color: var(--primary);
+}
+.acu-product-values > div:nth-child(2) dt svg {
+  color: var(--success);
+}
+.acu-product-values > div:nth-child(3) dt svg {
+  color: var(--warning);
+}
+.acu-product-values dd {
+  margin: 7px 0 0 26px;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--muted-foreground);
+}
+.acu-workflow-compatibility {
+  margin-top: 24px;
+}
+.acu-workflow-compatibility h3 {
+  font-size: 12px;
+  font-weight: 500;
+}
+.acu-workflow-compatibility > p {
+  margin-top: 7px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.acu-workflow-apps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 20px;
+  margin-top: 16px;
+}
+.acu-workflow-apps > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  min-height: 26px;
+}
+.acu-workflow-apps > a:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.acu-workflow-apps img,
+.acu-workflow-apps svg {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.acu-app-initial {
+  font:
+    10px/18px ui-monospace,
+    monospace;
+  width: 18px;
+  height: 18px;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+@media (min-width: 1500px) {
+  .acu-guide-layout {
+    column-gap: 88px;
+  }
+  .acu-guide-access {
+    padding-left: 48px;
+  }
+}
+@media (max-width: 1023px) {
+  .acu-usage-guide {
+    padding: 88px 24px 36px;
+  }
+  .acu-guide-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+    max-width: 700px;
+  }
+  .acu-product-intro {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .acu-guide-access {
+    grid-column: 1;
+    grid-row: 2;
+    border-left: 0;
+    padding: 24px 0 0;
+    border-top: 1px solid var(--border);
+  }
+  .acu-product-evidence {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  .acu-product-intro h1 {
+    font-size: 34px;
+    margin: 12px 0 16px;
+  }
+  .acu-product-purpose {
+    font-size: 20px;
+    line-height: 1.5;
+  }
+  .acu-product-purpose > span,
+  .acu-product-purpose > strong {
+    display: inline;
+  }
+  .acu-product-purpose > span::after {
+    content: ' ';
+  }
+  .acu-product-description {
+    margin-top: 12px;
+    font-size: 13px;
+    line-height: 1.8;
+    max-width: none;
+  }
+  .acu-product-actions {
+    margin-top: 16px;
+    gap: 12px 20px;
+  }
+  .acu-guide-access .acu-download-controls {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+@media (max-width: 560px) {
+  .acu-product-description {
+    display: none;
+  }
+  .acu-mobile-product-description {
+    display: block;
+    font-size: 12px;
+    line-height: 1.8;
+    color: var(--muted-foreground);
+    margin-bottom: 20px;
+  }
+  .acu-guide-access .acu-connect-heading p {
+    display: none;
+  }
+  .acu-guide-access .acu-runtime-intro {
+    margin-top: 14px;
+  }
+  .acu-guide-access .acu-runtime-intro > p {
+    font-size: 11px;
+    line-height: 1.7;
+  }
+  .acu-usage-guide {
+    padding: 78px 20px 28px;
+  }
+  .acu-guide-layout {
+    gap: 24px;
+  }
+  .acu-product-category {
+    font-size: 10px;
+    gap: 6px;
+  }
+  .acu-product-category svg {
+    width: 13px;
+    height: 13px;
+    margin-top: 2px;
+  }
+  .acu-product-intro h1 {
+    font-size: 30px;
+    margin: 10px 0 12px;
+  }
+  .acu-product-purpose {
+    font-size: 18px;
+  }
+  .acu-product-description {
+    font-size: 12px;
+    line-height: 1.7;
+    margin-top: 10px;
+  }
+  .acu-product-actions .acu-product-demo {
+    height: 32px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+  .acu-product-actions {
+    gap: 10px 16px;
+    margin-top: 14px;
+  }
+  .acu-product-console,
+  .acu-product-pricing {
+    font-size: 11px;
+  }
+  .acu-guide-access {
+    padding-top: 20px;
+  }
+  .acu-guide-access .acu-connect-heading h2 {
+    font-size: 16px;
+  }
+  .acu-guide-access .acu-download-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .acu-guide-access .acu-setup-steps > li,
+  .acu-guide-access .acu-setup-steps > li:first-child,
+  .acu-guide-access .acu-setup-steps > li:last-child {
+    padding: 14px 0;
+  }
+}
