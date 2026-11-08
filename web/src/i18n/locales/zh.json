@@ -1,5 +1,7 @@
 {
   "translation": {
+    "No app installed? Runtime can help install WorkBuddy, or you can install your preferred app from its official website.": "尚未安装应用？Runtime 可协助安装 WorkBuddy，也可以从官方网站安装你喜欢的应用。",
+    "Runtime is optional. It configures selected apps after your confirmation; it does not replace their chat interface.": "Runtime 为可选接入助手，确认后才配置所选应用，不替代应用的聊天界面。",
     "Preference position": "取向位置",
     "Preference importance": "在意程度",
     "Acceptable interval": "接受区间",

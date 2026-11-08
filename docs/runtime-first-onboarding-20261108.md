@@ -236,3 +236,23 @@ Linux/Mac selection, failed Key-list retry and empty Keys also pass. Nineteen
 related tests, typecheck, affected lint, frontend build and diff checks pass.
 The managed preview is updated; no production release was attempted. Direct
 screenshot viewing remains unavailable, so aesthetic approval is still pending.
+
+## Approved unified guide release
+
+The user approved production deployment of the compact, unified guide. The
+previous preview-only restriction is superseded by that explicit approval;
+direct screenshot inspection remains unavailable and is not claimed.
+
+At release preparation the latest official, non-draft/non-prerelease Runtime
+was `v0.1.47` (published 2026-11-08T17:47:55Z). All three primary download assets
+were downloaded completely and passed the release's `SHA256SUMS.txt`:
+Windows amd64 Setup, macOS amd64 DMG and macOS arm64 DMG. The visible version,
+platform links and release-help link use 0.1.47. Installation guidance now notes
+that Runtime can assist WorkBuddy installation, matching the new release.
+
+Final checks pass: seven guide viewport/language/theme cases; four authenticated
+legacy-redirect/download/Key/preference cases and Linux/Mac/empty/retry paths;
+19 related tests; typecheck; affected lint; production frontend build and diff
+checks. Action text contrast is >= 4.5 in both themes. Scope remains Console
+frontend only relative to the running `c24c1f7b8`, preserving its account/Key and
+installer behavior. No Router release, schema or production environment change.

@@ -229,7 +229,7 @@ function RuntimeInstallNotes() {
       <div className='acu-install-notes-body'>
         <p>
           {t(
-            'Need an app first? Install it from its official website, open it once, then return to Runtime.'
+            'No app installed? Runtime can help install WorkBuddy, or you can install your preferred app from its official website.'
           )}
         </p>
         <div className='flex flex-wrap gap-x-4 gap-y-2'>
@@ -257,7 +257,7 @@ function RuntimeInstallNotes() {
         </p>
         <p>
           {t(
-            'Runtime is optional. It configures existing apps after your confirmation; it does not install those apps or replace their chat interface.'
+            'Runtime is optional. It configures selected apps after your confirmation; it does not replace their chat interface.'
           )}
         </p>
         <p>

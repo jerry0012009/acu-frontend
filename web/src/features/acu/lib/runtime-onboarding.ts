@@ -1,6 +1,6 @@
 import type { AuthUser } from '@/stores/auth-store'
 
-export const RUNTIME_VERSION = '0.1.45'
+export const RUNTIME_VERSION = '0.1.47'
 export const RUNTIME_RELEASE_URL = `https://github.com/jerry0012009/acu-runtime/releases/tag/v${RUNTIME_VERSION}`
 export type RuntimePlatform = 'windows' | 'mac-arm' | 'mac-intel' | 'other'
 

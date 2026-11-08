@@ -38,7 +38,7 @@ try {
     await page.getByRole('button', { name: 'API Key 与终端', exact: true }).waitFor();
     const download = page.locator('a[href$="windows-amd64-Setup.exe"]');
     await download.waitFor();
-    assert.match(await download.getAttribute('href'), /v0\.1\.45\/ACU-Runtime-0\.1\.45-windows-amd64-Setup.exe$/);
+    assert.match(await download.getAttribute('href'), /v0\.1\.47\/ACU-Runtime-0\.1\.47-windows-amd64-Setup.exe$/);
     await page.screenshot({ path: `${output}/runtime-${width}-${theme}.png`, fullPage: true });
     const controls = await page.locator('.acu-download-controls').boundingBox();
     const select = await page.locator('#runtime-platform').boundingBox();
@@ -117,7 +117,7 @@ try {
   await page.getByText('Linux、服务器及暂不支持的设备，可以使用终端安装或 API Key 接入。').waitFor();
   assert.equal(await page.locator('a[href$="windows-amd64-Setup.exe"]').count(), 0);
   await page.locator('#runtime-platform').selectOption('mac-intel');
-  assert.match(await page.locator('a[href$="macos-amd64.dmg"]').getAttribute('href'), /v0\.1\.45/);
+  assert.match(await page.locator('a[href$="macos-amd64.dmg"]').getAttribute('href'), /v0\.1\.47/);
   await page.getByRole('button', { name: 'API Key 与终端', exact: true }).click();
   await page.getByRole('alert').filter({ hasText: '暂时无法读取 API Key' }).waitFor();
   failKeys = false;

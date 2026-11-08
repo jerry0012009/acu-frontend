@@ -1,5 +1,7 @@
 {
   "translation": {
+    "No app installed? Runtime can help install WorkBuddy, or you can install your preferred app from its official website.": "No app installed? Runtime can help install WorkBuddy, or you can install your preferred app from its official website.",
+    "Runtime is optional. It configures selected apps after your confirmation; it does not replace their chat interface.": "Runtime is optional. It configures selected apps after your confirmation; it does not replace their chat interface.",
     "Preference position": "Preference position",
     "Preference importance": "Preference importance",
     "Acceptable interval": "Acceptable interval",
