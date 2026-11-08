@@ -34,7 +34,7 @@ test('first-login guidance respects explicit destinations and Runtime sign-in wi
     role: 1,
     setting: { acu_onboarding_pending: true },
   }
-  assert.equal(onboardingLanding(user, null, false), '/connect')
+  assert.equal(onboardingLanding(user, null, false), '/#start')
   assert.equal(onboardingLanding(user, '/keys', false), '/keys')
   assert.equal(onboardingLanding(user, null, true), '/dashboard')
   assert.equal(

@@ -1,9 +1,13 @@
-import { AcuQuickStart } from '@/features/acu/components/acu-quick-start'
+import { ConnectionGuide } from '@/features/acu/components/connection-guide'
 
 interface HeroTerminalDemoProps {
   className?: string
 }
 
 export function HeroTerminalDemo(props: HeroTerminalDemoProps) {
-  return <AcuQuickStart mode='preview' className={props.className} />
+  return (
+    <div className={props.className}>
+      <ConnectionGuide />
+    </div>
+  )
 }

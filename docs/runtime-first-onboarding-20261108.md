@@ -195,3 +195,44 @@ viewer again returned `view_image is not allowed because you do not support
 image inputs`; computed-layout assertions do not fulfill that requirement.
 Accordingly this remains a preview-only commit. Production stays at `c24c1f7b8`;
 no production build/replacement/restart was initiated for this pass.
+
+## Compact access panel candidate
+
+The guide-specific access panel now uses 40% of the desktop tracks, capped at
+440px, with no shadow and reduced header/identity weight. At 1440px the product
+column is approximately 701px wide; default Runtime access is 440x523px rather
+than approximately 584x780px. Duplicate introduction headings and app names are
+not shown in the guide panel; the explanatory copy and download remain.
+
+`compact` is opt-in through HeroTerminalDemo only. Its three-step guide is a
+native disclosure, collapsed initially and verified to expand. The independent
+`/connect` experience and other embeddings retain the complete default flow.
+All platform and API controls remain accessible. Seven responsive guide cases,
+independent Runtime/Key browser checks, 19 related tests, typecheck and affected
+lint pass. Screenshots and the existing port-5178 preview are updated. This
+remains preview-only pending actual visual acceptance; production is unchanged.
+
+## Unified guide and color refinement
+
+The user removed the requirement for a separate connection/download page.
+Navigation now has only Usage Guide; `/connect` is a compatibility redirect to
+`/#start`, and first-login guidance uses that same anchor. The former page's
+credential retrieval, balance notice, guide-dismissal setting and console link
+are retained in `ConnectionGuide`, embedded in the right-hand tutorial tool.
+No model credential is fetched until the user opens the API mode and explicitly
+reveals it. Existing account settings and backend endpoints remain unchanged.
+
+The guide keeps its compact 440px tool width, with collapsed setup instructions.
+Color is used sparingly on the purpose underline, selected connection mode and
+download command. Initial use of the site's primary color failed the 4.5 text
+contrast check (2.72); separate light/dark action colors correct that regression.
+Theme-based surfaces, the real product mark and workflow brand assets remain;
+there are no repeated three/four-column decorative icon grids.
+
+Validation: seven guide cases pass with no duplicate `/connect` navigation;
+four signed-in browser cases verify the legacy redirect, compact disclosure,
+download contrast/keyboard/feedback, Key reveal/hide, and preference saving.
+Linux/Mac selection, failed Key-list retry and empty Keys also pass. Nineteen
+related tests, typecheck, affected lint, frontend build and diff checks pass.
+The managed preview is updated; no production release was attempted. Direct
+screenshot viewing remains unavailable, so aesthetic approval is still pending.

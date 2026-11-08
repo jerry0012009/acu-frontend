@@ -1,12 +1,18 @@
 .acu-usage-guide {
+  --guide-action: #1761a0;
+  --guide-action-text: #ffffff;
   padding: 112px 32px 64px;
   letter-spacing: 0;
   color: var(--foreground);
 }
+.dark .acu-usage-guide {
+  --guide-action: #8bc9f5;
+  --guide-action-text: #122334;
+}
 
 .acu-guide-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
   grid-template-rows: auto 1fr;
   gap: 36px 72px;
   max-width: 1240px;
@@ -57,7 +63,11 @@
 .acu-product-purpose > strong {
   margin-top: 5px;
   font-weight: 600;
-  color: var(--primary);
+  color: var(--guide-action);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklch, var(--primary) 25%, transparent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 10px;
 }
 .acu-product-description {
   margin-top: 23px;
@@ -108,20 +118,24 @@
 
 /* One framed, usable tool balances the unframed product narrative. */
 .acu-guide-access {
+  scroll-margin-top: 80px;
   grid-area: 1 / 2 / span 2;
   min-width: 0;
   border: 1px solid
     color-mix(in oklch, var(--foreground) 15%, var(--background));
   border-radius: 8px;
-  background: var(--card);
-  box-shadow: 0 12px 36px -24px rgb(0 0 0 / 0.22);
+  background: color-mix(in oklch, var(--primary) 2%, var(--card));
+  width: 100%;
+  max-width: 440px;
+  justify-self: end;
+  box-shadow: none;
   overflow: hidden;
 }
 .dark .acu-guide-access {
-  box-shadow: 0 18px 44px -28px rgb(0 0 0 / 0.5);
+  box-shadow: none;
 }
 .acu-guide-access .acu-connect-heading {
-  padding: 21px 26px 19px;
+  padding: 16px 22px;
   border-bottom: 1px solid var(--border);
 }
 .acu-guide-access .acu-connect-heading h2 {
@@ -129,32 +143,33 @@
   font-weight: 600;
 }
 .acu-guide-access .acu-connect-heading p {
-  font-size: 11px;
-  line-height: 1.7;
-  margin-top: 5px;
+  display: none;
 }
 .acu-guide-access .acu-connection-switch {
-  padding: 0 26px;
+  padding: 0 22px;
   margin-bottom: 0;
   gap: 24px;
   background: color-mix(in oklch, var(--foreground) 2%, var(--card));
 }
 .acu-guide-access .acu-connection-switch .acu-connection-option {
-  height: 47px;
+  height: 42px;
   font-size: 12px;
 }
 .acu-guide-access .acu-connection-option::after {
   inset-inline: 0;
 }
+.acu-guide-access .acu-connection-option[aria-pressed='true'] {
+  color: var(--guide-action);
+}
 .acu-guide-access .acu-runtime-flow {
-  padding: 25px 26px 0;
+  padding: 20px 22px 0;
 }
 .acu-guide-access .acu-runtime-title-row h3 {
-  font-size: 22px;
+  font-size: 19px;
 }
 .acu-guide-access .acu-runtime-mark {
-  width: 42px;
-  height: 42px;
+  width: 34px;
+  height: 34px;
 }
 .acu-guide-access .acu-runtime-heading {
   gap: 12px;
@@ -171,8 +186,7 @@
   margin-top: 20px;
 }
 .acu-guide-access .acu-runtime-intro h4 {
-  font-size: 16px;
-  font-weight: 550;
+  display: none;
 }
 .acu-guide-access .acu-runtime-intro > p {
   font-size: 12px;
@@ -180,10 +194,7 @@
   margin-top: 7px;
 }
 .acu-guide-access .acu-app-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 18px;
-  margin-top: 18px;
+  display: none;
 }
 .acu-guide-access .acu-app-list > span {
   font-size: 11px;
@@ -217,8 +228,13 @@
   width: 100%;
   height: 43px;
   font-size: 12px;
-  background: var(--foreground);
-  color: var(--background);
+  background: var(--guide-action);
+  color: var(--guide-action-text);
+  border-color: var(--guide-action);
+}
+.acu-guide-access .acu-download-button:hover {
+  background: var(--guide-action);
+  opacity: 0.9;
 }
 .acu-guide-access .acu-download-meta {
   font-size: 10px;
@@ -226,7 +242,7 @@
   margin-top: 10px;
 }
 .acu-guide-access .acu-download-status {
-  min-height: 44px;
+  min-height: 32px;
   font-size: 11px;
   padding-top: 7px;
 }
@@ -269,11 +285,35 @@
   font-size: 11px;
 }
 .acu-guide-access .acu-install-notes {
-  margin-top: 14px;
+  margin-top: 0;
   font-size: 11px;
 }
 .acu-guide-access .acu-install-notes summary {
-  padding-block: 14px;
+  padding-block: 12px;
+}
+.acu-compact-steps {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.acu-compact-steps summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+  list-style: none;
+}
+.acu-compact-steps summary::-webkit-details-marker {
+  display: none;
+}
+.acu-compact-steps summary svg {
+  width: 14px;
+  height: 14px;
+}
+.acu-compact-steps[open] summary svg {
+  transform: rotate(90deg);
 }
 .acu-guide-access .acu-client-tool {
   border-top: 0;
@@ -286,6 +326,42 @@
   min-width: 92px;
   font-size: 11px;
   padding-inline: 8px;
+}
+.acu-guide-access .acu-credential-section {
+  padding: 18px 22px 0;
+  margin-bottom: 18px;
+}
+.acu-guide-access .acu-credential-label {
+  width: 80px;
+  font-size: 11px;
+}
+.acu-guide-access .acu-credential-section > h3 {
+  font-size: 13px;
+}
+.acu-guide-balance {
+  padding: 12px 22px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--muted-foreground);
+}
+.acu-guide-account-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 22px;
+  border-top: 1px solid var(--border);
+}
+.acu-guide-account-footer > a,
+.acu-guide-account-footer > button {
+  font-size: 11px;
+}
+.acu-guide-account-footer > button {
+  white-space: normal;
+  height: auto;
+  min-height: 30px;
 }
 
 .acu-product-evidence {
@@ -399,6 +475,7 @@
   }
   .acu-guide-access {
     grid-area: 2 / 1;
+    max-width: none;
   }
   .acu-product-evidence {
     grid-area: 3 / 1;

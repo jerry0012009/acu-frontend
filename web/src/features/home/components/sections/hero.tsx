@@ -66,7 +66,7 @@ export function Hero(props: HeroProps) {
           </div>
         </div>
 
-        <div className='acu-guide-access'>
+        <div className='acu-guide-access' id='start'>
           <HeroTerminalDemo className='max-w-none' />
         </div>
 

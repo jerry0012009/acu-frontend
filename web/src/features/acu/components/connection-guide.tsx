@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
-import { PublicLayout } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { getApiKeys, fetchTokenKey } from '@/features/keys/api'
 import { api } from '@/lib/api'
@@ -19,7 +18,7 @@ import {
 import { onboardingPending, isRuntimeLogin } from '../lib/runtime-onboarding'
 import { AcuQuickStart } from './acu-quick-start'
 
-export function ConnectPage() {
+export function ConnectionGuide() {
   const userID = useAuthStore((state) => state.auth.user?.id)
   return <AccountConnectPage key={userID ?? 'public'} />
 }
@@ -58,47 +57,46 @@ function AccountConnectPage() {
     }
   }
   return (
-    <PublicLayout>
-      <div className='acu-connect-page mx-auto w-full max-w-[880px] px-2 py-6 sm:px-6 sm:py-10'>
-        <AcuQuickStart
-          mode={key ? 'credentialed' : 'preview'}
-          tokenKey={key}
-          className='max-w-none'
-          connectionSummary={<DirectCredentials onKey={setKey} />}
-        />
-        {user && (user.quota ?? 0) <= 0 ? (
-          <p className='text-muted-foreground mt-6 text-sm'>
-            {t(
-              'Your key uses your account balance. Add funds before making paid requests.'
-            )}{' '}
-            <Link to='/wallet' className='underline underline-offset-4'>
-              {t('Wallet')}
-            </Link>
-          </p>
-        ) : null}
-        {user ? (
-          <div className='mt-8 flex flex-wrap items-center justify-between gap-4 border-t pt-5'>
-            <Link
-              to='/dashboard'
-              className='text-muted-foreground inline-flex items-center gap-2 text-sm'
-            >
-              {t('Go to console')}
-              <ArrowRight className='size-4' />
-            </Link>
-            {onboardingPending(user) && !isRuntimeLogin(document) ? (
-              <Button variant='ghost' disabled={saving} onClick={dismiss}>
-                {t('Do not show this guide on sign-in')}
-              </Button>
-            ) : null}
-            {error ? (
-              <p role='alert' className='text-destructive w-full text-sm'>
-                {error}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-    </PublicLayout>
+    <div className='acu-guide-account'>
+      <AcuQuickStart
+        mode={key ? 'credentialed' : 'preview'}
+        compact
+        tokenKey={key}
+        className='max-w-none'
+        connectionSummary={<DirectCredentials onKey={setKey} />}
+      />
+      {user && (user.quota ?? 0) <= 0 ? (
+        <p className='acu-guide-balance'>
+          {t(
+            'Your key uses your account balance. Add funds before making paid requests.'
+          )}{' '}
+          <Link to='/wallet' className='underline underline-offset-4'>
+            {t('Wallet')}
+          </Link>
+        </p>
+      ) : null}
+      {user ? (
+        <div className='acu-guide-account-footer'>
+          <Link
+            to='/dashboard'
+            className='text-muted-foreground inline-flex items-center gap-2 text-sm'
+          >
+            {t('Go to console')}
+            <ArrowRight className='size-4' />
+          </Link>
+          {onboardingPending(user) && !isRuntimeLogin(document) ? (
+            <Button variant='ghost' disabled={saving} onClick={dismiss}>
+              {t('Do not show this guide on sign-in')}
+            </Button>
+          ) : null}
+          {error ? (
+            <p role='alert' className='text-destructive w-full text-sm'>
+              {error}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   )
 }
 
@@ -225,7 +223,7 @@ function DirectCredentials(props: { onKey: (key: string) => void }) {
       ) : (
         <Link
           to='/sign-in'
-          search={{ redirect: '/connect' }}
+          search={{ redirect: '/#start' }}
           className='text-sm underline'
         >
           {t('Sign in to view your API key')}

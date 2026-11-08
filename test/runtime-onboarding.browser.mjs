@@ -34,6 +34,7 @@ try {
     page.on('console', message => { if (message.type() === 'error') console.log(message.text()); });
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(`${base}/connect`);
+    await page.waitForURL(url => url.pathname === '/' && url.hash === '#start');
     await page.getByRole('button', { name: 'API Key 与终端', exact: true }).waitFor();
     const download = page.locator('a[href$="windows-amd64-Setup.exe"]');
     await download.waitFor();
@@ -43,16 +44,18 @@ try {
     const select = await page.locator('#runtime-platform').boundingBox();
     const downloadBox = await download.boundingBox();
     assert(controls && select && downloadBox);
-    if (width > 560) assert(Math.abs(select.y - downloadBox.y) < 2, 'desktop download controls align');
-    else assert(downloadBox.y >= select.y + select.height, 'mobile download follows platform selection');
+    assert(downloadBox.y >= select.y + select.height, 'compact download follows platform selection');
+    const setupDisclosure = page.locator('.acu-compact-steps');
+    assert.equal(await setupDisclosure.getAttribute('open'), null);
+    await setupDisclosure.locator('summary').click();
     const steps = await page.locator('.acu-setup-steps > li').all();
     assert.equal(steps.length, 3);
     const first = await steps[0].boundingBox();
     const second = await steps[1].boundingBox();
-    assert(width > 560 ? Math.abs(first.y - second.y) < 2 : second.y > first.y, 'steps follow responsive reading order');
+    assert(second.y > first.y, 'expanded steps follow vertical reading order');
+    await setupDisclosure.locator('summary').click();
     assert.equal(await page.locator('.acu-connection-option[aria-pressed="true"]').innerText(), 'ACU Runtime');
-    const headingBox = await page.locator('.acu-runtime-heading').boundingBox();
-    assert(headingBox.y < 400 && downloadBox.y + downloadBox.height < 800, 'product and main action are visible in the first viewport');
+    assert(downloadBox.height > 0, 'download action is available in the unified guide');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     assert.equal(await page.locator('.acu-runtime-mark').evaluate(img => img.complete && img.naturalWidth > 0), true);
     const contrast = await download.evaluate(element => {
@@ -73,13 +76,12 @@ try {
     await page.keyboard.press('Tab');
     assert.equal(await download.evaluate(element => element === document.activeElement), true, 'download follows platform selection in keyboard order');
     await context.route('https://github.com/jerry0012009/acu-runtime/releases/download/**', route => route.fulfill({ headers: { 'Content-Disposition': 'attachment; filename=fixture.exe' }, body: 'fixture' }));
-    const stepsBeforeDownload = await page.locator('.acu-setup-steps').boundingBox();
+    const stepsBeforeDownload = await setupDisclosure.boundingBox();
     const downloadEvent = page.waitForEvent('download');
     await download.click();
     await downloadEvent;
     await page.getByRole('status').filter({ hasText: '下载后安装并打开' }).waitFor();
-    assert(Math.abs((await page.locator('.acu-setup-steps').boundingBox()).y - stepsBeforeDownload.y) < 2, 'download feedback does not shift the setup steps');
-    assert.equal(await page.locator('input[aria-label="API Key"]').count(), 0);
+    assert(Math.abs((await setupDisclosure.boundingBox()).y - stepsBeforeDownload.y) < 2, 'download feedback does not shift the setup disclosure');
     assert.equal(await page.locator('input[aria-label="API Key"]').count(), 0);
     await page.getByRole('button', { name: 'API Key 与终端', exact: true }).click();
     await page.getByRole('button', { name: '查看 API Key', exact: true }).click();

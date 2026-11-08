@@ -1,5 +1,7 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { ConnectPage } from '@/features/acu/components/connect-page'
-
-export const Route = createFileRoute('/connect/')({ component: ConnectPage })
+export const Route = createFileRoute('/connect/')({
+  beforeLoad: () => {
+    throw redirect({ href: '/#start', replace: true })
+  },
+})

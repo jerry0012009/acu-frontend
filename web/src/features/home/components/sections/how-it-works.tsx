@@ -12,8 +12,8 @@ export function HowItWorks() {
         <header>
           <p className='acu-story-index'>{t('How It Works')}</p>
           <h2 id='acu-process-title'>{t('Three steps to get started')}</h2>
-          <Link to='/connect' className='acu-story-link'>
-            {t('Connect & Download')}
+          <Link to='/' hash='start' className='acu-story-link'>
+            {t('Start using ACU')}
             <ArrowRight aria-hidden='true' />
           </Link>
         </header>

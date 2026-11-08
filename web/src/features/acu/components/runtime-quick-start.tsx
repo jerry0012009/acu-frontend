@@ -24,7 +24,10 @@ import {
   type RuntimePlatform,
 } from '../lib/runtime-onboarding'
 
-export function RuntimeQuickStart(props: { onDirect: () => void }) {
+export function RuntimeQuickStart(props: {
+  onDirect: () => void
+  compact?: boolean
+}) {
   const { t } = useTranslation()
   const [platform, setPlatform] = useState<RuntimePlatform>(() =>
     detectRuntimePlatform(
@@ -151,107 +154,133 @@ export function RuntimeQuickStart(props: { onDirect: () => void }) {
           </p>
         ) : null}
       </div>
-      <ol className='acu-setup-steps'>
-        {[
-          [
-            'Open ACU Runtime',
-            'Install the app, then open it from your applications.',
-          ],
-          [
-            'Connect your account',
-            'Sign in to ACU, or paste an existing API key.',
-          ],
-          [
-            'Choose your apps',
-            'Confirm configuration, then reopen the selected apps when prompted.',
-          ],
-        ].map(([title, description], index) => {
-          const StepIcon = [Download, LogIn, SlidersHorizontal][index]
-          return (
-            <li key={title}>
-              <div className='acu-step-top'>
-                <span className='acu-step-icon'>
-                  <StepIcon />
-                </span>
-                <span className='acu-step-number'>0{index + 1}</span>
-              </div>
-              <p className='acu-step-title'>{t(title)}</p>
-              <p className='acu-step-description'>{t(description)}</p>
-            </li>
-          )
-        })}
-      </ol>
-      <div className='acu-runtime-alternative'>
-        <Button
-          variant='link'
-          className='acu-direct-link'
-          onClick={props.onDirect}
-        >
-          {t('Use an API key or terminal instead')}
-          <ArrowRight className='ml-1 size-4' />
-        </Button>
-      </div>
-      <details className='acu-install-notes'>
-        <summary>
-          <span>{t('Before you install')}</span>
-          <ChevronRight aria-hidden='true' />
-        </summary>
-        <div className='acu-install-notes-body'>
-          <p>
-            {t(
-              'Need an app first? Install it from its official website, open it once, then return to Runtime.'
-            )}
-          </p>
-          <div className='flex flex-wrap gap-x-4 gap-y-2'>
-            {[
-              ['Codex', 'https://developers.openai.com/codex/'],
-              ['Claude Code', 'https://code.claude.com/docs/en/overview'],
-              ['Hermes', 'https://github.com/NousResearch/hermes-agent'],
-              ['WorkBuddy', 'https://www.codebuddy.ai/work/'],
-            ].map(([name, href]) => (
-              <a
-                key={name}
-                href={href}
-                target='_blank'
-                rel='noreferrer'
-                className='underline underline-offset-4'
-              >
-                {name}
-              </a>
-            ))}
-          </div>
-          <p>
-            {t(
-              'Manual key connection: use https://api.acucompute.com/v1 in the API address field.'
-            )}
-          </p>
-          <p>
-            {t(
-              'Runtime is optional. It configures existing apps after your confirmation; it does not install those apps or replace their chat interface.'
-            )}
-          </p>
-          <p>
-            {t(
-              'Installers are not yet code-signed or Apple-notarized. Download only from the official release; do not disable system security.'
-            )}
-          </p>
-          <p>
-            {t(
-              'Windows requires WebView2. Windows supports in-app updates; on Mac, replace the app with the new release.'
-            )}
-          </p>
-          <p>
-            {t(
-              'Existing chats may keep their previous model. Choose an ACU model in the app; WorkBuddy keeps in-app model selection.'
-            )}
-          </p>
-          <p>
-            {t(
-              'Configuration does not verify paid inference. Images and search depend on the selected model, tools and app permissions.'
-            )}
-          </p>
+      {props.compact ? (
+        <details className='acu-compact-steps'>
+          <summary>
+            <span>{t('Three steps to get started')}</span>
+            <ChevronRight aria-hidden='true' />
+          </summary>
+          <RuntimeSetupSteps />
+        </details>
+      ) : (
+        <RuntimeSetupSteps />
+      )}
+      {!props.compact ? (
+        <div className='acu-runtime-alternative'>
+          <Button
+            variant='link'
+            className='acu-direct-link'
+            onClick={props.onDirect}
+          >
+            {t('Use an API key or terminal instead')}
+            <ArrowRight className='ml-1 size-4' />
+          </Button>
         </div>
-      </details>
+      ) : null}
+      <RuntimeInstallNotes />
     </div>
+  )
+}
+
+function RuntimeSetupSteps() {
+  const { t } = useTranslation()
+  return (
+    <ol className='acu-setup-steps'>
+      {[
+        [
+          'Open ACU Runtime',
+          'Install the app, then open it from your applications.',
+        ],
+        [
+          'Connect your account',
+          'Sign in to ACU, or paste an existing API key.',
+        ],
+        [
+          'Choose your apps',
+          'Confirm configuration, then reopen the selected apps when prompted.',
+        ],
+      ].map(([title, description], index) => {
+        const StepIcon = [Download, LogIn, SlidersHorizontal][index]
+        return (
+          <li key={title}>
+            <div className='acu-step-top'>
+              <span className='acu-step-icon'>
+                <StepIcon />
+              </span>
+              <span className='acu-step-number'>0{index + 1}</span>
+            </div>
+            <p className='acu-step-title'>{t(title)}</p>
+            <p className='acu-step-description'>{t(description)}</p>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+function RuntimeInstallNotes() {
+  const { t } = useTranslation()
+  return (
+    <details className='acu-install-notes'>
+      <summary>
+        <span>{t('Before you install')}</span>
+        <ChevronRight aria-hidden='true' />
+      </summary>
+      <div className='acu-install-notes-body'>
+        <p>
+          {t(
+            'Need an app first? Install it from its official website, open it once, then return to Runtime.'
+          )}
+        </p>
+        <div className='flex flex-wrap gap-x-4 gap-y-2'>
+          {[
+            ['Codex', 'https://developers.openai.com/codex/'],
+            ['Claude Code', 'https://code.claude.com/docs/en/overview'],
+            ['Hermes', 'https://github.com/NousResearch/hermes-agent'],
+            ['WorkBuddy', 'https://www.codebuddy.ai/work/'],
+          ].map(([name, href]) => (
+            <a
+              key={name}
+              href={href}
+              target='_blank'
+              rel='noreferrer'
+              className='underline underline-offset-4'
+            >
+              {name}
+            </a>
+          ))}
+        </div>
+        <p>
+          {t(
+            'Manual key connection: use https://api.acucompute.com/v1 in the API address field.'
+          )}
+        </p>
+        <p>
+          {t(
+            'Runtime is optional. It configures existing apps after your confirmation; it does not install those apps or replace their chat interface.'
+          )}
+        </p>
+        <p>
+          {t(
+            'Installers are not yet code-signed or Apple-notarized. Download only from the official release; do not disable system security.'
+          )}
+        </p>
+        <p>
+          {t(
+            'Windows requires WebView2. Windows supports in-app updates; on Mac, replace the app with the new release.'
+          )}
+        </p>
+        <p>
+          {t(
+            'Existing chats may keep their previous model. Choose an ACU model in the app; WorkBuddy keeps in-app model selection.'
+          )}
+        </p>
+        <p>
+          {t(
+            'Configuration does not verify paid inference. Images and search depend on the selected model, tools and app permissions.'
+          )}
+        </p>
+      </div>
+    </details>
   )
 }

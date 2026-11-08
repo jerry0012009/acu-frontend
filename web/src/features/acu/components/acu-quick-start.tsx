@@ -83,6 +83,7 @@ type Agent = 'openclaw' | 'hermes' | 'workbuddy'
 type ClientConnectionMode = 'install' | 'manual'
 
 type AcuQuickStartProps = {
+  compact?: boolean
   mode: AcuQuickStartMode
   tokenKey?: string
   className?: string
@@ -156,7 +157,10 @@ export function AcuQuickStart(props: AcuQuickStartProps) {
         </Button>
       </div>
       {primaryTab === 'runtime' ? (
-        <RuntimeQuickStart onDirect={() => setPrimaryTab('api')} />
+        <RuntimeQuickStart
+          compact={props.compact}
+          onDirect={() => setPrimaryTab('api')}
+        />
       ) : (
         <>
           {props.connectionSummary}

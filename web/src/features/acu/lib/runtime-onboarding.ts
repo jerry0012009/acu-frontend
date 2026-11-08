@@ -47,5 +47,5 @@ export function onboardingLanding(
   runtimeLogin: boolean
 ): string {
   if (explicitTarget) return explicitTarget
-  return onboardingPending(user) && !runtimeLogin ? '/connect' : '/dashboard'
+  return onboardingPending(user) && !runtimeLogin ? '/#start' : '/dashboard'
 }

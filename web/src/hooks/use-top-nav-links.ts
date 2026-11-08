@@ -45,7 +45,6 @@ export function useTopNavLinks(): TopNavLink[] {
   }
 
   links.push({ title: t('Usage Guide'), href: '/' })
-  links.push({ title: t('Connect & Download'), href: '/connect' })
 
   // Console -> /dashboard (new console path)
   if (modules?.console !== false) {

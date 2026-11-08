@@ -67,6 +67,16 @@ try {
     const evidence = await page.locator('.acu-product-evidence').boundingBox();
     const download = await page.locator('.acu-guide-access .acu-download-button').boundingBox();
     assert(intro && access && evidence && download);
+    const setupDisclosure = page.locator('.acu-compact-steps');
+    assert.equal(await setupDisclosure.getAttribute('open'), null, 'secondary setup instructions are collapsed by default');
+    assert.equal(await setupDisclosure.locator('.acu-setup-steps').isVisible(), false);
+    if (width >= 1024) {
+      assert(access.width <= 440 && access.width < intro.width, 'access panel stays subordinate to the product narrative');
+      assert(access.height < 560, `default access panel is concise: ${access.height}`);
+    }
+    await setupDisclosure.locator('summary').click();
+    assert.equal(await setupDisclosure.locator('.acu-setup-steps').isVisible(), true, 'all setup steps remain available');
+    await setupDisclosure.locator('summary').click();
     const frame = await page.locator('.acu-guide-access').evaluate(element => {
       const style = getComputedStyle(element);
       return { border: parseFloat(style.borderTopWidth), radius: parseFloat(style.borderRadius), background: style.backgroundColor };
@@ -93,7 +103,7 @@ try {
     }
     const navigation = await page.locator('a[href="/"]').allTextContents();
     assert(navigation.some(text => /使用教程|Usage Guide/.test(text)), 'usage guide is reachable from navigation');
-    assert(await page.locator('a[href="/connect"]').count() > 0, 'focused connection page remains reachable');
+    assert.equal(await page.locator('a[href="/connect"]').count(), 0, 'there is no duplicate connection-page navigation');
     await page.screenshot({ path: `${output}/guide-${width}-${language}-${theme}.png`, fullPage: true });
     await page.locator('.acu-guide-access .acu-connection-option').nth(1).click();
     await page.locator('.acu-guide-access .acu-client-tool').waitFor();
