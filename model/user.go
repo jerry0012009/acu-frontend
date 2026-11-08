@@ -8,8 +8,10 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 
 	"github.com/bytedance/gopkg/util/gopool"
@@ -633,6 +635,9 @@ func (user *User) Insert(inviterId int) error {
 			if err := tx.Create(user).Error; err != nil {
 				return err
 			}
+			if err := user.createRegistrationKey(tx); err != nil {
+				return err
+			}
 			if user.RedeemCode != "" {
 				keyCol := "`key`"
 				if common.UsingMainDatabase(common.DatabaseTypePostgreSQL) {
@@ -713,6 +718,9 @@ func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
 		if err := tx.Create(user).Error; err != nil {
 			return err
 		}
+		if err := user.createRegistrationKey(tx); err != nil {
+			return err
+		}
 		if user.RedeemCode != "" {
 			keyCol := "`key`"
 			if common.UsingMainDatabase(common.DatabaseTypePostgreSQL) {
@@ -724,6 +732,32 @@ func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
 		}
 		return nil
 	})
+}
+
+// Runs only during account creation, never on login or after a Key is revoked.
+func (user *User) createRegistrationKey(tx *gorm.DB) error {
+	if user.Role != common.RoleCommonUser {
+		return nil
+	}
+	preferences := user.GetSetting()
+	preferences.ACUOnboardingPending = true
+	user.SetSetting(preferences)
+	if err := tx.Model(user).Update("setting", user.Setting).Error; err != nil {
+		return err
+	}
+	if !constant.GenerateDefaultToken {
+		return nil
+	}
+	key, err := common.GenerateKey()
+	if err != nil {
+		return err
+	}
+	token := Token{UserId: user.Id, Key: key, Name: "Default API Key", Status: common.TokenStatusEnabled,
+		CreatedTime: common.GetTimestamp(), AccessedTime: common.GetTimestamp(), ExpiredTime: -1, UnlimitedQuota: true}
+	if setting.DefaultUseAutoGroup {
+		token.Group = "auto"
+	}
+	return tx.Create(&token).Error
 }
 
 // FinalizeOAuthUserCreation performs post-transaction tasks for OAuth user creation.

@@ -308,7 +308,7 @@ test('CC Switch has a dedicated quick-start tab with model mapping guidance', ()
   assert.match(quickStartSource, /CC_SWITCH_MODEL_MAPPINGS/)
 })
 
-test('copying an API key opens the unified client setup guidance', () => {
+test('setup guidance remains available explicitly without interrupting key copying', () => {
   const rowActionsSource = readFileSync(
     new URL('../data-table-row-actions.tsx', import.meta.url),
     'utf8'
@@ -320,6 +320,12 @@ test('copying an API key opens the unified client setup guidance', () => {
   assert.match(rowActionsSource, /setAcuSetupInitialTab\('codex'\)/)
   assert.match(rowActionsSource, /setOpen\('acu-setup'\)/)
   assert.match(providerSource, /acuSetupInitialTab/)
+  const cellSource = readFileSync(
+    new URL('../api-keys-cells.tsx', import.meta.url),
+    'utf8'
+  )
+  assert.doesNotMatch(cellSource, /setOpen\('acu-setup'\)/)
+  assert.match(cellSource, /markKeyCopied\(apiKey.id\)/)
 })
 
 test('Claude Unix installer can complete through a private npm prefix and ACU endpoint', () => {

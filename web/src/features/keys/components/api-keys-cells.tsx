@@ -24,10 +24,6 @@ import { useApiKeys } from './api-keys-provider'
 export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
   const { t } = useTranslation()
   const {
-    setAcuSetupInitialTab,
-    setCurrentRow,
-    setOpen,
-    setResolvedKey,
     resolveRealKey,
     resolvedKeys,
     loadingKeys,
@@ -58,21 +54,8 @@ export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
     const ok = await copyToClipboard(realKey)
     if (ok) {
       markKeyCopied(apiKey.id)
-      setAcuSetupInitialTab('codex')
-      setResolvedKey(realKey)
-      setCurrentRow(apiKey)
-      setOpen('acu-setup')
     }
-  }, [
-    resolvedFullKey,
-    resolveRealKey,
-    apiKey,
-    markKeyCopied,
-    setAcuSetupInitialTab,
-    setResolvedKey,
-    setCurrentRow,
-    setOpen,
-  ])
+  }, [resolvedFullKey, resolveRealKey, apiKey, markKeyCopied])
 
   let copyIcon = <Copy className='size-3.5' />
   let copyTooltip = t('Copy API key')

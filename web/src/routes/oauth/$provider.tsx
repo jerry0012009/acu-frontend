@@ -9,6 +9,10 @@ import i18next from 'i18next'
 import { useEffect } from 'react'
 import { toast } from 'sonner'
 
+import {
+  onboardingLanding,
+  isRuntimeLogin,
+} from '@/features/acu/lib/runtime-onboarding'
 import { OAuthCallbackScreen } from '@/features/auth/components/oauth-callback-screen'
 import {
   OAUTH_BIND_CALLBACK_MESSAGE,
@@ -172,7 +176,14 @@ function OAuthCallback() {
         if (response.data?.success && isAuthBundle(response.data?.data)) {
           clearPendingRedemptionCode()
           applyAuthBundle(response.data.data)
-          safeNavigate(search.redirect)
+          safeNavigate(
+            search.redirect,
+            onboardingLanding(
+              response.data.data.user,
+              null,
+              isRuntimeLogin(document)
+            )
+          )
           toast.success(i18next.t('Signed in successfully!'))
           return
         }

@@ -65,8 +65,15 @@ import {
   type AcuApiProtocol,
   type AcuClient,
 } from '../lib/quick-start'
+import { RuntimeQuickStart } from './runtime-quick-start'
 
-export type AcuQuickStartTab = 'codex' | 'claude' | 'ccswitch' | 'api' | 'agent'
+export type AcuQuickStartTab =
+  | 'runtime'
+  | 'codex'
+  | 'claude'
+  | 'ccswitch'
+  | 'api'
+  | 'agent'
 type Platform = 'unix' | 'windows'
 type Agent = 'openclaw' | 'hermes' | 'workbuddy'
 type ClientConnectionMode = 'install' | 'manual'
@@ -77,6 +84,7 @@ type AcuQuickStartProps = {
   className?: string
   onOpenCCSwitch?: () => void
   initialTab?: AcuQuickStartTab
+  connectionSummary?: ReactNode
 }
 
 const PRIMARY_TABS: Array<{
@@ -94,7 +102,7 @@ const PRIMARY_TABS: Array<{
 export function AcuQuickStart(props: AcuQuickStartProps) {
   const { t } = useTranslation()
   const [primaryTab, setPrimaryTab] = useState<AcuQuickStartTab>(
-    props.initialTab ?? 'codex'
+    props.initialTab ?? 'runtime'
   )
   const copyKey =
     props.mode === 'credentialed' && props.tokenKey
@@ -112,74 +120,97 @@ export function AcuQuickStart(props: AcuQuickStartProps) {
           {t('Start using ACU')}
         </h2>
         <p className='text-muted-foreground mt-1 text-[13px] leading-relaxed sm:text-sm'>
-          {t('Choose the tool you use and connect to ACU Auto in a few steps.')}
+          {t('Connect your apps with ACU Runtime, or use an API key directly.')}
         </p>
       </div>
 
-      <div className='overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0b0f17] text-slate-100 shadow-[0_20px_60px_-25px_rgba(0,0,0,0.7)]'>
-        <Tabs
-          value={primaryTab}
-          onValueChange={(value) => {
-            if (value) setPrimaryTab(value as AcuQuickStartTab)
-          }}
-          className='gap-0'
+      <div className='mb-4 flex flex-wrap items-center gap-2 border-b pb-3'>
+        <Button
+          variant={primaryTab === 'runtime' ? 'secondary' : 'ghost'}
+          onClick={() => setPrimaryTab('runtime')}
+          aria-pressed={primaryTab === 'runtime'}
         >
-          <div className='overflow-x-auto border-b border-white/[0.07]'>
-            <TabsList
-              variant='line'
-              className='h-12 min-w-max gap-0 px-2 text-slate-400'
-            >
-              {PRIMARY_TABS.map((tab) => {
-                const Icon = tab.icon
-                return (
-                  <TabsTrigger
-                    key={tab.value}
-                    value={tab.value}
-                    className='h-12 min-w-[110px] gap-1.5 rounded-none px-3 text-xs text-slate-400 after:bg-sky-400 data-active:text-white sm:min-w-0 sm:flex-1'
-                  >
-                    <Icon className='size-3.5' />
-                    {t(tab.label)}
-                  </TabsTrigger>
-                )
-              })}
-            </TabsList>
-          </div>
-
-          <div className='min-h-[490px]'>
-            <TabsContent value='codex' className='m-0'>
-              <ClientQuickStart
-                client='codex'
-                copyKey={copyKey}
-                mode={props.mode}
-              />
-            </TabsContent>
-            <TabsContent value='claude' className='m-0'>
-              <ClientQuickStart
-                client='claude'
-                copyKey={copyKey}
-                mode={props.mode}
-              />
-            </TabsContent>
-            <TabsContent value='ccswitch' className='m-0'>
-              <CCSwitchQuickStart
-                mode={props.mode}
-                copyKey={copyKey}
-                onOpenCCSwitch={props.onOpenCCSwitch}
-              />
-            </TabsContent>
-            <TabsContent value='api' className='m-0'>
-              <ApiQuickStart
-                mode={props.mode}
-                copyKey={copyKey}
-                onOpenCCSwitch={props.onOpenCCSwitch}
-              />
-            </TabsContent>
-            <TabsContent value='agent' className='m-0'>
-              <AgentQuickStart copyKey={copyKey} mode={props.mode} />
-            </TabsContent>
-          </div>
-        </Tabs>
+          ACU Runtime
+        </Button>
+        <Button
+          variant={primaryTab !== 'runtime' ? 'secondary' : 'ghost'}
+          onClick={() => setPrimaryTab('api')}
+          aria-pressed={primaryTab !== 'runtime'}
+        >
+          {t('API key & terminal')}
+        </Button>
       </div>
+      {primaryTab === 'runtime' ? (
+        <RuntimeQuickStart onDirect={() => setPrimaryTab('api')} />
+      ) : (
+        <>
+          {props.connectionSummary}
+          <div className='overflow-hidden rounded-lg border border-white/[0.08] bg-[#0b0f17] text-slate-100'>
+            <Tabs
+              value={primaryTab}
+              onValueChange={(value) => {
+                if (value) setPrimaryTab(value as AcuQuickStartTab)
+              }}
+              className='gap-0'
+            >
+              <div className='overflow-x-auto border-b border-white/[0.07]'>
+                <TabsList
+                  variant='line'
+                  className='h-12 min-w-max gap-0 px-2 text-slate-400'
+                >
+                  {PRIMARY_TABS.map((tab) => {
+                    const Icon = tab.icon
+                    return (
+                      <TabsTrigger
+                        key={tab.value}
+                        value={tab.value}
+                        className='h-12 min-w-[110px] gap-1.5 rounded-none px-3 text-xs text-slate-400 after:bg-sky-400 data-active:text-white sm:min-w-0 sm:flex-1'
+                      >
+                        <Icon className='size-3.5' />
+                        {t(tab.label)}
+                      </TabsTrigger>
+                    )
+                  })}
+                </TabsList>
+              </div>
+
+              <div className='min-h-[490px]'>
+                <TabsContent value='codex' className='m-0'>
+                  <ClientQuickStart
+                    client='codex'
+                    copyKey={copyKey}
+                    mode={props.mode}
+                  />
+                </TabsContent>
+                <TabsContent value='claude' className='m-0'>
+                  <ClientQuickStart
+                    client='claude'
+                    copyKey={copyKey}
+                    mode={props.mode}
+                  />
+                </TabsContent>
+                <TabsContent value='ccswitch' className='m-0'>
+                  <CCSwitchQuickStart
+                    mode={props.mode}
+                    copyKey={copyKey}
+                    onOpenCCSwitch={props.onOpenCCSwitch}
+                  />
+                </TabsContent>
+                <TabsContent value='api' className='m-0'>
+                  <ApiQuickStart
+                    mode={props.mode}
+                    copyKey={copyKey}
+                    onOpenCCSwitch={props.onOpenCCSwitch}
+                  />
+                </TabsContent>
+                <TabsContent value='agent' className='m-0'>
+                  <AgentQuickStart copyKey={copyKey} mode={props.mode} />
+                </TabsContent>
+              </div>
+            </Tabs>
+          </div>
+        </>
+      )}
     </section>
   )
 }
