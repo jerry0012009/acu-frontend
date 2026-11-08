@@ -73,3 +73,21 @@ Runtime sign-in remains outside the acceptance scope.
 The implementation branch is `feat/runtime-first-onboarding-20261108`, pushed
 to the canonical Console remote. Main is not modified. Router application stays
 at `3bab08f`; its service is not rebuilt or restarted.
+
+## Visual refinement
+
+The follow-up visual pass keeps the site's neutral theme, inherited typeface
+and configurable primary accent. The connection switch becomes a fixed-height
+underlined mode selector; Runtime identity, release, applications and download
+controls share a consistent hierarchy. Download actions are monochrome for
+clear emphasis, with a responsive control row and reserved feedback space.
+Steps use numbered line icons and separators, not nested cards or invented
+connection states. API credentials and all shared client tutorials now follow
+light/dark theme tokens rather than a fixed dark-blue surface.
+
+Playwright covers 1280px/390px in both light/dark themes, control alignment,
+first-viewport product/action visibility, responsive step order, loaded product
+icon, keyboard order, download text contrast >= 4.5, and stable step placement
+after download feedback. Existing reveal/hide, dismissal, Linux/Mac choices,
+empty Key and retry coverage is retained. Screenshots use theme-qualified names
+under `/tmp/acu-runtime-onboarding-browser`.

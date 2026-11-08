@@ -1,0 +1,479 @@
+.acu-connect-experience {
+  letter-spacing: 0;
+  --connect-line: var(--border);
+  --connect-surface: color-mix(
+    in oklch,
+    var(--foreground) 3%,
+    var(--background)
+  );
+  --connect-accent: var(--primary);
+}
+
+.acu-connect-heading {
+  padding-bottom: 24px;
+}
+.acu-connect-heading h2 {
+  font-size: 24px;
+  line-height: 1.4;
+  font-weight: 600;
+}
+.acu-connect-heading p {
+  margin-top: 8px;
+  color: var(--muted-foreground);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.acu-connection-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 1px solid var(--connect-line);
+  margin-bottom: 32px;
+  gap: 24px;
+}
+.acu-connection-switch .acu-connection-option {
+  position: relative;
+  height: 52px;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  box-shadow: none;
+  font-size: 14px;
+}
+.acu-connection-option svg {
+  width: 17px;
+  height: 17px;
+}
+.acu-connection-option::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 -1px;
+  height: 2px;
+  background: transparent;
+}
+.acu-connection-option[aria-pressed='true'] {
+  color: var(--foreground);
+}
+.acu-connection-option[aria-pressed='true']::after {
+  background: var(--connect-accent);
+}
+.acu-connection-option[aria-pressed='true'] svg {
+  color: var(--connect-accent);
+}
+.acu-runtime-heading {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.acu-runtime-mark {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 8px;
+}
+.acu-runtime-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.acu-runtime-title-row h3 {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.acu-release-tag {
+  color: var(--muted-foreground);
+  font:
+    11px/1.5 ui-monospace,
+    monospace;
+  border: 1px solid var(--connect-line);
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+.acu-runtime-subtitle {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  margin-top: 4px;
+}
+.acu-runtime-intro {
+  margin-top: 24px;
+}
+.acu-runtime-intro h4 {
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.acu-runtime-intro > p {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--muted-foreground);
+  max-width: 620px;
+}
+.acu-app-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 24px;
+  margin-top: 20px;
+}
+.acu-app-list > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.acu-app-list svg {
+  width: 15px;
+  height: 15px;
+  color: var(--muted-foreground);
+}
+.acu-download-area {
+  margin-top: 28px;
+  padding: 24px 0;
+  border-top: 1px solid var(--connect-line);
+  border-bottom: 1px solid var(--connect-line);
+}
+.acu-field-label {
+  display: block;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  margin-bottom: 10px;
+}
+.acu-download-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+.acu-platform-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 14px;
+  border: 1px solid var(--input);
+  background: var(--connect-surface);
+  border-radius: 6px;
+  min-width: 0;
+}
+.acu-platform-field:focus-within {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.acu-platform-field > svg {
+  color: var(--muted-foreground);
+  flex-shrink: 0;
+}
+.acu-platform-select {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  font-size: 13px;
+  color: var(--foreground);
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+}
+.acu-platform-select option {
+  background: var(--background);
+  color: var(--foreground);
+}
+.acu-runtime-flow .acu-download-button {
+  height: 46px;
+  padding: 0 22px;
+  border-radius: 6px;
+  gap: 10px;
+  font-size: 13px;
+  background: var(--foreground);
+  color: var(--background);
+  border-color: var(--foreground);
+}
+.acu-runtime-flow .acu-download-button:hover {
+  background: var(--foreground);
+  opacity: 0.88;
+}
+.acu-download-meta {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  margin-top: 12px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  line-height: 1.7;
+}
+.acu-download-meta > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.acu-download-meta > a:hover {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.acu-download-meta svg {
+  width: 12px;
+  height: 12px;
+}
+.acu-platform-fallback {
+  font-size: 12px;
+  line-height: 1.7;
+  max-width: 300px;
+  color: var(--muted-foreground);
+}
+.acu-download-status {
+  min-height: 46px;
+  padding-top: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted-foreground);
+}
+.acu-setup-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  padding: 8px 0 24px;
+  border-bottom: 1px solid var(--connect-line);
+}
+.acu-setup-steps > li {
+  min-width: 0;
+  padding: 0 24px;
+  border-left: 1px solid var(--connect-line);
+}
+.acu-setup-steps > li:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.acu-setup-steps > li:last-child {
+  padding-right: 0;
+}
+.acu-step-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.acu-step-icon {
+  color: var(--connect-accent);
+}
+.acu-step-icon svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 1.5;
+}
+.acu-step-number {
+  color: var(--muted-foreground);
+  font:
+    11px/1 ui-monospace,
+    monospace;
+}
+.acu-step-title {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+.acu-step-description {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.8;
+  margin-top: 6px;
+}
+.acu-runtime-alternative {
+  padding-top: 20px;
+}
+.acu-runtime-alternative .acu-direct-link {
+  padding: 0;
+  height: auto;
+  color: var(--foreground);
+  font-size: 12px;
+  gap: 6px;
+  white-space: normal;
+  text-align: left;
+}
+.acu-install-notes {
+  margin-top: 20px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.acu-install-notes summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--connect-line);
+  list-style: none;
+}
+.acu-install-notes summary::-webkit-details-marker {
+  display: none;
+}
+.acu-install-notes summary > svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 150ms ease;
+}
+.acu-install-notes[open] summary > svg {
+  transform: rotate(90deg);
+}
+.acu-install-notes-body {
+  display: grid;
+  gap: 12px;
+  padding: 4px 0 20px;
+  line-height: 1.8;
+  max-width: 680px;
+}
+.acu-credential-section {
+  margin: 0 0 28px;
+}
+.acu-credential-section > h3 {
+  margin-bottom: 12px;
+  font-size: 16px;
+}
+.acu-credential-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--connect-line);
+  padding: 12px 0;
+}
+.acu-credential-label {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  width: 100px;
+  flex-shrink: 0;
+}
+.acu-key-controls {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+.acu-key-controls input {
+  height: 36px;
+  border: 1px solid var(--input);
+  background: var(--connect-surface);
+  border-radius: 4px;
+}
+.acu-credential-section > p {
+  margin-top: 12px;
+}
+.acu-client-tool {
+  border-top: 1px solid var(--connect-line);
+}
+.acu-client-tool [data-slot='tabs-list'] {
+  width: 100%;
+}
+.acu-client-tool [data-slot='tabs-trigger'] {
+  font-size: 12px;
+}
+.acu-client-tool [data-slot='tabs-content'] > div {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+@media (max-width: 560px) {
+  .acu-connect-heading {
+    padding-bottom: 16px;
+  }
+  .acu-connect-heading h2 {
+    font-size: 21px;
+  }
+  .acu-connect-heading p {
+    font-size: 13px;
+  }
+  .acu-connection-switch {
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .acu-connection-switch .acu-connection-option {
+    font-size: 12px;
+    gap: 8px;
+  }
+  .acu-runtime-heading {
+    gap: 12px;
+  }
+  .acu-runtime-title-row {
+    gap: 8px;
+  }
+  .acu-runtime-title-row h3 {
+    font-size: 23px;
+  }
+  .acu-runtime-intro {
+    margin-top: 20px;
+  }
+  .acu-runtime-intro h4 {
+    font-size: 17px;
+  }
+  .acu-runtime-intro > p {
+    font-size: 13px;
+  }
+  .acu-app-list {
+    gap: 14px 20px;
+  }
+  .acu-download-area {
+    margin-top: 24px;
+    padding: 20px 0;
+  }
+  .acu-download-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .acu-download-status {
+    min-height: 52px;
+  }
+  .acu-runtime-flow .acu-download-button {
+    width: 100%;
+  }
+  .acu-setup-steps {
+    grid-template-columns: minmax(0, 1fr);
+    padding-top: 0;
+    padding-bottom: 4px;
+  }
+  .acu-setup-steps > li,
+  .acu-setup-steps > li:first-child,
+  .acu-setup-steps > li:last-child {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    column-gap: 12px;
+    padding: 16px 0;
+    border-left: 0;
+    border-top: 1px solid var(--connect-line);
+  }
+  .acu-setup-steps > li:first-child {
+    border-top: 0;
+  }
+  .acu-step-top {
+    grid-row: span 2;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 10px;
+    margin-bottom: 0;
+  }
+  .acu-step-description {
+    margin-top: 3px;
+  }
+  .acu-credential-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .acu-credential-label {
+    width: 100%;
+  }
+  .acu-key-controls {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acu-connect-experience *,
+  .acu-connect-experience *::after {
+    transition: none !important;
+  }
+}

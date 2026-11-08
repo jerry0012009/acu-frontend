@@ -10,8 +10,9 @@ let revealed = 0;
 let completed = 0;
 const user = { id: 42, username: 'new-user', role: 1, quota: 0, setting: '{"acu_onboarding_pending":true}', language: 'zh' };
 try {
-  for (const width of [1280, 390]) {
+  for (const [width, theme] of [[1280, 'light'], [390, 'light'], [1280, 'dark'], [390, 'dark']]) {
     const context = await browser.newContext({ viewport: { width, height: 960 }, locale: 'zh-CN', userAgent: 'Mozilla/5.0 Windows NT 10.0; Win64; x64' });
+    await context.addCookies([{ name: 'vite-ui-theme', value: theme, url: base }]);
     await context.route('**/api/**', async route => {
       const path = new URL(route.request().url()).pathname;
       let data = '';
@@ -37,22 +38,64 @@ try {
     const download = page.locator('a[href$="windows-amd64-Setup.exe"]');
     await download.waitFor();
     assert.match(await download.getAttribute('href'), /v0\.1\.45\/ACU-Runtime-0\.1\.45-windows-amd64-Setup.exe$/);
-    await page.screenshot({ path: `${output}/runtime-${width}.png`, fullPage: true });
+    await page.screenshot({ path: `${output}/runtime-${width}-${theme}.png`, fullPage: true });
+    const controls = await page.locator('.acu-download-controls').boundingBox();
+    const select = await page.locator('#runtime-platform').boundingBox();
+    const downloadBox = await download.boundingBox();
+    assert(controls && select && downloadBox);
+    if (width > 560) assert(Math.abs(select.y - downloadBox.y) < 2, 'desktop download controls align');
+    else assert(downloadBox.y >= select.y + select.height, 'mobile download follows platform selection');
+    const steps = await page.locator('.acu-setup-steps > li').all();
+    assert.equal(steps.length, 3);
+    const first = await steps[0].boundingBox();
+    const second = await steps[1].boundingBox();
+    assert(width > 560 ? Math.abs(first.y - second.y) < 2 : second.y > first.y, 'steps follow responsive reading order');
+    assert.equal(await page.locator('.acu-connection-option[aria-pressed="true"]').innerText(), 'ACU Runtime');
+    const headingBox = await page.locator('.acu-runtime-heading').boundingBox();
+    assert(headingBox.y < 400 && downloadBox.y + downloadBox.height < 800, 'product and main action are visible in the first viewport');
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    assert.equal(await page.locator('.acu-runtime-mark').evaluate(img => img.complete && img.naturalWidth > 0), true);
+    const contrast = await download.evaluate(element => {
+      const style = getComputedStyle(element);
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 1;
+      const ctx = canvas.getContext('2d');
+      function luminance(color) {
+        ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = color; ctx.fillRect(0, 0, 1, 1);
+        const channels = [...ctx.getImageData(0, 0, 1, 1).data].slice(0, 3).map(value => { const s = value / 255; return s <= .04045 ? s / 12.92 : ((s + .055) / 1.055) ** 2.4; });
+        return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
+      }
+      const a = luminance(style.color), b = luminance(style.backgroundColor);
+      return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
+    });
+    assert(contrast >= 4.5, `download contrast ${contrast}`);
+    await page.locator('#runtime-platform').focus();
+    await page.keyboard.press('Tab');
+    assert.equal(await download.evaluate(element => element === document.activeElement), true, 'download follows platform selection in keyboard order');
+    await context.route('https://github.com/jerry0012009/acu-runtime/releases/download/**', route => route.fulfill({ headers: { 'Content-Disposition': 'attachment; filename=fixture.exe' }, body: 'fixture' }));
+    const stepsBeforeDownload = await page.locator('.acu-setup-steps').boundingBox();
+    const downloadEvent = page.waitForEvent('download');
+    await download.click();
+    await downloadEvent;
+    await page.getByRole('status').filter({ hasText: '下载后安装并打开' }).waitFor();
+    assert(Math.abs((await page.locator('.acu-setup-steps').boundingBox()).y - stepsBeforeDownload.y) < 2, 'download feedback does not shift the setup steps');
     assert.equal(await page.locator('input[aria-label="API Key"]').count(), 0);
-    assert.equal(revealed, width === 1280 ? 0 : 1);
+    assert.equal(await page.locator('input[aria-label="API Key"]').count(), 0);
     await page.getByRole('button', { name: 'API Key 与终端', exact: true }).click();
     await page.getByRole('button', { name: '查看 API Key', exact: true }).click();
     await page.waitForFunction(key => document.querySelector('input[aria-label="API Key"]')?.value === key, fixtureKey);
     await page.getByRole('button', { name: /隐藏 API/ }).click();
     assert.equal(await page.locator('input[aria-label="API Key"]').getAttribute('type'), 'password');
-    await page.screenshot({ path: `${output}/direct-${width}.png`, fullPage: true });
+    await page.screenshot({ path: `${output}/direct-${width}-${theme}.png`, fullPage: true });
+    assert.equal(await page.locator('.acu-connection-option[aria-pressed="true"]').innerText(), 'API Key 与终端');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     assert.deepEqual(errors, []);
     await page.getByRole('button', { name: '下次登录不再显示', exact: true }).click();
     await page.waitForURL(url => url.pathname.startsWith('/dashboard'), { waitUntil: 'domcontentloaded' });
     await context.close();
   }
-  assert.equal(completed, 2);
+  assert.equal(completed, 4);
+  assert.equal(revealed, 4);
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'zh-CN', userAgent: 'Mozilla/5.0 Linux x86_64' });
   let failKeys = true;
   await context.route('**/api/**', async route => {

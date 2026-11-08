@@ -1,4 +1,16 @@
-import { Download, ArrowRight, ExternalLink, Monitor } from 'lucide-react'
+import {
+  Download,
+  ArrowRight,
+  ExternalLink,
+  Monitor,
+  Terminal,
+  Code2,
+  Bot,
+  Layers,
+  LogIn,
+  SlidersHorizontal,
+  ChevronRight,
+} from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -20,6 +32,12 @@ export function RuntimeQuickStart(props: { onDirect: () => void }) {
     )
   )
   const [downloaded, setDownloaded] = useState(false)
+  let platformNote = 'API key & terminal'
+  if (platform === 'windows') {
+    platformNote = 'Windows x64 · No administrator access required'
+  } else if (platform !== 'other') {
+    platformNote = 'macOS 12 or later · Select the chip used by your Mac'
+  }
   const labels = {
     windows: 'Windows 10 / 11 · x64',
     'mac-arm': 'macOS · Apple Silicon',
@@ -27,53 +45,73 @@ export function RuntimeQuickStart(props: { onDirect: () => void }) {
     other: 'Linux / Other devices',
   }
   return (
-    <div className='space-y-7 py-5'>
-      <div className='flex items-center gap-3'>
+    <div className='acu-runtime-flow'>
+      <div className='acu-runtime-heading'>
         <img
           src='/acu-runtime-icon.png'
-          width={44}
-          height={44}
+          width={48}
+          height={48}
           alt=''
-          className='size-11 shrink-0 rounded-lg'
+          className='acu-runtime-mark'
         />
         <div>
-          <h3 className='text-xl font-semibold'>ACU Runtime</h3>
-          <p className='text-muted-foreground text-sm'>
+          <div className='acu-runtime-title-row'>
+            <h3>ACU Runtime</h3>
+            <span className='acu-release-tag'>v{RUNTIME_VERSION}</span>
+          </div>
+          <p className='acu-runtime-subtitle'>
             {t('Your local ACU connection assistant')}
           </p>
         </div>
       </div>
-      <div className='max-w-xl space-y-2'>
-        <h4 className='text-lg font-medium'>
-          {t('Connect ACU to your everyday apps')}
-        </h4>
-        <p className='text-muted-foreground text-sm leading-6'>
+      <div className='acu-runtime-intro'>
+        <h4>{t('Connect ACU to your everyday apps')}</h4>
+        <p>
           {t(
             'Configure ACU models and tools for Codex, Claude Code, Hermes and WorkBuddy already on your computer.'
           )}
         </p>
       </div>
-      <div className='space-y-3'>
-        <label htmlFor='runtime-platform' className='text-sm font-medium'>
+      <div
+        className='acu-app-list'
+        aria-label='Codex / Claude Code / Hermes / WorkBuddy'
+      >
+        {[
+          { name: 'Codex', icon: Terminal },
+          { name: 'Claude Code', icon: Code2 },
+          { name: 'Hermes', icon: Bot },
+          { name: 'WorkBuddy', icon: Layers },
+        ].map((app) => (
+          <span key={app.name}>
+            <app.icon aria-hidden='true' />
+            <span>{app.name}</span>
+          </span>
+        ))}
+      </div>
+      <div className='acu-download-area'>
+        <label htmlFor='runtime-platform' className='acu-field-label'>
           {t('Your device')}
         </label>
-        <select
-          id='runtime-platform'
-          value={platform}
-          onChange={(event) => {
-            setPlatform(event.target.value as RuntimePlatform)
-            setDownloaded(false)
-          }}
-          className='border-input bg-background block h-10 w-full max-w-sm rounded-md border px-3 text-sm'
-        >
-          {Object.entries(labels).map(([value, label]) => (
-            <option key={value} value={value}>
-              {t(label)}
-            </option>
-          ))}
-        </select>
-        {platform !== 'other' ? (
-          <>
+        <div className='acu-download-controls'>
+          <div className='acu-platform-field'>
+            <Monitor aria-hidden='true' className='size-4' />
+            <select
+              id='runtime-platform'
+              value={platform}
+              onChange={(event) => {
+                setPlatform(event.target.value as RuntimePlatform)
+                setDownloaded(false)
+              }}
+              className='acu-platform-select'
+            >
+              {Object.entries(labels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {t(label)}
+                </option>
+              ))}
+            </select>
+          </div>
+          {platform !== 'other' ? (
             <Button
               render={
                 <a
@@ -81,37 +119,39 @@ export function RuntimeQuickStart(props: { onDirect: () => void }) {
                   onClick={() => setDownloaded(true)}
                 />
               }
-              className='h-11 gap-2 px-5'
+              className='acu-download-button'
             >
               <Download className='size-4' />
               {t('Download ACU Runtime')}
             </Button>
-            <p className='text-muted-foreground text-xs'>
-              v{RUNTIME_VERSION} ·{' '}
-              {platform === 'windows'
-                ? t('Windows x64 · No administrator access required')
-                : t('macOS 12 or later · Select the chip used by your Mac')}
-            </p>
-          </>
-        ) : (
-          <div className='border-border flex items-start gap-3 border-l-2 pl-4'>
-            <Monitor className='mt-0.5 size-4 shrink-0' />
-            <p className='text-muted-foreground text-sm'>
-              {t(
-                'Use a terminal installer or API key on Linux, servers and unsupported devices.'
-              )}
-            </p>
-          </div>
-        )}
-      </div>
-      {downloaded ? (
-        <p role='status' className='text-sm'>
-          {t(
-            'After downloading, install and open ACU Runtime. Continue with the steps below.'
+          ) : (
+            <div className='acu-platform-fallback'>
+              <p>
+                {t(
+                  'Use a terminal installer or API key on Linux, servers and unsupported devices.'
+                )}
+              </p>
+            </div>
           )}
-        </p>
-      ) : null}
-      <ol className='grid gap-5 border-y py-5 sm:grid-cols-3'>
+        </div>
+        <div className='acu-download-meta'>
+          <span>{t(platformNote)}</span>
+          <a href={RUNTIME_RELEASE_URL} target='_blank' rel='noreferrer'>
+            {t('Release notes & installation help')}
+            <ExternalLink aria-hidden='true' />
+          </a>
+        </div>
+      </div>
+      <div className='acu-download-status' role='status' aria-live='polite'>
+        {downloaded ? (
+          <p>
+            {t(
+              'After downloading, install and open ACU Runtime. Continue with the steps below.'
+            )}
+          </p>
+        ) : null}
+      </div>
+      <ol className='acu-setup-steps'>
         {[
           [
             'Open ACU Runtime',
@@ -125,36 +165,38 @@ export function RuntimeQuickStart(props: { onDirect: () => void }) {
             'Choose your apps',
             'Confirm configuration, then reopen the selected apps when prompted.',
           ],
-        ].map(([title, description], index) => (
-          <li key={title} className='min-w-0 space-y-2'>
-            <span className='text-muted-foreground font-mono text-xs'>
-              0{index + 1}
-            </span>
-            <p className='text-sm font-medium'>{t(title)}</p>
-            <p className='text-muted-foreground text-xs leading-5'>
-              {t(description)}
-            </p>
-          </li>
-        ))}
+        ].map(([title, description], index) => {
+          const StepIcon = [Download, LogIn, SlidersHorizontal][index]
+          return (
+            <li key={title}>
+              <div className='acu-step-top'>
+                <span className='acu-step-icon'>
+                  <StepIcon />
+                </span>
+                <span className='acu-step-number'>0{index + 1}</span>
+              </div>
+              <p className='acu-step-title'>{t(title)}</p>
+              <p className='acu-step-description'>{t(description)}</p>
+            </li>
+          )
+        })}
       </ol>
-      <div className='flex flex-wrap items-center gap-x-5 gap-y-3'>
-        <Button variant='link' className='h-auto p-0' onClick={props.onDirect}>
+      <div className='acu-runtime-alternative'>
+        <Button
+          variant='link'
+          className='acu-direct-link'
+          onClick={props.onDirect}
+        >
           {t('Use an API key or terminal instead')}
           <ArrowRight className='ml-1 size-4' />
         </Button>
-        <a
-          href={RUNTIME_RELEASE_URL}
-          target='_blank'
-          rel='noreferrer'
-          className='text-muted-foreground inline-flex items-center gap-1 text-xs underline-offset-4 hover:underline'
-        >
-          {t('Release notes & installation help')}
-          <ExternalLink className='size-3' />
-        </a>
       </div>
-      <details className='text-muted-foreground text-xs leading-5'>
-        <summary className='cursor-pointer'>{t('Before you install')}</summary>
-        <div className='mt-3 space-y-2'>
+      <details className='acu-install-notes'>
+        <summary>
+          <span>{t('Before you install')}</span>
+          <ChevronRight aria-hidden='true' />
+        </summary>
+        <div className='acu-install-notes-body'>
           <p>
             {t(
               'Need an app first? Install it from its official website, open it once, then return to Runtime.'

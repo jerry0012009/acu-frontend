@@ -7,6 +7,8 @@ import {
   CircleCheck,
   Code2,
   Download,
+  Monitor,
+  KeyRound,
   ExternalLink,
   Image as ImageIcon,
   Settings2,
@@ -67,6 +69,8 @@ import {
 } from '../lib/quick-start'
 import { RuntimeQuickStart } from './runtime-quick-start'
 
+import './connect-experience.css'
+
 export type AcuQuickStartTab =
   | 'runtime'
   | 'codex'
@@ -114,29 +118,40 @@ export function AcuQuickStart(props: AcuQuickStartProps) {
   }, [props.initialTab])
 
   return (
-    <section className={cn('mx-auto w-full max-w-2xl', props.className)}>
-      <div className='mb-4 px-1'>
-        <h2 className='text-foreground text-lg font-semibold sm:text-xl'>
-          {t('Start using ACU')}
-        </h2>
-        <p className='text-muted-foreground mt-1 text-[13px] leading-relaxed sm:text-sm'>
+    <section
+      className={cn(
+        'acu-connect-experience mx-auto w-full max-w-2xl',
+        props.className
+      )}
+    >
+      <div className='acu-connect-heading'>
+        <h2>{t('Start using ACU')}</h2>
+        <p>
           {t('Connect your apps with ACU Runtime, or use an API key directly.')}
         </p>
       </div>
 
-      <div className='mb-4 flex flex-wrap items-center gap-2 border-b pb-3'>
+      <div
+        className='acu-connection-switch'
+        role='group'
+        aria-label={t('Connection method')}
+      >
         <Button
           variant={primaryTab === 'runtime' ? 'secondary' : 'ghost'}
           onClick={() => setPrimaryTab('runtime')}
           aria-pressed={primaryTab === 'runtime'}
+          className='acu-connection-option'
         >
+          <Monitor aria-hidden='true' />
           ACU Runtime
         </Button>
         <Button
           variant={primaryTab !== 'runtime' ? 'secondary' : 'ghost'}
           onClick={() => setPrimaryTab('api')}
           aria-pressed={primaryTab !== 'runtime'}
+          className='acu-connection-option'
         >
+          <KeyRound aria-hidden='true' />
           {t('API key & terminal')}
         </Button>
       </div>
@@ -145,7 +160,7 @@ export function AcuQuickStart(props: AcuQuickStartProps) {
       ) : (
         <>
           {props.connectionSummary}
-          <div className='overflow-hidden rounded-lg border border-white/[0.08] bg-[#0b0f17] text-slate-100'>
+          <div className='acu-client-tool'>
             <Tabs
               value={primaryTab}
               onValueChange={(value) => {
@@ -153,10 +168,10 @@ export function AcuQuickStart(props: AcuQuickStartProps) {
               }}
               className='gap-0'
             >
-              <div className='overflow-x-auto border-b border-white/[0.07]'>
+              <div className='border-border overflow-x-auto border-b'>
                 <TabsList
                   variant='line'
-                  className='h-12 min-w-max gap-0 px-2 text-slate-400'
+                  className='text-muted-foreground h-12 min-w-max gap-0 px-2'
                 >
                   {PRIMARY_TABS.map((tab) => {
                     const Icon = tab.icon
@@ -164,7 +179,7 @@ export function AcuQuickStart(props: AcuQuickStartProps) {
                       <TabsTrigger
                         key={tab.value}
                         value={tab.value}
-                        className='h-12 min-w-[110px] gap-1.5 rounded-none px-3 text-xs text-slate-400 after:bg-sky-400 data-active:text-white sm:min-w-0 sm:flex-1'
+                        className='text-muted-foreground after:bg-primary data-active:text-foreground h-12 min-w-[110px] gap-1.5 rounded-none px-3 text-xs sm:min-w-0 sm:flex-1'
                       >
                         <Icon className='size-3.5' />
                         {t(tab.label)}
@@ -285,7 +300,7 @@ function ClientQuickStart(props: {
                       : 'Download Codex ACU for macOS'
                   )}
                 </a>
-                <span className='text-[11px] text-slate-500'>
+                <span className='text-muted-foreground text-[11px]'>
                   {t('The installer will ask for this API key once.')}
                 </span>
               </div>
@@ -330,7 +345,7 @@ function ClientQuickStart(props: {
             <CodePanel value={launchCommand} />
           </Step>
 
-          <div className='flex items-center gap-2 border-t border-white/[0.06] pt-4 text-xs text-slate-400'>
+          <div className='border-border text-muted-foreground flex items-center gap-2 border-t pt-4 text-xs'>
             <CircleCheck className='size-3.5 text-emerald-400' />
             {props.client === 'codex'
               ? t('Coexists with native Codex · Uses ACU Auto by default')
@@ -339,7 +354,7 @@ function ClientQuickStart(props: {
                 )}
           </div>
           {props.client === 'codex' ? (
-            <p className='pl-5 text-[11px] text-slate-500'>
+            <p className='text-muted-foreground pl-5 text-[11px]'>
               {t('Switch supported ACU models with /model.')}
             </p>
           ) : null}
@@ -368,7 +383,7 @@ function ManualClientConfig(props: {
 
   return (
     <div className='mt-5 space-y-4'>
-      <div className='rounded-lg border border-sky-300/15 bg-sky-300/[0.06] px-3 py-2.5 text-[11px] leading-relaxed text-slate-300'>
+      <div className='border-primary/15 bg-muted/50 text-foreground rounded-lg border px-3 py-2.5 text-[11px] leading-relaxed'>
         {props.client === 'codex'
           ? t(
               'Keep your existing Codex CLI. Set the Base URL and API Key below in its provider configuration.'
@@ -378,7 +393,7 @@ function ManualClientConfig(props: {
             )}
       </div>
 
-      <div className='divide-y divide-white/[0.06] border-y border-white/[0.06]'>
+      <div className='divide-border border-border divide-y border-y'>
         <ConnectionRow label='Base URL' value={baseUrl} copyValue={baseUrl} />
         <ConnectionRow
           label='API Key'
@@ -405,7 +420,7 @@ function ManualClientConfig(props: {
         />
       </Step>
 
-      <p className='text-[11px] leading-relaxed text-slate-500'>
+      <p className='text-muted-foreground text-[11px] leading-relaxed'>
         {props.client === 'codex'
           ? t(
               'Codex uses the Responses endpoint with /v1. Claude Code uses the Messages endpoint on the same host without /v1.'
@@ -429,19 +444,19 @@ function CCSwitchQuickStart(props: {
   return (
     <div className='p-4 sm:p-5'>
       <div className='mb-4 flex items-start gap-3'>
-        <div className='flex size-9 shrink-0 items-center justify-center rounded-lg border border-sky-300/20 bg-sky-300/10 text-xs font-bold text-sky-200'>
+        <div className='border-primary/20 bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-lg border text-xs font-bold'>
           CC
         </div>
         <div className='min-w-0'>
           <div className='flex flex-wrap items-center gap-2'>
-            <h3 className='text-sm font-semibold text-white'>
+            <h3 className='text-foreground text-sm font-semibold'>
               {t('CC Switch connection')}
             </h3>
             <span className='rounded-full border border-emerald-300/20 bg-emerald-300/[0.08] px-2 py-0.5 text-[10px] font-medium text-emerald-200'>
               {t('Codex + Claude')}
             </span>
           </div>
-          <p className='mt-1 text-[11px] leading-relaxed text-slate-500'>
+          <p className='text-muted-foreground mt-1 text-[11px] leading-relaxed'>
             {t(
               'Use the values below in CC Switch. The advanced mapping keeps the model names shown by Codex stable.'
             )}
@@ -449,7 +464,7 @@ function CCSwitchQuickStart(props: {
         </div>
       </div>
 
-      <div className='divide-y divide-white/[0.06] border-y border-white/[0.06]'>
+      <div className='divide-border border-border divide-y border-y'>
         <ConnectionRow
           label='API Key'
           value={displayCredentialValue(props.copyKey, props.mode)}
@@ -462,7 +477,7 @@ function CCSwitchQuickStart(props: {
         />
       </div>
 
-      <p className='mt-2 text-[11px] leading-relaxed text-slate-500'>
+      <p className='text-muted-foreground mt-2 text-[11px] leading-relaxed'>
         {t(
           'Codex uses /v1. Claude Code uses the same host without /v1; the import button fills the matching address for the selected app.'
         )}
@@ -474,7 +489,7 @@ function CCSwitchQuickStart(props: {
             type='button'
             size='sm'
             onClick={props.onOpenCCSwitch}
-            className='h-8 gap-1.5 bg-sky-300 px-3 text-xs text-slate-950 hover:bg-sky-200'
+            className='bg-primary text-primary-foreground hover:bg-primary/85 h-8 gap-1.5 px-3 text-xs'
           >
             <ArrowRightLeft className='size-3.5' />
             {t('Import to CC Switch')}
@@ -484,28 +499,28 @@ function CCSwitchQuickStart(props: {
             href='https://ccswitch.io'
             target='_blank'
             rel='noopener noreferrer'
-            className='inline-flex h-8 items-center gap-1.5 rounded-md border border-sky-300/20 bg-sky-300/[0.08] px-3 text-xs font-medium text-sky-100 transition-colors hover:bg-sky-300/[0.14]'
+            className='border-primary/20 bg-primary/10 text-primary hover:bg-primary/15 inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition-colors'
           >
             <ExternalLink className='size-3.5' />
             {t('Open CC Switch')}
           </a>
         )}
-        <span className='inline-flex h-8 items-center gap-1.5 rounded-md border border-white/[0.08] px-2.5 text-[11px] text-slate-500'>
+        <span className='border-border text-muted-foreground inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[11px]'>
           <Settings2 className='size-3.5' />
           {t('Advanced mapping below')}
         </span>
       </div>
 
-      <div className='mt-5 border-t border-white/[0.06] pt-4'>
+      <div className='border-border mt-5 border-t pt-4'>
         <Disclosure
           open={advancedOpen}
           onOpenChange={setAdvancedOpen}
           label={t('Advanced options · Model mapping')}
         >
-          <div className='mt-3 overflow-x-auto rounded-lg border border-white/[0.07] bg-black/20'>
+          <div className='border-border bg-muted/30 mt-3 overflow-x-auto rounded-lg border'>
             <table className='w-full min-w-[500px] border-collapse text-left text-[11px]'>
               <thead>
-                <tr className='border-b border-white/[0.07] text-slate-500'>
+                <tr className='border-border text-muted-foreground border-b'>
                   <th className='px-3 py-2.5 font-medium'>
                     {t('Menu display name')}
                   </th>
@@ -521,15 +536,15 @@ function CCSwitchQuickStart(props: {
                 {CC_SWITCH_MODEL_MAPPINGS.map((mapping) => (
                   <tr
                     key={mapping.menuName}
-                    className='border-b border-white/[0.05] last:border-0'
+                    className='border-border border-b last:border-0'
                   >
-                    <td className='px-3 py-2 font-mono text-slate-200'>
+                    <td className='text-foreground px-3 py-2 font-mono'>
                       {mapping.menuName}
                     </td>
-                    <td className='px-3 py-2 font-mono text-slate-400'>
+                    <td className='text-muted-foreground px-3 py-2 font-mono'>
                       {mapping.requestModel}
                     </td>
-                    <td className='px-3 py-2 text-right font-mono text-slate-400'>
+                    <td className='text-muted-foreground px-3 py-2 text-right font-mono'>
                       {mapping.contextWindow}
                     </td>
                   </tr>
@@ -537,8 +552,8 @@ function CCSwitchQuickStart(props: {
               </tbody>
             </table>
           </div>
-          <div className='mt-3 flex items-start gap-2 text-[11px] leading-relaxed text-slate-500'>
-            <TableProperties className='mt-0.5 size-3.5 shrink-0 text-sky-300/70' />
+          <div className='text-muted-foreground mt-3 flex items-start gap-2 text-[11px] leading-relaxed'>
+            <TableProperties className='text-primary mt-0.5 size-3.5 shrink-0' />
             <p>
               {t(
                 'This generates Codex model_catalog_json so /model can show these third-party model names. Save the mapping, then restart Codex to refresh the list.'
@@ -549,19 +564,19 @@ function CCSwitchQuickStart(props: {
       </div>
 
       <div className='mt-4 grid gap-2 sm:grid-cols-2'>
-        <div className='rounded-lg border border-white/[0.06] bg-white/[0.025] px-3 py-2.5'>
-          <div className='text-[10px] font-medium tracking-[0.08em] text-slate-500 uppercase'>
+        <div className='border-border bg-muted/30 rounded-lg border px-3 py-2.5'>
+          <div className='text-muted-foreground text-[10px] font-medium tracking-normal uppercase'>
             {t('Codex endpoint')}
           </div>
-          <code className='mt-1 block truncate text-[11px] text-slate-300'>
+          <code className='text-foreground mt-1 block truncate text-[11px]'>
             {CC_SWITCH_CODEX_API_BASE_URL}
           </code>
         </div>
-        <div className='rounded-lg border border-white/[0.06] bg-white/[0.025] px-3 py-2.5'>
-          <div className='text-[10px] font-medium tracking-[0.08em] text-slate-500 uppercase'>
+        <div className='border-border bg-muted/30 rounded-lg border px-3 py-2.5'>
+          <div className='text-muted-foreground text-[10px] font-medium tracking-normal uppercase'>
             {t('Claude endpoint')}
           </div>
-          <code className='mt-1 block truncate text-[11px] text-slate-300'>
+          <code className='text-foreground mt-1 block truncate text-[11px]'>
             {CC_SWITCH_CLAUDE_API_BASE_URL}
           </code>
         </div>
@@ -585,7 +600,7 @@ function ApiQuickStart(props: {
 
   return (
     <div className='p-4 sm:p-5'>
-      <div className='divide-y divide-white/[0.06] border-y border-white/[0.06]'>
+      <div className='divide-border border-border divide-y border-y'>
         <ConnectionRow label='Base URL' value={ACU_API_BASE_URL} />
         <ConnectionRow
           label='API Key'
@@ -607,7 +622,7 @@ function ApiQuickStart(props: {
       </div>
 
       <div className='mt-4 space-y-3'>
-        <div className='flex items-center gap-2 text-xs text-slate-400'>
+        <div className='text-muted-foreground flex items-center gap-2 text-xs'>
           <span className='rounded bg-emerald-400/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-300'>
             POST
           </span>
@@ -637,8 +652,8 @@ function ApiQuickStart(props: {
         </Disclosure>
       </div>
 
-      <div className='mt-5 border-t border-white/[0.06] pt-4'>
-        <div className='mb-2 text-[10px] font-semibold tracking-[0.16em] text-slate-500 uppercase'>
+      <div className='border-border mt-5 border-t pt-4'>
+        <div className='text-muted-foreground mb-2 text-[10px] font-semibold tracking-normal uppercase'>
           {t('Compatible clients')}
         </div>
         <div className='flex flex-wrap items-center gap-2'>
@@ -646,7 +661,7 @@ function ApiQuickStart(props: {
             href='https://cherry-ai.com'
             target='_blank'
             rel='noopener noreferrer'
-            className='flex h-8 items-center gap-1.5 rounded-md border border-white/[0.08] px-2.5 text-xs text-slate-300 transition-colors hover:border-white/[0.16] hover:bg-white/[0.04]'
+            className='border-border text-foreground hover:border-foreground/20 hover:bg-muted/50 flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors'
           >
             <CherryStudio.Color size={16} />
             Cherry Studio
@@ -655,9 +670,9 @@ function ApiQuickStart(props: {
             <button
               type='button'
               onClick={props.onOpenCCSwitch}
-              className='flex h-8 items-center gap-1.5 rounded-md border border-white/[0.08] px-2.5 text-xs text-slate-300 transition-colors hover:border-white/[0.16] hover:bg-white/[0.04]'
+              className='border-border text-foreground hover:border-foreground/20 hover:bg-muted/50 flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs transition-colors'
             >
-              <span className='flex size-4 items-center justify-center rounded bg-sky-400/10 text-[8px] font-bold text-sky-300'>
+              <span className='bg-primary/10 text-primary flex size-4 items-center justify-center rounded text-[8px] font-bold'>
                 CC
               </span>
               CC Switch
@@ -666,10 +681,10 @@ function ApiQuickStart(props: {
             <Button
               variant='ghost'
               size='sm'
-              className='h-8 border border-white/[0.08] bg-transparent px-2.5 text-xs text-slate-300 hover:bg-white/[0.04] hover:text-white'
+              className='border-border text-foreground hover:bg-muted/50 hover:text-foreground h-8 border bg-transparent px-2.5 text-xs'
               render={<Link to='/keys' />}
             >
-              <span className='flex size-4 items-center justify-center rounded bg-sky-400/10 text-[8px] font-bold text-sky-300'>
+              <span className='bg-primary/10 text-primary flex size-4 items-center justify-center rounded text-[8px] font-bold'>
                 CC
               </span>
               {t('CC Switch after creating an API key')}
@@ -729,15 +744,15 @@ function AgentQuickStart(props: { copyKey: string; mode: AcuQuickStartMode }) {
         ]}
       />
 
-      <div className='mt-5 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 border-y border-white/[0.06] py-3 text-xs'>
-        <span className='text-slate-500'>Base URL</span>
-        <code className='truncate text-right text-slate-200'>
+      <div className='border-border mt-5 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 border-y py-3 text-xs'>
+        <span className='text-muted-foreground'>Base URL</span>
+        <code className='text-foreground truncate text-right'>
           {ACU_API_BASE_URL}
         </code>
-        <span className='text-slate-500'>Model</span>
-        <code className='text-right text-slate-200'>{ACU_DEFAULT_MODEL}</code>
-        <span className='text-slate-500'>Protocol</span>
-        <code className='text-right text-slate-200'>{protocol}</code>
+        <span className='text-muted-foreground'>Model</span>
+        <code className='text-foreground text-right'>{ACU_DEFAULT_MODEL}</code>
+        <span className='text-muted-foreground'>Protocol</span>
+        <code className='text-foreground text-right'>{protocol}</code>
       </div>
 
       <div className='mt-4'>
@@ -752,7 +767,7 @@ function AgentQuickStart(props: { copyKey: string; mode: AcuQuickStartMode }) {
           )}
         />
       </div>
-      <p className='mt-3 text-[11px] leading-relaxed text-slate-500'>
+      <p className='text-muted-foreground mt-3 text-[11px] leading-relaxed'>
         {t(
           'This config makes the agent itself use ACU Auto as its model provider.'
         )}
@@ -771,14 +786,14 @@ function WorkBuddyQuickStart(props: {
   return (
     <div className='mt-5 space-y-5'>
       <div className='flex items-start gap-3'>
-        <div className='flex size-9 shrink-0 items-center justify-center rounded-lg border border-sky-300/20 bg-sky-300/10 text-xs font-bold text-sky-200'>
+        <div className='border-primary/20 bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-lg border text-xs font-bold'>
           WB
         </div>
         <div className='min-w-0'>
-          <h3 className='text-sm font-semibold text-white'>
+          <h3 className='text-foreground text-sm font-semibold'>
             {t('WorkBuddy connection')}
           </h3>
-          <p className='mt-1 text-[11px] leading-relaxed text-slate-500'>
+          <p className='text-muted-foreground mt-1 text-[11px] leading-relaxed'>
             {t('Add ACU as a custom OpenAI-compatible model in WorkBuddy.')}
           </p>
         </div>
@@ -792,17 +807,17 @@ function WorkBuddyQuickStart(props: {
           'Keep the other settings unchanged, save, then select the model from Custom Models.',
         ].map((label, index) => (
           <li key={label} className='flex items-start gap-3'>
-            <span className='flex size-6 shrink-0 items-center justify-center rounded-full border border-sky-300/20 bg-sky-300/[0.08] font-mono text-[10px] text-sky-200'>
+            <span className='border-primary/20 bg-primary/10 text-primary flex size-6 shrink-0 items-center justify-center rounded-full border font-mono text-[10px]'>
               {index + 1}
             </span>
-            <span className='pt-0.5 text-xs leading-relaxed text-slate-300'>
+            <span className='text-foreground pt-0.5 text-xs leading-relaxed'>
               {t(label)}
             </span>
           </li>
         ))}
       </ol>
 
-      <div className='divide-y divide-white/[0.06] border-y border-white/[0.06]'>
+      <div className='divide-border border-border divide-y border-y'>
         <ConnectionRow label='Provider' value={WORKBUDDY_PROVIDER} />
         <ConnectionRow
           label='Endpoint'
@@ -818,7 +833,7 @@ function WorkBuddyQuickStart(props: {
         <ConnectionRow label='Protocol' value='OpenAI Chat Completions' />
       </div>
 
-      <div className='rounded-lg border border-sky-300/15 bg-sky-300/[0.06] px-3 py-2.5 text-[11px] leading-relaxed text-slate-300'>
+      <div className='border-primary/15 bg-muted/50 text-foreground rounded-lg border px-3 py-2.5 text-[11px] leading-relaxed'>
         {t(
           'Use acu-auto for automatic routing. If you prefer one fixed model, enter its ACU model name, such as gpt-5.6-sol.'
         )}
@@ -835,10 +850,10 @@ function WorkBuddyMediaCarousel(props: { media: AcuQuickStartMedia[] }) {
   const { t } = useTranslation()
 
   return (
-    <div className='border-t border-white/[0.06] pt-4'>
+    <div className='border-border border-t pt-4'>
       <div className='mb-3 flex items-center gap-2'>
-        <ImageIcon className='size-3.5 text-sky-300/80' />
-        <span className='text-xs font-medium text-slate-300'>
+        <ImageIcon className='text-primary size-3.5' />
+        <span className='text-foreground text-xs font-medium'>
           {t('Visual setup guide')}
         </span>
       </div>
@@ -846,8 +861,8 @@ function WorkBuddyMediaCarousel(props: { media: AcuQuickStartMedia[] }) {
         <CarouselContent>
           {props.media.map((item, index) => (
             <CarouselItem key={item.id ?? `${item.url}-${index}`}>
-              <figure className='overflow-hidden rounded-lg border border-white/[0.07] bg-black/25'>
-                <div className='flex aspect-video items-center justify-center bg-black/40'>
+              <figure className='border-border bg-muted/40 overflow-hidden rounded-lg border'>
+                <div className='bg-muted/60 flex aspect-video items-center justify-center'>
                   {item.type === 'video' ? (
                     <video
                       controls
@@ -869,15 +884,15 @@ function WorkBuddyMediaCarousel(props: { media: AcuQuickStartMedia[] }) {
                 {item.title || item.description ? (
                   <figcaption className='space-y-1 px-3 py-2.5'>
                     {item.title ? (
-                      <div className='flex items-center gap-1.5 text-xs font-medium text-slate-200'>
+                      <div className='text-foreground flex items-center gap-1.5 text-xs font-medium'>
                         {item.type === 'video' ? (
-                          <Video className='size-3.5 text-sky-300/80' />
+                          <Video className='text-primary size-3.5' />
                         ) : null}
                         {item.title}
                       </div>
                     ) : null}
                     {item.description ? (
-                      <p className='text-[11px] leading-relaxed text-slate-500'>
+                      <p className='text-muted-foreground text-[11px] leading-relaxed'>
                         {item.description}
                       </p>
                     ) : null}
@@ -889,8 +904,8 @@ function WorkBuddyMediaCarousel(props: { media: AcuQuickStartMedia[] }) {
         </CarouselContent>
         {props.media.length > 1 ? (
           <>
-            <CarouselPrevious className='left-0 border-white/[0.08] bg-black/40 text-slate-300 hover:bg-white/[0.08]' />
-            <CarouselNext className='right-0 border-white/[0.08] bg-black/40 text-slate-300 hover:bg-white/[0.08]' />
+            <CarouselPrevious className='border-border bg-muted/60 text-foreground hover:bg-muted left-0' />
+            <CarouselNext className='border-border bg-muted/60 text-foreground hover:bg-muted right-0' />
           </>
         ) : null}
       </Carousel>
@@ -906,7 +921,7 @@ function SecondarySelector(props: {
   const { t } = useTranslation()
 
   return (
-    <div className='flex max-w-full gap-1 overflow-x-auto rounded-md bg-white/[0.04] p-1'>
+    <div className='bg-muted/50 flex max-w-full gap-1 overflow-x-auto rounded-md p-1'>
       {props.items.map((item) => (
         <button
           key={item.value}
@@ -916,8 +931,8 @@ function SecondarySelector(props: {
           className={cn(
             'h-7 shrink-0 rounded px-2.5 text-[11px] font-medium whitespace-nowrap transition-colors',
             props.value === item.value
-              ? 'bg-white/[0.09] text-white'
-              : 'text-slate-500 hover:text-slate-300'
+              ? 'bg-background text-foreground'
+              : 'text-muted-foreground hover:text-foreground'
           )}
         >
           {t(item.label)}
@@ -953,10 +968,10 @@ function ConnectionModeSelector(props: {
   ]
 
   return (
-    <div className='rounded-xl border border-sky-300/25 bg-sky-300/[0.06] p-3 shadow-[0_8px_24px_-18px_rgba(56,189,248,0.8)]'>
+    <div className='border-border border-b pb-4'>
       <div className='mb-2.5 flex items-center gap-2'>
-        <Settings2 className='size-4 text-sky-300' />
-        <span className='text-xs font-semibold text-white'>
+        <Settings2 className='text-primary size-4' />
+        <span className='text-foreground text-xs font-semibold'>
           {t('Connection method')}
         </span>
       </div>
@@ -977,16 +992,16 @@ function ConnectionModeSelector(props: {
               className={cn(
                 'flex min-h-16 items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors',
                 selected
-                  ? 'border-sky-300/70 bg-sky-300/15 text-white shadow-[0_0_0_1px_rgba(125,211,252,0.15)]'
-                  : 'border-white/10 bg-black/15 text-slate-400 hover:border-sky-300/35 hover:bg-white/[0.06] hover:text-slate-200'
+                  ? 'border-primary/60 bg-primary/10 text-foreground'
+                  : 'border-border bg-background text-muted-foreground hover:border-primary/40 hover:bg-muted hover:text-foreground'
               )}
             >
               <span
                 className={cn(
                   'flex size-8 shrink-0 items-center justify-center rounded-md border',
                   selected
-                    ? 'border-sky-300/40 bg-sky-300/15 text-sky-200'
-                    : 'border-white/10 bg-white/[0.04] text-slate-500'
+                    ? 'border-primary/30 bg-primary/10 text-primary'
+                    : 'border-border bg-muted/50 text-muted-foreground'
                 )}
               >
                 <Icon className='size-4' />
@@ -995,7 +1010,7 @@ function ConnectionModeSelector(props: {
                 <span className='block text-xs font-semibold'>
                   {t(option.label)}
                 </span>
-                <span className='mt-0.5 block text-[11px] text-slate-500'>
+                <span className='text-muted-foreground mt-0.5 block text-[11px]'>
                   {t(option.description)}
                 </span>
               </span>
@@ -1011,10 +1026,10 @@ function Step(props: { number: string; label: string; children: ReactNode }) {
   return (
     <div>
       <div className='mb-2 flex items-center gap-2'>
-        <span className='font-mono text-[10px] text-sky-400/70'>
+        <span className='text-primary font-mono text-[10px]'>
           {props.number}
         </span>
-        <span className='text-xs font-medium text-slate-300'>
+        <span className='text-foreground text-xs font-medium'>
           {props.label}
         </span>
       </div>
@@ -1034,13 +1049,13 @@ function CodePanel(props: {
   return (
     <div
       className={cn(
-        'relative overflow-hidden rounded-lg border border-white/[0.07] bg-black/25',
+        'relative overflow-hidden rounded-lg border border-border bg-muted/40',
         props.minHeight
       )}
     >
       <pre
         className={cn(
-          'overflow-x-auto p-3 pr-11 font-mono text-[11px] leading-[1.65] text-slate-300',
+          'overflow-x-auto p-3 pr-11 font-mono text-[11px] leading-[1.65] text-foreground',
           props.compact ? 'max-h-40' : 'max-h-72'
         )}
       >
@@ -1048,7 +1063,7 @@ function CodePanel(props: {
       </pre>
       <CopyButton
         value={props.value}
-        className='absolute top-2 right-2 size-7 text-slate-500 hover:bg-white/[0.06] hover:text-white'
+        className='text-muted-foreground hover:bg-muted hover:text-foreground absolute top-2 right-2 size-7'
         tooltip={props.copyLabel ?? t('Copy')}
       />
     </div>
@@ -1058,7 +1073,7 @@ function CodePanel(props: {
 function LabeledCode(props: { label: string; value: string }) {
   return (
     <div className='space-y-1.5'>
-      <div className='text-[10px] text-slate-500'>{props.label}</div>
+      <div className='text-muted-foreground text-[10px]'>{props.label}</div>
       <CodePanel value={props.value} compact />
     </div>
   )
@@ -1072,11 +1087,11 @@ function ConnectionRow(props: {
   const { t } = useTranslation()
   return (
     <div className='grid min-h-10 grid-cols-[78px_minmax(0,1fr)_28px] items-center gap-2 text-xs'>
-      <span className='text-slate-500'>{t(props.label)}</span>
-      <code className='truncate text-slate-200'>{props.value}</code>
+      <span className='text-muted-foreground'>{t(props.label)}</span>
+      <code className='text-foreground truncate'>{props.value}</code>
       <CopyButton
         value={props.copyValue ?? props.value}
-        className='size-7 text-slate-500 hover:bg-white/[0.06] hover:text-white'
+        className='text-muted-foreground hover:bg-muted hover:text-foreground size-7'
         tooltip={t('Copy')}
       />
     </div>
@@ -1091,7 +1106,7 @@ function Disclosure(props: {
 }) {
   return (
     <Collapsible open={props.open} onOpenChange={props.onOpenChange}>
-      <CollapsibleTrigger className='group flex items-center gap-1.5 text-[11px] text-slate-500 transition-colors hover:text-slate-300'>
+      <CollapsibleTrigger className='group text-muted-foreground hover:text-foreground flex items-center gap-1.5 text-[11px] transition-colors'>
         <ChevronDown className='size-3 transition-transform group-aria-expanded:rotate-180' />
         {props.label}
       </CollapsibleTrigger>

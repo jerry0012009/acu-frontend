@@ -59,7 +59,7 @@ function AccountConnectPage() {
   }
   return (
     <PublicLayout>
-      <div className='mx-auto w-full max-w-3xl px-4 py-8 sm:py-12'>
+      <div className='acu-connect-page mx-auto w-full max-w-[880px] px-2 py-6 sm:px-6 sm:py-10'>
         <AcuQuickStart
           mode={key ? 'credentialed' : 'preview'}
           tokenKey={key}
@@ -152,35 +152,37 @@ function DirectCredentials(props: { onKey: (key: string) => void }) {
     }
   }
   return (
-    <div className='mb-6 space-y-4 border-b pb-6'>
+    <div className='acu-credential-section'>
       <h3 className='text-base font-medium'>{t('Your connection details')}</h3>
       {user ? (
         <>
-          <div className='flex min-w-0 items-center gap-2'>
-            <span className='w-24 shrink-0 text-sm'>API Key</span>
-            <input
-              aria-label='API Key'
-              type={visible ? 'text' : 'password'}
-              readOnly
-              value={key || 'sk-hidden-key'}
-              className='bg-muted min-w-0 flex-1 rounded-md px-3 py-2 font-mono text-xs'
-            />
-            <Button
-              variant='ghost'
-              size='icon'
-              aria-label={t(visible ? 'Hide API key' : 'Show API key')}
-              onClick={reveal}
-              disabled={!available || loading}
-            >
-              {visible ? (
-                <EyeOff className='size-4' />
-              ) : (
-                <Eye className='size-4' />
-              )}
-            </Button>
-            {key ? (
-              <CopyButton value={key} aria-label={t('Copy API key')} />
-            ) : null}
+          <div className='acu-credential-row'>
+            <span className='acu-credential-label'>API Key</span>
+            <div className='acu-key-controls'>
+              <input
+                aria-label='API Key'
+                type={visible ? 'text' : 'password'}
+                readOnly
+                value={key || 'sk-hidden-key'}
+                className='bg-muted min-w-0 flex-1 rounded-md px-3 py-2 font-mono text-xs'
+              />
+              <Button
+                variant='ghost'
+                size='icon'
+                aria-label={t(visible ? 'Hide API key' : 'Show API key')}
+                onClick={reveal}
+                disabled={!available || loading}
+              >
+                {visible ? (
+                  <EyeOff className='size-4' />
+                ) : (
+                  <Eye className='size-4' />
+                )}
+              </Button>
+              {key ? (
+                <CopyButton value={key} aria-label={t('Copy API key')} />
+              ) : null}
+            </div>
           </div>
           {keys.isPending ? (
             <p role='status' className='text-muted-foreground text-xs'>
@@ -233,8 +235,8 @@ function DirectCredentials(props: { onKey: (key: string) => void }) {
         [t('API address'), ACU_API_BASE_URL],
         [t('Recommended model'), ACU_DEFAULT_MODEL],
       ].map(([label, value]) => (
-        <div key={label} className='flex min-w-0 items-center gap-2'>
-          <span className='w-24 shrink-0 text-sm'>{label}</span>
+        <div key={label} className='acu-credential-row'>
+          <span className='acu-credential-label'>{label}</span>
           <code className='min-w-0 flex-1 text-xs break-all'>{value}</code>
           <CopyButton value={value} aria-label={`${t('Copy')} ${label}`} />
         </div>
