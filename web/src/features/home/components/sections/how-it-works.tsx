@@ -22,7 +22,7 @@ export function HowItWorks() {
             {
               title: 'Integrate',
               description:
-                'Create an API key and connect to ACU without changing existing calling patterns.',
+                'Sign in to Runtime and connect your app, or use an API key in your existing workflow.',
             },
             {
               title: 'Route',

@@ -26,6 +26,28 @@ export function Features(props: FeaturesProps) {
             <span>{t('an optimizable capacity orchestration decision')}</span>
           </h2>
         </header>
+        <figure className='acu-console-preview'>
+          <figcaption>
+            <span>ACU Console</span>
+            <span>{t('Illustrative account · sample data')}</span>
+          </figcaption>
+          <img
+            className='acu-console-preview-light'
+            src='/console-overview-light.png'
+            alt={t('Usage at a glance')}
+            width={1192}
+            height={347}
+            loading='lazy'
+          />
+          <img
+            className='acu-console-preview-dark'
+            src='/console-overview-dark.png'
+            alt={t('Usage at a glance')}
+            width={1192}
+            height={347}
+            loading='lazy'
+          />
+        </figure>
         <div className='acu-story-composition'>
           <div className='acu-story-lead'>
             <span className='acu-story-index'>01 / ACU</span>

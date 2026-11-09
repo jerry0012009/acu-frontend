@@ -27,11 +27,14 @@ try {
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(base);
-    await page.locator('.acu-guide-access #runtime-platform').waitFor();
+    await page.locator('.acu-product-console').waitFor();
     assert.equal((await page.locator('h1').innerText()).replaceAll('\n', ''), 'ACUindex');
     assert.equal(await page.locator('.acu-product-purpose').isVisible(), true);
-    assert.equal(await page.locator('.acu-product-values > div').count(), 3);
-    assert.equal(await page.locator('.acu-product-values svg').count(), 0, 'product value copy is not an icon grid');
+    const accessDisclosure = page.locator('#start');
+    assert.equal(await accessDisclosure.getAttribute('open'), null, 'download setup does not compete with the product introduction');
+    await page.locator('.acu-product-console').click();
+    await page.locator('.acu-guide-access #runtime-platform').waitFor();
+    assert.equal(await accessDisclosure.getAttribute('open'), '', 'primary action reveals the Runtime-first connection flow');
     assert.equal(await page.locator('.acu-story-chapters article').count(), 3);
     assert.equal(await page.locator('.acu-process-inner ol > li').count(), 3);
     assert.equal(await page.locator('.acu-process-inner ol svg').count(), 0, 'process uses editorial steps, not repeated icon tiles');
@@ -61,7 +64,7 @@ try {
     assert.equal(await closing.isVisible(), true, 'the approved closing statement is retained');
     await page.locator('.acu-product-intro').scrollIntoViewIfNeeded();
     assert.equal(await page.locator('.acu-product-demo').getAttribute('href'), 'https://demo.acucompute.com/');
-    assert.equal(await page.locator('.acu-product-console').getAttribute('href'), '/sign-up');
+    assert.equal(await page.locator('.acu-product-console').getAttribute('href'), '/#start');
     const intro = await page.locator('.acu-product-intro').boundingBox();
     const access = await page.locator('.acu-guide-access').boundingBox();
     const evidence = await page.locator('.acu-product-evidence').boundingBox();
@@ -88,23 +91,30 @@ try {
     await page.locator('.acu-product-console').focus();
     await page.keyboard.press('Tab');
     assert.equal(await page.locator('.acu-product-demo').evaluate(element => element === document.activeElement), true, 'demo follows the primary action in keyboard order');
-    if (width >= 1024) {
-      assert(intro.x + intro.width <= access.x, 'product narrative and access panel never overlap');
-      assert(Math.abs(intro.y - access.y) < 2, 'desktop columns share a top alignment');
-      assert(download.y + download.height < 900, 'download remains in the first desktop viewport');
-    } else {
-      assert(access.y >= intro.y + intro.height, 'mobile access follows the brief product introduction');
-      assert(evidence.y >= access.y + access.height, 'detailed product values follow the mobile access panel');
-      assert(download.y + download.height < 900, 'brief product introduction leaves the mobile download action visible');
-    }
+    assert(access.y >= evidence.y + evidence.height, 'connection setup follows product context rather than competing beside it');
+    await accessDisclosure.locator(':scope > summary').focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await page.locator('#runtime-platform').isVisible(), false, 'connection setup can be collapsed with the keyboard');
+    await page.locator('a[href="/#start"]').last().click();
+    await page.locator('#runtime-platform').waitFor();
+    assert.equal(await accessDisclosure.getAttribute('open'), '', 'another entry action reopens setup even when the URL already has #start');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     for (const selector of ['.acu-runtime-mark', '.acu-workflow-apps img']) {
       assert.equal(await page.locator(selector).evaluateAll(images => images.every(image => image.complete && image.naturalWidth > 0)), true);
     }
+    await page.locator('.acu-console-preview img:visible').scrollIntoViewIfNeeded();
+    await page.locator('.acu-console-preview img:visible').evaluate(image => image.decode());
+    assert.equal(await page.locator('.acu-console-preview img:visible').evaluate(image => image.complete && image.naturalWidth > 0), true, 'actual product preview loads in either theme');
+    await accessDisclosure.locator(':scope > summary').blur();
     const navigation = await page.locator('a[href="/"]').allTextContents();
     assert(navigation.some(text => /使用教程|Usage Guide/.test(text)), 'usage guide is reachable from navigation');
     assert.equal(await page.locator('a[href="/connect"]').count(), 0, 'there is no duplicate connection-page navigation');
     await page.screenshot({ path: `${output}/guide-${width}-${language}-${theme}.png`, fullPage: true });
+    await accessDisclosure.locator(':scope > summary').click();
+    await accessDisclosure.locator(':scope > summary').blur();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: `${output}/intro-${width}-${language}-${theme}.png` });
+    await accessDisclosure.locator(':scope > summary').click();
     await page.locator('.acu-guide-access .acu-connection-option').nth(1).click();
     await page.locator('.acu-guide-access .acu-client-tool').waitFor();
     assert.equal(await page.locator('.acu-product-purpose').isVisible(), true, 'switching connection modes preserves the product narrative');

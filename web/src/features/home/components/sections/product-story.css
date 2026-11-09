@@ -1,7 +1,10 @@
 .acu-product-story,
 .acu-process-story {
-  padding: 104px 32px;
+  padding: 72px 32px;
   letter-spacing: 0;
+  font-family:
+    'Public Sans', 'PingFang SC', 'Microsoft YaHei', 'WenQuanYi Zen Hei',
+    sans-serif;
 }
 .acu-story-inner,
 .acu-process-inner {
@@ -16,6 +19,38 @@
   margin-bottom: 20px;
   font-size: 12px;
   color: var(--muted-foreground);
+}
+.acu-console-preview {
+  margin-bottom: 56px;
+  border-bottom: 1px solid var(--border);
+}
+.acu-console-preview figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  padding-block: 14px;
+  border-block: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.acu-console-preview figcaption > span:first-child {
+  color: var(--foreground);
+  font-weight: 500;
+}
+.acu-console-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.acu-console-preview .acu-console-preview-dark {
+  display: none;
+}
+.dark .acu-console-preview .acu-console-preview-light {
+  display: none;
+}
+.dark .acu-console-preview .acu-console-preview-dark {
+  display: block;
 }
 .acu-story-heading h2 {
   font-size: 32px;

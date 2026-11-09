@@ -1,6 +1,7 @@
 import { CherryStudio } from '@lobehub/icons'
-import { Link } from '@tanstack/react-router'
+import { Link, useLocation } from '@tanstack/react-router'
 import { ArrowRight, Play, Route, ArrowUpRight } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -17,6 +18,30 @@ interface HeroProps {
 
 export function Hero(props: HeroProps) {
   const { t } = useTranslation()
+  const accessRef = useRef<HTMLDetailsElement>(null)
+  const hash = useLocation({ select: (location) => location.hash })
+  useEffect(() => {
+    const reveal = () => {
+      if (window.location.hash === '#start' && accessRef.current) {
+        accessRef.current.open = true
+      }
+    }
+    const revealLink = (event: MouseEvent) => {
+      const target = event.target
+      if (!(target instanceof Element)) return
+      const link = target.closest('a')
+      if (link?.getAttribute('href') === '/#start' && accessRef.current) {
+        accessRef.current.open = true
+      }
+    }
+    reveal()
+    window.addEventListener('hashchange', reveal)
+    document.addEventListener('click', revealLink)
+    return () => {
+      window.removeEventListener('hashchange', reveal)
+      document.removeEventListener('click', revealLink)
+    }
+  }, [hash])
 
   return (
     <section
@@ -27,33 +52,39 @@ export function Hero(props: HeroProps) {
         <div className='acu-product-intro'>
           <p className='acu-product-category'>
             <Route aria-hidden='true' />
-            {t('ACU Router · Task-level AI Capacity Orchestration')}
+            {t('One connection. Your choice of AI.')}
           </p>
           <h1 id='acu-product-title'>
             ACU<span>index</span>
           </h1>
           <h2 className='acu-product-purpose'>
-            <span>{t('Upgrade fixed-model calls to')}</span>
-            <strong>{t('dynamic capacity orchestration')}</strong>
+            <span>{t('One API.')}</span>
+            <strong>{t('The right model for each task.')}</strong>
           </h2>
           <p className='acu-product-description'>
             {t(
-              'With one interface and no changes to existing business workflows, upgrade every AI call into a measurable, controllable, and optimizable capacity orchestration decision.'
+              'Connect your AI tools to ACU. Balance quality, latency, and cost with task-aware routing, without rebuilding your workflow.'
             )}
           </p>
           <div className='acu-product-actions'>
             <Button
               render={
-                <Link to={props.isAuthenticated ? '/dashboard' : '/sign-up'} />
+                <Link
+                  to='/'
+                  hash='start'
+                  onClick={() => {
+                    if (accessRef.current) accessRef.current.open = true
+                  }}
+                />
               }
               className='acu-product-console'
             >
-              {t(props.isAuthenticated ? 'Enter Console' : 'Get Started')}
+              {t('Connect my tools')}
               <ArrowRight aria-hidden='true' />
             </Button>
             <Button
               render={<a href='https://demo.acucompute.com/' />}
-              variant='outline'
+              variant='ghost'
               className='acu-product-demo'
             >
               <Play aria-hidden='true' />
@@ -66,42 +97,12 @@ export function Hero(props: HeroProps) {
           </div>
         </div>
 
-        <div className='acu-guide-access' id='start'>
-          <HeroTerminalDemo className='max-w-none' />
-        </div>
-
         <div className='acu-product-evidence'>
           <p className='acu-mobile-product-description'>
             {t(
-              'With one interface and no changes to existing business workflows, upgrade every AI call into a measurable, controllable, and optimizable capacity orchestration decision.'
+              'Connect your AI tools to ACU. Balance quality, latency, and cost with task-aware routing, without rebuilding your workflow.'
             )}
           </p>
-          <dl className='acu-product-values'>
-            {[
-              {
-                title: 'Dynamic Routing',
-                description:
-                  'Automatically match models and execution paths based on task difficulty, quality requirements, and cost.',
-              },
-              {
-                title: 'Cost × Quality',
-                description:
-                  'Optimize the full cost of qualified results across quality, cost, and reliability.',
-              },
-              {
-                title: 'Result Assurance',
-                description:
-                  'Validate results through Validator and Fallback, retrying or upgrading the path when necessary.',
-              },
-            ].map((value) => (
-              <div key={value.title}>
-                <dt>
-                  <span>{t(value.title)}</span>
-                </dt>
-                <dd>{t(value.description)}</dd>
-              </div>
-            ))}
-          </dl>
           <div className='acu-workflow-compatibility'>
             <h3>{t('Compatible with existing workflows')}</h3>
             <p>
@@ -140,6 +141,48 @@ export function Hero(props: HeroProps) {
             </div>
           </div>
         </div>
+      </div>
+      <div className='acu-access-band'>
+        <details ref={accessRef} id='start' className='acu-access-disclosure'>
+          <summary>
+            <span>
+              <span className='acu-access-label'>{t('Start using ACU')}</span>
+              <strong>{t('Your tools. Connected.')}</strong>
+              <span>
+                {t(
+                  'Use Runtime for guided setup, or connect directly with an API key.'
+                )}
+              </span>
+            </span>
+            <ArrowRight aria-hidden='true' />
+          </summary>
+          <div className='acu-access-content'>
+            <div className='acu-access-context'>
+              <img src='/acu-runtime-icon.png' alt='' width={48} height={48} />
+              <h3>{t('A simpler first connection')}</h3>
+              <p>
+                {t(
+                  'Runtime is an optional desktop setup assistant. Sign in, choose your app, and confirm its connection to ACU.'
+                )}
+              </p>
+              <p>
+                {t(
+                  'Prefer your own setup? API keys, terminal installers, and app-specific instructions remain available in the next tab.'
+                )}
+              </p>
+              <Link
+                to={props.isAuthenticated ? '/dashboard' : '/sign-up'}
+                className='acu-story-link'
+              >
+                {t(props.isAuthenticated ? 'Go to console' : 'Create account')}
+                <ArrowUpRight aria-hidden='true' />
+              </Link>
+            </div>
+            <div className='acu-guide-access'>
+              <HeroTerminalDemo className='max-w-none' />
+            </div>
+          </div>
+        </details>
       </div>
     </section>
   )

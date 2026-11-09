@@ -1,3 +1,7 @@
+import { Link } from '@tanstack/react-router'
+import { CircleHelp } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+
 import { ConfigDrawer } from '@/components/config-drawer'
 import { LanguageSwitcher } from '@/components/language-switcher'
 import { NotificationPopover } from '@/components/notification-popover'
@@ -42,7 +46,7 @@ type AppHeaderProps = {
   navLinks?: TopNavLink[]
   /**
    * Whether to show top navigation bar
-   * @default true
+   * @default false
    */
   showTopNav?: boolean
   /**
@@ -77,7 +81,7 @@ type AppHeaderProps = {
 
 export function AppHeader({
   navLinks = defaultTopNavLinks,
-  showTopNav = true,
+  showTopNav = false,
   leftContent,
   showSearch = true,
   rightContent,
@@ -85,6 +89,7 @@ export function AppHeader({
   showConfigDrawer = true,
   showProfileDropdown = true,
 }: AppHeaderProps) {
+  const { t } = useTranslation()
   // Prioritize dynamically generated links from backend
   const dynamicLinks = useTopNavLinks()
   const links = dynamicLinks.length > 0 ? dynamicLinks : navLinks
@@ -100,7 +105,12 @@ export function AppHeader({
 
       {leftContent ? (
         <div className='ms-2 flex items-center'>{leftContent}</div>
-      ) : null}
+      ) : (
+        <span className='text-muted-foreground hidden text-sm md:block'>
+          ACU{' '}
+          <span className='text-foreground font-medium'>{t('Console')}</span>
+        </span>
+      )}
 
       {rightContent ?? (
         <div className='ms-auto flex items-center gap-1 sm:gap-2'>
@@ -110,6 +120,15 @@ export function AppHeader({
             </div>
           )}
           {showSearch && <Search />}
+          <Link
+            to='/'
+            hash='start'
+            aria-label={t('Usage Guide')}
+            title={t('Usage Guide')}
+            className='hover:bg-muted inline-flex size-8 items-center justify-center rounded-md'
+          >
+            <CircleHelp className='size-4' aria-hidden='true' />
+          </Link>
           {showNotifications && (
             <NotificationPopover
               open={notifications.popoverOpen}

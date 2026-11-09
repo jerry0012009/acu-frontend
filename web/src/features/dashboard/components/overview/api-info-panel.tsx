@@ -45,8 +45,9 @@ export function ApiInfoPanel() {
       emptyMessage={t('No API routes configured')}
       height='h-72'
       contentClassName='p-0'
+      className='rounded-none border-0 shadow-none'
     >
-      <ScrollArea className='h-72'>
+      <ScrollArea className='max-h-72'>
         <div>
           {list.map((item: ApiInfoItem, idx: number) => (
             <div
