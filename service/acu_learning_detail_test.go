@@ -4,8 +4,10 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
@@ -43,4 +45,27 @@ func TestLearningDetailSummaryKeepsChangesWithoutShippingRawContextAndAllSnapsho
 	require.Equal(t, original.Evidence, full.Evidence)
 	require.Len(t, full.SkillsBefore, 1)
 	require.Len(t, full.SkillsAfter, 1)
+}
+
+func TestLearningDetailLiveReadback(t *testing.T) {
+	runID := os.Getenv("ACU_DETAIL_ACCEPTANCE_RUN")
+	if runID == "" {
+		t.Skip("set an authorized production run for read-only acceptance")
+	}
+	start := time.Now()
+	summary, err := GetPrivateACULearningRunSummary(context.Background(), runID)
+	require.NoError(t, err)
+	summaryElapsed := time.Since(start)
+	full, err := GetPrivateACULearningRunDetail(context.Background(), runID)
+	require.NoError(t, err)
+	require.Equal(t, full.RunID, summary.RunID)
+	require.Equal(t, full.SkillChanges, summary.SkillChanges)
+	require.Equal(t, full.Distillation, summary.Distillation)
+	require.NotContains(t, summary.Evidence, "agentContext")
+	fullBytes, err := common.Marshal(full)
+	require.NoError(t, err)
+	summaryBytes, err := common.Marshal(summary)
+	require.NoError(t, err)
+	require.Less(t, len(summaryBytes), len(fullBytes))
+	t.Logf("real detail: full=%d bytes initial=%d bytes initialDuration=%s", len(fullBytes), len(summaryBytes), summaryElapsed)
 }
