@@ -206,6 +206,7 @@ asset_is_current() {
         grep -Fq "allowed_model" "$asset_path"
       ;;
     catalog)
+      grep -Fq '"acu_catalog_revision": "image-capabilities-20261109"' "$asset_path" || return 1
       for model in \
         acu-auto \
         gpt-5.6-luna \

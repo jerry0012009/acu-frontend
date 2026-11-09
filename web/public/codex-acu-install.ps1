@@ -228,6 +228,7 @@ function Test-AcuAsset([string]$Path, [string]$Kind) {
     }
     if ($Kind -eq 'catalog') {
       $catalog = $text | ConvertFrom-Json
+      if ($catalog.acu_catalog_revision -ne 'image-capabilities-20261109') { return $false }
       $slugs = @($catalog.models | ForEach-Object { $_.slug })
       foreach ($required in @(
         'acu-auto',
