@@ -75,6 +75,15 @@ export function RuntimeQuickStart(props: {
           )}
         </p>
       </div>
+      {props.compact && (
+        <p className='acu-runtime-quick-path'>
+          <span>{t('Install')}</span>
+          <ArrowRight aria-hidden='true' />
+          <span>{t('Sign in')}</span>
+          <ArrowRight aria-hidden='true' />
+          <span>{t('Choose your apps')}</span>
+        </p>
+      )}
       <div
         className='acu-app-list'
         aria-label='Codex / Claude Code / Hermes / WorkBuddy'

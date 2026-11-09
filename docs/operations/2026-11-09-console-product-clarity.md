@@ -1,5 +1,16 @@
 # Console product clarity and visual review
 
+## Subsequent design correction
+
+The owner rejected the single-column guide and account screenshot. The follow-up
+restores the previous left/right composition, original product-purpose copy and
+colored headline. Only the right-side connection tutorial is refined, with a
+smaller 408px tool, a brief install/sign-in/app sequence and expandable details.
+The account preview and its bitmap assets are removed. Direct `/#start`, legacy
+`/connect`, Runtime-first and manual API flows remain available without a new
+outer disclosure. Authenticated overview changes are not reverted by this scoped
+guide correction. The description below records the superseded first iteration.
+
 ## Scope
 
 Only `console.acucompute.com` changes. The `acucompute.com` website and Router

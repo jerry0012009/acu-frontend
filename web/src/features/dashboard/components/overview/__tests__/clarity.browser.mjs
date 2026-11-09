@@ -44,9 +44,6 @@ try {
     await page.goto(`${base}/dashboard/overview`)
     await page.getByText('Credit remaining', { exact: true }).or(page.getByText('剩余额度', { exact: true })).first().waitFor()
     await page.screenshot({ path: `${output}/${scenario.name}.png`, fullPage: true })
-    if (process.env.CLARITY_CAPTURE_ASSETS && scenario.name.startsWith('admin-')) {
-      await page.locator('section[aria-labelledby="account-usage-title"]').screenshot({ path: `web/public/console-overview-${scenario.theme}.png` })
-    }
     if (!process.env.CLARITY_BASELINE) {
       assert.deepEqual(errors, [])
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, scenario.name)
