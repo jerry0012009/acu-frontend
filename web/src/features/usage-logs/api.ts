@@ -77,7 +77,7 @@ export async function getACUSessionTrace(
   const query = params.size ? `?${params.toString()}` : ''
   const res = await api.get(
     `/api/log/self/acu-session-trace/${encodeURIComponent(identifier)}${query}`,
-    { skipErrorHandler: true }
+    { skipErrorHandler: true, timeout: 25_000 }
   )
   return res.data as {
     success: boolean

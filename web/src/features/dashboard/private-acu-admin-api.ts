@@ -379,8 +379,12 @@ export async function getPrivateACUExperienceDetail(
   experienceId: string
 ) {
   const response = await api.get<{ data: PrivateACUExperienceDetail }>(
-    `/api/admin/acu-private/experiences/${encodeURIComponent(experienceId)}?newapiUserId=${encodeURIComponent(userId)}`
+    `/api/admin/acu-private/experiences/${encodeURIComponent(experienceId)}?newapiUserId=${encodeURIComponent(userId)}`,
+    { timeout: 25_000, skipErrorHandler: true }
   )
+  if (!response.data.data) {
+    throw new Error('Failed to load')
+  }
   return response.data.data
 }
 
@@ -405,9 +409,16 @@ export async function getPrivateACULearningRuns(
   return response.data.data.runs
 }
 
-export async function getPrivateACULearningRunDetail(runId: string) {
+export async function getPrivateACULearningRunDetail(
+  runId: string,
+  full = false
+) {
   const response = await api.get<{ data: PrivateACULearningRunDetail }>(
-    `/api/admin/acu-private/learning-runs/${encodeURIComponent(runId)}`
+    `/api/admin/acu-private/learning-runs/${encodeURIComponent(runId)}${full ? '' : '?view=summary'}`,
+    { timeout: full ? 30_000 : 25_000, skipErrorHandler: true }
   )
+  if (!response.data.data) {
+    throw new Error('Unable to load learning run details')
+  }
   return response.data.data
 }

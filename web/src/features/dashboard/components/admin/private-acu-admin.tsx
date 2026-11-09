@@ -1208,6 +1208,8 @@ function ExperiencesSection(props: { userId?: string; enabled: boolean }) {
         selectedExperienceId ?? ''
       ),
     enabled: Boolean(props.userId && selectedExperienceId),
+    retry: false,
+    staleTime: 30_000,
   })
   useEffect(() => setSelectedExperienceId(undefined), [props.userId])
   if (query.isLoading) {
@@ -1230,7 +1232,16 @@ function ExperiencesSection(props: { userId?: string; enabled: boolean }) {
     detailContent = <div className='text-muted-foreground'>{t('Loading')}</div>
   } else if (detailQuery.isError) {
     detailContent = (
-      <div className='text-destructive'>{t('Failed to load')}</div>
+      <div role='status' className='space-y-2'>
+        <p className='text-destructive'>{t('Failed to load')}</p>
+        <Button
+          variant='outline'
+          size='sm'
+          onClick={() => void detailQuery.refetch()}
+        >
+          {t('Retry')}
+        </Button>
+      </div>
     )
   } else if (detailQuery.data) {
     detailContent = (
@@ -1351,7 +1362,7 @@ function AdvisorHistorySection(props: { userId: string }) {
   let content = (
     <div className='text-muted-foreground text-sm'>{t('No advisors')}</div>
   )
-  if (query.isLoading || query.isFetching) {
+  if (query.isLoading) {
     content = (
       <div className='text-muted-foreground text-sm'>{t('Loading')}</div>
     )

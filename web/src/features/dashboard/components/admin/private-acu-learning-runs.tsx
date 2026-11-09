@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Download } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Sheet,
   SheetContent,
@@ -24,12 +25,34 @@ import {
 } from '../../private-acu-admin-api'
 
 function JsonBlock(props: { value: unknown; adaptTerminology?: boolean }) {
+  const { t } = useTranslation()
+  const text = JSON.stringify(props.value, null, 2) ?? ''
+  const preview = text.slice(0, 32_000)
   return (
-    <pre className='bg-muted/30 max-h-80 overflow-auto rounded-md p-3 text-xs whitespace-pre-wrap'>
-      {props.adaptTerminology
-        ? preferenceDisplayText(JSON.stringify(props.value, null, 2) ?? '')
-        : JSON.stringify(props.value, null, 2)}
-    </pre>
+    <div className='space-y-2'>
+      <pre className='bg-muted/30 max-h-80 overflow-auto rounded-md p-3 text-xs whitespace-pre-wrap'>
+        {props.adaptTerminology ? preferenceDisplayText(preview) : preview}
+      </pre>
+      {text.length > preview.length && (
+        <Button
+          variant='outline'
+          size='sm'
+          onClick={() => {
+            const url = URL.createObjectURL(
+              new Blob([text], { type: 'application/json' })
+            )
+            const anchor = document.createElement('a')
+            anchor.href = url
+            anchor.download = 'learning-evidence.json'
+            anchor.click()
+            setTimeout(() => URL.revokeObjectURL(url), 1000)
+          }}
+        >
+          <Download />
+          {t('Download full evidence')}
+        </Button>
+      )}
+    </div>
   )
 }
 
@@ -127,13 +150,28 @@ function LearningRunMediaPreview(props: {
 function RunDetail(props: {
   detail?: PrivateACULearningRunDetail
   loading: boolean
+  error: boolean
+  onRetry: () => void
 }) {
   const { t } = useTranslation()
   if (props.loading) {
     return <div className='text-muted-foreground'>{t('Loading')}</div>
   }
   if (!props.detail) {
-    return <div className='text-muted-foreground'>{t('No details')}</div>
+    return (
+      <div role='status' className='space-y-2 px-4'>
+        <p>
+          {props.error
+            ? t('Unable to load learning run details')
+            : t('No details')}
+        </p>
+        {props.error && (
+          <Button variant='outline' size='sm' onClick={props.onRetry}>
+            {t('Retry')}
+          </Button>
+        )}
+      </div>
+    )
   }
   const detail = props.detail
   return (
@@ -192,13 +230,7 @@ function RunDetail(props: {
           <div className='text-muted-foreground text-xs'>-</div>
         )}
       </section>
-      <div className='grid gap-5 lg:grid-cols-2'>
-        <SkillSnapshot
-          title={t('Skills before')}
-          skills={detail.skillsBefore}
-        />
-        <SkillSnapshot title={t('Skills after')} skills={detail.skillsAfter} />
-      </div>
+      <FullRunEvidence key={detail.runId} runId={detail.runId} />
       <section className='space-y-2'>
         <h3 className='font-medium'>{t('Timeline')}</h3>
         <JsonBlock value={detail.timeline} adaptTerminology />
@@ -210,6 +242,62 @@ function RunDetail(props: {
         </section>
       )}
     </div>
+  )
+}
+
+function FullRunEvidence(props: { runId: string }) {
+  const { t } = useTranslation()
+  const [expanded, setExpanded] = useState(false)
+  const query = useQuery({
+    queryKey: [
+      'dashboard',
+      'private-acu-admin',
+      'learning-run-full',
+      props.runId,
+    ],
+    queryFn: () => getPrivateACULearningRunDetail(props.runId, true),
+    enabled: expanded,
+    retry: false,
+    staleTime: 60_000,
+  })
+  return (
+    <details onToggle={(event) => setExpanded(event.currentTarget.open)}>
+      <summary className='cursor-pointer font-medium'>
+        {t('Full evidence and document snapshots')}
+      </summary>
+      {expanded && (
+        <div className='mt-3 space-y-4'>
+          {query.isLoading && <p role='status'>{t('Loading')}</p>}
+          {query.isError && (
+            <div role='status'>
+              <p>{t('Failed to load')}</p>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => void query.refetch()}
+              >
+                {t('Retry')}
+              </Button>
+            </div>
+          )}
+          {query.data && (
+            <>
+              <JsonBlock value={query.data.evidence} />
+              <div className='grid gap-5 lg:grid-cols-2'>
+                <SkillSnapshot
+                  title={t('Skills before')}
+                  skills={query.data.skillsBefore}
+                />
+                <SkillSnapshot
+                  title={t('Skills after')}
+                  skills={query.data.skillsAfter}
+                />
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </details>
   )
 }
 
@@ -229,6 +317,8 @@ export function PrivateACULearningRuns(props: { learningKind?: string }) {
     queryKey: ['dashboard', 'private-acu-admin', 'learning-run', selectedRunId],
     queryFn: () => getPrivateACULearningRunDetail(selectedRunId || ''),
     enabled: Boolean(selectedRunId),
+    retry: false,
+    staleTime: 60_000,
   })
   useEffect(() => setSelectedRunId(undefined), [props.learningKind])
   if (query.isLoading) {
@@ -293,6 +383,8 @@ export function PrivateACULearningRuns(props: { learningKind?: string }) {
           <RunDetail
             detail={detailQuery.data}
             loading={detailQuery.isLoading}
+            error={detailQuery.isError}
+            onRetry={() => void detailQuery.refetch()}
           />
         </SheetContent>
       </Sheet>

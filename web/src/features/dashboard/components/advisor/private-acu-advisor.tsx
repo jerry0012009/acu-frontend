@@ -224,10 +224,12 @@ function AdvisorList(props: { advisorId?: string }) {
   const advisorsQuery = useQuery({
     queryKey: ['dashboard', 'private-acu-advisor'],
     queryFn: () => getPrivateACUAdvisors(100),
+    retry: false,
   })
   const memoryQuery = useQuery({
     queryKey: ['dashboard', 'private-acu-memory'],
     queryFn: getPrivateACUMemory,
+    retry: false,
   })
   const advisors = useMemo(() => advisorsQuery.data ?? [], [advisorsQuery.data])
   useEffect(() => {
@@ -342,6 +344,7 @@ function AdvisorNotificationPreferences() {
   const preferencesQuery = useQuery({
     queryKey: ['private-acu', 'advisor-notification-preferences'],
     queryFn: getPrivateACUAdvisorNotificationPreferences,
+    retry: false,
   })
   const mutation = useMutation({
     mutationFn: updatePrivateACUAdvisorNotificationPreferences,
@@ -355,6 +358,20 @@ function AdvisorNotificationPreferences() {
     onError: () => toast.error(t('Failed to save notification preferences')),
   })
 
+  if (preferencesQuery.isError) {
+    return (
+      <div role='status'>
+        <p>{t('Failed to load')}</p>
+        <Button
+          variant='outline'
+          size='sm'
+          onClick={() => void preferencesQuery.refetch()}
+        >
+          {t('Retry')}
+        </Button>
+      </div>
+    )
+  }
   if (preferencesQuery.isLoading || !preferencesQuery.data) {
     return <Skeleton className='h-28 w-full rounded-lg' />
   }

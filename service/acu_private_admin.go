@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
@@ -278,8 +279,9 @@ func GetPrivateACULearningRunDetail(
 	ctx context.Context,
 	runID string,
 ) (dto.ACUPrivateLearningRunDetail, error) {
-	response, err := acuRouterAdminRequest(
+	response, err := acuRouterAdminRequestWithTimeout(
 		ctx,
+		20*time.Second,
 		http.MethodGet,
 		"/internal/admin/private-acu/learning-runs/"+url.PathEscape(runID),
 		nil,
@@ -298,6 +300,18 @@ func GetPrivateACULearningRunDetail(
 		return dto.ACUPrivateLearningRunDetail{}, err
 	}
 	return envelope.Run, nil
+}
+
+// Keep the initial view small; the existing full-detail endpoint remains available on demand.
+func GetPrivateACULearningRunSummary(ctx context.Context, runID string) (dto.ACUPrivateLearningRunDetail, error) {
+	detail, err := GetPrivateACULearningRunDetail(ctx, runID)
+	if err != nil {
+		return dto.ACUPrivateLearningRunDetail{}, err
+	}
+	delete(detail.Evidence, "agentContext")
+	detail.SkillsBefore = []dto.ACUPrivateMemorySkill{}
+	detail.SkillsAfter = []dto.ACUPrivateMemorySkill{}
+	return detail, nil
 }
 
 func GetPrivateACULearningRunMedia(

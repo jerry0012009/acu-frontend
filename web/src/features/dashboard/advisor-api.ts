@@ -113,7 +113,8 @@ export async function getPrivateACUAdvisors(
   limit = 100
 ): Promise<PrivateACUAdvisor[]> {
   const response = await api.get<PrivateACUAdvisorListResponse>(
-    `/api/user/self/acu-advisor?limit=${encodeURIComponent(String(limit))}`
+    `/api/user/self/acu-advisor?limit=${encodeURIComponent(String(limit))}`,
+    { timeout: 25_000, skipErrorHandler: true }
   )
   return response.data.data?.advisors ?? []
 }
@@ -156,7 +157,10 @@ export async function markAllPrivateACUAdvisorNotificationsRead(): Promise<void>
 export async function getPrivateACUAdvisorNotificationPreferences(): Promise<PrivateACUAdvisorNotificationPreferences> {
   const response = await api.get<{
     data: PrivateACUAdvisorNotificationPreferences
-  }>('/api/user/self/acu-advisor/notification-preferences')
+  }>('/api/user/self/acu-advisor/notification-preferences', {
+    timeout: 25_000,
+    skipErrorHandler: true,
+  })
   return response.data.data
 }
 
@@ -194,7 +198,8 @@ export async function updatePrivateACUAdvisorNotificationPreferences(
 
 export async function getPrivateACUMemory(): Promise<PrivateACUMemory> {
   const response = await api.get<{ data: PrivateACUMemory }>(
-    '/api/user/self/acu-memory'
+    '/api/user/self/acu-memory',
+    { timeout: 25_000, skipErrorHandler: true }
   )
   return response.data.data
 }
@@ -213,7 +218,13 @@ export async function getPrivateACULearningRunDetail(
 ): Promise<PrivateACULearningRunSelfDetail> {
   const response = await api.get<{
     data: PrivateACULearningRunSelfDetail
-  }>(`/api/user/self/acu-learning-runs/${encodeURIComponent(runId)}`)
+  }>(`/api/user/self/acu-learning-runs/${encodeURIComponent(runId)}`, {
+    timeout: 25_000,
+    skipErrorHandler: true,
+  })
+  if (!response.data.data) {
+    throw new Error('Unable to load learning run details')
+  }
   return response.data.data
 }
 

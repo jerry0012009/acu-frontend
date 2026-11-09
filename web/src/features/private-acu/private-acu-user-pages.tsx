@@ -686,6 +686,7 @@ export function PrivateACUUserLearningRuns() {
     queryFn: () => getPrivateACULearningRunDetail(selectedRunId || ''),
     enabled: Boolean(selectedRunId),
     retry: false,
+    staleTime: 60_000,
   })
   let runsContent = (
     <div className='border-border bg-muted/15 rounded-md border p-5'>
@@ -753,6 +754,16 @@ export function PrivateACUUserLearningRuns() {
             loading={detailQuery.isLoading}
             error={detailQuery.isError}
           />
+          {detailQuery.isError && (
+            <Button
+              className='mx-4 self-start'
+              variant='outline'
+              size='sm'
+              onClick={() => void detailQuery.refetch()}
+            >
+              {t('Retry')}
+            </Button>
+          )}
         </SheetContent>
       </Sheet>
     </div>

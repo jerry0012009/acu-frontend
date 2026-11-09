@@ -996,7 +996,7 @@ function OverviewPage(props: { isAdmin: boolean }) {
       selectedAccountRun?.runId,
     ],
     queryFn: () =>
-      getPrivateACULearningRunDetail(selectedAccountRun?.runId || ''),
+      getPrivateACULearningRunDetail(selectedAccountRun?.runId || '', true),
     enabled: props.isAdmin && Boolean(selectedAccountRun?.runId),
     retry: false,
   })
@@ -1011,7 +1011,7 @@ function OverviewPage(props: { isAdmin: boolean }) {
       latestCompletedFilmRun?.runId,
     ],
     queryFn: () =>
-      getPrivateACULearningRunDetail(latestCompletedFilmRun?.runId || ''),
+      getPrivateACULearningRunDetail(latestCompletedFilmRun?.runId || '', true),
     enabled: props.isAdmin && Boolean(latestCompletedFilmRun?.runId),
     retry: false,
   })

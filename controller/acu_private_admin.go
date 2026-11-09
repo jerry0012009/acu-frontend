@@ -211,7 +211,13 @@ func GetPrivateACULearningRunDetail(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "runId is required"})
 		return
 	}
-	result, err := service.GetPrivateACULearningRunDetail(c.Request.Context(), runID)
+	var result dto.ACUPrivateLearningRunDetail
+	var err error
+	if c.Query("view") == "summary" {
+		result, err = service.GetPrivateACULearningRunSummary(c.Request.Context(), runID)
+	} else {
+		result, err = service.GetPrivateACULearningRunDetail(c.Request.Context(), runID)
+	}
 	if err != nil {
 		common.ApiError(c, err)
 		return

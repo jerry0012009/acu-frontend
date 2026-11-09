@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Download full evidence": "下载完整证据",
+    "Full evidence and document snapshots": "完整证据与文档快照",
     "Connect your desktop agents to ACU.": "在你的电脑上，帮常用 Agent 接入 ACU。",
     "Runtime setup or direct API access.": "Runtime 引导配置，或使用 API Key 直接接入。",
     "Total usage": "累计消耗",

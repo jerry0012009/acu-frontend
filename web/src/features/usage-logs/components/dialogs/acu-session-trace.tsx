@@ -570,8 +570,9 @@ export function ACUSessionTracePanel(props: ACUSessionTracePanelProps) {
     queryFn: () => getACUSessionTrace(props.identifier, props.targetUserId),
     enabled: props.identifier.length > 0,
     staleTime: 30_000,
+    retry: false,
   })
-  if (traceQuery.isPending) {
+  if (traceQuery.isLoading) {
     return (
       <div
         className='space-y-4 rounded border p-4'
