@@ -2,6 +2,34 @@
 
 ## Subsequent design correction
 
+## Accepted Historical Baseline
+
+The owner confirmed screenshots rendered from actual deployed Console
+`7d7c6038b120e1d01c061c1da918930e5eb79cc0`, recorded as running on November 5
+and released in `20261031T041204-e07df003`. The final implementation restores
+that hero, feature composition, process section and closing visual, rather than
+recreating the intermediate November 8 layouts. The only new hero experience
+is a Runtime tab added before the five original client tutorials, inside the
+original dark terminal surface. Current download, manual setup, key privacy,
+onboarding and installer implementations remain. Historical hardcoded animated
+supply counts are not reintroduced as live evidence. Closing copy continues to
+describe using ACU, not deploying a private gateway.
+
+`storefront` is scoped to the home connection guide. Other shared quick-start
+surfaces retain their existing layout. Browser regression checks cover all six
+tabs, desktop column constraints, both themes, mobile/tablet, download links,
+disclosures, Linux fallback, key failures and explicit key reveal/hide.
+
+The following notes describe superseded iterations.
+
+The owner subsequently clarified that "original" means the pre-November-8 hero
+(`20d0ddb33`), not the immediately preceding iteration. The follow-up restores
+its large colored purpose headline, compact category badge, application marks,
+and left/right composition. It removes the recently added standalone ACUindex
+display heading and value table. The right side retains current Runtime/API
+functionality and adds an explicit description of the optional desktop setup
+assistant. Backend and authenticated overview remain unchanged.
+
 The owner rejected the single-column guide and account screenshot. The follow-up
 restores the previous left/right composition, original product-purpose copy and
 colored headline. Only the right-side connection tutorial is refined, with a

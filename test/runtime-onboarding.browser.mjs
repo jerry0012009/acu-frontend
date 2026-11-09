@@ -35,7 +35,7 @@ try {
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(`${base}/connect`);
     await page.waitForURL(url => url.pathname === '/' && url.hash === '#start');
-    await page.getByRole('button', { name: 'API Key 与终端', exact: true }).waitFor();
+    await page.getByRole('tab', { name: 'API / SDK', exact: true }).waitFor();
     const download = page.locator('a[href$="windows-amd64-Setup.exe"]');
     await download.waitFor();
     assert.match(await download.getAttribute('href'), /v0\.1\.47\/ACU-Runtime-0\.1\.47-windows-amd64-Setup.exe$/);
@@ -54,7 +54,7 @@ try {
     const second = await steps[1].boundingBox();
     assert(second.y > first.y, 'expanded steps follow vertical reading order');
     await setupDisclosure.locator('summary').click();
-    assert.equal(await page.locator('.acu-connection-option[aria-pressed="true"]').innerText(), 'ACU Runtime');
+    assert.equal(await page.getByRole('tab', { name: 'ACU Runtime', exact: true }).getAttribute('aria-selected'), 'true');
     assert(downloadBox.height > 0, 'download action is available in the unified guide');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     assert.equal(await page.locator('.acu-runtime-mark').evaluate(img => img.complete && img.naturalWidth > 0), true);
@@ -83,13 +83,13 @@ try {
     await page.getByRole('status').filter({ hasText: '下载后安装并打开' }).waitFor();
     assert(Math.abs((await setupDisclosure.boundingBox()).y - stepsBeforeDownload.y) < 2, 'download feedback does not shift the setup disclosure');
     assert.equal(await page.locator('input[aria-label="API Key"]').count(), 0);
-    await page.getByRole('button', { name: 'API Key 与终端', exact: true }).click();
+    await page.getByRole('tab', { name: 'API / SDK', exact: true }).click();
     await page.getByRole('button', { name: '查看 API Key', exact: true }).click();
     await page.waitForFunction(key => document.querySelector('input[aria-label="API Key"]')?.value === key, fixtureKey);
     await page.getByRole('button', { name: /隐藏 API/ }).click();
     assert.equal(await page.locator('input[aria-label="API Key"]').getAttribute('type'), 'password');
     await page.screenshot({ path: `${output}/direct-${width}-${theme}.png`, fullPage: true });
-    assert.equal(await page.locator('.acu-connection-option[aria-pressed="true"]').innerText(), 'API Key 与终端');
+    assert.equal(await page.getByRole('tab', { name: 'API / SDK', exact: true }).getAttribute('aria-selected'), 'true');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     assert.deepEqual(errors, []);
     await page.getByRole('button', { name: '下次登录不再显示', exact: true }).click();
@@ -118,7 +118,7 @@ try {
   assert.equal(await page.locator('a[href$="windows-amd64-Setup.exe"]').count(), 0);
   await page.locator('#runtime-platform').selectOption('mac-intel');
   assert.match(await page.locator('a[href$="macos-amd64.dmg"]').getAttribute('href'), /v0\.1\.47/);
-  await page.getByRole('button', { name: 'API Key 与终端', exact: true }).click();
+  await page.getByRole('tab', { name: 'API / SDK', exact: true }).click();
   await page.getByRole('alert').filter({ hasText: '暂时无法读取 API Key' }).waitFor();
   failKeys = false;
   await page.getByRole('button', { name: '重试', exact: true }).click();

@@ -69,6 +69,13 @@ export function RuntimeQuickStart(props: {
       </div>
       <div className='acu-runtime-intro'>
         <h4>{t('Connect ACU to your everyday apps')}</h4>
+        {props.compact && (
+          <p>
+            {t(
+              'Runtime is an optional desktop setup assistant. Sign in, choose your app, and confirm its connection to ACU.'
+            )}
+          </p>
+        )}
         <p>
           {t(
             'Configure ACU models and tools for Codex, Claude Code, Hermes and WorkBuddy already on your computer.'

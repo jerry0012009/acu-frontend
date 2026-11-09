@@ -1,0 +1,200 @@
+#start {
+  scroll-margin-top: 88px;
+}
+.acu-original-connect .acu-connect-heading {
+  padding: 0 4px 16px;
+}
+.acu-original-connect .acu-connect-heading h2 {
+  font-size: 20px;
+}
+.acu-original-connect .acu-connect-heading p {
+  font-size: 14px;
+  margin-top: 4px;
+}
+.acu-original-terminal {
+  --background: #0b0f17;
+  --foreground: #f1f5f9;
+  --muted: #1c2533;
+  --muted-foreground: #a5b3c6;
+  --card: #101722;
+  --popover: #101722;
+  --primary: #7dd3fc;
+  --primary-foreground: #082f49;
+  --border: #26313f;
+  --input: #344154;
+  --ring: #7dd3fc;
+  --connect-line: #26313f;
+  --connect-surface: #121a25;
+  --connect-accent: #7dd3fc;
+  color: var(--foreground);
+  background: var(--background);
+  border: 1px solid #ffffff14;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px -25px #000000b3;
+  color-scheme: dark;
+}
+.acu-original-tabs {
+  border-bottom: 1px solid #ffffff12;
+}
+.acu-original-tabs [data-slot='tabs-list'] {
+  background: transparent;
+  width: max-content;
+  min-width: 100%;
+  justify-content: flex-start;
+}
+.acu-original-connect {
+  min-width: 0;
+}
+.acu-original-connect > [data-slot='tabs'] {
+  min-width: 0;
+}
+.acu-original-terminal {
+  min-width: 0;
+  width: 100%;
+}
+.acu-original-tabs [data-slot='tabs-trigger'] {
+  flex-shrink: 0;
+}
+.acu-original-tabs [data-slot='tabs-trigger'] {
+  color: #a5b3c6;
+  font-size: 11px;
+  padding-inline: 8px;
+}
+.acu-original-tabs [data-slot='tabs-trigger'][data-active] {
+  color: #f1f5f9;
+}
+.acu-original-tabs [data-slot='tabs-trigger']::after {
+  background: #7dd3fc;
+}
+.acu-original-connect .acu-runtime-flow {
+  padding: 22px 24px 0;
+}
+.acu-original-connect .acu-runtime-title-row h3 {
+  font-size: 23px;
+}
+.acu-original-connect .acu-runtime-mark {
+  width: 40px;
+  height: 40px;
+}
+.acu-original-connect .acu-runtime-intro {
+  margin-top: 16px;
+}
+.acu-original-connect .acu-runtime-intro h4,
+.acu-original-connect .acu-app-list {
+  display: none;
+}
+.acu-original-connect .acu-runtime-intro p {
+  font-size: 12px;
+  line-height: 1.8;
+}
+.acu-original-connect .acu-runtime-quick-path {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.acu-runtime-quick-path svg {
+  width: 12px;
+  height: 12px;
+}
+.acu-original-connect .acu-download-area {
+  margin-top: 18px;
+  padding: 18px 0 0;
+  border-bottom: 0;
+}
+.acu-original-connect .acu-download-controls {
+  grid-template-columns: minmax(0, 1fr);
+}
+.acu-original-connect .acu-download-button {
+  width: 100%;
+  background: #7dd3fc;
+  color: #082f49;
+  border-color: #7dd3fc;
+}
+.acu-original-connect .acu-download-status {
+  min-height: 42px;
+  font-size: 11px;
+}
+.acu-original-connect .acu-download-meta {
+  font-size: 10px;
+}
+.acu-original-connect .acu-compact-steps {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.acu-original-connect .acu-compact-steps summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 0;
+  border-top: 1px solid var(--connect-line);
+  cursor: pointer;
+  list-style: none;
+}
+.acu-original-connect .acu-compact-steps summary::-webkit-details-marker {
+  display: none;
+}
+.acu-original-connect .acu-compact-steps summary svg {
+  width: 14px;
+  height: 14px;
+}
+.acu-original-connect .acu-compact-steps[open] summary svg {
+  transform: rotate(90deg);
+}
+.acu-original-connect .acu-setup-steps {
+  grid-template-columns: minmax(0, 1fr);
+  padding-block: 0 12px;
+}
+.acu-original-connect .acu-setup-steps > li {
+  padding: 12px 0;
+  border-left: 0;
+}
+.acu-original-connect .acu-step-top {
+  display: none;
+}
+.acu-original-connect .acu-install-notes {
+  margin-top: 0;
+}
+.acu-original-connect .acu-client-tool {
+  border-top: 0;
+}
+.acu-original-connect .acu-client-tool [data-slot='tabs-content'] > div {
+  padding-inline: 20px;
+}
+.acu-original-connect .acu-credential-section {
+  padding: 20px;
+  margin-bottom: 0;
+}
+.acu-guide-balance,
+.acu-guide-account-footer {
+  padding: 12px 4px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.acu-guide-account-footer {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+}
+.acu-guide-account-footer > button {
+  font-size: 12px;
+  height: auto;
+  white-space: normal;
+}
+@media (max-width: 560px) {
+  .acu-original-connect .acu-runtime-flow {
+    padding: 20px 18px 0;
+  }
+  .acu-original-connect .acu-runtime-title-row h3 {
+    font-size: 21px;
+  }
+  .acu-original-terminal {
+    border-radius: 20px;
+  }
+}

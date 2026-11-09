@@ -59,6 +59,7 @@ function AccountConnectPage() {
   return (
     <div className='acu-guide-account'>
       <AcuQuickStart
+        storefront
         mode={key ? 'credentialed' : 'preview'}
         compact
         tokenKey={key}
