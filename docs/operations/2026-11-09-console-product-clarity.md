@@ -4,6 +4,13 @@
 
 ## Accepted Historical Baseline
 
+The final sizing refinement keeps that historical framework: desktop tracks
+change from 6/6 to 7/5, with the connection tool capped at 432px. The Runtime
+heading is 18px and its compact introduction is one sentence. Repeated subtitle,
+app list and install/sign-in explanation are removed from the compact default;
+all client tabs and expandable instructions remain. Browser checks protect the
+width cap, concise copy, heading size and comparable desktop column heights.
+
 The owner confirmed screenshots rendered from actual deployed Console
 `7d7c6038b120e1d01c061c1da918930e5eb79cc0`, recorded as running on November 5
 and released in `20261031T041204-e07df003`. The final implementation restores

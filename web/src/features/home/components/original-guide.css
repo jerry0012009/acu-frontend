@@ -2,13 +2,13 @@
   scroll-margin-top: 88px;
 }
 .acu-original-connect .acu-connect-heading {
-  padding: 0 4px 16px;
+  padding: 0 4px 12px;
 }
 .acu-original-connect .acu-connect-heading h2 {
-  font-size: 20px;
+  font-size: 16px;
 }
 .acu-original-connect .acu-connect-heading p {
-  font-size: 14px;
+  font-size: 12px;
   margin-top: 4px;
 }
 .acu-original-terminal {
@@ -42,9 +42,14 @@
   width: max-content;
   min-width: 100%;
   justify-content: flex-start;
+  height: 40px;
 }
 .acu-original-connect {
   min-width: 0;
+  max-width: 432px;
+}
+#start:has(.acu-original-connect) {
+  max-width: 432px;
 }
 .acu-original-connect > [data-slot='tabs'] {
   min-width: 0;
@@ -60,6 +65,7 @@
   color: #a5b3c6;
   font-size: 11px;
   padding-inline: 8px;
+  height: 40px;
 }
 .acu-original-tabs [data-slot='tabs-trigger'][data-active] {
   color: #f1f5f9;
@@ -68,17 +74,18 @@
   background: #7dd3fc;
 }
 .acu-original-connect .acu-runtime-flow {
-  padding: 22px 24px 0;
+  padding: 16px 20px 0;
 }
 .acu-original-connect .acu-runtime-title-row h3 {
-  font-size: 23px;
+  font-size: 18px;
+  font-weight: 500;
 }
 .acu-original-connect .acu-runtime-mark {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
 }
 .acu-original-connect .acu-runtime-intro {
-  margin-top: 16px;
+  margin-top: 12px;
 }
 .acu-original-connect .acu-runtime-intro h4,
 .acu-original-connect .acu-app-list {
@@ -93,7 +100,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 8px;
   font-size: 11px;
   color: var(--muted-foreground);
 }
@@ -102,21 +109,22 @@
   height: 12px;
 }
 .acu-original-connect .acu-download-area {
-  margin-top: 18px;
-  padding: 18px 0 0;
+  margin-top: 14px;
+  padding: 12px 0 0;
   border-bottom: 0;
 }
 .acu-original-connect .acu-download-controls {
   grid-template-columns: minmax(0, 1fr);
 }
 .acu-original-connect .acu-download-button {
+  height: 40px;
   width: 100%;
   background: #7dd3fc;
   color: #082f49;
   border-color: #7dd3fc;
 }
 .acu-original-connect .acu-download-status {
-  min-height: 42px;
+  min-height: 40px;
   font-size: 11px;
 }
 .acu-original-connect .acu-download-meta {
@@ -130,7 +138,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 0;
+  padding: 12px 0;
   border-top: 1px solid var(--connect-line);
   cursor: pointer;
   list-style: none;
@@ -158,6 +166,30 @@
 }
 .acu-original-connect .acu-install-notes {
   margin-top: 0;
+}
+.acu-original-connect .acu-install-notes summary {
+  padding-block: 12px;
+}
+.acu-original-connect .acu-platform-field {
+  height: 40px;
+}
+.acu-original-connect .acu-runtime-heading {
+  gap: 12px;
+}
+.acu-original-connect .acu-runtime-subtitle {
+  font-size: 11px;
+}
+.acu-original-connect .acu-release-tag {
+  font-size: 10px;
+  border: 0;
+  padding: 0;
+}
+.acu-original-connect .acu-field-label {
+  font-size: 11px;
+  margin-bottom: 8px;
+}
+.acu-original-connect .acu-download-controls {
+  gap: 8px;
 }
 .acu-original-connect .acu-client-tool {
   border-top: 0;
@@ -189,10 +221,10 @@
 }
 @media (max-width: 560px) {
   .acu-original-connect .acu-runtime-flow {
-    padding: 20px 18px 0;
+    padding: 16px 18px 0;
   }
   .acu-original-connect .acu-runtime-title-row h3 {
-    font-size: 21px;
+    font-size: 18px;
   }
   .acu-original-terminal {
     border-radius: 20px;

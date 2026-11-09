@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Connect your desktop agents to ACU.": "Connect your desktop agents to ACU.",
+    "Runtime setup or direct API access.": "Runtime setup or direct API access.",
     "Total usage": "Total usage",
     "Usage over the last 24 hours": "Usage over the last 24 hours",
     "Hourly usage": "Hourly usage",

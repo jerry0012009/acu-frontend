@@ -50,7 +50,7 @@ export function Hero(props: HeroProps) {
 
       <div className='mx-auto grid max-w-6xl grid-cols-1 items-start gap-12 lg:grid-cols-12 lg:gap-8'>
         {/* Left Column: Title, description, action buttons and application support */}
-        <div className='flex flex-col items-start text-left lg:col-span-6'>
+        <div className='flex flex-col items-start text-left lg:col-span-7'>
           {/* Top Pill Badge */}
           <div
             className='landing-animate-fade-up mb-5 inline-flex items-center gap-1.5 rounded-full border border-blue-500/20 bg-blue-500/5 px-3 py-1.5 text-[11px] font-medium text-blue-600 opacity-0 shadow-xs dark:border-blue-400/20 dark:bg-blue-400/5 dark:text-blue-400'
@@ -208,7 +208,7 @@ export function Hero(props: HeroProps) {
 
         {/* Right Column: Hero Terminal API Demo */}
         <div
-          className='landing-animate-fade-up flex w-full min-w-0 justify-center opacity-0 lg:col-span-6'
+          className='landing-animate-fade-up flex w-full min-w-0 justify-center opacity-0 lg:col-span-5 lg:justify-end'
           style={{ animationDelay: '320ms' }}
         >
           <HeroTerminalDemo className='mt-8 lg:mt-0' />

@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Connect your desktop agents to ACU.": "在你的电脑上，帮常用 Agent 接入 ACU。",
+    "Runtime setup or direct API access.": "Runtime 引导配置，或使用 API Key 直接接入。",
     "Total usage": "累计消耗",
     "Usage over the last 24 hours": "近 24 小时用量趋势",
     "Hourly usage": "每小时消耗",

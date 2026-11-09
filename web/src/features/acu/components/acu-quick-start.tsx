@@ -130,7 +130,11 @@ export function AcuQuickStart(props: AcuQuickStartProps) {
       <div className='acu-connect-heading'>
         <h2>{t('Start using ACU')}</h2>
         <p>
-          {t('Connect your apps with ACU Runtime, or use an API key directly.')}
+          {t(
+            props.storefront
+              ? 'Runtime setup or direct API access.'
+              : 'Connect your apps with ACU Runtime, or use an API key directly.'
+          )}
         </p>
       </div>
 

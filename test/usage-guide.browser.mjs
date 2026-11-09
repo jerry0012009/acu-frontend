@@ -35,8 +35,13 @@ try {
     const intro=await page.locator('h1').boundingBox()
     if(width>=1024) {
       assert(frame.x>=intro.x+intro.width,'original left-right composition is retained')
-      assert(frame.width<=580,'six tabs cannot expand the original right column')
+      assert(frame.width<=432,'connection tool stays subordinate to the product narrative')
+      const left=await page.locator('h1').locator('..').boundingBox()
+      const right=await page.locator('#start').boundingBox()
+      if(language==='zh-CN') assert(Math.abs(right.height-left.height)<90,'default connection area stays close to left-column height')
     }
+    assert.equal(await page.locator('.acu-runtime-intro p').count(),1,'compact introduction is one sentence')
+    assert.equal(await page.locator('.acu-runtime-title-row h3').evaluate(el=>Number.parseFloat(getComputedStyle(el).fontSize)),18)
     const style=await page.locator('.acu-original-terminal').evaluate(el=>({background:getComputedStyle(el).backgroundColor,radius:Number.parseFloat(getComputedStyle(el).borderRadius)}))
     assert.equal(style.background,'rgb(11, 15, 23)','original dark terminal surface is retained in both themes')
     assert.equal(style.radius,width<=560?20:24)

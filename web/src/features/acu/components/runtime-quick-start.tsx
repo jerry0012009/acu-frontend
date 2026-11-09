@@ -62,35 +62,23 @@ export function RuntimeQuickStart(props: {
             <h3>ACU Runtime</h3>
             <span className='acu-release-tag'>v{RUNTIME_VERSION}</span>
           </div>
-          <p className='acu-runtime-subtitle'>
-            {t('Your local ACU connection assistant')}
-          </p>
+          {!props.compact && (
+            <p className='acu-runtime-subtitle'>
+              {t('Your local ACU connection assistant')}
+            </p>
+          )}
         </div>
       </div>
       <div className='acu-runtime-intro'>
         <h4>{t('Connect ACU to your everyday apps')}</h4>
-        {props.compact && (
-          <p>
-            {t(
-              'Runtime is an optional desktop setup assistant. Sign in, choose your app, and confirm its connection to ACU.'
-            )}
-          </p>
-        )}
         <p>
           {t(
-            'Configure ACU models and tools for Codex, Claude Code, Hermes and WorkBuddy already on your computer.'
+            props.compact
+              ? 'Connect your desktop agents to ACU.'
+              : 'Configure ACU models and tools for Codex, Claude Code, Hermes and WorkBuddy already on your computer.'
           )}
         </p>
       </div>
-      {props.compact && (
-        <p className='acu-runtime-quick-path'>
-          <span>{t('Install')}</span>
-          <ArrowRight aria-hidden='true' />
-          <span>{t('Sign in')}</span>
-          <ArrowRight aria-hidden='true' />
-          <span>{t('Choose your apps')}</span>
-        </p>
-      )}
       <div
         className='acu-app-list'
         aria-label='Codex / Claude Code / Hermes / WorkBuddy'
