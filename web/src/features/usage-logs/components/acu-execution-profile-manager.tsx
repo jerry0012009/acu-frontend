@@ -39,9 +39,6 @@ function emptyProfile(): ACUExecutionProfile {
     protocols: ['responses'],
     authMode: 'bearer',
     routingEnabled: true,
-    toolCallSupport: false,
-    thinkingSupport: false,
-    supportedReasoningEfforts: [],
   }
 }
 
@@ -568,8 +565,6 @@ export function ACUExecutionProfileManager() {
               {(
                 [
                   ['routingEnabled', t('Global routing')],
-                  ['toolCallSupport', 'toolCallSupport'],
-                  ['thinkingSupport', 'thinkingSupport'],
                   ['stripV1Path', 'stripV1Path'],
                 ] as Array<[keyof ACUExecutionProfile, string]>
               ).map(([key, label]) => (

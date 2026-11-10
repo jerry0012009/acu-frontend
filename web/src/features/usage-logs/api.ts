@@ -602,11 +602,6 @@ export type ACUExecutionProfile = {
     observedAt: string
     status: 'verified' | 'estimated'
   }
-  toolCallSupport?: boolean
-  supportedToolTypes?: string[]
-  thinkingSupport?: boolean
-  supportedReasoningEfforts?: string[]
-  reasoningControlMode?: string
   contextWindow?: number
   canonicalAdvertisedContextWindow?: number
   modelVendor?: string

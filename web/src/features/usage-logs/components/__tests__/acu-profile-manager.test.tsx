@@ -151,6 +151,10 @@ test('editing provider conversion retains channel controls and saves through DB 
     assert.ok(dialog)
     assert.match(dialog.textContent ?? '', /Cost calculator/)
     assert.match(dialog.textContent ?? '', /Channel connection/)
+    assert.doesNotMatch(
+      dialog.textContent ?? '',
+      /toolCallSupport|thinkingSupport/
+    )
     const conversion = [...dialog.querySelectorAll('label')]
       .find((label) => label.textContent?.includes('USD credits per RMB'))
       ?.querySelector('input')
