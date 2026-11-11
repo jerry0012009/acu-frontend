@@ -2,19 +2,24 @@
 
 本文档是 ACUindex 定制 New API 的生产部署入口。通用 New API 安装说明仍适用于独立部署，但当前 `acucompute.com` 域名体系必须遵循本页，避免控制台路径、客户端 Base URL 与 ACU Router 版本漂移。
 
+2026-11-11 起，生产 HTTP 使用 A/B 蓝绿槽位。每次发布先读 canonical
+`/root/jerry/claw-router/.agents/skills/deploy-acu/SKILL.md` 及
+`/root/jerry/claw-router/docs/operations/acu-blue-green-release.md`，包括旧 worktree
+和长会话中的 agent。旧的单实例发布报告不能作为操作步骤。
+
 ## 1. 服务边界
 
-| 职责 | 公开入口 | 内部入口 |
-| --- | --- | --- |
-| ACUindex 官网 | `https://acucompute.com/` | `127.0.0.1:4173` |
-| 控制台 | `https://console.acucompute.com/` | `127.0.0.1:3200` |
-| Dashboard | `https://console.acucompute.com/dashboard/overview` | `127.0.0.1:3200` |
-| 模型定价 | `https://console.acucompute.com/pricing` | `127.0.0.1:3200` |
-| Codex ACU Responses | `https://api.acucompute.com/v1` | New API `/v1/responses` |
-| Claude ACU Messages | `https://api.acucompute.com/v1/messages` | New API `/v1/messages` |
-| Codex release mirror | `https://api.acucompute.com/codex-releases/` | ACU host static cache |
-| Router Demo | `https://demo.acucompute.com/` | `127.0.0.1:8402` |
-| 旧客户端兼容 | `https://eu.jerrypsy.top:8443/v1` | New API `/v1/*` |
+| 职责                 | 公开入口                                            | 内部入口                  |
+| -------------------- | --------------------------------------------------- | ------------------------- |
+| ACUindex 官网        | `https://acucompute.com/`                           | `127.0.0.1:4173`          |
+| 控制台               | `https://console.acucompute.com/`                   | 蓝绿代理 `127.0.0.1:3210` |
+| Dashboard            | `https://console.acucompute.com/dashboard/overview` | 蓝绿代理 `127.0.0.1:3210` |
+| 模型定价             | `https://console.acucompute.com/pricing`            | 蓝绿代理 `127.0.0.1:3210` |
+| Codex ACU Responses  | `https://api.acucompute.com/v1`                     | New API `/v1/responses`   |
+| Claude ACU Messages  | `https://api.acucompute.com/v1/messages`            | New API `/v1/messages`    |
+| Codex release mirror | `https://api.acucompute.com/codex-releases/`        | ACU host static cache     |
+| Router Demo          | `https://demo.acucompute.com/`                      | `127.0.0.1:8402`          |
+| 旧客户端兼容         | `https://eu.jerrypsy.top:8443/v1`                   | New API `/v1/*`           |
 
 New API Console 以域名根路径运行，不设置 `/console` 或 `/acu` basename。浏览器 API 请求和构建资源继续使用根绝对路径 `/api/` 与 `/static/`，由 Nginx 精确代理。不要通过字符串替换构建产物来增加前缀。
 
@@ -22,6 +27,7 @@ New API Console 以域名根路径运行，不设置 `/console` 或 `/acu` basen
 
 - New API 源码：`/root/jerry/acu-frontend` 的 `main`；
 - Alpha Compose：Claw Router 仓库的 `deploy/alpha/docker-compose.yml`；
+- 当前应用槽位与容器 ID：`/var/lib/acu/blue-green/routes.json`；运行清单 `installation.json`；
 - 公网路由：Claw Router 仓库的 `deploy/alpha/nginx-acu-public-locations.conf`；
 - Secret：`/root/jerry/claw-router/deploy/alpha/.env`，仅服务器本地保存，不提交；
 - 数据：Compose 的 PostgreSQL / ACU 数据卷，不随镜像重建。
@@ -30,23 +36,30 @@ New API Console 以域名根路径运行，不设置 `/console` 或 `/acu` basen
 
 ## 3. 发布步骤
 
-Router 和 Console 统一遵循 [Router / Console 发布与连接连续性流程](https://github.com/jerry0012009/acu-router/blob/main/docs/operations/acu-service-release.md)。本机文件为 `/root/jerry/claw-router/docs/operations/acu-service-release.md`。选择 `release_service=new-api`，只替换本服务。
+Router 和 Console 统一遵循[蓝绿发布流程](https://github.com/jerry0012009/acu-router/blob/main/docs/operations/acu-blue-green-release.md)的日常发布节。本机文件为 `/root/jerry/claw-router/docs/operations/acu-blue-green-release.md`，选择 `new-api`，只激活本服务的空闲 HTTP 槽位。
 
 1. 在独立 worktree 中完成相关 Go / 前端测试、类型检查与构建，合入远端 main；保持 canonical main 干净且与已 fetch 的 origin/main 一致。前端优先使用 Bun，遵循本仓库 AGENTS.md。
 2. 使用 Router 仓库的 `deploy-production.sh --check new-api` 核对构建来源，**构建前保留 running image 的回滚标签**。应用源固定 `/root/jerry/acu-frontend`，生产环境唯一文件为 `/root/jerry/claw-router/deploy/alpha/.env`。
-3. 在旧 Console 运行时构建带 revision 的镜像，并用 Router 的 `release-executor.py prepare new-api <revision>` 准备发布；实际参数按共享流程执行。
+3. 使用构建辅助脚本 `--build-only new-api`，在当前 HTTP 槽位继续服务时构建镜像；使用 `blue-green-release.py prepare new-api <full-revision>`，实际参数和默认 acceptance 按 canonical 蓝绿流程执行。不得调用旧 `release-executor.py prepare`。
 4. `launch` 一次，由宿主机 systemd 独立执行切换与回滚。若 agent 因 API 断连，读取原 manifest 和 unit 继续观察，不要重复部署。
 5. 等到 completed，核对运行 revision、健康、自动重启策略及公网状态，再验证页面和完整流式请求与结算；仅 HTTP 200 不能证明请求完整。
 
-当前生产仍是单实例替换，可能短暂中断。先启动再切流的隔离测试与接入条件见共享流程；不要直接用 Compose `up`、普通 `restart` 或重启 Router 来替代该流程。只改文档或宿主机发布脚本不需要重启应用。
+当前已先启动再切流；旧连接留在原槽位完成，不能强制关停来缩短 drain。
+不要直接 Compose `up`、普通 `restart` 或重启 Router 来替代发布。只改文档、skill
+或宿主机发布脚本不需要重启应用。`completed_pending_drain` 不是全部完成。
+
+保留的 `acu-router-alpha-new-api-1` 是原来的 Go 应用容器，仍作为唯一后台
+master，不是当前公网 HTTP 槽位，也不是历史源码目录 `/root/jerry/new-api`。
+不要删除它、启动第二个 master 或以它的 revision 冒充新 HTTP 版本。HTTP 发布
+不会更新它的后台代码；worker 更新与 schema/env 变更须另行验证和回滚。
 
 ## 4. Nginx 接入
 
 生产入口由独立 Nginx vhost 提供：
 
 - `acucompute.com` → FrontendQD `127.0.0.1:4173`
-- `console.acucompute.com` → New API `127.0.0.1:3200`
-- `api.acucompute.com` → New API `127.0.0.1:3200`
+- `console.acucompute.com` → 蓝绿代理 `127.0.0.1:3210` → 当前 Console 槽位
+- `api.acucompute.com` → 蓝绿代理 `127.0.0.1:3210` → 当前 Console 槽位
 - `demo.acucompute.com` → 正式 Demo `127.0.0.1:8402`
 
 修改后固定执行：
@@ -147,10 +160,9 @@ curl -fsS https://api.acucompute.com/codex-releases/version.json
 
 ## 7. 回滚
 
-1. 记录当前 New API Commit 和镜像 ID；
-2. 切换到已审核且已推送的旧 Commit；
-3. 使用相同 Build Commit 参数重建；
-4. 只重建 `new-api` 服务，不执行 `down -v`；
-5. 重新验证 `/api/status`、两种客户端协议和 ACU usage finalize。
+同一发布清单的独立 watchdog 负责回切仍健康旧槽位，已经发出的请求仍由原实例
+完成，不自动重放模型 POST。读取原清单与 unit 观察恢复，不重复 launch、不重建
+正在服务的旧实例。回滚后验证页面、终止事件与结算；`rolled_back` 不是新版成功。
+发布结束后按 canonical 流程撤销验收维护会话，保留无秘密证据。
 
 数据库迁移和数据卷回滚必须单独审批。任何时候都禁止用 `git reset --hard`、覆盖本地 Secret 或删除 Compose volume 作为普通代码回滚手段。

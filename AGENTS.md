@@ -1,5 +1,18 @@
 # AGENTS.md — Project Conventions for new-api
 
+## Production Release Entry
+
+- Before any ACU production release, read
+  `/root/jerry/claw-router/.agents/skills/deploy-acu/SKILL.md` and the canonical
+  `docs/operations/acu-blue-green-release.md` there, even from older worktrees
+  or resumed sessions. Console public HTTP uses A/B slots through
+  `blue-green-release.py`; legacy `release-executor.py` and direct Compose or
+  Docker restarts are not its publishing path.
+- `acu-router-alpha-new-api-1` is retained as the sole background master, not
+  the active public Console. Do not stop it as cleanup or start a second master.
+  HTTP slot updates do not update its job code. Worker, schema and environment
+  changes require a separate rollout. Documentation/skills need no restart.
+
 ## ACU workspace ownership
 
 - The canonical clone for this repository is `/root/jerry/acu-frontend`.
