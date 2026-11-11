@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -96,6 +97,9 @@ type acuWireAdaptor struct{ channel.Adaptor }
 
 func (a acuWireAdaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	base := strings.TrimRight(info.ChannelBaseUrl, "/")
+	if stable := strings.TrimSpace(os.Getenv("ACU_ROUTER_RELAY_URL")); stable != "" {
+		base = strings.TrimRight(stable, "/")
+	}
 	path := info.RequestURLPath
 	if strings.HasPrefix(path, "/v1beta/") && strings.HasSuffix(base, "/v1") {
 		base = strings.TrimSuffix(base, "/v1")
