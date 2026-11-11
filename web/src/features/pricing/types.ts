@@ -100,6 +100,8 @@ export type PricingDisplayMode =
   | 'comparison'
 
 export type PricingPayable = {
+  model_multiplier?: string
+  price_version?: string
   context_tiers?: ContextTierPrices
   input_cny_per_million: number
   output_cny_per_million: number
@@ -112,6 +114,8 @@ export type PricingPayable = {
 export type PricingProtocol = 'chat_completions' | 'responses' | 'messages'
 
 export type ACURoutePayable = {
+  modelMultiplier?: string
+  priceVersion?: string
   inputCnyPerMillion: number
   outputCnyPerMillion: number
   cachedInputCnyPerMillion?: number

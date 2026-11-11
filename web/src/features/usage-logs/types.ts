@@ -196,6 +196,21 @@ export interface AcuChannelAttempt {
 }
 
 export interface AcuCostBreakdown {
+  retail_price_version?: string
+  retail_model_id?: string
+  retail_model_multiplier?: string
+  retail_fx_cny_per_usd?: string
+  retail_reference_currency?: 'USD' | 'CNY'
+  retail_reference_source?: string
+  retail_reference_observed_at?: string
+  retail_reference_amount_cny?: string
+  retail_reference_prices?: {
+    inputPricePerMillion: number
+    outputPricePerMillion: number
+    cachedInputPricePerMillion?: number
+    cacheWritePricePerMillion?: number
+    contextTier?: string
+  }
   requested_model?: string
   protocol?: string
   routed_by_acu?: boolean

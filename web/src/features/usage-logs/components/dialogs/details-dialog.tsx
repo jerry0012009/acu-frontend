@@ -419,6 +419,60 @@ function AcuPricingDetails(props: {
 }) {
   const { t } = useTranslation()
   const { models } = usePricingData()
+  if (props.breakdown.retail_price_version) {
+    const snapshot = props.breakdown.retail_reference_prices
+    return (
+      <DetailSection label={t('Pricing details')}>
+        <DetailRow
+          label={t('Price version')}
+          value={props.breakdown.retail_price_version}
+          mono
+        />
+        <DetailRow
+          label={t('Price multiplier')}
+          value={`${props.breakdown.retail_model_multiplier}x`}
+          mono
+        />
+        <DetailRow
+          label={t('Official reference')}
+          value={`${props.breakdown.retail_reference_currency} · ${props.breakdown.retail_reference_source}`}
+        />
+        <DetailRow
+          label={t('USD/CNY')}
+          value={props.breakdown.retail_fx_cny_per_usd ?? '-'}
+          mono
+        />
+        {snapshot && (
+          <>
+            <DetailRow
+              label={t('Input')}
+              value={`${snapshot.inputPricePerMillion} ${props.breakdown.retail_reference_currency} / M`}
+              mono
+            />
+            <DetailRow
+              label={t('Output')}
+              value={`${snapshot.outputPricePerMillion} ${props.breakdown.retail_reference_currency} / M`}
+              mono
+            />
+            {snapshot.cachedInputPricePerMillion != null && (
+              <DetailRow
+                label={t('Cached Input')}
+                value={`${snapshot.cachedInputPricePerMillion} ${props.breakdown.retail_reference_currency} / M`}
+                mono
+              />
+            )}
+            {snapshot.cacheWritePricePerMillion != null && (
+              <DetailRow
+                label={t('Cache Write')}
+                value={`${snapshot.cacheWritePricePerMillion} ${props.breakdown.retail_reference_currency} / M`}
+                mono
+              />
+            )}
+          </>
+        )}
+      </DetailSection>
+    )
+  }
   const pricing = models.find((model) => model.model_name === props.modelId)
   const rows = acuPriceComparisonRows(pricing, props.breakdown.protocol)
   const successfulAttempt = acuSuccessfulAttempt(props.breakdown)

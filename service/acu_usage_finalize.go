@@ -265,6 +265,18 @@ func FinalizeACUUsage(request dto.ACUUsageFinalizeRequest, payloadHash string) (
 			judgeCostCurrency,
 			operation_setting.USDExchangeRate,
 		)
+		if version, _ := request.CostBreakdown["retail_price_version"].(string); version != "" {
+			lockedFX, fxValid := parseOptionalACUCost(request.CostBreakdown["retail_fx_cny_per_usd"])
+			multiplier, valid := parseOptionalACUCost(request.CostBreakdown["retail_model_multiplier"])
+			reference, referenceValid := parseOptionalACUCost(request.CostBreakdown["retail_reference_amount_cny"])
+			if !fxValid || lockedFX.IsZero() || !valid || multiplier.IsZero() || !referenceValid ||
+				reference.Mul(multiplier).Sub(userChargeCny).Abs().GreaterThan(decimal.New(1, -8)) {
+				return dto.ACUUsageFinalizeResponse{}, errors.New("invalid fixed model retail charge")
+			}
+			request.CostBreakdown["channel_discount_multiplier"] = multiplier.String()
+			request.CostBreakdown["official_reference_cost_usd"] = reference.Div(lockedFX).StringFixed(10)
+			finalCost = userChargeCny.Div(lockedFX)
+		}
 	} else if !judgeCost.Add(providerCost).Add(failedCost).Equal(finalCost) {
 		return dto.ACUUsageFinalizeResponse{}, errors.New("final_user_cost_usd does not match the cost components")
 	}

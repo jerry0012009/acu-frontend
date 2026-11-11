@@ -122,6 +122,42 @@ test('summary identifies the protocol, strategy, route count and token unit', ()
   }
 })
 
+test('fixed model multiplier stays visible when route preview is unavailable', () => {
+  const fixed = {
+    ...model,
+    payable: { ...price, model_multiplier: '0.13', price_version: 'retail-v1' },
+  }
+  const previewed = applyPricingPreview(
+    [fixed],
+    undefined,
+    'responses',
+    'error'
+  )[0]
+  assert.equal(previewed.payable?.model_multiplier, '0.13')
+  const window = render(<ACUPriceSummary model={previewed} tokenUnit='M' />)
+  try {
+    assert.equal(
+      window.document.querySelector('[aria-label="Price multiplier"]')
+        ?.textContent,
+      '0.13x'
+    )
+    assert.doesNotMatch(
+      window.document.body.textContent ?? '',
+      /evaluation fees|Updating price|Unable to load/
+    )
+    assert.equal(
+      renderToStaticMarkup(
+        <I18nextProvider i18n={i18n}>
+          <ACURouteDetails model={fixed} tokenUnit='M' />
+        </I18nextProvider>
+      ),
+      ''
+    )
+  } finally {
+    window.close()
+  }
+})
+
 test('details list the same prices and mark only the current estimated selection', () => {
   const window = render(<ACURouteDetails model={model} tokenUnit='M' />)
   try {

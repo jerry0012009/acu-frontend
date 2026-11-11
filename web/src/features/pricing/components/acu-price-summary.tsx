@@ -23,6 +23,24 @@ export function ACUPriceSummary(props: {
   const { t } = useTranslation()
   const quote = props.model.acu_quote
   const price = props.model.payable
+  if (price?.model_multiplier) {
+    return (
+      <div className='space-y-1'>
+        <div className='text-muted-foreground text-xs'>
+          {t('Relative to official price')}
+        </div>
+        <strong
+          className='font-mono text-2xl font-semibold tabular-nums'
+          aria-label={t('Price multiplier')}
+        >
+          {formatMultiplier(Number(price.model_multiplier))}
+        </strong>
+        <div className='text-muted-foreground text-xs'>
+          {price.price_version}
+        </div>
+      </div>
+    )
+  }
   if (quote?.status === 'loading') {
     return (
       <span
@@ -178,6 +196,7 @@ export function ACURouteDetails(props: {
 }) {
   const { t } = useTranslation()
   const quote = props.model.acu_quote
+  if (props.model.payable?.model_multiplier) return null
   if (quote?.status !== 'ready' || !props.model.payable) return null
   const divisor = TOKEN_UNIT_DIVISORS[props.tokenUnit]
   const price = props.model.payable

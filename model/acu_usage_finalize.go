@@ -405,6 +405,10 @@ func RecordACUUnsettledUsage(input ACUUsageChargeInput) error {
 }
 
 var acuPublicRoutingTelemetryKeys = []string{
+	"retail_price_version", "retail_model_id", "retail_model_multiplier",
+	"retail_fx_cny_per_usd", "retail_reference_currency", "retail_reference_source",
+	"retail_reference_observed_at", "retail_reference_prices", "retail_reference_amount_cny",
+	"retail_input_accounting_mode", "retail_cache_creation_input_tokens", "retail_unbillable_reason",
 	"requested_model",
 	"canonical_model",
 	"logical_request_status",

@@ -35,6 +35,7 @@ export function applyPricingPreview(
   status: 'loading' | 'error' | 'ready'
 ): PricingModel[] {
   return models.map((model) => {
+    if (model.payable?.model_multiplier) return model
     if (
       model.price_currency !== 'CNY' ||
       !model.price_semantics?.startsWith('estimated_user_')
@@ -62,6 +63,8 @@ export function applyPricingPreview(
         context_tiers: route.payable.contextTiers,
         status: route.payable.status,
         pricing_policy_version: route.payable.pricingPolicyVersion,
+        model_multiplier: route.payable.modelMultiplier,
+        price_version: route.payable.priceVersion,
       },
     }))
     const selected = routes.find(

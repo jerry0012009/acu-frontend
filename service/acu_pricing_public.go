@@ -22,6 +22,8 @@ func PublicACUPricingCorridor(result map[string]interface{}) error {
 			"payableOutputPriceCnyPerMillion", "payableCachedInputPriceCnyPerMillion",
 			"payableCacheWritePriceCnyPerMillion", "payableContextTiers",
 			"effectiveCostStatus", "billingContextTokens", "billingContextTier",
+			"modelMultiplier", "priceVersion",
+			"retailReference", "currentlyEligible",
 		} {
 			if value, exists := price[field]; exists {
 				publicPrice[field] = value
@@ -60,6 +62,7 @@ func PublicACUPricingCorridor(result map[string]interface{}) error {
 				for _, field := range []string{
 					"inputCnyPerMillion", "outputCnyPerMillion", "cachedInputCnyPerMillion",
 					"cacheWriteCnyPerMillion", "contextTiers", "status", "pricingPolicyVersion",
+					"modelMultiplier", "priceVersion",
 				} {
 					if value, exists := payable[field]; exists {
 						publicPayable[field] = value

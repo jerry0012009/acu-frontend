@@ -7,6 +7,7 @@ import { PaymentSettingsSection } from '../integrations/payment-settings-section
 import { RatioSettingsCard } from '../models/ratio-settings-card'
 import type { BillingSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
+import { ACURetailPricing } from './acu-retail-pricing'
 
 const getModelDefaults = (settings: BillingSettings) => ({
   ModelPrice: settings.ModelPrice,
@@ -34,6 +35,11 @@ const getGroupDefaults = (settings: BillingSettings) => ({
 })
 
 const BILLING_SECTIONS = [
+  {
+    id: 'acu-model-pricing',
+    titleKey: 'ACU Model Multipliers',
+    build: () => <ACURetailPricing />,
+  },
   {
     id: 'quota',
     titleKey: 'Quota Settings',

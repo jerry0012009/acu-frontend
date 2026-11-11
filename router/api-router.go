@@ -232,6 +232,7 @@ func SetApiRouter(router *gin.Engine) {
 		adminOptionRoute.Use(middleware.AdminAuth())
 		{
 			adminOptionRoute.GET("/acu-routing-policy", controller.GetACUGlobalRoutingPolicy)
+			adminOptionRoute.GET("/acu-retail-pricing", middleware.DisableCache(), controller.GetACURetailPricing)
 			adminOptionRoute.PUT("/acu-routing-policy/profile", controller.UpdateACUGlobalProfileRouting)
 		}
 		optionRoute := apiRouter.Group("/option")
@@ -241,6 +242,7 @@ func SetApiRouter(router *gin.Engine) {
 			optionRoute.PUT("/", controller.UpdateOption)
 			optionRoute.POST("/acu-quick-start-media", controller.UploadAcuQuickStartMedia)
 			optionRoute.PUT("/acu-routing-policy", controller.UpdateACUGlobalRoutingPolicy)
+			optionRoute.POST("/acu-retail-pricing", controller.PreviewACURetailPricing)
 			optionRoute.GET("/acu-routing-utility-config", controller.GetACURoutingUtilityConfig)
 			optionRoute.PUT("/acu-routing-utility-config", controller.UpdateACURoutingUtilityConfig)
 			optionRoute.POST("/payment_compliance", controller.ConfirmPaymentCompliance)

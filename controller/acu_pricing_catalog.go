@@ -27,6 +27,8 @@ type acuPricingAuto struct {
 }
 
 type acuCatalogPayable struct {
+	ModelMultiplier          string                    `json:"modelMultiplier,omitempty"`
+	PriceVersion             string                    `json:"priceVersion,omitempty"`
 	ContextTiers             *dto.ACUContextTierPrices `json:"contextTiers,omitempty"`
 	InputCNYPerMillion       float64                   `json:"inputCnyPerMillion"`
 	OutputCNYPerMillion      float64                   `json:"outputCnyPerMillion"`
@@ -41,6 +43,8 @@ func (price *acuCatalogPayable) public() *model.PricingPayable {
 		return nil
 	}
 	return &model.PricingPayable{
+		ModelMultiplier:    price.ModelMultiplier,
+		PriceVersion:       price.PriceVersion,
 		ContextTiers:       price.ContextTiers,
 		InputCNYPerMillion: price.InputCNYPerMillion, OutputCNYPerMillion: price.OutputCNYPerMillion,
 		CachedInputCNYPerMillion: price.CachedInputCNYPerMillion, Status: price.Status,
@@ -290,6 +294,8 @@ func buildLiveACUPricingCatalog(
 	statuses := make([]acuCurveModelStatus, 0, len(routingCatalog.Models))
 	for _, catalogModel := range routingCatalog.Models {
 		payableByProtocol := make(map[string]*acuCatalogPayable)
+		var fixedReference *acuCatalogReference
+		fixedEligible := false
 		effectiveStatuses := make([]string, 0, len(catalogModel.Protocols))
 		statusLabels := make([]string, 0, len(catalogModel.Protocols))
 		for _, protocol := range catalogModel.Protocols {
@@ -302,6 +308,12 @@ func buildLiveACUPricingCatalog(
 				continue
 			}
 			payableByProtocol[protocol] = payable
+			if payable.ModelMultiplier != "" {
+				fixedReference = acuFixedReference(price)
+				if eligible, ok := price["currentlyEligible"].(bool); ok && eligible {
+					fixedEligible = true
+				}
+			}
 			effectiveStatuses = appendUniqueString(effectiveStatuses, stringMapValue(price, "effectiveCostStatus"))
 			statusLabels = append(statusLabels, "active_"+protocol)
 		}
@@ -309,6 +321,9 @@ func buildLiveACUPricingCatalog(
 		protocolLabel := acuProtocolLabel(catalogModel.Protocols)
 		displayPayable := preferredACUPayable(payableByProtocol)
 		currentlyEligible := displayPayable != nil
+		if displayPayable != nil && displayPayable.ModelMultiplier != "" {
+			currentlyEligible = fixedEligible
+		}
 		var unavailableReason *string
 		status := "routing_active"
 		if !currentlyEligible {
@@ -319,6 +334,9 @@ func buildLiveACUPricingCatalog(
 		}
 
 		reference := acuReferenceFromCatalog(catalogModel, fxCNYPerUSD)
+		if fixedReference != nil {
+			reference = fixedReference
+		}
 		response := acuPricingResponse{
 			ModelID:                      catalogModel.ModelID,
 			DisplayName:                  firstNonEmpty(catalogModel.DisplayName, catalogModel.ModelID),
@@ -341,6 +359,9 @@ func buildLiveACUPricingCatalog(
 			EffectiveCostStatuses:        effectiveStatuses,
 			CurrentlyEligible:            currentlyEligible,
 			TemporarilyUnavailableReason: unavailableReason,
+		}
+		if displayPayable != nil && displayPayable.ModelMultiplier != "" {
+			response.CostSemantics = "fixed_model_multiplier"
 		}
 		if reference != nil {
 			response.InputPricePerMillion = reference.InputCNYPerMillion / fxCNYPerUSD
@@ -401,6 +422,8 @@ func acuPayableFromCorridor(price map[string]interface{}, policyVersion string) 
 		return nil
 	}
 	return &acuCatalogPayable{
+		ModelMultiplier:    stringMapValue(price, "modelMultiplier"),
+		PriceVersion:       stringMapValue(price, "priceVersion"),
 		ContextTiers:       dto.ParseACUContextTierPrices(price["payableContextTiers"]),
 		InputCNYPerMillion: input, OutputCNYPerMillion: output,
 		CachedInputCNYPerMillion: optionalFloatMapValue(price, "payableCachedInputPriceCnyPerMillion"),
@@ -408,6 +431,41 @@ func acuPayableFromCorridor(price map[string]interface{}, policyVersion string) 
 		Status:                   firstNonEmpty(stringMapValue(price, "effectiveCostStatus"), "estimated"),
 		PricingPolicyVersion:     policyVersion,
 	}
+}
+
+func acuFixedReference(price map[string]interface{}) *acuCatalogReference {
+	raw, ok := price["retailReference"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	prices, ok := raw["referencePrices"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	input, inputOK := floatMapValue(prices, "inputPricePerMillion")
+	output, outputOK := floatMapValue(prices, "outputPricePerMillion")
+	if !inputOK || !outputOK {
+		return nil
+	}
+	fx, err := strconv.ParseFloat(stringMapValue(raw, "fxCnyPerUsd"), 64)
+	if err != nil || fx <= 0 {
+		return nil
+	}
+	currency := stringMapValue(raw, "referenceCurrency")
+	factor := 1.0
+	if currency == "USD" {
+		factor = fx
+	}
+	cache := optionalFloatMapValue(prices, "cachedInputPricePerMillion")
+	if cache != nil {
+		value := *cache * factor
+		cache = &value
+	}
+	tiers := dto.ParseACUContextTierPrices(prices["contextTiers"])
+	return &acuCatalogReference{InputCNYPerMillion: input * factor, OutputCNYPerMillion: output * factor,
+		CachedInputCNYPerMillion: cache, ContextTiers: tiers.Scale(factor), SourceType: "official",
+		SourceName: stringMapValue(raw, "referenceSource"), ObservedAt: stringMapValue(raw, "referenceObservedAt"),
+		OriginalCurrency: currency, FXCNYPerUSD: &fx}
 }
 
 func acuReferenceFromCatalog(catalogModel dto.ACURoutingCatalogModel, fx float64) *acuCatalogReference {
