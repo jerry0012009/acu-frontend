@@ -77,6 +77,28 @@ func TestInitOnSlaveOnlyLoadsPolicies(t *testing.T) {
 	assert.False(t, Can(2, common.RoleAdminUser, ChannelRead))
 }
 
+func TestInitWithoutMigrationsPreservesExistingAuthorization(t *testing.T) {
+	db := newAuthzTestDB(t)
+	require.NoError(t, Init(db))
+	require.NoError(t, db.Where("ptype = ? AND v0 = ?", "p", RoleSubject(BuiltInRoleAdmin)).
+		Delete(&model.CasbinRule{}).Error)
+	custom := model.CasbinRule{
+		Ptype: "p", V0: RoleSubject(BuiltInRoleAdmin), V1: ChannelRead.Resource,
+		V2: ChannelRead.Action, V3: EffectAllow,
+	}
+	require.NoError(t, db.Create(&custom).Error)
+	t.Setenv("SKIP_AUTO_MIGRATE", "true")
+
+	require.NoError(t, Init(db))
+
+	var policies []model.CasbinRule
+	require.NoError(t, db.Find(&policies).Error)
+	require.Len(t, policies, 1)
+	assert.Equal(t, custom, policies[0])
+	assert.True(t, Can(2, common.RoleAdminUser, ChannelRead))
+	assert.False(t, Can(2, common.RoleAdminUser, ChannelWrite))
+}
+
 func TestSetUserPermissionsStoresOnlyOverrides(t *testing.T) {
 	db := newAuthzTestDB(t)
 	require.NoError(t, Init(db))

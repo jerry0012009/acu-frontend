@@ -32,8 +32,11 @@ FROM debian:bookworm-slim@sha256:f06537653ac770703bc45b4b113475bd402f451e85223f0
 
 ARG BUILD_COMMIT_SHA=unknown
 ARG BUILD_TIME=unknown
+ARG SCHEMA_VERSION=acu_usage_finalize_rc22
 LABEL org.opencontainers.image.revision=$BUILD_COMMIT_SHA \
-      org.opencontainers.image.created=$BUILD_TIME
+      org.opencontainers.image.created=$BUILD_TIME \
+      io.acu.schema.version=$SCHEMA_VERSION \
+      io.acu.release.features="skip-auto-migrate,static-export"
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates tzdata libasan8 wget \
@@ -41,6 +44,8 @@ RUN apt-get update \
     && update-ca-certificates
 
 COPY --from=builder2 /build/new-api /
+# Retained by the blue/green publisher for already-open browser sessions.
+COPY --from=builder /build/web/dist/static /opt/acu-web/static
 COPY NOTICE THIRD-PARTY-LICENSES.md /licenses/
 EXPOSE 3000
 WORKDIR /data

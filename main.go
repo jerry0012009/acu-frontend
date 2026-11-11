@@ -311,7 +311,7 @@ func InitResources() error {
 	model.CheckSetup()
 
 	// Initialize options, should after model.InitDB()
-	if common.IsMasterNode {
+	if common.IsMasterNode && os.Getenv("SKIP_AUTO_MIGRATE") != "true" {
 		if err := model.MigrateRetiredFrontendOptions(); err != nil {
 			common.SysError("failed to migrate retired frontend options: " + err.Error())
 		}
