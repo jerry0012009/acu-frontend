@@ -8,9 +8,10 @@
   or resumed sessions. Console public HTTP uses A/B slots through
   `blue-green-release.py`; legacy `release-executor.py` and direct Compose or
   Docker restarts are not its publishing path.
-- `acu-router-alpha-new-api-1` is retained as the sole background master, not
-  the active public Console. Do not stop it as cleanup or start a second master.
-  HTTP slot updates do not update its job code. Worker, schema and environment
+- `acu-blue-green-console-worker-1` is the sole background master, while
+  public HTTP slots are slaves. Legacy application containers are retired; do
+  not recreate them or start a second master. HTTP slot updates do not update
+  worker job code. Worker, schema and environment
   changes require a separate rollout. Documentation/skills need no restart.
 
 ## ACU workspace ownership

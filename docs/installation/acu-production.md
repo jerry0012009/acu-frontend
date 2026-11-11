@@ -48,10 +48,11 @@ Router 和 Console 统一遵循[蓝绿发布流程](https://github.com/jerry0012
 不要直接 Compose `up`、普通 `restart` 或重启 Router 来替代发布。只改文档、skill
 或宿主机发布脚本不需要重启应用。`completed_pending_drain` 不是全部完成。
 
-保留的 `acu-router-alpha-new-api-1` 是原来的 Go 应用容器，仍作为唯一后台
-master，不是当前公网 HTTP 槽位，也不是历史源码目录 `/root/jerry/new-api`。
-不要删除它、启动第二个 master 或以它的 revision 冒充新 HTTP 版本。HTTP 发布
-不会更新它的后台代码；worker 更新与 schema/env 变更须另行验证和回滚。
+当前 `acu-blue-green-console-worker-1` 是唯一后台 master，HTTP 槽位为 slave。
+原来的 `acu-router-alpha-new-api-1` 已退役，不能从旧 Compose 重新启动。
+HTTP 发布不会自动更新 worker 后台代码；worker 变更必须串行交接、验证任务和
+回滚，禁止同时运行两个 master。Acontext API/core 也已分配独立蓝绿槽位，详见
+canonical Router `docs/operations/acontext-blue-green.md`。
 
 ## 4. Nginx 接入
 
