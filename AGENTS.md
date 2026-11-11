@@ -8,10 +8,14 @@
   or resumed sessions. Console public HTTP uses A/B slots through
   `blue-green-release.py`; legacy `release-executor.py` and direct Compose or
   Docker restarts are not its publishing path.
+- The public target is `acu-frontend` via Router `release-unit.py`. One manifest
+  owns HTTP A/B and worker image checks/required handoff. Console/new-api and
+  worker are internal roles, not additional release units.
 - `acu-blue-green-console-worker-1` is the sole background master, while
   public HTTP slots are slaves. Legacy application containers are retired; do
-  not recreate them or start a second master. HTTP slot updates do not update
-  worker job code. Worker, schema and environment
+  not recreate them or start a second master. The frontend manifest checks
+  worker image and performs any required serialized handoff; if already on the
+  candidate image no worker restart is needed. Incompatible job, schema and environment
   changes require a separate rollout. Documentation/skills need no restart.
 
 ## ACU workspace ownership

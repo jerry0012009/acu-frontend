@@ -7,6 +7,10 @@
 `/root/jerry/claw-router/docs/operations/acu-blue-green-release.md`，包括旧 worktree
 和长会话中的 agent。旧的单实例发布报告不能作为操作步骤。
 
+发布目标只有三个仓库名：`acu-frontend`、`acu-router`、`acu-private`。本仓库统一用
+Router `release-unit.py prepare acu-frontend` / `launch`；同一清单检查 HTTP 和
+后台 worker 镜像，需要时串行交接 worker，不另选 Console 或 worker 发布单元。
+
 ## 1. 服务边界
 
 | 职责                 | 公开入口                                            | 内部入口                  |
@@ -40,7 +44,7 @@ Router 和 Console 统一遵循[蓝绿发布流程](https://github.com/jerry0012
 
 1. 在独立 worktree 中完成相关 Go / 前端测试、类型检查与构建，合入远端 main；保持 canonical main 干净且与已 fetch 的 origin/main 一致。前端优先使用 Bun，遵循本仓库 AGENTS.md。
 2. 使用 Router 仓库的 `deploy-production.sh --check new-api` 核对构建来源，**构建前保留 running image 的回滚标签**。应用源固定 `/root/jerry/acu-frontend`，生产环境唯一文件为 `/root/jerry/claw-router/deploy/alpha/.env`。
-3. 使用构建辅助脚本 `--build-only new-api`，在当前 HTTP 槽位继续服务时构建镜像；使用 `blue-green-release.py prepare new-api <full-revision>`，实际参数和默认 acceptance 按 canonical 蓝绿流程执行。不得调用旧 `release-executor.py prepare`。
+3. 使用构建辅助脚本 `--build-only new-api`，在当前 HTTP 槽位继续服务时构建镜像；`new-api` 只是内部构建名。使用 `release-unit.py prepare acu-frontend FULL_REVISION --image IMAGE_ID`，实际参数和默认 acceptance 按 canonical 三单元流程执行。不得调用旧 `release-executor.py prepare`。
 4. `launch` 一次，由宿主机 systemd 独立执行切换与回滚。若 agent 因 API 断连，读取原 manifest 和 unit 继续观察，不要重复部署。
 5. 等到 completed，核对运行 revision、健康、自动重启策略及公网状态，再验证页面和完整流式请求与结算；仅 HTTP 200 不能证明请求完整。
 
@@ -50,8 +54,9 @@ Router 和 Console 统一遵循[蓝绿发布流程](https://github.com/jerry0012
 
 当前 `acu-blue-green-console-worker-1` 是唯一后台 master，HTTP 槽位为 slave。
 原来的 `acu-router-alpha-new-api-1` 已退役，不能从旧 Compose 重新启动。
-HTTP 发布不会自动更新 worker 后台代码；worker 变更必须串行交接、验证任务和
-回滚，禁止同时运行两个 master。Acontext API/core 也已分配独立蓝绿槽位，详见
+同一 frontend 发布清单检查 worker 镜像，有差异时自动串行交接、验证并保留回滚；
+镜像相同时不重启 worker，禁止两个 master。Acontext API/core 组成 `acu-private`
+的一套 A/B，不能各自独立发布，详见
 canonical Router `docs/operations/acontext-blue-green.md`。
 
 ## 4. Nginx 接入
