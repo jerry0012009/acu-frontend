@@ -7,6 +7,7 @@ import {
   runtimeDownloadUrl,
   isRuntimeLogin,
   onboardingLanding,
+  RUNTIME_RELEASE_URL,
 } from '../runtime-onboarding'
 
 test('desktop download selection excludes mobile, Linux and Windows ARM', () => {
@@ -23,8 +24,22 @@ test('desktop download selection excludes mobile, Linux and Windows ARM', () => 
   ]) {
     assert.equal(detectRuntimePlatform(agent), 'other')
   }
-  assert.match(runtimeDownloadUrl('mac-intel'), /macos-amd64\.dmg$/)
-  assert.match(runtimeDownloadUrl('windows'), /windows-amd64-Setup\.exe$/)
+  assert.equal(
+    runtimeDownloadUrl('mac-intel'),
+    '/api/acu-runtime/download/mac-intel'
+  )
+  assert.equal(
+    runtimeDownloadUrl('mac-arm'),
+    '/api/acu-runtime/download/mac-arm'
+  )
+  assert.equal(
+    runtimeDownloadUrl('windows'),
+    '/api/acu-runtime/download/windows'
+  )
+  assert.equal(
+    RUNTIME_RELEASE_URL,
+    'https://github.com/jerry0012009/acu-runtime/releases/latest'
+  )
 })
 
 test('first-login guidance respects explicit destinations and Runtime sign-in windows', () => {
