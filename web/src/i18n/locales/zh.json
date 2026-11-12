@@ -1,5 +1,8 @@
 {
   "translation": {
+    "Your preference starfish": "ACU 眼中的工作偏好",
+    "{{count}} source documents": "基于 {{count}} 份偏好文档",
+    "Preference refresh unavailable. Last saved profile is retained.": "偏好更新暂不可用，已保留上次生成的画像。",
     "Preference rule updated": "偏好规则已修订",
     "Manage preferences": "管理偏好",
     "Preference changed or unavailable. Refresh and retry.": "偏好已变化或暂时不可用，请刷新后重试。",
