@@ -44,15 +44,17 @@ func advisorNoticeChinese(language, content string) bool {
 	return han > 0 && han*2 >= latin
 }
 
-func advisorProblemLabel(value string) string {
-	// Legacy data has no validated short title; keep a bounded source clause.
-	for _, clause := range strings.FieldsFunc(value, func(r rune) bool { return r == '。' || r == '；' || r == ';' || r == '\n' }) {
-		clause = strings.TrimSpace(clause)
-		if clause != "" {
-			return advisorExcerpt(clause, 36)
-		}
+// Validated summaries follow the user's conversation, not account/UI locale.
+func advisorNoticeDisplayChinese(row model.ACUAdvisorNotification, language string) bool {
+	var summary dto.ACUAdvisorNotice
+	if common.UnmarshalJsonStr(row.NoticeJSON, &summary) == nil && validAdvisorNotice(&summary, row.ProblemSummary, row.AdviceSummary) {
+		return advisorNoticeChinese("auto", summary.Title+" "+summary.Deviation+" "+summary.Preference+" "+summary.Correction)
 	}
-	return advisorExcerpt(value, 36)
+	content := strings.TrimSpace(row.ProblemSummary + " " + row.AdviceSummary)
+	if content != "" {
+		return advisorNoticeChinese("auto", content)
+	}
+	return advisorNoticeChinese(language, "")
 }
 
 var advisorPrivateText = regexp.MustCompile(`(?i)(?:https?://[^\s，。；]+|[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}|(?:/root/|/home/|[a-z]:\\)[^\s，。；]+|(?:api[_-]?key|password|token|secret)\s*[:=]\s*[^\s，。；]+|sk-[a-z0-9_-]{8,})`)
@@ -121,28 +123,22 @@ func validAdvisorNotice(n *dto.ACUAdvisorNotice, problem, advice string) bool {
 }
 
 func buildAdvisorNotice(row model.ACUAdvisorNotification, language string, repeated bool) advisorNotice {
-	zh := advisorNoticeChinese(language, row.ProblemSummary+" "+row.AdviceSummary)
-	issue := strings.TrimSpace(row.ProblemSummary)
-	if issue == "" {
-		issue = advisorNoticeText(zh, "有一项审计发现，问题摘要缺失", "Audit finding; issue summary unavailable")
-	}
-	title := advisorProblemLabel(issue)
-	if advisorOutcomeClaim.MatchString(issue) {
-		title = advisorNoticeText(zh, "审计原文含结果表述，查看具体偏差", "Review the audit finding")
-		issue = advisorNoticeText(zh, "请在详情中核对审计原文与依据", "Review the original audit and evidence in details")
-	}
+	zh := advisorNoticeDisplayChinese(row, language)
+	// Never expose an unreadable technical audit when structured copy was rejected.
+	title := advisorNoticeText(zh, "有一项任务检查建议待查看", "A task review is ready")
+	issue := advisorNoticeText(zh, "本次还没有可靠的简短说明，具体问题请查看完整记录。", "A reliable short explanation is unavailable; review the full record.")
 	preference := advisorNoticeText(zh, "本次未找到明确的偏好依据", "No explicit preference evidence identified for this notice")
 	correction := advisorNoticeText(zh, "本次未提供可靠的纠偏摘要，完整建议见详情", "No reliable corrective summary; see the full advice")
 	var structured dto.ACUAdvisorNotice
 	if common.UnmarshalJsonStr(row.NoticeJSON, &structured) == nil && validAdvisorNotice(&structured, row.ProblemSummary, row.AdviceSummary) {
 		title, issue, preference, correction = structured.Title, structured.Deviation, structured.Preference, structured.Correction
 	}
-	state := advisorNoticeText(zh, "已生成提醒 · 带入状态未知", "Reminder generated · inclusion unknown")
+	state := advisorNoticeText(zh, "已生成建议，尚无提供给后续处理者的记录", "Advice prepared; delivery to the next task request is unknown")
 	switch row.ReferenceStatus {
 	case "queued":
-		state = advisorNoticeText(zh, "提醒已排队，待同会话后续请求带入", "Reminder queued for a later request in this session")
+		state = advisorNoticeText(zh, "建议已备好，等待提供给后续处理者", "Advice prepared for the next task request")
 	case "injected":
-		state = advisorNoticeText(zh, "提醒已加入后续请求上下文", "Reminder added to later request context")
+		state = advisorNoticeText(zh, "建议已加入后续请求，是否采纳尚未确认", "Advice included in a later request; adoption is not confirmed")
 	case "disabled":
 		state = advisorNoticeText(zh, "已生成提醒，自动带入关闭", "Reminder generated; automatic inclusion disabled")
 	case "failed":
@@ -156,14 +152,14 @@ func buildAdvisorNotice(row model.ACUAdvisorNotification, language string, repea
 		Title: prefix + advisorExcerpt(title, 54), Summary: advisorExcerpt(issue, 130),
 		Preference: advisorExcerpt(preference, 160), Correction: advisorExcerpt(correction, 180),
 		Action: state, VerificationStatus: "unknown",
-		Verification: advisorNoticeText(zh, "效果待核实", "Outcome not verified"),
+		Verification: advisorNoticeText(zh, "处理结果待确认", "Result not yet confirmed"),
 		NextStep:     advisorNoticeText(zh, "查看依据与完整建议", "Review evidence and full advice"),
 	}
 }
 
 func renderAdvisorEmail(row model.ACUAdvisorNotification, language string, repeated bool, serverAddress string) (string, string) {
 	n := buildAdvisorNotice(row, language, repeated)
-	zh := advisorNoticeChinese(language, row.ProblemSummary+" "+row.AdviceSummary)
+	zh := advisorNoticeDisplayChinese(row, language)
 	link := advisorNoticeText(zh, "登录 Console → Private ACU / Advisor 查看完整原文。", "Please sign in to Console → Private ACU / Advisor for full source details.")
 	base, err := url.Parse(strings.TrimSpace(serverAddress))
 	if err == nil && (base.Scheme == "https" || base.Scheme == "http") && base.Host != "" && base.User == nil && base.RawQuery == "" && base.Fragment == "" {
@@ -172,7 +168,7 @@ func renderAdvisorEmail(row model.ACUAdvisorNotification, language string, repea
 		link = fmt.Sprintf(`<a href="%s">%s</a>`, html.EscapeString(base.String()), n.NextStep)
 	}
 	preview := n.Summary + " → " + n.Preference + " → " + n.Correction
-	snapshot := advisorNoticeText(zh, "首次提醒快照：", "Initial reminder snapshot: ") + n.Action
+	snapshot := n.Action
 	body := fmt.Sprintf(`<!doctype html><html lang="%s"><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="margin:0;font-family:Arial,sans-serif;color:#222;background:#fff"><div style="display:none;max-height:0;overflow:hidden;mso-hide:all">%s</div><main style="max-width:560px;margin:auto;padding:20px;overflow-wrap:anywhere"><h1 style="font-size:20px;line-height:1.4">%s</h1><p><strong>%s</strong><br>%s</p><p><strong>%s</strong><br>%s</p><p><strong>%s</strong><br>%s</p><p style="font-size:12px;color:#555">%s · %s</p><p>%s</p></main></body></html>`,
 		advisorNoticeText(zh, "zh", "en"), html.EscapeString(advisorExcerpt(preview, 240)), html.EscapeString(n.Title),
 		advisorNoticeText(zh, "发现的问题", "Issue found"), html.EscapeString(n.Summary),

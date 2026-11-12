@@ -22,18 +22,18 @@ import (
 
 func TestAdvisorNoticeSeparatesAuditReferenceAndVerification(t *testing.T) {
 	for _, tc := range []struct{ state, action string }{
-		{"queued", "提醒已排队"}, {"injected", "提醒已加入后续请求"},
-		{"failed", "带入失败"}, {"disabled", "自动带入关闭"}, {"", "带入状态未知"},
-		{"future-state", "带入状态未知"},
+		{"queued", "建议已备好"}, {"injected", "建议已加入后续请求"},
+		{"failed", "带入失败"}, {"disabled", "自动带入关闭"}, {"", "尚无提供"},
+		{"future-state", "尚无提供"},
 	} {
 		t.Run(tc.state, func(t *testing.T) {
 			notice := buildAdvisorNotice(model.ACUAdvisorNotification{
 				ProblemSummary: "统计与列表 type=0 筛选口径不一致", AdviceSummary: "测试通过，已修复", ReferenceStatus: tc.state,
 			}, "zh", false)
-			assert.Contains(t, notice.Title, "type=0")
+			assert.Contains(t, notice.Title, "任务检查建议")
 			assert.Contains(t, notice.Action, tc.action)
 			assert.Equal(t, "unknown", notice.VerificationStatus)
-			assert.Equal(t, "效果待核实", notice.Verification)
+			assert.Equal(t, "处理结果待确认", notice.Verification)
 			assert.NotContains(t, notice.Title, "已修复")
 			assert.NotEmpty(t, notice.NextStep)
 		})
@@ -111,7 +111,11 @@ func TestAdvisorEventsKeepNewRisksAndNeverResendForStatusOrReplay(t *testing.T) 
 func TestAdvisorNoticeMissingFieldsNeverInventPreference(t *testing.T) {
 	for _, problem := range []string{"用户要求先给清单再推进", "Test baseline uses different arguments", ""} {
 		n := buildAdvisorNotice(model.ACUAdvisorNotification{ProblemSummary: problem}, "en", false)
-		assert.Contains(t, n.Preference, "No explicit preference evidence")
+		if advisorNoticeChinese("auto", problem) {
+			assert.Contains(t, n.Preference, "未找到明确的偏好依据")
+		} else {
+			assert.Contains(t, n.Preference, "No explicit preference evidence")
+		}
 		assert.NotEmpty(t, n.Summary)
 	}
 	secret := strings.Repeat("私密路径 /root/secret api-key=hidden@example.com <script>x</script> ", 1000)
@@ -123,10 +127,10 @@ func TestAdvisorNoticeMissingFieldsNeverInventPreference(t *testing.T) {
 }
 
 func TestAdvisorEmailHasSafePreviewAndAuthenticatedAbsoluteLink(t *testing.T) {
-	row := model.ACUAdvisorNotification{AdvisorID: `id/<script>`, ProblemSummary: "统计 type=0 secret@example.com", ReferenceStatus: "injected"}
+	row := model.ACUAdvisorNotification{AdvisorID: `id/<script>`, ProblemSummary: "费用统计与筛选后的列表范围不一致，需要核对当前统计条件。 secret@example.com", ReferenceStatus: "injected"}
 	subject, body := renderAdvisorEmail(row, "zh", false, "https://acu.example/base")
-	assert.Contains(t, subject, "type=0")
-	assert.Contains(t, body, "效果待核实")
+	assert.Contains(t, subject, "任务检查建议")
+	assert.Contains(t, body, "处理结果待确认")
 	assert.Contains(t, body, "纠偏提醒")
 	assert.Contains(t, body, "https://acu.example/base/private-acu/advisor?advisor=id%2F%3Cscript%3E")
 	assert.NotContains(t, body, "secret@example.com")
@@ -134,7 +138,7 @@ func TestAdvisorEmailHasSafePreviewAndAuthenticatedAbsoluteLink(t *testing.T) {
 	for _, base := range []string{"", "javascript:alert(1)", "https://user:password@acu.example", "//evil.example", "https://acu.example/?x=1"} {
 		_, body = renderAdvisorEmail(row, "en", false, base)
 		assert.NotContains(t, body, "href=")
-		assert.Contains(t, body, "sign in")
+		assert.Contains(t, body, "登录 Console")
 	}
 }
 
@@ -192,7 +196,7 @@ func TestAdvisorNoticeRealSamplePreviews(t *testing.T) {
 				}
 			}
 			_, body := renderAdvisorEmail(row, sample.Language, false, "https://acu.example")
-			assert.Less(t, strings.Index(body, "纠偏提醒"), strings.Index(body, "效果待核实"))
+			assert.Less(t, strings.Index(body, "纠偏提醒"), strings.Index(body, "处理结果待确认"))
 			if output := os.Getenv("ADVISOR_PREVIEW_DIR"); output != "" {
 				require.NoError(t, os.MkdirAll(output, 0700))
 				require.NoError(t, os.WriteFile(filepath.Join(output, sample.ID+".html"), []byte(body), 0600))
@@ -201,12 +205,12 @@ func TestAdvisorNoticeRealSamplePreviews(t *testing.T) {
 				require.NoError(t, os.WriteFile(filepath.Join(output, sample.ID+"-before.html"), []byte(before), 0600))
 			}
 			row.ReferenceStatus = ""
-			assert.Contains(t, buildAdvisorNotice(row, "zh", false).Action, "带入状态未知")
+			assert.Contains(t, buildAdvisorNotice(row, "zh", false).Action, "尚无提供")
 			sample.Notification.Evidence.Preference = "不存在的用户偏好"
 			encoded, err = common.Marshal(sample.Notification)
 			require.NoError(t, err)
 			row.NoticeJSON = string(encoded)
-			assert.Contains(t, buildAdvisorNotice(row, "en", false).Preference, "No explicit preference evidence")
+			assert.Contains(t, buildAdvisorNotice(row, "en", false).Preference, "未找到明确的偏好依据")
 		})
 	}
 }
@@ -251,6 +255,45 @@ func TestAdvisorNoticeEnglishAndInvalidSummary(t *testing.T) {
 	assert.True(t, validAdvisorNotice(&n, "The baseline omits two files.", "full baseline scope"))
 }
 
+func TestAdvisorValidatedConversationLanguageOverridesAccountLocale(t *testing.T) {
+	problem, advice := "TapNow插件还缺浏览器实际运行测试", "建议后续处理者在本地浏览器核对插件运行，不访问受阻网站"
+	summary := dto.ACUAdvisorNotice{
+		Title: problem, Deviation: "目前只测过模拟环境，尚未确认装进浏览器后能正常工作。",
+		Preference: "验证实际构建的插件，不把模拟测试当作完整验收。", Correction: "建议后续处理者在本地浏览器核对，不访问受阻网站。",
+		Evidence:   dto.ACUAdvisorNoticeEvidence{Problem: problem, Preference: "验证真实构建的插件", Correction: advice, PreferenceSourceID: "user:1092"},
+		Provenance: &dto.ACUAdvisorNoticeProvenance{Version: 1, SourceID: "user:1092", Kind: "user_message", Quote: "验证真实构建的插件", Presentation: "paraphrase", FidelityChecked: true},
+	}
+	encoded, err := common.Marshal(summary)
+	require.NoError(t, err)
+	row := model.ACUAdvisorNotification{ProblemSummary: problem, AdviceSummary: advice, NoticeJSON: string(encoded), ReferenceStatus: "queued"}
+	_, body := renderAdvisorEmail(row, "en", false, "https://acu.example")
+	assert.Contains(t, body, `lang="zh"`)
+	assert.Contains(t, body, "查看依据与完整建议")
+	assert.Contains(t, body, "建议已备好，等待提供给后续处理者")
+	for _, unexpected := range []string{"Issue found", "Preference basis", "Outcome not verified", "Initial reminder snapshot", "已修复", "已调整"} {
+		assert.NotContains(t, body, unexpected)
+	}
+	summary.Title, summary.Deviation, summary.Preference, summary.Correction = "Browser test still missing", "The extension has only been tested with simulated browser APIs.", "Test the built extension locally.", "Suggest checking the built extension in a local browser."
+	summary.Evidence.Problem, summary.Evidence.Correction = problem, advice
+	encoded, err = common.Marshal(summary)
+	require.NoError(t, err)
+	row.NoticeJSON = string(encoded)
+	_, body = renderAdvisorEmail(row, "zh", false, "https://acu.example")
+	assert.Contains(t, body, `lang="en"`)
+	assert.Contains(t, body, "Issue found")
+}
+
+func TestAdvisorRejectedSummaryDoesNotExposeTechnicalAuditAsFallback(t *testing.T) {
+	row := model.ACUAdvisorNotification{ProblemSummary: "插件仍未完成实际运行验收，本地模拟结果不能代表浏览器中的响应。MV3 消息桥夹具重挂载", AdviceSummary: "原始技术诊断仅留完整详情", NoticeJSON: `{"title":"Rejected technical summary"}`, ReferenceStatus: "queued"}
+	title, body := renderAdvisorEmail(row, "zh", false, "https://acu.example")
+	assert.Equal(t, "Private ACU | 有一项任务检查建议待查看", title)
+	assert.Contains(t, body, "本次未找到明确的偏好依据")
+	assert.Contains(t, body, "本次未提供可靠的纠偏摘要")
+	for _, term := range []string{"MV3", "chrome.runtime", "消息桥", "夹具", "重挂载", "secret internal", "已修复"} {
+		assert.NotContains(t, body, term)
+	}
+}
+
 func TestAdvisorFirstEmailKeepsReadySnapshotWhenStatusAdvancesBeforeSend(t *testing.T) {
 	previousDB := model.DB
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
@@ -285,10 +328,10 @@ func TestAdvisorFirstEmailKeepsReadySnapshotWhenStatusAdvancesBeforeSend(t *test
 		var current model.ACUAdvisorNotification
 		require.NoError(t, db.First(&current).Error)
 		assert.Equal(t, "injected", current.ReferenceStatus)
-		assert.Contains(t, notificationDTO(current, "zh").Action, "提醒已加入")
+		assert.Contains(t, notificationDTO(current, "zh").Action, "建议已加入")
 		_, emailBody = renderAdvisorEmail(snapshot, language, repeated, "https://acu.example")
-		assert.Contains(t, emailBody, "首次提醒快照：提醒已排队")
-		assert.NotContains(t, emailBody, "提醒已加入")
+		assert.Contains(t, emailBody, "建议已备好，等待提供给后续处理者")
+		assert.NotContains(t, emailBody, "建议已加入")
 		assert.NotContains(t, emailBody, "已修复")
 		return nil // Replaces only external SMTP. No network connection is made.
 	}
@@ -301,7 +344,7 @@ func TestAdvisorFirstEmailKeepsReadySnapshotWhenStatusAdvancesBeforeSend(t *test
 	assert.Equal(t, "sent", delivery.Status)
 	assert.Equal(t, 1, delivery.AttemptCount)
 	require.NotNil(t, delivery.SentAt)
-	assert.Contains(t, emailBody, "提醒已排队")
+	assert.Contains(t, emailBody, "建议已备好")
 }
 
 func TestAdvisorNoticeNullableExpansionPreservesOldRowsAndWriters(t *testing.T) {
@@ -337,7 +380,11 @@ func TestAdvisorActualModelPreview(t *testing.T) {
 	if directory == "" {
 		t.Skip("explicit actual-model result directory required")
 	}
-	for _, id := range []string{"scope", "amount", "english-source", "recovery"} {
+	ids := []string{"scope", "amount", "english-source", "recovery"}
+	if os.Getenv("ADVISOR_PLAIN_RESULTS") == "1" {
+		ids = []string{"tapnow", "scope", "amount"}
+	}
+	for _, id := range ids {
 		data, err := os.ReadFile(filepath.Join(directory, id+".json"))
 		require.NoError(t, err)
 		var actual struct {
@@ -349,7 +396,9 @@ func TestAdvisorActualModelPreview(t *testing.T) {
 		require.True(t, validAdvisorNotice(&actual.Notification, actual.Problem, actual.Advice))
 		encoded, err := common.Marshal(actual.Notification)
 		require.NoError(t, err)
-		_, body := renderAdvisorEmail(model.ACUAdvisorNotification{AdvisorID: id, ProblemSummary: actual.Problem, AdviceSummary: actual.Advice, NoticeJSON: string(encoded), ReferenceStatus: "queued"}, "zh", false, "https://console.acucompute.com")
+		_, body := renderAdvisorEmail(model.ACUAdvisorNotification{AdvisorID: id, ProblemSummary: actual.Problem, AdviceSummary: actual.Advice, NoticeJSON: string(encoded), ReferenceStatus: "queued"}, "en", false, "https://console.acucompute.com")
+		assert.Contains(t, body, "发现的问题")
+		assert.NotContains(t, body, "Initial reminder snapshot")
 		require.NoError(t, os.WriteFile(filepath.Join(directory, id+".html"), []byte(body), 0600))
 	}
 }
@@ -368,7 +417,7 @@ func TestAdvisorRecoveryFallbackUsesAccountLanguageAndHonestMissingSummaries(t *
 	row := model.ACUAdvisorNotification{AdvisorID: fixture.AdvisorID, ProblemSummary: fixture.Problem, AdviceSummary: fixture.Advice, ReferenceStatus: "queued"}
 	for _, language := range []string{"zh", "zh-CN", "", "auto"} {
 		subject, body := renderAdvisorEmail(row, language, false, "https://console.acucompute.com")
-		assert.Contains(t, subject, "Private ACU | Router 发布")
+		assert.Equal(t, "Private ACU | 有一项任务检查建议待查看", subject)
 		assert.LessOrEqual(t, utf8.RuneCountInString(subject), 50)
 		assert.Contains(t, body, "发现的问题")
 		assert.Contains(t, body, "依据的偏好")
@@ -379,8 +428,8 @@ func TestAdvisorRecoveryFallbackUsesAccountLanguageAndHonestMissingSummaries(t *
 		assert.NotContains(t, subject, "manifest")
 	}
 	_, english := renderAdvisorEmail(row, "en", false, "https://console.acucompute.com")
-	assert.Contains(t, english, "Issue found")
-	assert.Contains(t, english, "No explicit preference evidence")
+	assert.Contains(t, english, "发现的问题")
+	assert.Contains(t, english, "未找到明确的偏好依据")
 	assert.False(t, advisorNoticeChinese("en", "中文问题"))
 	assert.True(t, advisorNoticeChinese("zh-CN", "English source"))
 	assert.False(t, advisorNoticeChinese("auto", "English source"))
