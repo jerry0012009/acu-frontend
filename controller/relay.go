@@ -131,6 +131,9 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	}
 
 	needSensitiveCheck := setting.ShouldCheckPromptSensitive()
+	if imageRequest, ok := request.(*dto.ImageRequest); ok && relayFormat == types.RelayFormatOpenAIImage {
+		preparePrivateImagePrompt(c, imageRequest, relayInfo.UserId, relayInfo.TokenId)
+	}
 	needCountToken := constant.CountToken
 	// Avoid building huge CombineText (strings.Join) when token counting and sensitive check are both disabled.
 	var meta *types.TokenCountMeta
