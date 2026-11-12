@@ -1,5 +1,15 @@
 {
   "translation": {
+    "Estimated model charge divided by reference cost for {{input}} input and {{output}} output tokens. Judge evaluations carry no additional charge.": "按 {{input}} 输入、{{output}} 输出令牌，预计模型费用除以同用量参考费用；路由评估（Judge）不另收费。",
+    "Final charges use the selected model fixed retail price and actual usage. Judge evaluations carry no additional charge.": "按所选模型固定零售价和实际用量结算，路由评估（Judge）不另收费。",
+    "Estimated model charge (CNY)": "模型预计费用（人民币）",
+    "Fixed retail estimate": "固定零售价估算",
+    "Quality is predicted by task difficulty. Charge estimates use current fixed model retail prices.": "质量按任务难度预测，费用按当前模型固定零售价估算。",
+    "Estimated supplier cash cost": "供应商预计现金成本",
+    "Estimated supplier cash cost ¥{{cost}} per request": "供应商预计现金成本 ¥{{cost}}/次",
+    "Supplier cash cost estimate, not the user retail price.": "供应商现金成本估计，并非用户零售价。",
+    "Models are billed at their fixed retail prices. Judge evaluations carry no additional charge.": "按模型固定零售价和实际用量计费，路由评估（Judge）不另收费。",
+    "Solid bars estimate charges at current fixed model retail prices for the token counts above. Light bars show reference prices, not additional charges. Changing routes does not change fixed model retail prices.": "实色柱按当前模型固定零售价和上方令牌用量估算费用；浅色柱为参考价，并非额外收费。更换线路不会改变模型固定单价。",
     "Fixed retail price": "固定零售价",
     "Relative to platform reference": "相对平台参考价",
     "Legacy cost-plus markup": "旧版成本加价",

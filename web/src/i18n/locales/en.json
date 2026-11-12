@@ -1,5 +1,15 @@
 {
   "translation": {
+    "Estimated model charge divided by reference cost for {{input}} input and {{output}} output tokens. Judge evaluations carry no additional charge.": "Estimated model charge divided by reference cost for {{input}} input and {{output}} output tokens. Judge evaluations carry no additional charge.",
+    "Final charges use the selected model fixed retail price and actual usage. Judge evaluations carry no additional charge.": "Final charges use the selected model fixed retail price and actual usage. Judge evaluations carry no additional charge.",
+    "Estimated model charge (CNY)": "Estimated model charge (CNY)",
+    "Fixed retail estimate": "Fixed retail estimate",
+    "Quality is predicted by task difficulty. Charge estimates use current fixed model retail prices.": "Quality is predicted by task difficulty. Charge estimates use current fixed model retail prices.",
+    "Estimated supplier cash cost": "Estimated supplier cash cost",
+    "Estimated supplier cash cost ¥{{cost}} per request": "Estimated supplier cash cost ¥{{cost}} per request",
+    "Supplier cash cost estimate, not the user retail price.": "Supplier cash cost estimate, not the user retail price.",
+    "Models are billed at their fixed retail prices. Judge evaluations carry no additional charge.": "Models are billed at their fixed retail prices. Judge evaluations carry no additional charge.",
+    "Solid bars estimate charges at current fixed model retail prices for the token counts above. Light bars show reference prices, not additional charges. Changing routes does not change fixed model retail prices.": "Solid bars estimate charges at current fixed model retail prices for the token counts above. Light bars show reference prices, not additional charges. Changing routes does not change fixed model retail prices.",
     "Fixed retail price": "Fixed retail price",
     "Relative to platform reference": "Relative to platform reference",
     "Legacy cost-plus markup": "Legacy cost-plus markup",

@@ -212,7 +212,7 @@ test('details list the same prices and mark only the current estimated selection
     )
     assert.match(
       window.document.body.textContent ?? '',
-      /Routing evaluation fees/
+      /Final charges use the selected model fixed retail price and actual usage\. Judge evaluations carry no additional charge\./
     )
   } finally {
     window.close()

@@ -174,7 +174,7 @@ export function Pricing() {
             </p>
             <p className='text-muted-foreground/60 mx-auto mt-2 max-w-2xl text-xs leading-relaxed sm:text-sm'>
               {t(
-                'ACU automatically selects an available route by price, speed, and reliability. The lowest price is not guaranteed. Routing evaluation fees, when incurred, are additional.'
+                'Models are billed at their fixed retail prices. Judge evaluations carry no additional charge.'
               )}
             </p>
             <SearchBar

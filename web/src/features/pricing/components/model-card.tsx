@@ -249,7 +249,7 @@ function ACUPricingTooltip(props: {
           )}
           <p className='border-background/20 border-t pt-2 opacity-80'>
             {t(
-              'Actual payment may change with route availability, network status, and price updates. Final billing prevails.'
+              'Models are billed at their fixed retail prices. Judge evaluations carry no additional charge.'
             )}
           </p>
         </TooltipContent>

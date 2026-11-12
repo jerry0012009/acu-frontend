@@ -230,8 +230,8 @@ test('Current Profiles labels supplier estimates separately from user charges an
       )
     )
     const text = host.textContent ?? ''
-    assert.match(text, /Estimated supplier cost/)
-    assert.match(text, /not the user charge/)
+    assert.match(text, /Estimated supplier cash cost/)
+    assert.match(text, /not the user retail price/)
     assert.match(text, /¥0\.00000123/)
     assert.doesNotMatch(text, /¥0\.0000(?:\D|$)/)
   } finally {

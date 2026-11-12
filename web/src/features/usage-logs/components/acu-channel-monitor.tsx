@@ -2430,7 +2430,7 @@ export function MonitorTable(props: {
               'Current status',
               'Global weight / Routing score',
               'Production usage',
-              'Estimated supplier cost',
+              'Estimated supplier cash cost',
               'Response speed',
               'Latest verification',
               ...(props.canPause ? ['Actions'] : []),
@@ -2571,11 +2571,13 @@ export function MonitorTable(props: {
                   </span>
                 ) : (
                   <div className='font-medium'>
-                    {t('Estimated ¥{{cost}} per request', {
+                    {t('Estimated supplier cash cost ¥{{cost}} per request', {
                       cost: formatListDecimal(profile.profileCost) ?? t('n/a'),
                     })}
                     <p className='text-muted-foreground mt-1 font-normal'>
-                      {t('Routing cost estimate, not the user charge.')}
+                      {t(
+                        'Supplier cash cost estimate, not the user retail price.'
+                      )}
                     </p>
                   </div>
                 )}
