@@ -23,6 +23,14 @@ type ACUAdvisor struct {
 }
 
 type ACUAdvisorNotification struct {
+	Title                      string `json:"title"`
+	Summary                    string `json:"summary"`
+	Action                     string `json:"action"`
+	Verification               string `json:"verification"`
+	VerificationStatus         string `json:"verificationStatus"`
+	NextStep                   string `json:"nextStep"`
+	Preference                 string `json:"preference"`
+	Correction                 string `json:"correction"`
 	ID                         uint   `json:"id"`
 	AdvisorID                  string `json:"advisorId"`
 	Status                     string `json:"status"`
@@ -98,17 +106,43 @@ type ACUPrivateRuntimeRequest struct {
 }
 
 type ACUAdvisorNotificationEvent struct {
-	EventType                  string `json:"eventType"`
-	AdvisorID                  string `json:"advisorId" binding:"required"`
-	NewAPIUserID               string `json:"newapiUserId" binding:"required"`
-	SessionID                  string `json:"sessionId"`
-	LogicalRequestID           string `json:"logicalRequestId"`
-	Status                     string `json:"status"`
-	Problem                    string `json:"problem"`
-	Advice                     string `json:"advice"`
-	ReferenceStatus            string `json:"referenceStatus"`
-	ConsumedByLogicalRequestID string `json:"consumedByLogicalRequestId"`
-	ConsumedAt                 string `json:"consumedAt"`
+	Notification               *ACUAdvisorNotice `json:"notification,omitempty"`
+	EventType                  string            `json:"eventType"`
+	AdvisorID                  string            `json:"advisorId" binding:"required"`
+	NewAPIUserID               string            `json:"newapiUserId" binding:"required"`
+	SessionID                  string            `json:"sessionId"`
+	LogicalRequestID           string            `json:"logicalRequestId"`
+	Status                     string            `json:"status"`
+	Problem                    string            `json:"problem"`
+	Advice                     string            `json:"advice"`
+	ReferenceStatus            string            `json:"referenceStatus"`
+	ConsumedByLogicalRequestID string            `json:"consumedByLogicalRequestId"`
+	ConsumedAt                 string            `json:"consumedAt"`
+}
+
+type ACUAdvisorNotice struct {
+	Title      string                      `json:"title"`
+	Deviation  string                      `json:"deviation"`
+	Preference string                      `json:"preference"`
+	Correction string                      `json:"correction"`
+	Evidence   ACUAdvisorNoticeEvidence    `json:"evidence"`
+	Provenance *ACUAdvisorNoticeProvenance `json:"provenance,omitempty"`
+}
+
+type ACUAdvisorNoticeProvenance struct {
+	Version         int    `json:"version"`
+	SourceID        string `json:"sourceId"`
+	Kind            string `json:"kind"`
+	Quote           string `json:"quote"`
+	Presentation    string `json:"presentation,omitempty"`
+	FidelityChecked bool   `json:"fidelityChecked,omitempty"`
+}
+
+type ACUAdvisorNoticeEvidence struct {
+	Problem            string `json:"problem"`
+	Preference         string `json:"preference"`
+	Correction         string `json:"correction"`
+	PreferenceSourceID string `json:"preferenceSourceId"`
 }
 
 type ACUAdvisorList struct {

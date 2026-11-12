@@ -41,6 +41,14 @@ export type PrivateACUAdvisor = {
 }
 
 export type PrivateACUAdvisorNotification = {
+  title?: string
+  summary?: string
+  preference?: string
+  correction?: string
+  action?: string
+  verification?: string
+  verificationStatus?: string
+  nextStep?: string
   id: number
   advisorId: string
   status: string

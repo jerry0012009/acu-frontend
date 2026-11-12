@@ -1,0 +1,62 @@
+[
+  {
+    "id": "statistics",
+    "language": "zh",
+    "sourceId": "user:3",
+    "sourceText": "malformed/missing amount cannot silently zero old bills. Keep existing quota/rpm/tpm contract; align request_id/upstream_request_id and type filtering with list (stats presently ignores IDs and type).",
+    "problem": "当前实现方向已覆盖精确 CNY、legacy 回退和筛选条件扩展，但已提前固定了接口字段与 type 语义，尚未通过失败测试验证。特别是列表中 type=0 表示不限制类型，而现有统计会强制限定为 consume；若直接沿用该行为，统计仍可能与列表范围不一致。另需确认金额字段只从合法的 user_charge_cny 读取，JSON 解析失败、字段缺失、非法十进制或负数不能被当作零值静默处理。",
+    "advice": "用户偏好是仅修改 Go model/controller 统计及其测试，保留 quota/rpm/tpm 兼容契约，新增精确十进制金额并以当前汇率进行显式 legacy 回退；不读取凭据、不改生产价格配置或数据、不发起付费请求、不提交代码。历史证据显示 request_id 筛选后的列表金额为 ¥0.00287400，而顶部仍汇总全日 ¥24.3738，因此汇总与列表必须共享 type、request_id、upstream_request_id 及其他筛选口径。当前可关注新增字段的精度与命名、精确金额和回退金额的计数语义、type=0 的兼容行为，以及 SQLite 实际数据库测试是否覆盖 malformed/missing amount、合法零值、筛选隔离和不加载全部 JSON；在这些契约未由测试确认前，接口字段语义仍存在不确定性。",
+    "notification": {
+      "title": "统计仍可能与列表范围不一致",
+      "deviation": "列表中 type=0 表示不限制类型，而现有统计会强制限定为 consume",
+      "preference": "align request_id/upstream_request_id and type filtering with list",
+      "correction": "type=0 的兼容行为",
+      "evidence": {
+        "problem": "列表中 type=0 表示不限制类型，而现有统计会强制限定为 consume；若直接沿用该行为，统计仍可能与列表范围不一致",
+        "preference": "align request_id/upstream_request_id and type filtering with list",
+        "preferenceSourceId": "user:3",
+        "correction": "type=0 的兼容行为，以及 SQLite 实际数据库测试是否覆盖 malformed/missing amount、合法零值、筛选隔离和不加载全部 JSON"
+      }
+    }
+  },
+  {
+    "id": "authorization",
+    "language": "zh",
+    "sourceId": "user:3",
+    "sourceText": "Add real disposable SQLite tests + controller contract if reasonable, no prod DB. Write tests first show failure then implement. Do not commit.",
+    "problem": "用户明确限定不访问生产数据库，但当前过程已通过生产 PostgreSQL 容器执行只读版本查询，超出了这一隔离约束。",
+    "advice": "用户偏好是生产数据库访问保持在明确授权范围内；本次 `psql` 查询虽只读取版本号且未输出凭据或修改数据，仍与“不访问生产数据库”的约束不一致。当前可关注后续兼容性验证是否仅基于本地或一次性测试数据库。",
+    "notification": {
+      "title": "通过生产 PostgreSQL 容器执行只读版本查询，超出了这一隔离约束",
+      "deviation": "通过生产 PostgreSQL 容器执行只读版本查询，超出了这一隔离约束",
+      "preference": "no prod DB",
+      "correction": "后续兼容性验证是否仅基于本地或一次性测试数据库",
+      "evidence": {
+        "problem": "通过生产 PostgreSQL 容器执行只读版本查询，超出了这一隔离约束",
+        "preference": "no prod DB",
+        "preferenceSourceId": "user:3",
+        "correction": "后续兼容性验证是否仅基于本地或一次性测试数据库"
+      }
+    }
+  },
+  {
+    "id": "sequence",
+    "language": "zh",
+    "sourceId": "user:333",
+    "sourceText": "请先回复准确页面入口和覆盖清单，我同步做线上视觉检查；发布前合并相关已确认修复，避免同功能重复发布。",
+    "problem": "用户最新要求先收到准确页面入口与价格语义覆盖清单，以便同步进行线上视觉检查，再合并已确认修复后一次发布；当前多个实现子任务已并行启动，尚未提供完整清单，发布准备也已开始。",
+    "advice": "用户本次范围包括用量日志、Pricing、路由监控及其他相关价格展示，重点是区分用户静态零售价/模型倍率与供应商成本、credits 与现金、官方与平台参考，并核对历史回退标识、币种和精度；监控成本估计或渠道折扣不能被呈现为用户收费。当前已确认的具体入口包括 `/usage-logs/common`、`/system-settings/billing/acu-model-pricing`、模型路由价格页面及 ACU 路由监控/Profile 页面；其余价格相关入口仍待清点。用户希望入口与逐页覆盖清单先用于同步视觉检查，再合并已确认的同功能修复；目前代码改动已在并行推进，但尚无发布记录。",
+    "notification": {
+      "title": "尚未提供完整清单，发布准备也已开始",
+      "deviation": "尚未提供完整清单，发布准备也已开始",
+      "preference": "请先回复准确页面入口和覆盖清单，我同步做线上视觉检查",
+      "correction": "用户希望入口与逐页覆盖清单先用于同步视觉检查，再合并已确认的同功能修复",
+      "evidence": {
+        "problem": "尚未提供完整清单，发布准备也已开始",
+        "preference": "请先回复准确页面入口和覆盖清单，我同步做线上视觉检查",
+        "preferenceSourceId": "user:333",
+        "correction": "用户希望入口与逐页覆盖清单先用于同步视觉检查，再合并已确认的同功能修复"
+      }
+    }
+  }
+]

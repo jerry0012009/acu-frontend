@@ -17,6 +17,10 @@ const advisorNotification: PrivateACUAdvisorNotification = {
   id: 1,
   advisorId: 'advisor_test_1',
   status: 'risk',
+  title: 'Private ACU | Baseline omits required files',
+  summary: 'The baseline leaves out two files.',
+  preference: 'Compare the complete command.',
+  correction: 'Reference includes the full scope.',
   problemSummary: 'Skill requires validating the real production path',
   adviceSummary: 'Prefer evidence before changing the Skill document.',
   referenceStatus: 'injected',
@@ -58,13 +62,38 @@ describe('Advisor browser notifications', () => {
       skipped: null,
     })
     assert.equal(calls.length, 1)
-    assert.equal(calls[0]?.title, 'Private ACU Advisor')
+    assert.equal(calls[0]?.title, advisorNotification.title)
     assert.equal(calls[0]?.options?.tag, 'acu-advisor-advisor_test_1')
     assert.equal(calls[0]?.options?.icon, '/logo.png')
     assert.equal(calls[0]?.options?.silent, false)
-    assert.match(calls[0]?.options?.body ?? '', /Preference requires/)
-    assert.match(calls[0]?.options?.body ?? '', /the Preference document/)
+    assert.equal(
+      calls[0]?.options?.body,
+      'The baseline leaves out two files. → Compare the complete command. → Reference includes the full scope.'
+    )
     assert.doesNotMatch(calls[0]?.options?.body ?? '', /skill/i)
+  })
+
+  test('legacy events do not expose raw advice or invent preferences', () => {
+    const calls: NotificationCall[] = []
+    showAdvisorBrowserNotifications(
+      [
+        {
+          ...advisorNotification,
+          title: undefined,
+          summary: undefined,
+          preference: undefined,
+          correction: undefined,
+        },
+      ],
+      {
+        browserEnabled: true,
+        target: createNotificationTarget('granted', calls),
+      }
+    )
+    assert.doesNotMatch(
+      calls[0]?.options?.body ?? '',
+      /Skill|production|complete command/
+    )
   })
 
   test('does not show a browser notification when the channel is disabled', () => {

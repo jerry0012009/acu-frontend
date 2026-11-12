@@ -11,6 +11,7 @@ type ACUAdvisorNotification struct {
 	Status                     string     `json:"status" gorm:"type:varchar(32);not null"`
 	ProblemSummary             string     `json:"problem_summary" gorm:"type:text;not null"`
 	AdviceSummary              string     `json:"advice_summary" gorm:"type:text;not null"`
+	NoticeJSON                 string     `json:"-" gorm:"type:text"`
 	ReferenceStatus            string     `json:"reference_status" gorm:"type:varchar(32);not null"`
 	TargetPath                 string     `json:"target_path" gorm:"type:varchar(255);not null"`
 	SourceCreatedAt            time.Time  `json:"source_created_at" gorm:"index;not null"`

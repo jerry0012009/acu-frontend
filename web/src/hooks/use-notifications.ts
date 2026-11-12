@@ -10,6 +10,7 @@ import {
   type PrivateACUAdvisorNotification,
 } from '@/features/dashboard/advisor-api'
 import { showAdvisorBrowserNotifications } from '@/features/dashboard/lib/advisor-browser-notification'
+import { advisorNoticePresentation } from '@/features/dashboard/lib/advisor-notice'
 import { useStatus } from '@/hooks/use-status'
 import { getNotice } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
@@ -124,7 +125,10 @@ export function useNotifications() {
     })
 
     if (advisorPreferencesQuery.data?.inAppEnabled) {
-      toast.info('New Private ACU Advisor suggestion')
+      for (const notification of newNotifications) {
+        const notice = advisorNoticePresentation(notification)
+        toast.info(notice.title, { description: notice.body })
+      }
     }
 
     showAdvisorBrowserNotifications(newNotifications, {

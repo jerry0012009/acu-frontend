@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"html"
 	"net/mail"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -14,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/system_setting"
 	"gorm.io/gorm"
 )
 
@@ -142,7 +143,7 @@ func ListPrivateACUAdvisorNotifications(
 	}
 	result := dto.ACUAdvisorNotificationList{UnreadCount: unread}
 	for _, row := range rows {
-		result.Notifications = append(result.Notifications, notificationDTO(row))
+		result.Notifications = append(result.Notifications, notificationDTO(row, user.GetSetting().Language))
 	}
 	return result, nil
 }
@@ -186,6 +187,14 @@ func ReceivePrivateACUAdvisorEvent(
 	ctx context.Context,
 	input dto.ACUAdvisorNotificationEvent,
 ) error {
+	return receivePrivateACUAdvisorEvent(ctx, input, sendPrivateACUAdvisorEmail)
+}
+
+func receivePrivateACUAdvisorEvent(
+	ctx context.Context,
+	input dto.ACUAdvisorNotificationEvent,
+	sendEmail func(model.ACUAdvisorNotification, string, string, bool) error,
+) error {
 	_ = ctx
 	userID, err := strconv.Atoi(strings.TrimSpace(input.NewAPIUserID))
 	if err != nil || userID <= 0 {
@@ -198,20 +207,28 @@ func ReceivePrivateACUAdvisorEvent(
 	var notification model.ACUAdvisorNotification
 	var shouldEmail bool
 	var emailTarget string
+	var language string
+	var repeated bool
 	eventType := strings.TrimSpace(input.EventType)
 	if eventType == "" {
 		eventType = "private_acu_advisor_ready"
 	}
+	if eventType != "private_acu_advisor_ready" && eventType != "private_acu_advisor_status" {
+		return errors.New("unsupported Advisor event type")
+	}
 	err = model.DB.Transaction(func(tx *gorm.DB) error {
 		var existing model.ACUAdvisorNotification
 		if err := tx.Where("advisor_id = ?", advisorID).First(&existing).Error; err == nil {
+			if existing.UserID != userID {
+				return errors.New("Advisor user mismatch")
+			}
 			notification = existing
 			incomingReferenceStatus := strings.TrimSpace(input.ReferenceStatus)
 			statusCanAdvance := (incomingReferenceStatus == "injected" &&
 				existing.ReferenceStatus != "injected" &&
 				existing.ReferenceStatus != "failed") ||
 				(incomingReferenceStatus == "failed" &&
-					existing.ReferenceStatus == "queued")
+					(existing.ReferenceStatus == "queued" || existing.ReferenceStatus == "injected"))
 			if eventType == "private_acu_advisor_status" && statusCanAdvance {
 				updates := map[string]interface{}{
 					"reference_status":               incomingReferenceStatus,
@@ -235,12 +252,23 @@ func ReceivePrivateACUAdvisorEvent(
 			// Retrying the status event preserves eventual consistency.
 			return gorm.ErrRecordNotFound
 		}
-		user, err := model.GetUserById(userID, true)
-		if err != nil {
+		var user model.User
+		if err := tx.First(&user, "id = ?", userID).Error; err != nil {
 			return err
 		}
 		prefs := advisorNotificationPreferences(user.GetSetting(), user.Email)
+		language = user.GetSetting().Language
 		now := time.Now()
+		// Label only exact repeated findings in this session. Never suppress a new ID.
+		if strings.TrimSpace(input.SessionID) != "" && strings.TrimSpace(input.Problem) != "" {
+			var count int64
+			if err := tx.Model(&model.ACUAdvisorNotification{}).
+				Where("user_id = ? AND session_id = ? AND problem_summary = ? AND advice_summary = ? AND status = ? AND created_at >= ?",
+					userID, strings.TrimSpace(input.SessionID), strings.TrimSpace(input.Problem), strings.TrimSpace(input.Advice), strings.TrimSpace(input.Status), now.Add(-24*time.Hour)).Count(&count).Error; err != nil {
+				return err
+			}
+			repeated = count > 0
+		}
 		notification = model.ACUAdvisorNotification{
 			AdvisorID: advisorID, UserID: userID,
 			SessionID:                  strings.TrimSpace(input.SessionID),
@@ -250,14 +278,18 @@ func ReceivePrivateACUAdvisorEvent(
 			AdviceSummary:              strings.TrimSpace(input.Advice),
 			ReferenceStatus:            strings.TrimSpace(input.ReferenceStatus),
 			ConsumedByLogicalRequestID: strings.TrimSpace(input.ConsumedByLogicalRequestID),
-			TargetPath:                 "/private-acu/advisor?advisor=" + advisorID,
+			TargetPath:                 "/private-acu/advisor?advisor=" + url.QueryEscape(advisorID),
 			SourceCreatedAt:            now,
 		}
 		if notification.Status == "" {
 			notification.Status = "risk"
 		}
-		if notification.ReferenceStatus == "" {
-			notification.ReferenceStatus = "queued"
+		if validAdvisorNotice(input.Notification, notification.ProblemSummary, notification.AdviceSummary) {
+			encoded, err := common.Marshal(input.Notification)
+			if err != nil {
+				return err
+			}
+			notification.NoticeJSON = string(encoded)
 		}
 		notification.ConsumedAt = parseAdvisorConsumedAt(input.ConsumedAt)
 		if err := tx.Create(&notification).Error; err != nil {
@@ -286,7 +318,8 @@ func ReceivePrivateACUAdvisorEvent(
 		return err
 	}
 	if shouldEmail {
-		if err := sendPrivateACUAdvisorEmail(notification, emailTarget); err != nil {
+		// Pass the ready-event value snapshot, never reload a newer reference state.
+		if err := sendEmail(notification, emailTarget, language, repeated); err != nil {
 			_ = model.DB.Model(&model.ACUAdvisorNotificationDelivery{}).
 				Where("notification_id = ? AND channel = ?", notification.ID, "email").
 				Updates(map[string]interface{}{
@@ -316,8 +349,12 @@ func parseAdvisorConsumedAt(value string) *time.Time {
 	return &parsed
 }
 
-func notificationDTO(row model.ACUAdvisorNotification) dto.ACUAdvisorNotification {
+func notificationDTO(row model.ACUAdvisorNotification, language string) dto.ACUAdvisorNotification {
+	notice := buildAdvisorNotice(row, language, false)
 	result := dto.ACUAdvisorNotification{
+		Title: notice.Title, Summary: notice.Summary, Action: notice.Action,
+		Preference: notice.Preference, Correction: notice.Correction,
+		Verification: notice.Verification, VerificationStatus: notice.VerificationStatus, NextStep: notice.NextStep,
 		ID: row.ID, AdvisorID: row.AdvisorID, Status: row.Status,
 		ProblemSummary: row.ProblemSummary, AdviceSummary: row.AdviceSummary,
 		ReferenceStatus: row.ReferenceStatus, TargetPath: row.TargetPath,
@@ -339,14 +376,9 @@ func notificationDTO(row model.ACUAdvisorNotification) dto.ACUAdvisorNotificatio
 func sendPrivateACUAdvisorEmail(
 	notification model.ACUAdvisorNotification,
 	target string,
+	language string,
+	repeated bool,
 ) error {
-	subject := "Private ACU Advisor 发现一项需要关注的问题"
-	content := fmt.Sprintf(
-		"<p><strong>Private ACU Advisor</strong></p><p>问题：%s</p><p>参考建议：%s</p><p>状态：%s</p><p><a href=\"%s\">查看审计详情</a></p>",
-		html.EscapeString(privateACUPreferenceDisplayText(notification.ProblemSummary)),
-		html.EscapeString(privateACUPreferenceDisplayText(notification.AdviceSummary)),
-		html.EscapeString(notification.ReferenceStatus),
-		html.EscapeString(notification.TargetPath),
-	)
+	subject, content := renderAdvisorEmail(notification, language, repeated, system_setting.ServerAddress)
 	return common.SendEmail(subject, target, content)
 }

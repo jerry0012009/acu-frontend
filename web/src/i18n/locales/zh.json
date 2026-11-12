@@ -6432,5 +6432,7 @@
   "Preference refresh unavailable. Last saved profile is retained.": "偏好更新暂不可用，已保留上次生成的画像。",
   "No learned preferences yet": "尚未形成可展示的偏好",
   "Documents without reusable preferences": "未形成可复用偏好的文档",
-  "Preference domains": "偏好领域"
+  "Preference domains": "偏好领域",
+  "Private ACU Advisor": "Private ACU 参考建议",
+  "View audit details": "查看审计详情"
 }

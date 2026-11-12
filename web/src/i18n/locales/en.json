@@ -6422,5 +6422,7 @@
   "Update {{count}} selected Profiles?": "Update {{count}} selected Profiles?",
   "Update {{selected}} selected Profiles? Recharge conversion affects {{affected}} Profiles across shared providers.": "Update {{selected}} selected Profiles? Recharge conversion affects {{affected}} Profiles across shared providers.",
   "{{saved}} saved; {{failed}} failed. Review and retry.": "{{saved}} saved; {{failed}} failed. Review and retry.",
-  "{{count}} Profiles updated": "{{count}} Profiles updated"
+  "{{count}} Profiles updated": "{{count}} Profiles updated",
+  "Private ACU Advisor": "Private ACU Advisor",
+  "View audit details": "View audit details"
 }

@@ -1,6 +1,5 @@
-import { preferenceDisplayText } from '@/features/private-acu/preference-display'
-
 import type { PrivateACUAdvisorNotification } from '../advisor-api'
+import { advisorNoticePresentation } from './advisor-notice'
 
 export type AdvisorNotificationConstructor = {
   readonly permission: NotificationPermission
@@ -28,14 +27,6 @@ function getNotificationEnvironment(
   if (target) return target
   if (typeof window === 'undefined') return undefined
   return window
-}
-
-function compactNotificationBody(notification: PrivateACUAdvisorNotification) {
-  return [notification.problemSummary, notification.adviceSummary]
-    .map((text) => preferenceDisplayText(text.trim()))
-    .filter(Boolean)
-    .join('\n')
-    .slice(0, 480)
 }
 
 export async function requestAdvisorBrowserNotificationPermission(
@@ -83,8 +74,9 @@ export function showAdvisorBrowserNotifications(
   let delivered = 0
   for (const notification of notifications) {
     try {
-      new notificationApi('Private ACU Advisor', {
-        body: compactNotificationBody(notification),
+      const notice = advisorNoticePresentation(notification)
+      new notificationApi(notice.title, {
+        body: notice.body,
         tag: `acu-advisor-${notification.advisorId}`,
         icon: '/logo.png',
         silent: false,
