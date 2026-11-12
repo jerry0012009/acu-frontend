@@ -71,10 +71,11 @@ func PrivateACUPreferenceControls(c *gin.Context) {
 	}
 	var change map[string]interface{}
 	if c.Request.Method == http.MethodPut {
-		if c.Request.ContentLength > 8192 {
+		if c.Request.ContentLength > 300000 {
 			c.AbortWithStatus(http.StatusRequestEntityTooLarge)
 			return
 		}
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 300000)
 		if err := c.ShouldBindJSON(&change); err != nil {
 			common.ApiError(c, err)
 			return

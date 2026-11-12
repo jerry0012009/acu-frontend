@@ -470,7 +470,11 @@ export function PreferenceStarfish() {
     queryKey: ['private-acu', 'preference-profile', userId],
     queryFn: getPreferenceProfile,
     enabled: Boolean(userId),
-    refetchInterval: 10_000,
+    staleTime: 60_000,
+    refetchInterval: (query) =>
+      ['queued', 'generating'].includes(query.state.data?.status ?? '')
+        ? 10_000
+        : false,
     retry: false,
   })
   const view = query.data

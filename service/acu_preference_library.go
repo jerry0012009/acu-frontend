@@ -87,7 +87,7 @@ func PrivateACUPreferenceControls(ctx context.Context, userID int, skillID strin
 	if records, ok := result["records"].([]interface{}); ok {
 		for _, raw := range records {
 			if record, ok := raw.(map[string]interface{}); ok {
-				for _, key := range []string{"summary", "scope"} {
+				for _, key := range []string{"summary", "scope", "rule", "exceptions"} {
 					if text, ok := record[key].(string); ok {
 						record[key] = advisorPrivateText.ReplaceAllString(text, "[redacted]")
 					}

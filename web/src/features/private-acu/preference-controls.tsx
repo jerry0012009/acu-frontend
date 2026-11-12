@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Pencil, Pause, Play, X, Check } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -12,8 +13,16 @@ type RecordControl = {
   id: string
   summary: string
   scope: string
+  rule?: string
+  exceptions?: string
   disabled: boolean
   revision: string
+  original?: {
+    summary: string
+    scope: string
+    rule?: string
+    exceptions?: string
+  }
 }
 
 export function PreferenceControls() {
@@ -22,6 +31,10 @@ export function PreferenceControls() {
   const client = useQueryClient()
   const [editing, setEditing] = useState<RecordControl | null>(null)
   const [search, setSearch] = useState('')
+  useEffect(() => {
+    setEditing(null)
+    setSearch('')
+  }, [userId])
   const query = useQuery({
     queryKey: ['private-acu', 'preference-controls', userId],
     enabled: Boolean(userId),
@@ -33,14 +46,25 @@ export function PreferenceControls() {
   })
   const mutation = useMutation({
     mutationFn: async (change: { record: RecordControl; action: string }) => {
+      const fields: Record<string, string> = {}
+      if (change.action === 'edit') {
+        for (const key of ['summary', 'scope', 'rule', 'exceptions'] as const) {
+          if (
+            (change.record[key] ?? '') !== (change.record.original?.[key] ?? '')
+          ) {
+            fields[key] = change.record[key] ?? ''
+          }
+        }
+      }
       const response = await api.put(
         `/api/user/self/acu-preference-controls/${encodeURIComponent(change.record.id)}`,
-        {
-          action: change.action,
-          summary: change.record.summary,
-          scope: change.record.scope,
-          expected_hash: change.record.revision,
-        }
+        change.action === 'edit'
+          ? {
+              action: change.action,
+              ...fields,
+              expected_hash: change.record.revision,
+            }
+          : { action: change.action, expected_hash: change.record.revision }
       )
       if (!response.data.success) throw new Error('Preference update failed')
     },
@@ -88,7 +112,7 @@ export function PreferenceControls() {
                   }}
                 >
                   <label className='block text-sm'>
-                    {t('Preference')}
+                    {t('Preference summary')}
                     <Input
                       required
                       maxLength={400}
@@ -100,12 +124,34 @@ export function PreferenceControls() {
                   </label>
                   <label className='block text-sm'>
                     {t('Applies when')}
-                    <Input
-                      required
-                      maxLength={400}
+                    <Textarea
+                      maxLength={30000}
                       value={editing.scope}
                       onChange={(event) =>
                         setEditing({ ...editing, scope: event.target.value })
+                      }
+                    />
+                  </label>
+                  <label className='block text-sm'>
+                    {t('Preference rule')}
+                    <Textarea
+                      maxLength={30000}
+                      value={editing.rule ?? ''}
+                      onChange={(event) =>
+                        setEditing({ ...editing, rule: event.target.value })
+                      }
+                    />
+                  </label>
+                  <label className='block text-sm'>
+                    {t('Exceptions')}
+                    <Textarea
+                      maxLength={30000}
+                      value={editing.exceptions ?? ''}
+                      onChange={(event) =>
+                        setEditing({
+                          ...editing,
+                          exceptions: event.target.value,
+                        })
                       }
                     />
                   </label>
@@ -148,7 +194,9 @@ export function PreferenceControls() {
                     title={t('Edit preference')}
                     aria-label={t('Edit preference')}
                     disabled={mutation.isPending}
-                    onClick={() => setEditing(record)}
+                    onClick={() =>
+                      setEditing({ ...record, original: { ...record } })
+                    }
                   >
                     <Pencil />
                   </Button>

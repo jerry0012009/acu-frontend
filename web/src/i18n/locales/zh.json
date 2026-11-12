@@ -1,5 +1,8 @@
 {
   "translation": {
+    "Preference summary": "偏好摘要",
+    "Exceptions": "例外情况",
+    "Updating preference starfish": "偏好图谱更新中",
     "Your preference starfish": "ACU 眼中的工作偏好",
     "{{count}} source documents": "基于 {{count}} 份偏好文档",
     "Preference refresh unavailable. Last saved profile is retained.": "偏好更新暂不可用，已保留上次生成的画像。",
