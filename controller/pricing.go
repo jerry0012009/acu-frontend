@@ -38,6 +38,10 @@ func filterPricingByUsableGroups(pricing []model.Pricing, usableGroup map[string
 func GetPricing(c *gin.Context) {
 	pricing := model.GetPricing()
 	acuCatalog, acuCatalogErr := loadACUPricingCatalog(c.Request.Context())
+	if acuCatalogErr != nil {
+		c.JSON(503, gin.H{"success": false, "message": "Published model prices are temporarily unavailable"})
+		return
+	}
 	if acuCatalog != nil {
 		pricing = overlayACUPricing(acuCatalog, pricing)
 	}
@@ -71,12 +75,8 @@ func GetPricing(c *gin.Context) {
 	}
 
 	acuCatalogVersion := ""
-	acuCatalogError := ""
 	if acuCatalog != nil {
 		acuCatalogVersion = acuCatalog.SourceCatalogVersion
-	}
-	if acuCatalogErr != nil {
-		acuCatalogError = "catalog_load_failed"
 	}
 	c.JSON(200, gin.H{
 		"success":             true,
@@ -88,7 +88,7 @@ func GetPricing(c *gin.Context) {
 		"auto_groups":         service.GetUserAutoGroup(group),
 		"pricing_version":     "a42d372ccf0b5dd13ecf71203521f9d2",
 		"acu_catalog_version": acuCatalogVersion,
-		"acu_catalog_error":   acuCatalogError,
+		"acu_catalog_error":   "",
 		"acu_pricing_display_mode": func() string {
 			if acuCatalog == nil || acuCatalog.DisplayMode == "" {
 				return "comparison"

@@ -1,72 +1,15 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/stretchr/testify/require"
 )
-
-func TestLoadACUPricingCatalogKeepsCompleteSnapshotWhenOneProtocolFails(t *testing.T) {
-	previousOptions := common.OptionMap
-	common.OptionMap = map[string]string{
-		"ACUGlobalRoutingPolicy": `{"modelPolicy":"all_routing_eligible","modelAccess":{"blocked":"disabled"}}`,
-	}
-	acuPricingCatalogCache.Lock()
-	previousCatalog, previousExpiry, previousError := acuPricingCatalogCache.catalog, acuPricingCatalogCache.expiresAt, acuPricingCatalogCache.lastError
-	complete := &acuPricingCatalog{SourceCatalogVersion: "complete", Responses: []acuPricingResponse{{
-		ModelID: "claude-test", PayableByProtocol: map[string]*acuCatalogPayable{
-			"messages": {InputCNYPerMillion: 1, OutputCNYPerMillion: 2},
-		},
-	}}}
-	acuPricingCatalogCache.catalog = complete
-	acuPricingCatalogCache.expiresAt = time.Time{}
-	acuPricingCatalogCache.lastError = ""
-	acuPricingCatalogCache.Unlock()
-	t.Cleanup(func() {
-		common.OptionMap = previousOptions
-		acuPricingCatalogCache.Lock()
-		acuPricingCatalogCache.catalog, acuPricingCatalogCache.expiresAt, acuPricingCatalogCache.lastError = previousCatalog, previousExpiry, previousError
-		acuPricingCatalogCache.Unlock()
-	})
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		if r.URL.Path == "/internal/admin/channel-monitor" {
-			_, _ = w.Write([]byte(`{"catalogVersion":"fresh","pricingPolicyVersion":"test","modelPool":[{"modelId":"claude-test","modelCategory":"text_agent","routingEnabled":true,"protocols":["messages"]}],"profiles":[]}`))
-			return
-		}
-		var payload map[string]interface{}
-		if r.Method != http.MethodPost || common.DecodeJson(r.Body, &payload) != nil {
-			t.Error("pricing must request the effective global routing policy")
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		if payload["modelAccess"].(map[string]interface{})["blocked"] != "disabled" {
-			t.Error("pricing did not forward disabled model access")
-		}
-		if r.URL.Query().Get("protocol") == "messages" {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			return
-		}
-		_, _ = w.Write([]byte(`{"pricing":{}}`))
-	}))
-	defer server.Close()
-	t.Setenv("ACU_ROUTER_INTERNAL_URL", server.URL)
-	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test")
-	got, err := loadACUPricingCatalog(context.Background())
-	require.Error(t, err)
-	require.Same(t, complete, got)
-	require.Contains(t, got.Responses[0].PayableByProtocol, "messages")
-}
 
 func TestOverlayACUPricingUsesDynamicAutoAndCatalogPrices(t *testing.T) {
 	cachePayable := 0.006
@@ -154,94 +97,6 @@ func TestOverlayACUPricingUsesDynamicAutoAndCatalogPrices(t *testing.T) {
 	for _, privateField := range []string{"provider", "channel", "multiplier", "execution_profile"} {
 		require.NotContains(t, strings.ToLower(string(body)), privateField)
 	}
-}
-
-func TestBuildLiveACUPricingCatalogUsesRoutingProtocolsAndKeepsUnavailableModels(t *testing.T) {
-	inputUSD := 5.0
-	outputUSD := 25.0
-	observedAt := "2026-09-27"
-	routingCatalog := dto.ACURoutingCatalog{
-		CatalogVersion:       "catalog-v1",
-		PricingPolicyVersion: "retail-v1",
-		Models: []dto.ACURoutingCatalogModel{
-			{
-				ModelID: "claude-opus-5-5", DisplayName: "Claude Opus 5.5", Vendor: "Anthropic",
-				CapabilityTier: "FRONTIER", Protocols: []string{"messages"}, AutoRouteEnabled: true, ToolCallSupport: true,
-				Curve:            []dto.ACURoutingCatalogCurvePoint{{DifficultyScore: 50, EstimatedQuality: 0.95, QualityLower: 0.9, QualityUpper: 0.99}},
-				ReferencePricing: &dto.ACURoutingCatalogReference{InputUSDPerMillion: &inputUSD, OutputUSDPerMillion: &outputUSD, ObservedAt: &observedAt},
-			},
-			{ModelID: "gpt-5.6-sol", DisplayName: "GPT-5.6 Sol", Vendor: "OpenAI", Protocols: []string{"responses", "chat_completions"}},
-			{ModelID: "claude-opus-4-8", DisplayName: "Claude Opus 4.8", Vendor: "Anthropic", Protocols: []string{"messages"}},
-		},
-	}
-	corridors := map[string]map[string]interface{}{
-		"responses": {"pricing": map[string]interface{}{
-			"gpt-5.6-sol": map[string]interface{}{
-				"payableInputPriceCnyPerMillion": 0.25, "payableOutputPriceCnyPerMillion": 1.5, "effectiveCostStatus": "estimated",
-			},
-		}},
-		"messages": {"pricing": map[string]interface{}{
-			"claude-opus-5-5": map[string]interface{}{
-				"payableInputPriceCnyPerMillion": 0.4375, "payableOutputPriceCnyPerMillion": 2.1875, "effectiveCostStatus": "estimated",
-			},
-		}},
-		"chat_completions": {"pricing": map[string]interface{}{
-			"gpt-5.6-sol": map[string]interface{}{
-				"payableInputPriceCnyPerMillion": 0.25, "payableOutputPriceCnyPerMillion": 1.5, "effectiveCostStatus": "estimated",
-			},
-		}},
-	}
-
-	catalog, err := buildLiveACUPricingCatalog(routingCatalog, corridors)
-	require.NoError(t, err)
-	require.Equal(t, "catalog-v1", catalog.SourceCatalogVersion)
-
-	byID := map[string]acuPricingResponse{}
-	for _, item := range catalog.Responses {
-		byID[item.ModelID] = item
-	}
-	opus := byID["claude-opus-5-5"]
-	require.Equal(t, "Messages", opus.Protocol)
-	require.Contains(t, opus.PayableByProtocol, "messages")
-	require.Equal(t, 33.7, opus.Reference.InputCNYPerMillion)
-	require.Len(t, opus.Curve, 1)
-
-	gpt := byID["gpt-5.6-sol"]
-	require.Equal(t, "Chat Completions + Responses", gpt.Protocol)
-	require.NotContains(t, gpt.PayableByProtocol, "messages")
-	require.Contains(t, gpt.PayableByProtocol, "responses")
-	require.Contains(t, gpt.PayableByProtocol, "chat_completions")
-
-	unavailable := byID["claude-opus-4-8"]
-	require.False(t, unavailable.CurrentlyEligible)
-	require.Equal(t, "temporarily_unavailable", unavailable.Status)
-	require.NotNil(t, unavailable.TemporarilyUnavailableReason)
-}
-
-func TestBuildLiveACUPricingCatalogKeepsCurvesWhenCorridorsAreUnavailable(t *testing.T) {
-	routingCatalog := dto.ACURoutingCatalog{
-		CatalogVersion:       "catalog-v1",
-		PricingPolicyVersion: "retail-v1",
-		Models: []dto.ACURoutingCatalogModel{{
-			ModelID:          "gpt-test",
-			DisplayName:      "GPT Test",
-			CapabilityTier:   "LUNA",
-			Protocols:        []string{"responses"},
-			AutoRouteEnabled: true,
-			Curve: []dto.ACURoutingCatalogCurvePoint{
-				{DifficultyScore: 0, EstimatedQuality: 0.9, QualityLower: 0.8, QualityUpper: 1},
-				{DifficultyScore: 100, EstimatedQuality: 0.4, QualityLower: 0.3, QualityUpper: 0.5},
-			},
-		}},
-	}
-
-	catalog, err := buildLiveACUPricingCatalog(routingCatalog, map[string]map[string]interface{}{})
-	require.NoError(t, err)
-	require.Len(t, catalog.Responses, 1)
-	require.Len(t, catalog.Responses[0].Curve, 2)
-	require.False(t, catalog.Responses[0].CurrentlyEligible)
-	require.Nil(t, catalog.Responses[0].Payable)
-	require.Equal(t, "temporarily_unavailable", catalog.Responses[0].Status)
 }
 
 func TestCatalogCamelCasePricesProduceSerializablePublicPricing(t *testing.T) {

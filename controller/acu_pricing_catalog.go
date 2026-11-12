@@ -4,12 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -128,136 +126,26 @@ type acuPricingCatalog struct {
 	CurveModelStatuses   []acuCurveModelStatus `json:"curveModelStatuses"`
 }
 
-const acuPricingCatalogCacheTTL = 30 * time.Second
-const acuPricingCorridorTimeout = 30 * time.Second
-const acuPricingFallbackCatalogFile = "/app/acu-catalog/newapi-acu-catalog.json"
-
-var acuPricingCatalogCache = struct {
-	sync.RWMutex
-	catalog   *acuPricingCatalog
-	expiresAt time.Time
-	lastError string
-}{}
-
-var acuPricingCatalogRefreshMu sync.Mutex
-
 func loadACUPricingCatalog(ctx context.Context) (*acuPricingCatalog, error) {
-	now := time.Now()
-	acuPricingCatalogCache.RLock()
-	if acuPricingCatalogCache.catalog != nil && now.Before(acuPricingCatalogCache.expiresAt) {
-		catalog := acuPricingCatalogCache.catalog
-		lastError := acuPricingCatalogCache.lastError
-		acuPricingCatalogCache.RUnlock()
-		if lastError != "" {
-			return catalog, errors.New(lastError)
-		}
-		return catalog, nil
-	}
-	acuPricingCatalogCache.RUnlock()
-
-	acuPricingCatalogRefreshMu.Lock()
-	defer acuPricingCatalogRefreshMu.Unlock()
-
-	acuPricingCatalogCache.RLock()
-	if acuPricingCatalogCache.catalog != nil && time.Now().Before(acuPricingCatalogCache.expiresAt) {
-		catalog := acuPricingCatalogCache.catalog
-		lastError := acuPricingCatalogCache.lastError
-		acuPricingCatalogCache.RUnlock()
-		if lastError != "" {
-			return catalog, errors.New(lastError)
-		}
-		return catalog, nil
-	}
-	staleCatalog := acuPricingCatalogCache.catalog
-	acuPricingCatalogCache.RUnlock()
-
-	catalogCtx, cancel := context.WithTimeout(ctx, acuPricingCorridorTimeout)
-	defer cancel()
-	routingCatalog, err := service.GetACURoutingCatalog(catalogCtx)
+	response, err := service.GetACUPublishedPricing(ctx)
 	if err != nil {
-		return cacheACUPricingFallback(err, staleCatalog)
-	}
-	if routingCatalog.CatalogVersion == "" {
-		return cacheACUPricingFallback(errors.New("ACU Router catalog metadata is unavailable"), staleCatalog)
-	}
-	type corridorResult struct {
-		protocol string
-		value    map[string]interface{}
-		err      error
-	}
-	protocols := []string{"responses", "messages", "chat_completions"}
-	for _, catalogModel := range routingCatalog.Models {
-		if containsString(catalogModel.Protocols, "gemini") {
-			protocols = append(protocols, "gemini")
-			break
-		}
-	}
-	policy, err := service.ResolveACUEffectiveRoutingPolicy(nil)
-	if err != nil {
-		return cacheACUPricingFallback(err, staleCatalog)
-	}
-	corridorCtx, cancel := context.WithTimeout(ctx, acuPricingCorridorTimeout)
-	defer cancel()
-	results := make(chan corridorResult, len(protocols))
-	for _, protocol := range protocols {
-		go func(protocol string) {
-			value, loadErr := service.GetACUSelectionCorridor(corridorCtx, 100000, 4000, &policy, protocol)
-			results <- corridorResult{protocol: protocol, value: value, err: loadErr}
-		}(protocol)
-	}
-	corridors := make(map[string]map[string]interface{}, len(protocols))
-	for range protocols {
-		result := <-results
-		if result.err != nil {
-			return cacheACUPricingFallback(
-				fmt.Errorf("load ACU %s pricing: %w", result.protocol, result.err),
-				staleCatalog,
-			)
-		}
-		corridors[result.protocol] = result.value
-	}
-
-	catalog, err := buildLiveACUPricingCatalog(routingCatalog, corridors)
-	if err != nil {
-		return staleCatalog, err
-	}
-	if err := applyACUPricingDisplayMode(catalog); err != nil {
-		return staleCatalog, err
-	}
-	acuPricingCatalogCache.Lock()
-	acuPricingCatalogCache.catalog = catalog
-	acuPricingCatalogCache.expiresAt = time.Now().Add(acuPricingCatalogCacheTTL)
-	acuPricingCatalogCache.lastError = ""
-	acuPricingCatalogCache.Unlock()
-	return catalog, nil
-}
-
-func cacheACUPricingFallback(loadErr error, staleCatalog *acuPricingCatalog) (*acuPricingCatalog, error) {
-	fallback := staleCatalog
-	if fallback == nil {
-		path := strings.TrimSpace(os.Getenv("ACU_PRICING_FALLBACK_CATALOG_FILE"))
-		if path == "" {
-			path = acuPricingFallbackCatalogFile
-		}
-		raw, err := os.ReadFile(path)
-		if err != nil {
-			return nil, fmt.Errorf("load ACU pricing fallback catalog: %w", loadErr)
-		}
-		fallback = &acuPricingCatalog{}
-		if err := common.Unmarshal(raw, fallback); err != nil {
-			return nil, fmt.Errorf("decode ACU pricing fallback catalog: %w", err)
-		}
-	}
-	if err := applyACUPricingDisplayMode(fallback); err != nil {
 		return nil, err
 	}
-	err := fmt.Errorf("load ACU Router catalog: %w", loadErr)
-	acuPricingCatalogCache.Lock()
-	acuPricingCatalogCache.catalog = fallback
-	acuPricingCatalogCache.expiresAt = time.Now().Add(acuPricingCatalogCacheTTL)
-	acuPricingCatalogCache.lastError = err.Error()
-	acuPricingCatalogCache.Unlock()
-	return fallback, err
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("published ACU prices unavailable (HTTP %d)", response.StatusCode)
+	}
+	var catalog acuPricingCatalog
+	if err := common.DecodeJson(response.Body, &catalog); err != nil {
+		return nil, err
+	}
+	if catalog.SchemaVersion != "acu-pricing-static-v1" || catalog.PricingVersion == "" || len(catalog.Responses) == 0 {
+		return nil, errors.New("invalid published ACU price catalog")
+	}
+	if err := applyACUPricingDisplayMode(&catalog); err != nil {
+		return nil, err
+	}
+	return &catalog, nil
 }
 
 func applyACUPricingDisplayMode(catalog *acuPricingCatalog) error {
@@ -273,283 +161,6 @@ func applyACUPricingDisplayMode(catalog *acuPricingCatalog) error {
 	return nil
 }
 
-func buildLiveACUPricingCatalog(
-	routingCatalog dto.ACURoutingCatalog,
-	corridors map[string]map[string]interface{},
-) (*acuPricingCatalog, error) {
-	fxCNYPerUSD := 6.74
-	if raw := strings.TrimSpace(os.Getenv("ACU_PRICING_REFERENCE_USD_CNY")); raw != "" {
-		parsed, err := strconv.ParseFloat(raw, 64)
-		if err != nil || parsed <= 0 {
-			return nil, fmt.Errorf("invalid ACU_PRICING_REFERENCE_USD_CNY %q", raw)
-		}
-		fxCNYPerUSD = parsed
-	}
-	pricingByProtocol := make(map[string]map[string]map[string]interface{}, len(corridors))
-	for protocol, corridor := range corridors {
-		pricingByProtocol[protocol] = acuPricingMap(corridor["pricing"])
-	}
-
-	responses := make([]acuPricingResponse, 0, len(routingCatalog.Models))
-	statuses := make([]acuCurveModelStatus, 0, len(routingCatalog.Models))
-	for _, catalogModel := range routingCatalog.Models {
-		payableByProtocol := make(map[string]*acuCatalogPayable)
-		var fixedReference *acuCatalogReference
-		fixedEligible := false
-		effectiveStatuses := make([]string, 0, len(catalogModel.Protocols))
-		statusLabels := make([]string, 0, len(catalogModel.Protocols))
-		for _, protocol := range catalogModel.Protocols {
-			price := pricingByProtocol[protocol][catalogModel.ModelID]
-			if price == nil {
-				continue
-			}
-			payable := acuPayableFromCorridor(price, routingCatalog.PricingPolicyVersion)
-			if payable == nil {
-				continue
-			}
-			payableByProtocol[protocol] = payable
-			if payable.ModelMultiplier != "" {
-				fixedReference = acuFixedReference(price)
-				if eligible, ok := price["currentlyEligible"].(bool); ok && eligible {
-					fixedEligible = true
-				}
-			}
-			effectiveStatuses = appendUniqueString(effectiveStatuses, stringMapValue(price, "effectiveCostStatus"))
-			statusLabels = append(statusLabels, "active_"+protocol)
-		}
-
-		protocolLabel := acuProtocolLabel(catalogModel.Protocols)
-		displayPayable := preferredACUPayable(payableByProtocol)
-		currentlyEligible := displayPayable != nil
-		if displayPayable != nil && displayPayable.ModelMultiplier != "" {
-			currentlyEligible = fixedEligible
-		}
-		var unavailableReason *string
-		status := "routing_active"
-		if !currentlyEligible {
-			reason := "no_current_eligible_profile"
-			unavailableReason = &reason
-			status = "temporarily_unavailable"
-			statusLabels = append(statusLabels, "provider_unavailable", "missing_price")
-		}
-
-		reference := acuReferenceFromCatalog(catalogModel, fxCNYPerUSD)
-		if fixedReference != nil {
-			reference = fixedReference
-		}
-		response := acuPricingResponse{
-			ModelID:                      catalogModel.ModelID,
-			DisplayName:                  firstNonEmpty(catalogModel.DisplayName, catalogModel.ModelID),
-			Role:                         catalogModel.CapabilityTier,
-			Payable:                      displayPayable,
-			PayableByProtocol:            payableByProtocol,
-			Reference:                    reference,
-			CostCurrency:                 "CNY",
-			CostSemantics:                "estimated_user_payable_price",
-			EffectiveCostStatus:          firstNonEmptyString(effectiveStatuses, "missing"),
-			CurveProfile:                 catalogModel.CurveProfile,
-			ProfileConfidence:            catalogModel.ProfileConfidence,
-			Curve:                        acuCurveFromCatalog(catalogModel.Curve),
-			Protocol:                     protocolLabel,
-			ToolCall:                     catalogModel.ToolCallSupport,
-			Reasoning:                    len(catalogModel.RoutingCandidates) > 0,
-			ActiveInAcuAuto:              catalogModel.AutoRouteEnabled,
-			Status:                       status,
-			HealthyChannelCount:          boolInt(currentlyEligible),
-			EffectiveCostStatuses:        effectiveStatuses,
-			CurrentlyEligible:            currentlyEligible,
-			TemporarilyUnavailableReason: unavailableReason,
-		}
-		if displayPayable != nil && displayPayable.ModelMultiplier != "" {
-			response.CostSemantics = "fixed_model_multiplier"
-		}
-		if reference != nil {
-			response.InputPricePerMillion = reference.InputCNYPerMillion / fxCNYPerUSD
-			response.OutputPricePerMillion = reference.OutputCNYPerMillion / fxCNYPerUSD
-			if reference.CachedInputCNYPerMillion != nil {
-				response.CachedInputPricePerMillion = *reference.CachedInputCNYPerMillion / fxCNYPerUSD
-			}
-		}
-		if displayPayable != nil {
-			response.EffectiveInputPriceCNYPerMillion = displayPayable.InputCNYPerMillion
-			response.EffectiveOutputPriceCNYPerMillion = displayPayable.OutputCNYPerMillion
-			if displayPayable.CachedInputCNYPerMillion != nil {
-				response.EffectiveCachedInputPriceCNYPerMillion = *displayPayable.CachedInputCNYPerMillion
-			}
-		}
-		responses = append(responses, response)
-		statuses = append(statuses, acuCurveModelStatus{
-			ModelID: catalogModel.ModelID, Statuses: statusLabels,
-			HealthyChannelCount:          boolInt(currentlyEligible),
-			EffectiveCostStatuses:        effectiveStatuses,
-			TemporarilyUnavailableReason: unavailableReason,
-		})
-	}
-	sort.Slice(responses, func(i, j int) bool { return responses[i].ModelID < responses[j].ModelID })
-	return &acuPricingCatalog{
-		SchemaVersion:        "acu-pricing-live-v1",
-		SourceCatalogVersion: routingCatalog.CatalogVersion,
-		PricingVersion:       routingCatalog.CatalogVersion + "+" + routingCatalog.PricingPolicyVersion,
-		DisplayMode:          "comparison",
-		Auto: acuPricingAuto{
-			ModelID: "acu-auto", DisplayName: "ACU Auto Router",
-			Description:        "Routes each request to an eligible ACU model",
-			PricingLabel:       "Dynamic pricing",
-			PricingDescription: "Charged from the selected execution profile",
-		},
-		Responses: responses, CurveModelStatuses: statuses,
-	}, nil
-}
-
-func acuPricingMap(value interface{}) map[string]map[string]interface{} {
-	result := map[string]map[string]interface{}{}
-	values, ok := value.(map[string]interface{})
-	if !ok {
-		return result
-	}
-	for modelID, raw := range values {
-		if price, ok := raw.(map[string]interface{}); ok {
-			result[modelID] = price
-		}
-	}
-	return result
-}
-
-func acuPayableFromCorridor(price map[string]interface{}, policyVersion string) *acuCatalogPayable {
-	input, inputOK := floatMapValue(price, "payableInputPriceCnyPerMillion")
-	output, outputOK := floatMapValue(price, "payableOutputPriceCnyPerMillion")
-	if !inputOK || !outputOK || input <= 0 || output <= 0 {
-		return nil
-	}
-	return &acuCatalogPayable{
-		ModelMultiplier:    stringMapValue(price, "modelMultiplier"),
-		PriceVersion:       stringMapValue(price, "priceVersion"),
-		ContextTiers:       dto.ParseACUContextTierPrices(price["payableContextTiers"]),
-		InputCNYPerMillion: input, OutputCNYPerMillion: output,
-		CachedInputCNYPerMillion: optionalFloatMapValue(price, "payableCachedInputPriceCnyPerMillion"),
-		CacheWriteCNYPerMillion:  optionalFloatMapValue(price, "payableCacheWritePriceCnyPerMillion"),
-		Status:                   firstNonEmpty(stringMapValue(price, "effectiveCostStatus"), "estimated"),
-		PricingPolicyVersion:     policyVersion,
-	}
-}
-
-func acuFixedReference(price map[string]interface{}) *acuCatalogReference {
-	raw, ok := price["retailReference"].(map[string]interface{})
-	if !ok {
-		return nil
-	}
-	prices, ok := raw["referencePrices"].(map[string]interface{})
-	if !ok {
-		return nil
-	}
-	input, inputOK := floatMapValue(prices, "inputPricePerMillion")
-	output, outputOK := floatMapValue(prices, "outputPricePerMillion")
-	if !inputOK || !outputOK {
-		return nil
-	}
-	fx, err := strconv.ParseFloat(stringMapValue(raw, "fxCnyPerUsd"), 64)
-	if err != nil || fx <= 0 {
-		return nil
-	}
-	currency := stringMapValue(raw, "referenceCurrency")
-	factor := 1.0
-	if currency == "USD" {
-		factor = fx
-	}
-	cache := optionalFloatMapValue(prices, "cachedInputPricePerMillion")
-	if cache != nil {
-		value := *cache * factor
-		cache = &value
-	}
-	tiers := dto.ParseACUContextTierPrices(prices["contextTiers"])
-	sourceType := stringMapValue(raw, "referenceType")
-	if sourceType != "official" && sourceType != "openrouter" {
-		sourceType = "platform"
-	}
-	return &acuCatalogReference{InputCNYPerMillion: input * factor, OutputCNYPerMillion: output * factor,
-		CachedInputCNYPerMillion: cache, ContextTiers: tiers.Scale(factor), SourceType: sourceType,
-		SourceName: stringMapValue(raw, "referenceSource"), ObservedAt: stringMapValue(raw, "referenceObservedAt"),
-		OriginalCurrency: currency, FXCNYPerUSD: &fx}
-}
-
-func acuReferenceFromCatalog(catalogModel dto.ACURoutingCatalogModel, fx float64) *acuCatalogReference {
-	reference := catalogModel.ReferencePricing
-	if reference == nil || reference.InputUSDPerMillion == nil || reference.OutputUSDPerMillion == nil {
-		return nil
-	}
-	var cached *float64
-	if reference.CachedInputUSDPerMillion != nil {
-		value := *reference.CachedInputUSDPerMillion * fx
-		cached = &value
-	}
-	observedAt := ""
-	if reference.ObservedAt != nil {
-		observedAt = *reference.ObservedAt
-	}
-	sourceName := firstNonEmpty(catalogModel.Vendor, "Vendor") + " official pricing"
-	return &acuCatalogReference{
-		ContextTiers:             reference.ContextTiers.Scale(fx),
-		InputCNYPerMillion:       *reference.InputUSDPerMillion * fx,
-		OutputCNYPerMillion:      *reference.OutputUSDPerMillion * fx,
-		CachedInputCNYPerMillion: cached, SourceType: "official",
-		SourceName: sourceName, ObservedAt: observedAt, OriginalCurrency: "USD", FXCNYPerUSD: &fx,
-	}
-}
-
-func acuCurveFromCatalog(points []dto.ACURoutingCatalogCurvePoint) []acuCurvePoint {
-	result := make([]acuCurvePoint, 0, len(points))
-	for _, point := range points {
-		result = append(result, acuCurvePoint{
-			DifficultyScore: point.DifficultyScore, EstimatedQuality: point.EstimatedQuality,
-			QualityLower: point.QualityLower, QualityUpper: point.QualityUpper,
-		})
-	}
-	return result
-}
-
-func acuProtocolLabel(protocols []string) string {
-	labels := make([]string, 0, len(protocols))
-	for _, protocol := range []string{"chat_completions", "messages", "responses", "gemini"} {
-		if containsString(protocols, protocol) {
-			switch protocol {
-			case "chat_completions":
-				labels = append(labels, "Chat Completions")
-			case "messages":
-				labels = append(labels, "Messages")
-			case "responses":
-				labels = append(labels, "Responses")
-			case "gemini":
-				labels = append(labels, "Gemini")
-			}
-		}
-	}
-	return strings.Join(labels, " + ")
-}
-
-func preferredACUPayable(prices map[string]*acuCatalogPayable) *acuCatalogPayable {
-	for _, protocol := range []string{"responses", "messages", "chat_completions", "gemini"} {
-		if price := prices[protocol]; price != nil {
-			return price
-		}
-	}
-	return nil
-}
-
-func floatMapValue(value map[string]interface{}, key string) (float64, bool) {
-	number, ok := value[key].(float64)
-	return number, ok
-}
-func optionalFloatMapValue(value map[string]interface{}, key string) *float64 {
-	number, ok := floatMapValue(value, key)
-	if !ok {
-		return nil
-	}
-	return &number
-}
-func stringMapValue(value map[string]interface{}, key string) string {
-	text, _ := value[key].(string)
-	return text
-}
 func containsString(values []string, target string) bool {
 	for _, value := range values {
 		if value == target {
@@ -558,12 +169,6 @@ func containsString(values []string, target string) bool {
 	}
 	return false
 }
-func appendUniqueString(values []string, value string) []string {
-	if value == "" || containsString(values, value) {
-		return values
-	}
-	return append(values, value)
-}
 func firstNonEmpty(values ...string) string {
 	for _, value := range values {
 		if value != "" {
@@ -571,18 +176,6 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
-}
-func firstNonEmptyString(values []string, fallback string) string {
-	if len(values) > 0 && values[0] != "" {
-		return values[0]
-	}
-	return fallback
-}
-func boolInt(value bool) int {
-	if value {
-		return 1
-	}
-	return 0
 }
 
 func acuEndpointTypes(protocol string) []constant.EndpointType {
@@ -704,6 +297,10 @@ func overlayACUPricing(catalog *acuPricingCatalog, current []model.Pricing) []mo
 		item.ACUReasoning = &source.Reasoning
 		item.ACUActive = &source.ActiveInAcuAuto
 		item.ACUCurrentlyEligible = &source.CurrentlyEligible
+		if catalog.SchemaVersion == "acu-pricing-static-v1" {
+			// Published prices do not assert live supplier health.
+			item.ACUCurrentlyEligible = nil
+		}
 		item.ACUTemporarilyUnavailableReason = source.TemporarilyUnavailableReason
 		item.ACUStatus = source.Status
 		item.PricingVersion = catalog.PricingVersion
