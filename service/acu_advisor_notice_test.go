@@ -30,13 +30,37 @@ func TestAdvisorNoticeSeparatesAuditReferenceAndVerification(t *testing.T) {
 			notice := buildAdvisorNotice(model.ACUAdvisorNotification{
 				ProblemSummary: "统计与列表 type=0 筛选口径不一致", AdviceSummary: "测试通过，已修复", ReferenceStatus: tc.state,
 			}, "zh", false)
-			assert.Contains(t, notice.Title, "任务检查建议")
+			assert.Contains(t, notice.Title, "type=0")
 			assert.Contains(t, notice.Action, tc.action)
 			assert.Equal(t, "unknown", notice.VerificationStatus)
 			assert.Equal(t, "处理结果待确认", notice.Verification)
 			assert.NotContains(t, notice.Title, "已修复")
 			assert.NotEmpty(t, notice.NextStep)
 		})
+	}
+}
+
+func TestAdvisorExistingNaturalNotificationsRenderUsefulContent(t *testing.T) {
+	path := os.Getenv("ADVISOR_EXISTING_ROWS")
+	if path == "" {
+		t.Skip("explicit local read-only sample required")
+	}
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	var rows []struct{ AdvisorID, ProblemSummary, AdviceSummary, NoticeJSON, ReferenceStatus string }
+	require.NoError(t, common.Unmarshal(data, &rows))
+	for _, sample := range rows {
+		row := model.ACUAdvisorNotification{AdvisorID: sample.AdvisorID, ProblemSummary: sample.ProblemSummary, AdviceSummary: sample.AdviceSummary, NoticeJSON: sample.NoticeJSON, ReferenceStatus: sample.ReferenceStatus}
+		notice := notificationDTO(row, "en")
+		assert.NotContains(t, notice.Title, "任务检查建议待查看")
+		assert.NotContains(t, notice.Summary, "没有可靠")
+		assert.NotEmpty(t, notice.Summary)
+		if strings.TrimSpace(sample.NoticeJSON) != "" {
+			assert.Equal(t, "structured", notice.ContentKind, sample.AdvisorID)
+		}
+		t.Logf("%s %s %s", sample.AdvisorID, notice.ContentKind, notice.Title)
+		_, body := renderAdvisorEmail(row, "en", false, "https://console.acucompute.com")
+		require.NoError(t, os.WriteFile(filepath.Join(filepath.Dir(path), sample.AdvisorID+".html"), []byte(body), 0600))
 	}
 }
 
@@ -111,12 +135,8 @@ func TestAdvisorEventsKeepNewRisksAndNeverResendForStatusOrReplay(t *testing.T) 
 func TestAdvisorNoticeMissingFieldsNeverInventPreference(t *testing.T) {
 	for _, problem := range []string{"用户要求先给清单再推进", "Test baseline uses different arguments", ""} {
 		n := buildAdvisorNotice(model.ACUAdvisorNotification{ProblemSummary: problem}, "en", false)
-		if advisorNoticeChinese("auto", problem) {
-			assert.Contains(t, n.Preference, "未找到明确的偏好依据")
-		} else {
-			assert.Contains(t, n.Preference, "No explicit preference evidence")
-		}
-		assert.NotEmpty(t, n.Summary)
+		assert.Empty(t, n.Preference)
+		assert.Equal(t, problem, n.Summary)
 	}
 	secret := strings.Repeat("私密路径 /root/secret api-key=hidden@example.com <script>x</script> ", 1000)
 	n := buildAdvisorNotice(model.ACUAdvisorNotification{ProblemSummary: secret, AdviceSummary: secret, Status: "ok"}, "en", true)
@@ -126,10 +146,42 @@ func TestAdvisorNoticeMissingFieldsNeverInventPreference(t *testing.T) {
 	assert.Equal(t, "unknown", n.VerificationStatus)
 }
 
+func TestAdvisorHistoricalEmptyAndPunctuationProblemsKeepActualAdvice(t *testing.T) {
+	for _, problem := range []string{"", " \t\r\n", "。；;\n", "。。。！！！？？？...;;", " \n；\n "} {
+		t.Run(fmt.Sprintf("%q", problem), func(t *testing.T) {
+			row := model.ACUAdvisorNotification{ProblemSummary: problem, AdviceSummary: "建议核对费用合计与列表的范围。", ReferenceStatus: "queued"}
+			var n advisorNotice
+			require.NotPanics(t, func() { n = buildAdvisorNotice(row, "zh", false) })
+			assert.Equal(t, "Private ACU | 建议核对费用合计与列表的范围。", n.Title)
+			assert.Equal(t, row.AdviceSummary, n.Summary)
+			assert.Equal(t, row.AdviceSummary, n.Correction)
+			assert.Empty(t, n.Preference)
+			_, body := renderAdvisorEmail(row, "zh", false, "https://acu.example")
+			assert.NotContains(t, body, "依据的偏好")
+			assert.NotContains(t, body, "本次未找到")
+		})
+	}
+	for _, row := range []model.ACUAdvisorNotification{
+		{}, {ProblemSummary: "。；\n", AdviceSummary: "！？;"},
+	} {
+		n := buildAdvisorNotice(row, "zh", false)
+		assert.Empty(t, n.Summary)
+		assert.Empty(t, n.Preference)
+		assert.Empty(t, n.Correction)
+		assert.Equal(t, "Private ACU | 审计记录", n.Title)
+	}
+	row := model.ACUAdvisorNotification{ProblemSummary: " \n；费用合计未包含列表中全部记录。", AdviceSummary: "建议核对筛选范围。"}
+	n := buildAdvisorNotice(row, "zh", false)
+	assert.Equal(t, "Private ACU | 费用合计未包含列表中全部记录", n.Title)
+	assert.Contains(t, n.Summary, "费用合计未包含列表中全部记录")
+	assert.Equal(t, row.AdviceSummary, n.Correction)
+	assert.Empty(t, n.Preference)
+}
+
 func TestAdvisorEmailHasSafePreviewAndAuthenticatedAbsoluteLink(t *testing.T) {
-	row := model.ACUAdvisorNotification{AdvisorID: `id/<script>`, ProblemSummary: "费用统计与筛选后的列表范围不一致，需要核对当前统计条件。 secret@example.com", ReferenceStatus: "injected"}
+	row := model.ACUAdvisorNotification{AdvisorID: `id/<script>`, ProblemSummary: "费用统计与筛选后的列表范围不一致，需要核对当前统计条件。 secret@example.com", AdviceSummary: "建议核对统计与列表的筛选条件。", ReferenceStatus: "injected"}
 	subject, body := renderAdvisorEmail(row, "zh", false, "https://acu.example/base")
-	assert.Contains(t, subject, "任务检查建议")
+	assert.Contains(t, subject, "费用统计与筛选后的列表范围不一致")
 	assert.Contains(t, body, "处理结果待确认")
 	assert.Contains(t, body, "纠偏提醒")
 	assert.Contains(t, body, "https://acu.example/base/private-acu/advisor?advisor=id%2F%3Cscript%3E")
@@ -210,7 +262,7 @@ func TestAdvisorNoticeRealSamplePreviews(t *testing.T) {
 			encoded, err = common.Marshal(sample.Notification)
 			require.NoError(t, err)
 			row.NoticeJSON = string(encoded)
-			assert.Contains(t, buildAdvisorNotice(row, "en", false).Preference, "未找到明确的偏好依据")
+			assert.Empty(t, buildAdvisorNotice(row, "en", false).Preference)
 		})
 	}
 }
@@ -246,7 +298,7 @@ func TestAdvisorNoticeEnglishAndInvalidSummary(t *testing.T) {
 	assert.Equal(t, "Private ACU | baseline omits two files", buildAdvisorNotice(row, "en", false).Title)
 	row.NoticeJSON = ""
 	row.ProblemSummary = "已修复，测试通过"
-	assert.NotContains(t, buildAdvisorNotice(row, "zh", false).Title, "已修复")
+	assert.Contains(t, buildAdvisorNotice(row, "zh", false).Title, "Audit text:")
 	// Natural Chinese is allowed only after Router source + fidelity checks.
 	n.Preference = "对比完整的检查命令"
 	n.Provenance = &dto.ACUAdvisorNoticeProvenance{Version: 1, SourceID: "user:0", Kind: "user_message", Quote: n.Evidence.Preference, Presentation: "paraphrase"}
@@ -283,13 +335,13 @@ func TestAdvisorValidatedConversationLanguageOverridesAccountLocale(t *testing.T
 	assert.Contains(t, body, "Issue found")
 }
 
-func TestAdvisorRejectedSummaryDoesNotExposeTechnicalAuditAsFallback(t *testing.T) {
+func TestAdvisorMissingSummaryShowsActualAuditInsteadOfPlaceholder(t *testing.T) {
 	row := model.ACUAdvisorNotification{ProblemSummary: "插件仍未完成实际运行验收，本地模拟结果不能代表浏览器中的响应。MV3 消息桥夹具重挂载", AdviceSummary: "原始技术诊断仅留完整详情", NoticeJSON: `{"title":"Rejected technical summary"}`, ReferenceStatus: "queued"}
 	title, body := renderAdvisorEmail(row, "zh", false, "https://acu.example")
-	assert.Equal(t, "Private ACU | 有一项任务检查建议待查看", title)
-	assert.Contains(t, body, "本次未找到明确的偏好依据")
-	assert.Contains(t, body, "本次未提供可靠的纠偏摘要")
-	for _, term := range []string{"MV3", "chrome.runtime", "消息桥", "夹具", "重挂载", "secret internal", "已修复"} {
+	assert.Contains(t, title, "插件仍未完成实际运行验收")
+	assert.Contains(t, body, "本地模拟结果不能代表浏览器中的响应")
+	assert.Contains(t, body, row.AdviceSummary)
+	for _, term := range []string{"本次还没有可靠", "本次未找到", "本次未提供", "已修复"} {
 		assert.NotContains(t, body, term)
 	}
 }
@@ -417,19 +469,19 @@ func TestAdvisorRecoveryFallbackUsesAccountLanguageAndHonestMissingSummaries(t *
 	row := model.ACUAdvisorNotification{AdvisorID: fixture.AdvisorID, ProblemSummary: fixture.Problem, AdviceSummary: fixture.Advice, ReferenceStatus: "queued"}
 	for _, language := range []string{"zh", "zh-CN", "", "auto"} {
 		subject, body := renderAdvisorEmail(row, language, false, "https://console.acucompute.com")
-		assert.Equal(t, "Private ACU | 有一项任务检查建议待查看", subject)
-		assert.LessOrEqual(t, utf8.RuneCountInString(subject), 50)
+		assert.Contains(t, subject, "Router 发布因回滚保护脚本")
+		assert.LessOrEqual(t, utf8.RuneCountInString(subject), 60)
 		assert.Contains(t, body, "发现的问题")
-		assert.Contains(t, body, "依据的偏好")
-		assert.Contains(t, body, "本次未找到明确的偏好依据")
-		assert.Contains(t, body, "本次未提供可靠的纠偏摘要")
+		assert.NotContains(t, body, "依据的偏好")
+		assert.NotContains(t, body, "本次未找到")
+		assert.NotContains(t, body, "本次未提供")
 		assert.NotContains(t, body, "Deviation found")
 		assert.NotContains(t, body, "\ufffd")
 		assert.NotContains(t, subject, "manifest")
 	}
 	_, english := renderAdvisorEmail(row, "en", false, "https://console.acucompute.com")
 	assert.Contains(t, english, "发现的问题")
-	assert.Contains(t, english, "未找到明确的偏好依据")
+	assert.Contains(t, english, "Router 发布")
 	assert.False(t, advisorNoticeChinese("en", "中文问题"))
 	assert.True(t, advisorNoticeChinese("zh-CN", "English source"))
 	assert.False(t, advisorNoticeChinese("auto", "English source"))

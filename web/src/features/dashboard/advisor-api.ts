@@ -41,6 +41,7 @@ export type PrivateACUAdvisor = {
 }
 
 export type PrivateACUAdvisorNotification = {
+  contentKind?: 'structured' | 'audit'
   title?: string
   summary?: string
   preference?: string

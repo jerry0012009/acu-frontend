@@ -51,10 +51,19 @@ func advisorNoticeDisplayChinese(row model.ACUAdvisorNotification, language stri
 		return advisorNoticeChinese("auto", summary.Title+" "+summary.Deviation+" "+summary.Preference+" "+summary.Correction)
 	}
 	content := strings.TrimSpace(row.ProblemSummary + " " + row.AdviceSummary)
-	if content != "" {
+	if advisorHasContent(content) {
 		return advisorNoticeChinese("auto", content)
 	}
 	return advisorNoticeChinese(language, "")
+}
+
+func advisorHasContent(value string) bool {
+	for _, r := range value {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return true
+		}
+	}
+	return false
 }
 
 var advisorPrivateText = regexp.MustCompile(`(?i)(?:https?://[^\s，。；]+|[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}|(?:/root/|/home/|[a-z]:\\)[^\s，。；]+|(?:api[_-]?key|password|token|secret)\s*[:=]\s*[^\s，。；]+|sk-[a-z0-9_-]{8,})`)
@@ -124,11 +133,34 @@ func validAdvisorNotice(n *dto.ACUAdvisorNotice, problem, advice string) bool {
 
 func buildAdvisorNotice(row model.ACUAdvisorNotification, language string, repeated bool) advisorNotice {
 	zh := advisorNoticeDisplayChinese(row, language)
-	// Never expose an unreadable technical audit when structured copy was rejected.
-	title := advisorNoticeText(zh, "有一项任务检查建议待查看", "A task review is ready")
-	issue := advisorNoticeText(zh, "本次还没有可靠的简短说明，具体问题请查看完整记录。", "A reliable short explanation is unavailable; review the full record.")
-	preference := advisorNoticeText(zh, "本次未找到明确的偏好依据", "No explicit preference evidence identified for this notice")
-	correction := advisorNoticeText(zh, "本次未提供可靠的纠偏摘要，完整建议见详情", "No reliable corrective summary; see the full advice")
+	// Historical audits still carry useful facts; never replace them with missing-copy notices.
+	issue := advisorExcerpt(row.ProblemSummary, 160)
+	if !advisorHasContent(issue) {
+		issue = ""
+	}
+	title := ""
+	clauses := strings.FieldsFunc(row.ProblemSummary, func(r rune) bool { return r == '。' || r == ';' || r == '；' || r == '\n' })
+	for _, clause := range clauses {
+		if advisorHasContent(clause) {
+			title = advisorExcerpt(clause, 42)
+			break
+		}
+	}
+	preference := ""
+	correction := advisorExcerpt(row.AdviceSummary, 200)
+	if !advisorHasContent(correction) {
+		correction = ""
+	}
+	if issue == "" {
+		issue = correction
+		title = advisorExcerpt(correction, 42)
+	}
+	if title == "" {
+		title = advisorNoticeText(zh, "审计记录", "Audit record")
+	}
+	if advisorOutcomeClaim.MatchString(title) {
+		title = advisorNoticeText(zh, "审计原文：", "Audit text: ") + title
+	}
 	var structured dto.ACUAdvisorNotice
 	if common.UnmarshalJsonStr(row.NoticeJSON, &structured) == nil && validAdvisorNotice(&structured, row.ProblemSummary, row.AdviceSummary) {
 		title, issue, preference, correction = structured.Title, structured.Deviation, structured.Preference, structured.Correction
@@ -169,11 +201,18 @@ func renderAdvisorEmail(row model.ACUAdvisorNotification, language string, repea
 	}
 	preview := n.Summary + " → " + n.Preference + " → " + n.Correction
 	snapshot := n.Action
-	body := fmt.Sprintf(`<!doctype html><html lang="%s"><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="margin:0;font-family:Arial,sans-serif;color:#222;background:#fff"><div style="display:none;max-height:0;overflow:hidden;mso-hide:all">%s</div><main style="max-width:560px;margin:auto;padding:20px;overflow-wrap:anywhere"><h1 style="font-size:20px;line-height:1.4">%s</h1><p><strong>%s</strong><br>%s</p><p><strong>%s</strong><br>%s</p><p><strong>%s</strong><br>%s</p><p style="font-size:12px;color:#555">%s · %s</p><p>%s</p></main></body></html>`,
+	preferenceBlock := ""
+	if n.Preference != "" {
+		preferenceBlock = fmt.Sprintf("<p><strong>%s</strong><br>%s</p>", advisorNoticeText(zh, "依据的偏好", "Preference basis (summary)"), html.EscapeString(n.Preference))
+	}
+	correctionBlock := ""
+	if n.Correction != "" {
+		correctionBlock = fmt.Sprintf("<p><strong>%s</strong><br>%s</p>", advisorNoticeText(zh, "纠偏提醒", "Corrective reference"), html.EscapeString(n.Correction))
+	}
+	body := fmt.Sprintf(`<!doctype html><html lang="%s"><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="margin:0;font-family:Arial,sans-serif;color:#222;background:#fff"><div style="display:none;max-height:0;overflow:hidden;mso-hide:all">%s</div><main style="max-width:560px;margin:auto;padding:20px;overflow-wrap:anywhere"><h1 style="font-size:20px;line-height:1.4">%s</h1><p><strong>%s</strong><br>%s</p>%s%s<p style="font-size:12px;color:#555">%s · %s</p><p>%s</p></main></body></html>`,
 		advisorNoticeText(zh, "zh", "en"), html.EscapeString(advisorExcerpt(preview, 240)), html.EscapeString(n.Title),
 		advisorNoticeText(zh, "发现的问题", "Issue found"), html.EscapeString(n.Summary),
-		advisorNoticeText(zh, "依据的偏好", "Preference basis (summary)"), html.EscapeString(n.Preference),
-		advisorNoticeText(zh, "纠偏提醒", "Corrective reference"), html.EscapeString(n.Correction),
+		preferenceBlock, correctionBlock,
 		html.EscapeString(snapshot), html.EscapeString(n.Verification), link)
 	return n.Title, body
 }
