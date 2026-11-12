@@ -77,6 +77,7 @@ test('shows separate Production and Probe evidence and expands all Profile evide
     root.render(
       <I18nextProvider i18n={i18n}>
         <ACUChannelHealthCard
+          showDiagnostics
           generatedAt='2026-08-05T12:00:00Z'
           channel={{
             channel: 'cx006',
@@ -241,6 +242,7 @@ test('shows failed Probe coverage without presenting an empty Production success
     root.render(
       <I18nextProvider i18n={i18n}>
         <ACUChannelHealthCard
+          showDiagnostics
           generatedAt='2026-08-05T12:00:00Z'
           channel={{
             channel: 'cx008',
@@ -294,6 +296,7 @@ test('redacts credentials from Latest Probe text and timeline titles', async () 
     root.render(
       <I18nextProvider i18n={i18n}>
         <ACUChannelHealthCard
+          showDiagnostics
           generatedAt='2026-08-05T12:00:00Z'
           channel={{
             channel: 'cx006',
@@ -386,6 +389,7 @@ test('renders administrator global routing details and keeps globally disabled P
     root.render(
       <I18nextProvider i18n={i18n}>
         <ACUChannelHealthCard
+          showDiagnostics
           generatedAt='2026-08-05T12:00:00Z'
           channel={{
             channel: 'cx006',
@@ -509,6 +513,7 @@ test('allows explicit-only Profile enablement independently of the Auto model al
     root.render(
       <I18nextProvider i18n={i18n}>
         <ACUChannelHealthCard
+          showDiagnostics
           generatedAt='2026-08-05T12:00:00Z'
           channel={{
             channel: 'cx006',

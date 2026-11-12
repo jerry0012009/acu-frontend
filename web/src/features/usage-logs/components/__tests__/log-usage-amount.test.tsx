@@ -35,7 +35,7 @@ test('shows exact filtered CNY charge rather than rounded quota equivalent', asy
   assert.ok(!html.includes('Legacy quota conversion'))
 })
 
-test('identifies a mixed total that includes historical quota conversion', async () => {
+test('shows a mixed total without internal historical conversion annotations', async () => {
   const html = await renderAmount({
     quota: 213,
     rpm: 0,
@@ -44,8 +44,8 @@ test('identifies a mixed total that includes historical quota conversion', async
     legacy_charge_count: 2,
   })
   assert.ok(html.includes('¥0.0028740004'))
-  assert.ok(html.includes('Legacy quota conversion'))
-  assert.ok(html.includes('2'))
+  assert.ok(!html.includes('Legacy quota conversion'))
+  assert.equal(html.replaceAll(/<[^>]+>/g, ''), '¥0.0028740004')
 })
 
 test('keeps a tiny positive exact total visible', async () => {
@@ -61,9 +61,9 @@ test('keeps a tiny positive exact total visible', async () => {
   )
 })
 
-test('labels the legacy response fallback instead of claiming exact CNY', async () => {
+test('keeps legacy response fallback without internal implementation labels', async () => {
   assert.ok(
-    (await renderAmount({ quota: 213, rpm: 0, tpm: 0 })).includes(
+    !(await renderAmount({ quota: 213, rpm: 0, tpm: 0 })).includes(
       'Legacy quota conversion'
     )
   )

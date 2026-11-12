@@ -111,7 +111,7 @@ export function ACUModelHealthCard(
                   {t('This API key')}: {token.tokenName}
                 </div>
               )}
-              {priceRangeScope && applyPriceRange && (
+              {props.showDiagnostics && priceRangeScope && applyPriceRange && (
                 <ACUModelPriceRange
                   key={`${props.priceRangeActions?.targetLabel ?? token?.scope?.tokenId ?? 'key'}:${props.model.modelId}`}
                   modelId={props.model.modelId}

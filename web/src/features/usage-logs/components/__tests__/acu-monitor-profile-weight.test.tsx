@@ -151,7 +151,7 @@ test('a weight draft survives background changes and accepts 400 while rejecting
   }
 })
 
-test('Current Profiles shows global weight and routing score without a selected API key', async () => {
+test('admin Current Profiles shows global weight and routing score without a selected API key', async () => {
   const host = document.createElement('div')
   document.body.append(host)
   const root = createRoot(host)
@@ -161,7 +161,7 @@ test('Current Profiles shows global weight and routing score without a selected 
         <I18nextProvider i18n={i18n}>
           <MonitorTable
             profiles={[profile]}
-            canPause={false}
+            canPause={true}
             onPause={() => undefined}
           />
         </I18nextProvider>
@@ -179,7 +179,7 @@ test('Current Profiles shows global weight and routing score without a selected 
   }
 })
 
-test('Current Profiles keeps zero global weight and shows unscored profiles honestly', async () => {
+test('admin Current Profiles keeps zero global weight and shows unscored profiles honestly', async () => {
   const host = document.createElement('div')
   document.body.append(host)
   const root = createRoot(host)
@@ -196,7 +196,7 @@ test('Current Profiles keeps zero global weight and shows unscored profiles hone
                 profileRank: null,
               },
             ]}
-            canPause={false}
+            canPause={true}
             onPause={() => undefined}
           />
         </I18nextProvider>
@@ -223,7 +223,7 @@ test('Current Profiles labels supplier estimates separately from user charges an
         <I18nextProvider i18n={i18n}>
           <MonitorTable
             profiles={[{ ...profile, profileCost: 0.00000123 }]}
-            canPause={false}
+            canPause={true}
             onPause={() => undefined}
           />
         </I18nextProvider>
@@ -234,6 +234,42 @@ test('Current Profiles labels supplier estimates separately from user charges an
     assert.match(text, /not the user retail price/)
     assert.match(text, /¥0\.00000123/)
     assert.doesNotMatch(text, /¥0\.0000(?:\D|$)/)
+  } finally {
+    await act(async () => root.unmount())
+    host.remove()
+  }
+})
+
+test('non-admin Profiles retains health and latency without cost or internal routing diagnostics', async () => {
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  try {
+    await act(async () =>
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <MonitorTable
+            profiles={[
+              { ...profile, profileCost: 0.125, profileLatencyMs: 1200 },
+            ]}
+            canPause={false}
+            onPause={() => undefined}
+          />
+        </I18nextProvider>
+      )
+    )
+    const text = host.textContent ?? ''
+    assert.match(text, /gpt-luna|Current status/)
+    assert.match(text, /Response speed/)
+    assert.doesNotMatch(
+      text,
+      /cost|¥|Routing score|Global weight|0\.812|Channel billing multiplier|Profile Preference/i
+    )
+    assert.equal(host.querySelector('details'), null)
+    assert.equal(
+      host.querySelectorAll('thead th').length,
+      host.querySelectorAll('tbody td').length
+    )
   } finally {
     await act(async () => root.unmount())
     host.remove()
