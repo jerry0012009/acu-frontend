@@ -86,7 +86,7 @@ const ledgers = db(`SELECT count(*) FROM acu_usage_finalizes WHERE logical_reque
 assert.equal(ledgers, '1');
 save(`static-ui-${phase}`, { phase, revision: state.revision, status: true, requestID, exactCny: stat.user_charge_cny, quota: stat.quota, exactCount: stat.exact_charge_count, legacyCount: stat.legacy_charge_count, cacheMode: breakdown.retail_input_accounting_mode, billedUncachedInput: 26, existingBillDigest: digest, priceBookDigest, finalizedLedgers: 1, reportModels: report.active.models.length, reportingCoverageAvailable: true, paidRequestsCreated: 0, statusOK: status.success });
 if (phase === 'public') {
-  const logout = await fetch(`${base}/api/user/auth/logout`, { method: 'POST', headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30000) });
+  const logout = await fetch(`${base}/api/user/auth/logout`, { method: 'POST', headers: { authorization: `Bearer ${token}`, origin: new URL(base).origin }, signal: AbortSignal.timeout(30000) });
   assert.equal(logout.status, 200);
   assert.equal((await logout.json()).success, true);
   const rejected = await fetch(`${base}/api/user/self`, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30000) });
