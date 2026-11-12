@@ -39,9 +39,35 @@ for its version badge.
 
 ## Publication Status
 
-The user authorized main integration, production publication and its bounded
-real-model acceptance on 2026-11-12. Publication is pending. Publish only `acu-frontend` through the
-canonical Router `release-unit.py` workflow after rereading its current runbooks.
-After deployment, check public metadata, all three download Location headers,
-cache headers and the rendered version badge, then observe the same release
-manifest through full completion and revoke its acceptance session.
+Published with user authorization on 2026-11-12. The download fix is commit
+`19113f16b7580d6760fc20911b673222c36b1efe`. Concurrent reviewed Private ACU work
+merged it into `5ee63ee5d9586df1743f90dc8b640b55925c1e1e`, the deployed frontend
+revision. Related frontend tests (20), Go tests and typecheck passed again on
+that merged revision. Local and remote main matched before publication.
+
+The first build preserved the old image and produced the fix-only candidate.
+After main advanced, the concurrent authorized release built the merged main
+and published it through the canonical `release-unit.py` workflow. A duplicate
+prepare attempt was rejected by the release lock without creating a second
+manifest or launching another release.
+
+- Manifest: `/var/lib/acu/releases/bg-20261112T160245-45385c54/manifest.json`.
+- Image: `sha256:a2de8ac0b4a7aeed2d9a0f5329a3469fa7fde33143dd8a73c3ea2836ed33dc06`.
+- Status: `completed`, no rollback, approximately 172 seconds including drain.
+- HTTP slot B and the singleton worker run the same revision/image with
+  `unless-stopped`; old slot A exited 0 with restart disabled.
+- Candidate and public Chat Completions, Responses and Messages streams all
+  reached terminal events, completed and received usage acknowledgement with
+  exactly one finalization per request.
+- Public `acu.best/api/acu-runtime/release` returned 0.1.52. Desktop 1440x1000
+  and mobile 390x844 browser checks verified the badge, all three platform
+  redirects, `no-store`, the latest-release help link, no 0.1.47 links and no
+  JavaScript page errors. Screenshots are retained beside the manifest.
+- Acceptance session logout succeeded; its token was rejected with HTTP 401
+  and `auth.private.json` was removed. The first logout attempt lacked Origin
+  and was correctly rejected with 403 before retrying with the trusted origin.
+
+No errors were observed in the download/browser probes or model acceptance.
+This is not an exhaustive assertion that every user stream was uninterrupted.
+The subsequent documentation-only main commit does not require another build
+or service restart; deployed application revision remains the one above.
