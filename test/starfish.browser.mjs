@@ -105,6 +105,8 @@ try {
       };
     else if (path.endsWith("/self")) data = user;
     else if (path.endsWith("/acu-preference-profile")) data = view;
+    else if (path.endsWith("/acu-preference-library"))
+      data = {version: 1, records: rays.map((ray) => ({id: ray.id, summary: "Preference source evidence"}))};
     else if (path.endsWith("/acu-memory"))
       data = {
         skills: rays.map((ray) => ({
@@ -198,7 +200,7 @@ try {
       await page.getByText(`B · ${pinnedRay.bipolar.end_b}`, { exact: true }).waitFor();
       await page.getByText(`${pinnedRay.bipolar.position}/120`, { exact: true }).first().waitFor();
     }
-    await page.getByText(`Source documents (${pinnedRay.sourceIds.length})`, { exact: true }).click();
+    await page.getByText(`Saved preference records (${pinnedRay.sourceIds.length})`, { exact: true }).click();
     if (!process.env.STARFISH_PROFILE_FILE)
       await page.getByText("Preference source evidence", { exact: true }).waitFor();
     await page.getByRole("button", { name: "Zoom in", exact: true }).click();

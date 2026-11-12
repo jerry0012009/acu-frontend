@@ -4,15 +4,15 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
-import { getPrivateACUMemory } from '@/features/dashboard/advisor-api'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { bipolarRayGeometry } from './bipolar-ray-geometry'
-import { preferenceDisplayText } from './preference-display'
 import {
   getPreferenceProfile,
   type PreferenceProfileView,
 } from './preference-profile-api'
 import { preferenceRayLengths } from './preference-ray-lengths'
+import { PreferenceRecords } from './preference-records'
 
 const STARFISH_CSS = `
   @keyframes preference-starfish-pulse {
@@ -58,13 +58,6 @@ export function PreferenceStarfishChart(props: {
       rays: rays.filter((ray) => ray.category === category),
     }))
   const groupedRays = categoryGroups.flatMap((group) => group.rays)
-  const memory = useQuery({
-    queryKey: ['private-acu', 'self-memory'],
-    queryFn: getPrivateACUMemory,
-    enabled: Boolean(selected?.id),
-    staleTime: 30_000,
-    retry: false,
-  })
   const rayLengths = preferenceRayLengths(groupedRays.map((ray) => ray.score))
   const points = groupedRays.map((ray, index) => {
     let angle = (index * Math.PI * 2) / groupedRays.length - Math.PI / 2
@@ -417,36 +410,15 @@ export function PreferenceStarfishChart(props: {
                 }}
               >
                 <summary className='cursor-pointer text-xs'>
-                  {t('Source documents')} ({selected.sourceIds.length})
+                  {t('Saved preference records')} ({selected.sourceIds.length})
                 </summary>
-                {memory.isLoading && (
-                  <LoaderCircle className='mt-2 size-4 animate-spin' />
-                )}
-                {memory.isError && (
-                  <p className='mt-2 text-xs'>
-                    {t('Source documents unavailable')}
-                  </p>
-                )}
-                {selected.sourceIds.map((id) => {
-                  const source = memory.data?.skills.find(
-                    (item) => item.id === id
-                  )
-                  return (
-                    <div key={id} className='mt-3 border-t pt-2 text-xs'>
-                      <p className='font-medium break-all'>
-                        {source?.name ?? id}
-                      </p>
-                      {source?.files.map((file) => (
-                        <pre
-                          key={file.path}
-                          className='mt-2 max-h-60 overflow-auto leading-5 break-words whitespace-pre-wrap'
-                        >
-                          {preferenceDisplayText(file.content ?? '')}
-                        </pre>
-                      ))}
-                    </div>
-                  )
-                })}
+                <p className='text-muted-foreground mt-2 text-xs'>
+                  {t('Saved interpretations, not original user quotations')}
+                </p>
+                <PreferenceRecords
+                  key={selected.id}
+                  sourceIds={selected.sourceIds}
+                />
               </details>
             </article>
           )}
@@ -493,9 +465,11 @@ export function PreferenceStarfishChart(props: {
 
 export function PreferenceStarfish() {
   const { t } = useTranslation()
+  const userId = useAuthStore((state) => state.auth.user?.id)
   const query = useQuery({
-    queryKey: ['private-acu', 'preference-profile'],
+    queryKey: ['private-acu', 'preference-profile', userId],
     queryFn: getPreferenceProfile,
+    enabled: Boolean(userId),
     refetchInterval: 10_000,
     retry: false,
   })

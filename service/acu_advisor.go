@@ -121,7 +121,6 @@ func GetPrivateACULearningRunsForUser(
 ) (dto.ACUPrivateLearningRunsSelf, error) {
 	query := url.Values{}
 	query.Set("newapiUserId", strconv.Itoa(userID))
-	query.Set("learningKind", "user_dissatisfaction")
 	query.Set("limit", "100")
 	response, err := acuRouterAdminRequest(
 		ctx,
@@ -145,6 +144,10 @@ func GetPrivateACULearningRunsForUser(
 	}
 	runs := make([]dto.ACUPrivateLearningRunSelf, 0, len(result.Runs))
 	for _, run := range result.Runs {
+		if run.NewAPIUserID != strconv.Itoa(userID) || run.TeamScope != "" ||
+			(run.LearningKind != "user_dissatisfaction" && run.LearningKind != "explicit_user_preference") {
+			continue
+		}
 		runs = append(runs, dto.ACUPrivateLearningRunSelf{
 			RunID:                 run.RunID,
 			LearningKind:          run.LearningKind,
@@ -156,7 +159,7 @@ func GetPrivateACULearningRunsForUser(
 			CompletedAt:           run.CompletedAt,
 		})
 	}
-	return dto.ACUPrivateLearningRunsSelf{Runs: runs}, nil
+	return dto.ACUPrivateLearningRunsSelf{Runs: runs, WindowLimited: len(result.Runs) >= 100}, nil
 }
 
 func GetPrivateACULearningRunDetailForUser(
@@ -168,7 +171,8 @@ func GetPrivateACULearningRunDetailForUser(
 	if err != nil {
 		return dto.ACUPrivateLearningRunSelfDetail{}, err
 	}
-	if detail.NewAPIUserID != strconv.Itoa(userID) {
+	if userID <= 0 || detail.NewAPIUserID != strconv.Itoa(userID) || detail.TeamScope != "" ||
+		(detail.LearningKind != "user_dissatisfaction" && detail.LearningKind != "explicit_user_preference") {
 		return dto.ACUPrivateLearningRunSelfDetail{}, fmt.Errorf("Private ACU learning run not found")
 	}
 

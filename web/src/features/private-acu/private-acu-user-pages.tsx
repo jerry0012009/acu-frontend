@@ -43,10 +43,12 @@ import {
 } from '@/features/dashboard/advisor-api'
 import { PrivateACUUserSettings } from '@/features/dashboard/components/advisor/private-acu-advisor'
 
+import { PreferenceRecentActivity } from './preference-activity'
 import {
   preferenceDisplayText,
   preferenceDocumentLabel,
 } from './preference-display'
+import { PreferenceRecords } from './preference-records'
 
 function getUsageWindowLabel(
   window: PrivateACUUsageWindow['window'],
@@ -431,17 +433,28 @@ export function PrivateACUUserOverview() {
 
 export function PrivateACUUserAccount() {
   const { t } = useTranslation()
+  const [showDocuments, setShowDocuments] = useState(false)
   return (
     <div className='space-y-6'>
       <section>
-        <h1 className='text-xl font-semibold'>{t('Preference MD')}</h1>
-        <p className='text-muted-foreground mt-2 max-w-3xl text-sm leading-6'>
-          {t(
-            'Preference MD records reusable preferences and ways to avoid repeating past mistakes. It is account reference, not a separate capability module.'
-          )}
-        </p>
+        <h1 className='text-xl font-semibold'>{t('My preferences')}</h1>
       </section>
-      <PreferenceDocuments />
+      <PreferenceRecentActivity />
+      <section aria-label={t('Saved preference records')}>
+        <h2 className='text-base font-semibold'>
+          {t('Saved preference records')}
+        </h2>
+        <PreferenceRecords searchable />
+      </section>
+      <details
+        className='border-t pt-4'
+        onToggle={(event) => setShowDocuments(event.currentTarget.open)}
+      >
+        <summary className='text-muted-foreground cursor-pointer text-sm'>
+          {t('Preference documents')}
+        </summary>
+        <div className='mt-4'>{showDocuments && <PreferenceDocuments />}</div>
+      </details>
     </div>
   )
 }

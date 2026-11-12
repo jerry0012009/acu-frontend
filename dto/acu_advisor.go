@@ -363,7 +363,8 @@ type ACUPrivateLearningRunSelf struct {
 }
 
 type ACUPrivateLearningRunsSelf struct {
-	Runs []ACUPrivateLearningRunSelf `json:"runs"`
+	Runs          []ACUPrivateLearningRunSelf `json:"runs"`
+	WindowLimited bool                        `json:"windowLimited,omitempty"`
 }
 
 type ACUPrivateLearningRunSelfDetail struct {

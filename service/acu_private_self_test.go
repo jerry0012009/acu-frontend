@@ -60,7 +60,7 @@ func TestPrivateACULearningListScopesUserAndReportsUpstreamFailure(t *testing.T)
 	status := http.StatusOK
 	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "42", r.URL.Query().Get("newapiUserId"))
-		assert.Equal(t, "user_dissatisfaction", r.URL.Query().Get("learningKind"))
+		assert.Empty(t, r.URL.Query().Get("learningKind"))
 		w.WriteHeader(status)
 		_, _ = w.Write([]byte(`{"runs":[]}`))
 	}))
