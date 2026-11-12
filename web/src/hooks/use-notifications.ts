@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import {
@@ -10,7 +11,10 @@ import {
   type PrivateACUAdvisorNotification,
 } from '@/features/dashboard/advisor-api'
 import { showAdvisorBrowserNotifications } from '@/features/dashboard/lib/advisor-browser-notification'
-import { advisorNoticePresentation } from '@/features/dashboard/lib/advisor-notice'
+import {
+  advisorNoticePresentation,
+  newAdvisorNotifications,
+} from '@/features/dashboard/lib/advisor-notice'
 import { useStatus } from '@/hooks/use-status'
 import { getNotice } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
@@ -56,11 +60,13 @@ function getAnnouncementKey(item: Record<string, unknown>): string {
  * Provides unread counts and read status management
  */
 export function useNotifications() {
+  const { t } = useTranslation()
   const [popoverOpen, setPopoverOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<
     'notice' | 'announcements' | 'advisor'
   >('notice')
-  const authenticated = useAuthStore((state) => Boolean(state.auth.user))
+  const userId = useAuthStore((state) => state.auth.user?.id)
+  const authenticated = Boolean(userId)
   const queryClient = useQueryClient()
 
   // Fetch Notice from API
@@ -89,19 +95,20 @@ export function useNotifications() {
   )
 
   const advisorNotificationsQuery = useQuery({
-    queryKey: ['private-acu', 'advisor-notifications'],
+    queryKey: ['private-acu', 'advisor-notifications', userId],
     queryFn: () => getPrivateACUAdvisorNotifications(10),
     enabled: authenticated,
     refetchInterval: authenticated ? 30_000 : false,
     staleTime: 10_000,
   })
   const advisorPreferencesQuery = useQuery({
-    queryKey: ['private-acu', 'advisor-notification-preferences'],
+    queryKey: ['private-acu', 'advisor-notification-preferences', userId],
     queryFn: getPrivateACUAdvisorNotificationPreferences,
     enabled: authenticated,
     staleTime: 60_000,
   })
   const seenAdvisorIds = useRef<Set<string> | null>(null)
+  const seenAdvisorUser = useRef(userId)
   const advisorNotifications = useMemo(
     () => advisorNotificationsQuery.data?.notifications ?? [],
     [advisorNotificationsQuery.data?.notifications]
@@ -109,14 +116,20 @@ export function useNotifications() {
   const advisorUnreadCount = advisorNotificationsQuery.data?.unreadCount ?? 0
 
   useEffect(() => {
-    const currentIds = new Set(
-      advisorNotifications.map((notification) => notification.advisorId)
-    )
-    const previousIds = seenAdvisorIds.current
-    seenAdvisorIds.current = currentIds
-    if (!previousIds) return
-    const newNotifications = advisorNotifications.filter(
-      (notification) => !previousIds.has(notification.advisorId)
+    if (seenAdvisorUser.current !== userId) {
+      seenAdvisorUser.current = userId
+      seenAdvisorIds.current = null
+    }
+    if (!advisorNotificationsQuery.isSuccess || !authenticated) return
+    if (!seenAdvisorIds.current) {
+      seenAdvisorIds.current = new Set(
+        advisorNotifications.map((item) => item.advisorId)
+      )
+      return
+    }
+    const newNotifications = newAdvisorNotifications(
+      advisorNotifications,
+      seenAdvisorIds.current
     )
     if (newNotifications.length === 0) return
 
@@ -127,7 +140,20 @@ export function useNotifications() {
     if (advisorPreferencesQuery.data?.inAppEnabled) {
       for (const notification of newNotifications) {
         const notice = advisorNoticePresentation(notification)
-        toast.info(notice.title, { description: notice.body })
+        toast(notice.title, {
+          id: `acu-advisor-${notification.advisorId}`,
+          position: 'bottom-right',
+          duration: 8000,
+          description: notice.body,
+          action: {
+            label: t('View audit details'),
+            onClick: () => {
+              void markPrivateACUAdvisorNotificationRead(
+                notification.advisorId
+              ).then(() => window.location.assign(notification.targetPath))
+            },
+          },
+        })
       }
     }
 
@@ -139,6 +165,10 @@ export function useNotifications() {
     advisorPreferencesQuery.data?.inAppEnabled,
     advisorPreferencesQuery.data?.browserEnabled,
     queryClient,
+    advisorNotificationsQuery.isSuccess,
+    authenticated,
+    userId,
+    t,
   ])
 
   // Notification store

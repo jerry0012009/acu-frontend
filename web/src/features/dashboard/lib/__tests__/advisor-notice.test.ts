@@ -2,7 +2,10 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 
 import type { PrivateACUAdvisorNotification } from '../../advisor-api'
-import { advisorNoticePresentation } from '../advisor-notice'
+import {
+  advisorNoticePresentation,
+  newAdvisorNotifications,
+} from '../advisor-notice'
 
 const notification: PrivateACUAdvisorNotification = {
   id: 1,
@@ -23,6 +26,35 @@ const notification: PrivateACUAdvisorNotification = {
 }
 
 describe('Advisor short notice presentation', () => {
+  test('old placeholder API content is replaced with actual issue and existing advice', () => {
+    const result = advisorNoticePresentation({
+      ...notification,
+      title: 'Private ACU | 有一项任务检查建议待查看',
+      summary: '本次还没有可靠的简短说明',
+      preference: '本次未找到明确的偏好依据',
+      correction: '本次未提供可靠的纠偏摘要',
+    })
+    assert.equal(result.title, 'raw private detail')
+    assert.equal(result.body, 'raw private detail → raw advice')
+    assert.doesNotMatch(result.body, /未找到|未提供|可靠的简短/)
+  })
+  test('first successful load establishes baseline and reappearing ids never notify twice', () => {
+    assert.deepEqual(newAdvisorNotifications([notification], null), [])
+    const seen = new Set([notification.advisorId])
+    const fresh = { ...notification, advisorId: 'two' }
+    assert.deepEqual(newAdvisorNotifications([notification, fresh], seen), [
+      fresh,
+    ])
+    assert.deepEqual(newAdvisorNotifications([], seen), [])
+    assert.deepEqual(newAdvisorNotifications([fresh, notification], seen), [])
+    assert.deepEqual(
+      newAdvisorNotifications(
+        [{ ...fresh, advisorId: 'read', readAt: 'now' }],
+        seen
+      ),
+      []
+    )
+  })
   test('shows deviation, actual preference and corrective reference before status', () => {
     assert.deepEqual(advisorNoticePresentation(notification), {
       title: notification.title,

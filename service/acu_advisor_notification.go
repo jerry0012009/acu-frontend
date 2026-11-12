@@ -351,8 +351,14 @@ func parseAdvisorConsumedAt(value string) *time.Time {
 
 func notificationDTO(row model.ACUAdvisorNotification, language string) dto.ACUAdvisorNotification {
 	notice := buildAdvisorNotice(row, language, false)
+	kind := "audit"
+	var structured dto.ACUAdvisorNotice
+	if common.UnmarshalJsonStr(row.NoticeJSON, &structured) == nil && validAdvisorNotice(&structured, row.ProblemSummary, row.AdviceSummary) {
+		kind = "structured"
+	}
 	result := dto.ACUAdvisorNotification{
-		Title: notice.Title, Summary: notice.Summary, Action: notice.Action,
+		ContentKind: kind,
+		Title:       notice.Title, Summary: notice.Summary, Action: notice.Action,
 		Preference: notice.Preference, Correction: notice.Correction,
 		Verification: notice.Verification, VerificationStatus: notice.VerificationStatus, NextStep: notice.NextStep,
 		ID: row.ID, AdvisorID: row.AdvisorID, Status: row.Status,

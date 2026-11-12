@@ -23,6 +23,7 @@ type ACUAdvisor struct {
 }
 
 type ACUAdvisorNotification struct {
+	ContentKind                string `json:"contentKind"`
 	Title                      string `json:"title"`
 	Summary                    string `json:"summary"`
 	Action                     string `json:"action"`
