@@ -131,6 +131,7 @@ export function ACUModelPriceRange(props: {
       setSaving(false)
     }
   }
+  if (!props.isAdmin) return null
   return (
     <form
       className='space-y-2'

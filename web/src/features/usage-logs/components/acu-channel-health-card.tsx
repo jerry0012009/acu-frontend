@@ -35,6 +35,7 @@ export function ACUChannelHealthCard(
   props: ACUMonitorProfileActions & {
     channel: ACUChannelOverview
     generatedAt: string
+    showDiagnostics?: boolean
   }
 ) {
   const { t } = useTranslation()
@@ -176,7 +177,7 @@ export function ACUChannelHealthCard(
               key={`${props.tokenProfileActions?.scope?.tokenId ?? ''}:${profile.executionProfileId}`}
               profile={profile}
               showModel
-              showDiagnostics
+              showDiagnostics={props.showDiagnostics}
             />
           ))}
         </div>

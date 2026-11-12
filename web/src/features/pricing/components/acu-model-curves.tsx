@@ -649,7 +649,7 @@ export function ACUModelCurves(props: {
       buildPricingCostSpec(props.displayMode, costData, {
         axisColor,
         gridColor,
-        axisTitle: t('Estimated execution cost (CNY)'),
+        axisTitle: t('Estimated model charge (CNY)'),
         formatAxisLabel: (value) => formatACUCNY(Number(value), 4),
         colorForDatum: (datum) =>
           colorByModel.get(datum.modelId ?? '') || priceRankColor(0.5),
@@ -667,7 +667,7 @@ export function ACUModelCurves(props: {
                     : t('No comparable public reference price'),
               },
               {
-                key: t('Current routed estimate'),
+                key: t('Fixed retail estimate'),
                 value: (datum: PricingCostDatum) =>
                   datum.payableCost === undefined
                     ? '-'
@@ -717,7 +717,7 @@ export function ACUModelCurves(props: {
             </div>
             <p className='text-muted-foreground mt-1 max-w-3xl text-xs leading-relaxed sm:text-sm'>
               {t(
-                'Quality is predicted by task difficulty. Current estimates use available routes and billing configuration.'
+                'Quality is predicted by task difficulty. Charge estimates use current fixed model retail prices.'
               )}
             </p>
           </div>
@@ -1085,12 +1085,12 @@ export function ACUModelCurves(props: {
             <div className='mb-2 flex flex-wrap items-center justify-between gap-2'>
               <div className='flex items-center gap-2 text-sm font-medium'>
                 <CircleDollarSign className='text-muted-foreground size-4' />
-                {t('Estimated execution cost (CNY)')}
+                {t('Estimated model charge (CNY)')}
               </div>
               <div className='text-muted-foreground flex items-center gap-3 text-[11px]'>
                 <span className='flex items-center gap-1'>
                   <span className='bg-foreground inline-block h-2 w-3 rounded-[1px]' />
-                  {t('Current routed estimate')}
+                  {t('Fixed retail estimate')}
                 </span>
                 {props.displayMode === 'comparison' && (
                   <span className='flex items-center gap-1'>
@@ -1123,7 +1123,7 @@ export function ACUModelCurves(props: {
             </div>
             <div className='text-muted-foreground mt-2 border-t pt-3 text-xs leading-relaxed'>
               {t(
-                'Solid bars show the current routed estimate. Light bars, when present, show official or public market reference costs. Estimates use the input and output tokens above. Route availability, network status, and price updates can change the final charge.'
+                'Solid bars estimate charges at current fixed model retail prices for the token counts above. Light bars show reference prices, not additional charges. Changing routes does not change fixed model retail prices.'
               )}
             </div>
           </div>

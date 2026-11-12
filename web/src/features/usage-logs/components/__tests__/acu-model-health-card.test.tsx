@@ -43,6 +43,7 @@ const { createInstance } = await import('i18next')
 const { I18nextProvider, initReactI18next } = await import('react-i18next')
 const { ACUModelHealthCard } = await import('../acu-model-health-card')
 const { ACUMonitorProfile } = await import('../acu-monitor-profile')
+const { ACUModelPriceRange } = await import('../acu-model-price-range')
 
 const i18n = createInstance()
 await i18n
@@ -76,6 +77,20 @@ test('renders anonymous model lines and isolates user-facing supply evidence', a
       <I18nextProvider i18n={i18n}>
         <ACUModelHealthCard
           showDiagnostics={false}
+          tokenProfileActions={{
+            tokenName: 'primary',
+            maskedKey: 'sk-fixture',
+            scope: {
+              tokenId: 7,
+              custom: false,
+              globalProfileIds: ['cx006:gpt-5.6-luna:responses'],
+              configuredProfileIds: [],
+              effectiveProfileIds: ['cx006:gpt-5.6-luna:responses'],
+            },
+            isPending: () => false,
+            onToggle: () => undefined,
+            onApply: async () => undefined,
+          }}
           model={{
             modelId: 'gpt-5.6-luna',
             eligibleCount: 1,
@@ -119,9 +134,12 @@ test('renders anonymous model lines and isolates user-facing supply evidence', a
   const text = container.textContent ?? ''
   assert.match(text, /gpt-5\.6-luna/)
   assert.match(text, /ACU 线路 \d{4}/)
-  assert.match(text, /0\.030×/)
-  assert.match(text, /Supplier cost factor/)
-  assert.match(text, /Not the user model multiplier/)
+  assert.doesNotMatch(
+    text,
+    /0\.030×|Supplier cost factor|Not the user model multiplier|factor range|Routing score|¥/
+  )
+  assert.equal(container.querySelector('[aria-label="Minimum factor"]'), null)
+  assert.ok(container.querySelector('[aria-label="Enable for this API key"]'))
   assert.match(text, /Response latency/)
   assert.match(text, /Preferred route for long coding tasks/)
   assert.match(text, /7\.8 s/)
@@ -156,6 +174,34 @@ test('renders anonymous model lines and isolates user-facing supply evidence', a
   )
   await act(async () => root.unmount())
   container.remove()
+})
+
+test('price range rendered directly without admin permission exposes no cost controls', async () => {
+  const container = document.createElement('div')
+  document.body.append(container)
+  const root = createRoot(container)
+  try {
+    await act(async () =>
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <ACUModelPriceRange
+            modelId='fixture'
+            profiles={[]}
+            scope={{ globalProfileIds: [], effectiveProfileIds: [] }}
+            isAdmin={false}
+            pending={false}
+            targetLabel='This API key'
+            onApply={async () => undefined}
+          />
+        </I18nextProvider>
+      )
+    )
+    assert.equal(container.textContent, '')
+    assert.equal(container.querySelector('form'), null)
+  } finally {
+    await act(async () => root.unmount())
+    container.remove()
+  }
 })
 
 test('shows production evidence for an admin model view', async () => {

@@ -111,7 +111,7 @@ export function ACUPriceSummary(props: {
           <TooltipContent className='max-w-80'>
             <p>
               {t(
-                'Estimated model charge divided by reference cost for {{input}} input and {{output}} output tokens. Includes platform markup; excludes routing evaluation fees.',
+                'Estimated model charge divided by reference cost for {{input}} input and {{output}} output tokens. Judge evaluations carry no additional charge.',
                 {
                   input: inputTokens.toLocaleString(),
                   output: outputTokens.toLocaleString(),
@@ -119,7 +119,7 @@ export function ACUPriceSummary(props: {
               )}
             </p>
             {t(
-              'ACU automatically selects an available route by price, speed, and reliability. The lowest price is not guaranteed. Routing evaluation fees, when incurred, are additional.'
+              'Models are billed at their fixed retail prices. Judge evaluations carry no additional charge.'
             )}
           </TooltipContent>
         </Tooltip>
@@ -320,7 +320,7 @@ export function ACURouteDetails(props: {
       )}
       <p className='text-muted-foreground text-xs'>
         {t(
-          'Final charges use the executed route and actual usage. Routing evaluation fees, when incurred, are additional.'
+          'Final charges use the selected model fixed retail price and actual usage. Judge evaluations carry no additional charge.'
         )}
       </p>
       {quote.generated_at && (

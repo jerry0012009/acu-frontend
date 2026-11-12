@@ -1084,15 +1084,17 @@ export function ACUChannelMonitor(
                   <option value='recommended'>
                     {t('Availability first (recommended)')}
                   </option>
-                  {activeTab === 'current' && (
+                  {isAdmin && activeTab === 'current' && (
                     <option value='routing_rank'>
                       {t('Model-local routing rank')}
                     </option>
                   )}
                   <option value='usage'>{t('Usage high to low')}</option>
-                  <option value='cost'>
-                    {t('Estimated cost low to high')}
-                  </option>
+                  {isAdmin && (
+                    <option value='cost'>
+                      {t('Estimated cost low to high')}
+                    </option>
+                  )}
                   <option value='reliability'>
                     {t('Reliability high to low')}
                   </option>
@@ -1294,6 +1296,7 @@ export function ACUChannelMonitor(
                   <ACUChannelHealthCard
                     key={channel.channel}
                     channel={channel}
+                    showDiagnostics={isAdmin}
                     generatedAt={query.data?.data?.generatedAt ?? ''}
                     profileActions={profileActions}
                     globalProfileActions={globalProfileActions}
@@ -2428,9 +2431,9 @@ export function MonitorTable(props: {
               'Protocol',
               'Provider / Channel',
               'Current status',
-              'Global weight / Routing score',
+              ...(props.canPause ? ['Global weight / Routing score'] : []),
               'Production usage',
-              'Estimated supplier cost',
+              ...(props.canPause ? ['Estimated supplier cash cost'] : []),
               'Response speed',
               'Latest verification',
               ...(props.canPause ? ['Actions'] : []),
@@ -2446,56 +2449,58 @@ export function MonitorTable(props: {
             <tr key={profile.executionProfileId} className='border-t align-top'>
               <td className='px-3 py-2'>
                 <div className='font-medium'>{profile.canonicalModel}</div>
-                <details className='text-muted-foreground mt-1 max-w-64'>
-                  <summary className='cursor-pointer'>
-                    {t('Operations detail')}
-                  </summary>
-                  <div className='mt-1 space-y-1 break-words'>
-                    <div className='font-mono text-[10px]'>
-                      {profile.executionProfileId}
-                    </div>
-                    <div>
-                      {t('Profile Preference')}:{' '}
-                      {profile.profilePreferenceScore == null
-                        ? t('n/a')
-                        : `${profile.profilePreferenceScore} · ${
-                            formatMultiplier(
-                              profile.profilePreferenceMultiplier,
-                              '×'
-                            ) ?? t('n/a')
-                          }`}
-                    </div>
-                    <div>
-                      {t('Channel billing multiplier')}:{' '}
-                      {formatMultiplier(profile.multiplier) ?? t('n/a')}
-                    </div>
-                    <div>
-                      {t('Last error')}:{' '}
-                      {
-                        monitorReason(
-                          profile.lastError || profile.statusReason,
-                          t
-                        ).title
-                      }
-                      <div className='mt-0.5'>
-                        {
-                          monitorReason(
-                            profile.lastError || profile.statusReason,
-                            t
-                          ).description
-                        }
-                      </div>
+                {props.canPause && (
+                  <details className='text-muted-foreground mt-1 max-w-64'>
+                    <summary className='cursor-pointer'>
+                      {t('Operations detail')}
+                    </summary>
+                    <div className='mt-1 space-y-1 break-words'>
                       <div className='font-mono text-[10px]'>
+                        {profile.executionProfileId}
+                      </div>
+                      <div>
+                        {t('Profile Preference')}:{' '}
+                        {profile.profilePreferenceScore == null
+                          ? t('n/a')
+                          : `${profile.profilePreferenceScore} · ${
+                              formatMultiplier(
+                                profile.profilePreferenceMultiplier,
+                                '×'
+                              ) ?? t('n/a')
+                            }`}
+                      </div>
+                      <div>
+                        {t('Channel billing multiplier')}:{' '}
+                        {formatMultiplier(profile.multiplier) ?? t('n/a')}
+                      </div>
+                      <div>
+                        {t('Last error')}:{' '}
                         {
                           monitorReason(
                             profile.lastError || profile.statusReason,
                             t
-                          ).code
+                          ).title
                         }
+                        <div className='mt-0.5'>
+                          {
+                            monitorReason(
+                              profile.lastError || profile.statusReason,
+                              t
+                            ).description
+                          }
+                        </div>
+                        <div className='font-mono text-[10px]'>
+                          {
+                            monitorReason(
+                              profile.lastError || profile.statusReason,
+                              t
+                            ).code
+                          }
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </details>
+                  </details>
+                )}
               </td>
               <td className='px-3 py-2'>
                 {profile.protocol
@@ -2526,22 +2531,24 @@ export function MonitorTable(props: {
                   }
                 </div>
               </td>
-              <td className='px-3 py-2 tabular-nums'>
-                <div>
-                  <span className='text-muted-foreground'>
-                    {t('Global weight')}:{' '}
-                  </span>
-                  <span className='font-medium'>{profile.routingWeight}</span>
-                </div>
-                <div className='mt-1'>
-                  <span className='text-muted-foreground'>
-                    {t('Routing score')}:{' '}
-                  </span>
-                  {profile.profileUtility == null
-                    ? t('Not scored')
-                    : `${profile.profileUtility.toFixed(3)} · #${profile.profileRank ?? '?'}/${profile.profileCandidateCount ?? '?'}`}
-                </div>
-              </td>
+              {props.canPause && (
+                <td className='px-3 py-2 tabular-nums'>
+                  <div>
+                    <span className='text-muted-foreground'>
+                      {t('Global weight')}:{' '}
+                    </span>
+                    <span className='font-medium'>{profile.routingWeight}</span>
+                  </div>
+                  <div className='mt-1'>
+                    <span className='text-muted-foreground'>
+                      {t('Routing score')}:{' '}
+                    </span>
+                    {profile.profileUtility == null
+                      ? t('Not scored')
+                      : `${profile.profileUtility.toFixed(3)} · #${profile.profileRank ?? '?'}/${profile.profileCandidateCount ?? '?'}`}
+                  </div>
+                </td>
+              )}
               <td className='px-3 py-2'>
                 {profile.requestCount > 0 ? (
                   <>
@@ -2564,22 +2571,27 @@ export function MonitorTable(props: {
                   </span>
                 )}
               </td>
-              <td className='px-3 py-2'>
-                {profile.profileCost == null ? (
-                  <span className='text-muted-foreground'>
-                    {t('Price pending verification')}
-                  </span>
-                ) : (
-                  <div className='font-medium'>
-                    {t('Estimated ¥{{cost}} per request', {
-                      cost: formatListDecimal(profile.profileCost) ?? t('n/a'),
-                    })}
-                    <p className='text-muted-foreground mt-1 font-normal'>
-                      {t('Routing cost estimate, not the user charge.')}
-                    </p>
-                  </div>
-                )}
-              </td>
+              {props.canPause && (
+                <td className='px-3 py-2'>
+                  {profile.profileCost == null ? (
+                    <span className='text-muted-foreground'>
+                      {t('Price pending verification')}
+                    </span>
+                  ) : (
+                    <div className='font-medium'>
+                      {t('Estimated supplier cash cost ¥{{cost}} per request', {
+                        cost:
+                          formatListDecimal(profile.profileCost) ?? t('n/a'),
+                      })}
+                      <p className='text-muted-foreground mt-1 font-normal'>
+                        {t(
+                          'Supplier cash cost estimate, not the user retail price.'
+                        )}
+                      </p>
+                    </div>
+                  )}
+                </td>
+              )}
               <td className='px-3 py-2'>
                 <MonitorLatencyCell profile={profile} t={t} />
               </td>

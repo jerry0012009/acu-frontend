@@ -250,21 +250,25 @@ export function ACUMonitorProfile(
             </div>
           )}
         </div>
-        <div className='grid grid-cols-3 gap-2 text-xs'>
-          <div>
-            <div className='text-muted-foreground'>
-              {t('Supplier cost factor')}
+        <div
+          className={`grid gap-2 text-xs ${props.showDiagnostics ? 'grid-cols-3' : 'grid-cols-2'}`}
+        >
+          {props.showDiagnostics && (
+            <div>
+              <div className='text-muted-foreground'>
+                {t('Supplier cost factor')}
+              </div>
+              <div className='mt-1 font-medium tabular-nums'>
+                {profile.effectivePriceMultiplier == null
+                  ? t('No price data')
+                  : (formatMultiplier(profile.effectivePriceMultiplier, '×') ??
+                    t('No price data'))}
+              </div>
+              <p className='text-muted-foreground mt-1'>
+                {t('Not the user model multiplier.')}
+              </p>
             </div>
-            <div className='mt-1 font-medium tabular-nums'>
-              {profile.effectivePriceMultiplier == null
-                ? t('No price data')
-                : (formatMultiplier(profile.effectivePriceMultiplier, '×') ??
-                  t('No price data'))}
-            </div>
-            <p className='text-muted-foreground mt-1'>
-              {t('Not the user model multiplier.')}
-            </p>
-          </div>
+          )}
           <div>
             <div className='text-muted-foreground'>{t('Response latency')}</div>
             <div className='mt-1 font-medium' title={latency.source}>
