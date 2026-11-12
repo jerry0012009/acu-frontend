@@ -1,0 +1,7 @@
+{
+  "advisorId": "recovery-fallback-redacted",
+  "sourceId": "user:1154",
+  "sourceText": "按项目规定完成当前同一 manifest，先确认安全状态；不要重复迁移或打断原子切流。",
+  "problem": "Router 发布因回滚保护脚本不接受当前生产的 0041 schema 而在切流前失败，manifest 进入 recovery_failed；原 Router 槽仍健康且活动路由未变。为继续发布，当前改动拟让 0041 分支只检查静态价格簿存在后退出，可能跳过原有的 tiered Profile 检查，与用户要求保留发布保护、先核实异常状态的约束存在偏差。",
+  "advice": "用户偏好是以权威运行版本和同一发布 manifest 核验生产状态，保护原子切换与回滚条件，不通过放宽保护或伪造成功来完成发布。当前证据显示 Router 候选三协议验收通过，但失败发生在切流前；Console 已完成发布，静态通知字段迁移为可空 TEXT，记录数未变。新增的未切流失败收尾逻辑尚需针对性测试，且该 manifest 已是 recovery_failed，不能据此视为普通待重试发布。当前可关注 0041 下原 tiered Profile 条件的适用性，以及旧路由、候选容器、manifest 和发布锁之间的一致状态；这些不确定性可能影响后续发布路径的安全性。"
+}

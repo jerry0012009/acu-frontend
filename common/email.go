@@ -1,9 +1,13 @@
 package common
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
+	"mime"
+	"mime/quotedprintable"
+	"net/mail"
 	"net/smtp"
 	"slices"
 	"strings"
@@ -86,14 +90,37 @@ func SendEmail(subject string, receiver string, content string) error {
 	if SMTPServer == "" && SMTPAccount == "" {
 		return fmt.Errorf("SMTP 服务器未配置")
 	}
-	encodedSubject := fmt.Sprintf("=?UTF-8?B?%s?=", base64.StdEncoding.EncodeToString([]byte(subject)))
-	mail := []byte(fmt.Sprintf("To: %s\r\n"+
-		"From: %s <%s>\r\n"+
+	encodedSubject := mime.BEncoding.Encode("UTF-8", subject)
+	if encodedSubject == subject && strings.Contains(subject, "=?") {
+		// Literal ASCII encoded-words need an outer encoding to survive one decode.
+		words := make([]string, 0, (len(subject)+44)/45)
+		for remaining := subject; remaining != ""; {
+			size := min(45, len(remaining))
+			words = append(words, "=?UTF-8?B?"+base64.StdEncoding.EncodeToString([]byte(remaining[:size]))+"?=")
+			remaining = remaining[size:]
+		}
+		encodedSubject = strings.Join(words, "\r\n ")
+	}
+	encodedSubject = strings.ReplaceAll(encodedSubject, "?= =?", "?=\r\n =?")
+	from := (&mail.Address{Name: SystemName, Address: SMTPFrom}).String()
+	message := bytes.NewBufferString(fmt.Sprintf("To: %s\r\n"+
+		"From: %s\r\n"+
 		"Subject: %s\r\n"+
 		"Date: %s\r\n"+
 		"Message-ID: %s\r\n"+ // 添加 Message-ID 头
-		"Content-Type: text/html; charset=UTF-8\r\n\r\n%s\r\n",
-		receiver, SystemName, SMTPFrom, encodedSubject, time.Now().Format(time.RFC1123Z), id, content))
+		"MIME-Version: 1.0\r\n"+
+		"Content-Type: text/html; charset=UTF-8\r\n"+
+		"Content-Transfer-Encoding: quoted-printable\r\n\r\n",
+		receiver, from, encodedSubject, time.Now().Format(time.RFC1123Z), id))
+	content = strings.ReplaceAll(strings.ReplaceAll(content, "\r\n", "\n"), "\r", "\n")
+	content = strings.ReplaceAll(content, "\n", "\r\n")
+	encoder := quotedprintable.NewWriter(message)
+	if _, err := encoder.Write([]byte(content)); err != nil {
+		return err
+	}
+	if err := encoder.Close(); err != nil {
+		return err
+	}
 	auth := getSMTPAuth()
 	addr := fmt.Sprintf("%s:%d", SMTPServer, SMTPPort)
 	to := strings.Split(receiver, ";")
@@ -120,7 +147,7 @@ func SendEmail(subject string, receiver string, content string) error {
 	if err != nil {
 		return err
 	}
-	_, err = w.Write(mail)
+	_, err = w.Write(message.Bytes())
 	if err != nil {
 		return err
 	}

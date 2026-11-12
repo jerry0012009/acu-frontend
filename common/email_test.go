@@ -9,14 +9,19 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"math/big"
+	"mime"
+	"mime/quotedprintable"
 	"net"
+	"net/mail"
 	"net/smtp"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -267,6 +272,74 @@ func withSMTPSettings(t *testing.T) {
 	})
 }
 
+func TestSendEmailMIMERoundTripAndLineLimits(t *testing.T) {
+	for _, tc := range []struct{ name, subject, body string }{
+		{"long-chinese", strings.Repeat("Router 发布在切流前失败，保护条件待核对", 8), "<main><p>" + strings.Repeat("发现的问题：回滚保护不接受当前schema；依据的偏好：保留发布保护；纠偏提醒：核对状态。", 30) + "</p></main>"},
+		{"emoji-links", "中文提醒😀保留证据", `<a title="中文属性😀" href="https://example.invalid/a?x=1&amp;next=中文">完整建议</a>`},
+		{"ascii", "Verification", "<p>123456</p>\n<p>Account notice</p>"},
+		{"existing-replacement", "Source fidelity", "<p>原始证据保留：而\uFFFD\uFFFD\uFFFD切流前失败</p>"},
+		{"literal-encoded-word", "=?UTF-8?B?SGVsbG8=?= " + strings.Repeat("literal ", 20), "<p>Literal subject must survive exactly once</p>"},
+		{"crlf", "CRLF", "<p>第一行</p>\r\n<p>第二行</p>\r\n"},
+		{"mixed-newlines", "Mixed", "<p>甲</p>\r\n<p>乙</p>\n<p>丙</p>\r<p>丁</p>"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server := newFakeSMTPServerWithSTARTTLSAdvertisement(t, false)
+			defer server.close()
+			withSMTPSettings(t)
+			SMTPServer, SMTPPort = server.host, server.port
+			SMTPSSLEnabled, SMTPStartTLSEnabled = false, false
+			SMTPAccount, SMTPToken, SMTPFrom = "", "", "sender@example.com"
+			SystemName = "ACU 中文提醒😀"
+			require.NoError(t, SendEmail(tc.subject, "receiver@example.invalid", tc.body))
+			select {
+			case raw := <-server.messages:
+				message, err := mail.ReadMessage(strings.NewReader(raw))
+				require.NoError(t, err)
+				subject, err := new(mime.WordDecoder).DecodeHeader(message.Header.Get("Subject"))
+				require.NoError(t, err)
+				assert.Equal(t, tc.subject, subject)
+				from, err := message.Header.AddressList("From")
+				require.NoError(t, err)
+				require.Len(t, from, 1)
+				assert.Equal(t, SystemName, from[0].Name)
+				assert.Equal(t, "1.0", message.Header.Get("MIME-Version"))
+				assert.Equal(t, "quoted-printable", message.Header.Get("Content-Transfer-Encoding"))
+				decoded, err := io.ReadAll(quotedprintable.NewReader(message.Body))
+				require.NoError(t, err)
+				// SMTP DATA adds a final CRLF when absent; all original bytes survive.
+				expected := strings.ReplaceAll(tc.body, "\n", "\r\n")
+				if tc.name == "crlf" {
+					expected = "<p>第一行</p>\r\n<p>第二行</p>\r\n"
+				}
+				if tc.name == "mixed-newlines" {
+					expected = "<p>甲</p>\r\n<p>乙</p>\r\n<p>丙</p>\r\n<p>丁</p>"
+				}
+				if !strings.HasSuffix(expected, "\r\n") {
+					expected += "\r\n"
+				}
+				assert.Equal(t, expected, string(decoded))
+				assert.NotContains(t, string(decoded), "\r\r\n")
+				assert.Equal(t, strings.Count(tc.body, "\ufffd"), strings.Count(string(decoded), "\ufffd"))
+				parts := strings.SplitN(raw, "\r\n\r\n", 2)
+				require.Len(t, parts, 2)
+				for _, line := range strings.Split(raw, "\r\n") {
+					assert.LessOrEqual(t, len(line), 998)
+				}
+				for _, line := range strings.Split(parts[1], "\r\n") {
+					assert.LessOrEqual(t, len(line), 76)
+				}
+				for _, word := range strings.Fields(message.Header.Get("Subject")) {
+					if strings.HasPrefix(word, "=?") {
+						assert.LessOrEqual(t, len(word), 75)
+					}
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatal("SMTP DATA not captured")
+			}
+		})
+	}
+}
+
 func TestSendEmailUsesExplicitStartTLSWithInsecureCertificate(t *testing.T) {
 	server := newFakeSMTPServer(t)
 	defer server.close()
@@ -288,7 +361,7 @@ func TestSendEmailUsesExplicitStartTLSWithInsecureCertificate(t *testing.T) {
 
 	select {
 	case message := <-server.messages:
-		require.Contains(t, message, "Subject: =?UTF-8?B?")
+		require.Contains(t, message, "Subject: Verification")
 		require.Contains(t, message, "<p>123456</p>")
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for SMTP DATA")

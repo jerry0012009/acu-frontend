@@ -111,7 +111,7 @@ func TestAdvisorEventsKeepNewRisksAndNeverResendForStatusOrReplay(t *testing.T) 
 func TestAdvisorNoticeMissingFieldsNeverInventPreference(t *testing.T) {
 	for _, problem := range []string{"用户要求先给清单再推进", "Test baseline uses different arguments", ""} {
 		n := buildAdvisorNotice(model.ACUAdvisorNotification{ProblemSummary: problem}, "en", false)
-		assert.Contains(t, n.Preference, "No traceable preference")
+		assert.Contains(t, n.Preference, "No explicit preference evidence")
 		assert.NotEmpty(t, n.Summary)
 	}
 	secret := strings.Repeat("私密路径 /root/secret api-key=hidden@example.com <script>x</script> ", 1000)
@@ -127,7 +127,7 @@ func TestAdvisorEmailHasSafePreviewAndAuthenticatedAbsoluteLink(t *testing.T) {
 	subject, body := renderAdvisorEmail(row, "zh", false, "https://acu.example/base")
 	assert.Contains(t, subject, "type=0")
 	assert.Contains(t, body, "效果待核实")
-	assert.Contains(t, body, "纠偏提醒内容")
+	assert.Contains(t, body, "纠偏提醒")
 	assert.Contains(t, body, "https://acu.example/base/private-acu/advisor?advisor=id%2F%3Cscript%3E")
 	assert.NotContains(t, body, "secret@example.com")
 	assert.NotContains(t, body, "<script>")
@@ -192,7 +192,7 @@ func TestAdvisorNoticeRealSamplePreviews(t *testing.T) {
 				}
 			}
 			_, body := renderAdvisorEmail(row, sample.Language, false, "https://acu.example")
-			assert.Less(t, strings.Index(body, "纠偏提醒内容"), strings.Index(body, "效果待核实"))
+			assert.Less(t, strings.Index(body, "纠偏提醒"), strings.Index(body, "效果待核实"))
 			if output := os.Getenv("ADVISOR_PREVIEW_DIR"); output != "" {
 				require.NoError(t, os.MkdirAll(output, 0700))
 				require.NoError(t, os.WriteFile(filepath.Join(output, sample.ID+".html"), []byte(body), 0600))
@@ -206,7 +206,7 @@ func TestAdvisorNoticeRealSamplePreviews(t *testing.T) {
 			encoded, err = common.Marshal(sample.Notification)
 			require.NoError(t, err)
 			row.NoticeJSON = string(encoded)
-			assert.Contains(t, buildAdvisorNotice(row, "en", false).Preference, "No traceable preference")
+			assert.Contains(t, buildAdvisorNotice(row, "en", false).Preference, "No explicit preference evidence")
 		})
 	}
 }
@@ -337,7 +337,7 @@ func TestAdvisorActualModelPreview(t *testing.T) {
 	if directory == "" {
 		t.Skip("explicit actual-model result directory required")
 	}
-	for _, id := range []string{"scope", "amount", "english-source"} {
+	for _, id := range []string{"scope", "amount", "english-source", "recovery"} {
 		data, err := os.ReadFile(filepath.Join(directory, id+".json"))
 		require.NoError(t, err)
 		var actual struct {
@@ -351,5 +351,44 @@ func TestAdvisorActualModelPreview(t *testing.T) {
 		require.NoError(t, err)
 		_, body := renderAdvisorEmail(model.ACUAdvisorNotification{AdvisorID: id, ProblemSummary: actual.Problem, AdviceSummary: actual.Advice, NoticeJSON: string(encoded), ReferenceStatus: "queued"}, "zh", false, "https://console.acucompute.com")
 		require.NoError(t, os.WriteFile(filepath.Join(directory, id+".html"), []byte(body), 0600))
+	}
+}
+
+func TestAdvisorRecoveryFallbackUsesAccountLanguageAndHonestMissingSummaries(t *testing.T) {
+	data, err := os.ReadFile("testdata/advisor-recovery-fallback.json")
+	require.NoError(t, err)
+	var fixture struct {
+		AdvisorID  string `json:"advisorId"`
+		Problem    string `json:"problem"`
+		Advice     string `json:"advice"`
+		SourceID   string `json:"sourceId"`
+		SourceText string `json:"sourceText"`
+	}
+	require.NoError(t, common.Unmarshal(data, &fixture))
+	row := model.ACUAdvisorNotification{AdvisorID: fixture.AdvisorID, ProblemSummary: fixture.Problem, AdviceSummary: fixture.Advice, ReferenceStatus: "queued"}
+	for _, language := range []string{"zh", "zh-CN", "", "auto"} {
+		subject, body := renderAdvisorEmail(row, language, false, "https://console.acucompute.com")
+		assert.Contains(t, subject, "Private ACU | Router 发布")
+		assert.LessOrEqual(t, utf8.RuneCountInString(subject), 50)
+		assert.Contains(t, body, "发现的问题")
+		assert.Contains(t, body, "依据的偏好")
+		assert.Contains(t, body, "本次未找到明确的偏好依据")
+		assert.Contains(t, body, "本次未提供可靠的纠偏摘要")
+		assert.NotContains(t, body, "Deviation found")
+		assert.NotContains(t, body, "\ufffd")
+		assert.NotContains(t, subject, "manifest")
+	}
+	_, english := renderAdvisorEmail(row, "en", false, "https://console.acucompute.com")
+	assert.Contains(t, english, "Issue found")
+	assert.Contains(t, english, "No explicit preference evidence")
+	assert.False(t, advisorNoticeChinese("en", "中文问题"))
+	assert.True(t, advisorNoticeChinese("zh-CN", "English source"))
+	assert.False(t, advisorNoticeChinese("auto", "English source"))
+	assert.True(t, advisorNoticeChinese("auto", "中文问题"))
+	assert.False(t, advisorNoticeChinese("auto", "The release failed before switching; inspect its safety and keep the existing protections. 中"))
+	assert.True(t, advisorNoticeChinese("auto", "发布之前需要核对当前运行状态，保护条件保持不变，不重复操作。Router manifest"))
+	if directory := os.Getenv("ADVISOR_PREVIEW_DIR"); directory != "" {
+		_, body := renderAdvisorEmail(row, "auto", false, "https://console.acucompute.com")
+		require.NoError(t, os.WriteFile(filepath.Join(directory, "recovery-fallback.html"), []byte(body), 0600))
 	}
 }
