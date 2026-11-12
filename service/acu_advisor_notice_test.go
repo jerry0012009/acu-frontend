@@ -146,6 +146,38 @@ func TestAdvisorNoticeMissingFieldsNeverInventPreference(t *testing.T) {
 	assert.Equal(t, "unknown", n.VerificationStatus)
 }
 
+func TestAdvisorHistoricalEmptyAndPunctuationProblemsKeepActualAdvice(t *testing.T) {
+	for _, problem := range []string{"", " \t\r\n", "。；;\n", "。。。！！！？？？...;;", " \n；\n "} {
+		t.Run(fmt.Sprintf("%q", problem), func(t *testing.T) {
+			row := model.ACUAdvisorNotification{ProblemSummary: problem, AdviceSummary: "建议核对费用合计与列表的范围。", ReferenceStatus: "queued"}
+			var n advisorNotice
+			require.NotPanics(t, func() { n = buildAdvisorNotice(row, "zh", false) })
+			assert.Equal(t, "Private ACU | 建议核对费用合计与列表的范围。", n.Title)
+			assert.Equal(t, row.AdviceSummary, n.Summary)
+			assert.Equal(t, row.AdviceSummary, n.Correction)
+			assert.Empty(t, n.Preference)
+			_, body := renderAdvisorEmail(row, "zh", false, "https://acu.example")
+			assert.NotContains(t, body, "依据的偏好")
+			assert.NotContains(t, body, "本次未找到")
+		})
+	}
+	for _, row := range []model.ACUAdvisorNotification{
+		{}, {ProblemSummary: "。；\n", AdviceSummary: "！？;"},
+	} {
+		n := buildAdvisorNotice(row, "zh", false)
+		assert.Empty(t, n.Summary)
+		assert.Empty(t, n.Preference)
+		assert.Empty(t, n.Correction)
+		assert.Equal(t, "Private ACU | 审计记录", n.Title)
+	}
+	row := model.ACUAdvisorNotification{ProblemSummary: " \n；费用合计未包含列表中全部记录。", AdviceSummary: "建议核对筛选范围。"}
+	n := buildAdvisorNotice(row, "zh", false)
+	assert.Equal(t, "Private ACU | 费用合计未包含列表中全部记录", n.Title)
+	assert.Contains(t, n.Summary, "费用合计未包含列表中全部记录")
+	assert.Equal(t, row.AdviceSummary, n.Correction)
+	assert.Empty(t, n.Preference)
+}
+
 func TestAdvisorEmailHasSafePreviewAndAuthenticatedAbsoluteLink(t *testing.T) {
 	row := model.ACUAdvisorNotification{AdvisorID: `id/<script>`, ProblemSummary: "费用统计与筛选后的列表范围不一致，需要核对当前统计条件。 secret@example.com", AdviceSummary: "建议核对统计与列表的筛选条件。", ReferenceStatus: "injected"}
 	subject, body := renderAdvisorEmail(row, "zh", false, "https://acu.example/base")

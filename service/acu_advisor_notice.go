@@ -51,10 +51,19 @@ func advisorNoticeDisplayChinese(row model.ACUAdvisorNotification, language stri
 		return advisorNoticeChinese("auto", summary.Title+" "+summary.Deviation+" "+summary.Preference+" "+summary.Correction)
 	}
 	content := strings.TrimSpace(row.ProblemSummary + " " + row.AdviceSummary)
-	if content != "" {
+	if advisorHasContent(content) {
 		return advisorNoticeChinese("auto", content)
 	}
 	return advisorNoticeChinese(language, "")
+}
+
+func advisorHasContent(value string) bool {
+	for _, r := range value {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return true
+		}
+	}
+	return false
 }
 
 var advisorPrivateText = regexp.MustCompile(`(?i)(?:https?://[^\s，。；]+|[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}|(?:/root/|/home/|[a-z]:\\)[^\s，。；]+|(?:api[_-]?key|password|token|secret)\s*[:=]\s*[^\s，。；]+|sk-[a-z0-9_-]{8,})`)
@@ -126,13 +135,22 @@ func buildAdvisorNotice(row model.ACUAdvisorNotification, language string, repea
 	zh := advisorNoticeDisplayChinese(row, language)
 	// Historical audits still carry useful facts; never replace them with missing-copy notices.
 	issue := advisorExcerpt(row.ProblemSummary, 160)
+	if !advisorHasContent(issue) {
+		issue = ""
+	}
 	title := ""
 	clauses := strings.FieldsFunc(row.ProblemSummary, func(r rune) bool { return r == '。' || r == ';' || r == '；' || r == '\n' })
-	if len(clauses) > 0 {
-		title = advisorExcerpt(clauses[0], 42)
+	for _, clause := range clauses {
+		if advisorHasContent(clause) {
+			title = advisorExcerpt(clause, 42)
+			break
+		}
 	}
 	preference := ""
 	correction := advisorExcerpt(row.AdviceSummary, 200)
+	if !advisorHasContent(correction) {
+		correction = ""
+	}
 	if issue == "" {
 		issue = correction
 		title = advisorExcerpt(correction, 42)
