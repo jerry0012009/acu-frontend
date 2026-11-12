@@ -93,6 +93,13 @@ and explicit refresh with at least 60-second client cache is sufficient.
 
 ## Presentation
 
+Owner clarification after release: the animated vector starfish is a mandatory
+core first-screen experience, not a secondary visualization. See the detailed
+[starfish handoff](runtime-preference-starfish-handoff.md) for existing renderer
+sources, wire example, ordinary/bipolar geometry, interactions and native visual
+acceptance. The profile endpoint and Console chart already run in production;
+this clarification requires no new server endpoint or application release.
+
 Runtime adds My preferences without interrupting existing Key-only usage.
 Logged-out: login action, no invented sample profile. Logged-in: graph/list,
 readable saved records in a source drawer, and recent summary changes. Label

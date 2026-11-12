@@ -13,6 +13,13 @@ Keep existing Runtime workbench, Agent setup, Key-only usage, usage, request
 records, settings and native authentication intact. Add a focused navigation
 entry; no landing page, giant marketing heading or new learning pipeline.
 
+Owner clarification: the beautiful animated **vector starfish is mandatory and
+the core first-screen experience**, not a secondary thumbnail. Also read
+`runtime-preference-starfish-handoff.md` on frontend main. Adapt the existing
+Console SVG renderer, radial-scale/bipolar helpers and interactions; do not
+replace it with a static picture or filled radar chart. The graph API is already
+online. It is an interpretable preference projection, not a raw model embedding.
+
 1. Use the existing official native Console login/access-token renewal bridge.
    No login required to keep using Runtime with a model Key; account login is
    required only for personal preferences. Native Go owns token/API calls;
@@ -31,8 +38,12 @@ entry; no landing page, giant marketing heading or new learning pipeline.
    and feedback learning. This is a bounded recent window, not complete history;
    preserve partial/moreAvailable states without turning them into success metrics.
    No feed content means no displayable summary differences, not "learned nothing".
-4. Reuse Runtime black/white/amber system light/dark styling. Keep graph secondary
-   to readable, searchable/filterable preferences. Source drawer/list must work
+4. Reuse Runtime black/white/amber system light/dark styling. Put the interactive
+   vector starfish prominently on the first screen, with selected-ray detail
+   alongside/below and a readable searchable list supplementing it. Preserve
+   ordinary and bipolar geometry, hover/focus/click pinning, domain selection,
+   arrowheads, zoom and reduced motion as specified in the starfish handoff.
+   Source drawer/list must work
    by mouse and keyboard and retain full text at narrow desktop widths. Never
    call heuristic strength/confidence accuracy, depict initialized axes as
    learned preferences, or claim adoption/correction/savings from injection.
