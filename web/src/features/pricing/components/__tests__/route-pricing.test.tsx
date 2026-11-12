@@ -7,6 +7,7 @@ import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { I18nextProvider } from 'react-i18next'
 
+import { formatACUCNY } from '../../lib/price'
 import {
   applyPricingPreview,
   modelPricingProtocol,
@@ -158,6 +159,33 @@ test('fixed model multiplier stays visible when route preview is unavailable', (
   }
 })
 
+test('platform references are never labelled official in fixed or estimated summaries', () => {
+  assert.ok(model.reference)
+  for (const model_multiplier of [undefined, '0.13']) {
+    const window = render(
+      <ACUPriceSummary
+        model={{
+          ...model,
+          payable: { ...price, model_multiplier },
+          reference: {
+            ...model.reference,
+            source_type: 'platform',
+            source_name: 'Platform baseline',
+          },
+        }}
+        tokenUnit='M'
+      />
+    )
+    try {
+      const text = window.document.body.textContent ?? ''
+      assert.match(text, /platform reference/i)
+      assert.doesNotMatch(text, /official|Official|public reference/)
+    } finally {
+      window.close()
+    }
+  }
+})
+
 test('details list the same prices and mark only the current estimated selection', () => {
   const window = render(<ACURouteDetails model={model} tokenUnit='M' />)
   try {
@@ -237,6 +265,11 @@ test('1K display scales the summary and each route consistently', () => {
   } finally {
     window.close()
   }
+})
+
+test('small positive CNY token prices never display as free after 1K scaling', () => {
+  assert.equal(formatACUCNY(0.000000123), '¥0.000000123')
+  assert.equal(formatACUCNY(0), '¥0')
 })
 
 test('a Messages-only model renders Messages retail prices and routes from a Chat-default page', () => {

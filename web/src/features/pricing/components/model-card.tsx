@@ -327,7 +327,9 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   }
 
   let priceSummary: ReactNode
-  if (props.model.billing_mode === 'acu_dynamic') {
+  if (props.model.payable?.model_multiplier) {
+    priceSummary = <ACUPriceSummary model={props.model} tokenUnit={tokenUnit} />
+  } else if (props.model.billing_mode === 'acu_dynamic') {
     priceSummary = (
       <span className='text-muted-foreground text-sm'>
         {props.model.pricing_label || t('Dynamic Pricing')}

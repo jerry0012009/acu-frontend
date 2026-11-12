@@ -104,7 +104,7 @@ export function usePricingColumns(
       ),
       cell: ({ row }) => {
         const model = row.original
-        if (model.acu_quote) {
+        if (model.payable?.model_multiplier || model.acu_quote) {
           return <ACUPriceSummary model={model} tokenUnit={tokenUnit} />
         }
         const dynamicSummary = getDynamicPricingSummary(model, {
@@ -236,6 +236,7 @@ export function usePricingColumns(
       header: t('Cached'),
       cell: ({ row }) => {
         const model = row.original
+        if (model.payable?.model_multiplier) return '-'
         const dynamicSummary = getDynamicPricingSummary(model, {
           tokenUnit,
           showRechargePrice,

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Window } from 'happy-dom'
 import { createInstance } from 'i18next'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -8,6 +9,8 @@ import { I18nextProvider } from 'react-i18next'
 
 import type { PricingModel } from '../../types'
 import { ModelCard } from '../model-card'
+import { ModelDetailsContent } from '../model-details'
+import { usePricingColumns } from '../pricing-columns'
 
 const model: PricingModel = {
   id: 1,
@@ -40,6 +43,68 @@ const model: PricingModel = {
     routes: [],
   },
 }
+
+test('fixed retail cards, table and details show the model multiplier without route-dependent estimates', async () => {
+  const i18n = createInstance()
+  await i18n.init({ lng: 'en', resources: { en: { translation: {} } } })
+  assert.ok(model.payable)
+  const fixed: PricingModel = {
+    ...model,
+    acu_quote: undefined,
+    price_currency: 'CNY',
+    price_semantics: 'fixed_model_multiplier',
+    payable: {
+      ...model.payable,
+      model_multiplier: '0.13',
+      price_version: 'retail-v1',
+    },
+  }
+  function TablePrice() {
+    const priceColumn = usePricingColumns({ tokenUnit: 'M' }).find(
+      (column) => 'accessorKey' in column && column.accessorKey === 'price'
+    )
+    assert.ok(priceColumn && typeof priceColumn.cell === 'function')
+    return priceColumn.cell({ row: { original: fixed } } as never)
+  }
+  for (const element of [
+    <ModelCard
+      key='card'
+      model={fixed}
+      onClick={() => {}}
+      pricingDisplayMode='comparison'
+    />,
+    <TablePrice key='table' />,
+    <ModelDetailsContent
+      key='details'
+      model={fixed}
+      groupRatio={{ default: 1 }}
+      usableGroup={{ default: { desc: '', ratio: 1 } }}
+      endpointMap={{}}
+      autoGroups={[]}
+      priceRate={1}
+      usdExchangeRate={7}
+      tokenUnit='M'
+    />,
+  ]) {
+    const window = new Window()
+    try {
+      window.document.body.innerHTML = renderToStaticMarkup(
+        <QueryClientProvider client={new QueryClient()}>
+          <I18nextProvider i18n={i18n}>{element}</I18nextProvider>
+        </QueryClientProvider>
+      )
+      const text = window.document.body.textContent ?? ''
+      assert.match(text, /0\.13x/)
+      assert.match(text, /Fixed retail price/)
+      assert.doesNotMatch(
+        text,
+        /Current routed estimate|Pricing by Group|Dynamic Pricing/
+      )
+    } finally {
+      window.close()
+    }
+  }
+})
 
 test('ACU cards give pricing its own width and show each capability only once', async () => {
   const i18n = createInstance()

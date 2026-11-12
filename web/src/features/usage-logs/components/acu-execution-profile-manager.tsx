@@ -237,7 +237,7 @@ export function ACUExecutionProfileManager() {
     nominalCostUsd,
     platformDebitCredits,
     providerCostCny,
-    userChargeCny,
+    userChargeCny: legacyCostPlusCny,
   } = estimateProfileCost(
     draft.billingPrice,
     costInputs,
@@ -520,7 +520,7 @@ export function ACUExecutionProfileManager() {
               <div className='bg-muted/40 grid gap-2 rounded p-2 text-[11px] sm:grid-cols-2'>
                 <div>
                   <span className='text-muted-foreground'>
-                    {t('Retail markup')}
+                    {t('Legacy cost-plus markup')}
                   </span>
                   <div className='font-mono'>
                     {retailMarkupMultiplier.toFixed(4)}x
@@ -533,7 +533,7 @@ export function ACUExecutionProfileManager() {
                   <div className='font-mono'>
                     {Number.isFinite(creditsPerCnyValue) &&
                     creditsPerCnyValue > 0
-                      ? `${(channelMultiplier / creditsPerCnyValue).toFixed(8)} CNY / nominal USD`
+                      ? `${(channelMultiplier / creditsPerCnyValue).toFixed(8)} CNY / USD credit`
                       : 'n/a'}
                   </div>
                 </div>
@@ -581,7 +581,10 @@ export function ACUExecutionProfileManager() {
               ))}
             </div>
             <div className='rounded border p-3'>
-              <div className='mb-2 font-medium'>{t('Profile pricing')}</div>
+              <div className='mb-2 font-medium'>
+                {t('Profile pricing')} · {t('USD credits (not cash)')} / 1M
+                tokens
+              </div>
               <div className='grid gap-3 sm:grid-cols-2'>
                 {(
                   [
@@ -656,7 +659,7 @@ export function ACUExecutionProfileManager() {
               </div>
               <p className='text-muted-foreground text-[11px]'>
                 {t(
-                  'Enter token usage to compare upstream cost with the expected user charge.'
+                  'Supplier cost and legacy cost-plus simulation only; this is not the current fixed retail price.'
                 )}
               </p>
               <div className='grid gap-3 sm:grid-cols-2'>
@@ -691,7 +694,7 @@ export function ACUExecutionProfileManager() {
                   <div className='font-mono'>
                     {nominalCostUsd === undefined
                       ? t('n/a')
-                      : `$${nominalCostUsd.toFixed(8)} USD credits`}
+                      : `${nominalCostUsd.toFixed(8)} ${t('USD credits (not cash)')}`}
                   </div>
                   <span className='text-muted-foreground block text-[10px]'>
                     {t('Input accounting')}: {inputAccountingMode}
@@ -719,12 +722,12 @@ export function ACUExecutionProfileManager() {
                 </div>
                 <div>
                   <span className='text-muted-foreground'>
-                    {t('Expected user charge')}
+                    {t('Legacy cost-plus simulation')}
                   </span>
                   <div className='font-mono font-semibold'>
-                    {userChargeCny === undefined
+                    {legacyCostPlusCny === undefined
                       ? 'n/a'
-                      : `¥${userChargeCny.toFixed(8)}`}
+                      : `¥${legacyCostPlusCny.toFixed(8)}`}
                   </div>
                 </div>
               </div>

@@ -91,6 +91,11 @@ function hasRatio(value: number | null | undefined): boolean {
 
 export function formatACUCNY(value: number, maximumFractionDigits = 6): string {
   if (!Number.isFinite(value)) return '-'
+  if (value !== 0 && Math.abs(value) < 10 ** -maximumFractionDigits) {
+    return `¥${new Intl.NumberFormat('zh-CN', {
+      maximumSignificantDigits: 3,
+    }).format(value)}`
+  }
   return `¥${new Intl.NumberFormat('zh-CN', {
     minimumFractionDigits: 0,
     maximumFractionDigits,

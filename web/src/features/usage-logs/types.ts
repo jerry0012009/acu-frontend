@@ -202,7 +202,10 @@ export interface AcuCostBreakdown {
   retail_fx_cny_per_usd?: string
   retail_reference_currency?: 'USD' | 'CNY'
   retail_reference_source?: string
+  retail_reference_type?: string
   retail_reference_observed_at?: string
+  retail_input_accounting_mode?: string
+  retail_cache_creation_input_tokens?: string
   retail_reference_amount_cny?: string
   retail_reference_prices?: {
     inputPricePerMillion: number
@@ -532,6 +535,9 @@ export interface LogStatistics {
   quota: number
   rpm: number
   tpm: number
+  user_charge_cny?: string
+  exact_charge_count?: number
+  legacy_charge_count?: number
 }
 
 // ============================================================================

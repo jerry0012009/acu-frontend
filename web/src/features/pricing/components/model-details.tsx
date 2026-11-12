@@ -666,7 +666,7 @@ function PriceSection(props: {
     },
   ]
 
-  if (props.model.acu_quote) {
+  if (props.model.payable?.model_multiplier || props.model.acu_quote) {
     return (
       <section>
         <ACUPriceSummary model={props.model} tokenUnit={props.tokenUnit} />
@@ -1193,7 +1193,8 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
   const { t } = useTranslation()
   const showRechargePrice = props.showRechargePrice ?? false
 
-  const isDynamic = isDynamicPricingModel(props.model)
+  const isFixedRetail = Boolean(props.model.payable?.model_multiplier)
+  const isDynamic = !isFixedRetail && isDynamicPricingModel(props.model)
 
   return (
     <div className='@container/details space-y-4'>
@@ -1231,7 +1232,7 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
             {isDynamic && (
               <DynamicPricingBreakdown billingExpr={props.model.billing_expr} />
             )}
-            {!props.model.acu_quote && (
+            {!isFixedRetail && !props.model.acu_quote && (
               <GroupPricingSection
                 model={props.model}
                 groupRatio={props.groupRatio}

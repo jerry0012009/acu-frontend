@@ -3,19 +3,19 @@ import { getRouteApi } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatLogQuota } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { getLogStats, getUserLogStats } from '../api'
 import { DEFAULT_LOG_STATS } from '../constants'
 import { buildApiParams } from '../lib/utils'
+import { LogUsageAmount } from './log-usage-amount'
 import { useLogsViewScope, useUsageLogsContext } from './usage-logs-provider'
 
 const route = getRouteApi('/_authenticated/usage-logs/$section')
 
 function StatBadge(props: {
   label: string
-  value: string | number
+  value: React.ReactNode
   accent: string
 }) {
   return (
@@ -35,7 +35,11 @@ export function CommonLogsStats() {
   const searchParams = route.useSearch()
   const { sensitiveVisible } = useUsageLogsContext()
 
-  const { data: stats, isLoading } = useQuery({
+  const {
+    data: stats,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ['usage-logs-stats', isAdmin, searchParams],
     queryFn: async () => {
       const params = buildApiParams({
@@ -50,9 +54,10 @@ export function CommonLogsStats() {
         ? await getLogStats(params)
         : await getUserLogStats(params)
 
-      return result.success
-        ? result.data || DEFAULT_LOG_STATS
-        : DEFAULT_LOG_STATS
+      if (!result.success) {
+        throw new Error(result.message || 'Usage unavailable')
+      }
+      return result.data || DEFAULT_LOG_STATS
     },
     placeholderData: (previousData) => previousData,
   })
@@ -67,13 +72,13 @@ export function CommonLogsStats() {
     )
   }
 
+  let usage: React.ReactNode = <LogUsageAmount stats={stats} />
+  if (isError) usage = t('Usage unavailable')
+  if (!sensitiveVisible) usage = '••••'
+
   return (
     <div className='flex flex-wrap items-center gap-2'>
-      <StatBadge
-        label={t('Usage')}
-        value={sensitiveVisible ? formatLogQuota(stats?.quota || 0) : '••••'}
-        accent='bg-sky-500/70'
-      />
+      <StatBadge label={t('Usage')} value={usage} accent='bg-sky-500/70' />
       <StatBadge
         label={t('RPM')}
         value={stats?.rpm || 0}

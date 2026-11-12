@@ -213,6 +213,33 @@ test('Current Profiles keeps zero global weight and shows unscored profiles hone
   }
 })
 
+test('Current Profiles labels supplier estimates separately from user charges and preserves small nonzero costs', async () => {
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  try {
+    await act(async () =>
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <MonitorTable
+            profiles={[{ ...profile, profileCost: 0.00000123 }]}
+            canPause={false}
+            onPause={() => undefined}
+          />
+        </I18nextProvider>
+      )
+    )
+    const text = host.textContent ?? ''
+    assert.match(text, /Estimated supplier cost/)
+    assert.match(text, /not the user charge/)
+    assert.match(text, /¥0\.00000123/)
+    assert.doesNotMatch(text, /¥0\.0000(?:\D|$)/)
+  } finally {
+    await act(async () => root.unmount())
+    host.remove()
+  }
+})
+
 test('switching from Current Profiles resets model-local routing rank and hides it in Overview', async () => {
   const originalUser = useAuthStore.getState().auth.user
   const queryClient = new QueryClient({

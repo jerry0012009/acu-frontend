@@ -2,16 +2,21 @@ package model
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
+	"github.com/shopspring/decimal"
 
 	"gorm.io/gorm"
 )
@@ -689,64 +694,173 @@ func GetAllUsersACUTimelineLogs(from, to int64) (logs []*Log, truncated bool, er
 }
 
 type Stat struct {
-	Quota int `json:"quota"`
-	Rpm   int `json:"rpm"`
-	Tpm   int `json:"tpm"`
+	Quota             int    `json:"quota"`
+	Rpm               int    `json:"rpm"`
+	Tpm               int    `json:"tpm"`
+	UserChargeCNY     string `json:"user_charge_cny"`
+	ExactChargeCount  int64  `json:"exact_charge_count"`
+	LegacyChargeCount int64  `json:"legacy_charge_count"`
 }
 
-func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string) (stat Stat, err error) {
-	tx := LOG_DB.Table("logs").Select("COALESCE(sum(quota), 0) quota")
+type LogStatFilter struct {
+	Context           context.Context
+	RequestId         string
+	UpstreamRequestId string
+	UserId            int
+}
 
-	// 为rpm和tpm创建单独的查询
-	rpmTpmQuery := LOG_DB.Table("logs").Select("count(*) rpm, COALESCE(sum(prompt_tokens), 0) + COALESCE(sum(completion_tokens), 0) tpm")
+// logExactUserChargeCNY accepts string and numeric JSON without a float64 round trip.
+// Invalid historical metadata must use the quota fallback, not become a free bill.
+func logExactUserChargeCNY(other string) (decimal.Decimal, bool) {
+	var metadata struct {
+		UserChargeCNY json.RawMessage `json:"user_charge_cny"`
+	}
+	if err := common.UnmarshalJsonStr(other, &metadata); err != nil {
+		return decimal.Zero, false
+	}
+	value := metadata.UserChargeCNY
+	switch common.GetJsonType(value) {
+	case "string":
+		var text string
+		if err := common.Unmarshal(value, &text); err != nil {
+			return decimal.Zero, false
+		}
+		value = []byte(text)
+	case "number":
+	default:
+		return decimal.Zero, false
+	}
+	amount, err := decimal.NewFromString(string(value))
+	return amount, err == nil && !amount.IsNegative()
+}
 
+// SumUsedQuota is a consumption summary, not a sum of topups/refunds/audit events.
+// Type 0 includes only consumption; an explicit non-consumption type returns zero.
+// Monetary totals follow the selected date range; RPM/TPM remain live 60s metrics.
+func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string, filters ...LogStatFilter) (stat Stat, err error) {
+	stat.UserChargeCNY = "0"
+	ctx := context.Background()
+	for _, filter := range filters {
+		if filter.Context != nil {
+			ctx = filter.Context
+		}
+	}
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	tx := LOG_DB.WithContext(ctx).Table("logs").Where("type = ?", LogTypeConsume)
+	if logType != LogTypeUnknown {
+		tx = tx.Where("type = ?", logType)
+	}
 	if tx, err = applyExplicitLogTextFilter(tx, "username", username); err != nil {
 		return stat, err
 	}
-	if rpmTpmQuery, err = applyExplicitLogTextFilter(rpmTpmQuery, "username", username); err != nil {
+	if tx, err = applyExplicitLogTextFilter(tx, "model_name", modelName); err != nil {
 		return stat, err
 	}
 	if tokenName != "" {
 		tx = tx.Where("token_name = ?", tokenName)
-		rpmTpmQuery = rpmTpmQuery.Where("token_name = ?", tokenName)
 	}
+	if channel != 0 {
+		tx = tx.Where("channel_id = ?", channel)
+	}
+	if group != "" {
+		tx = tx.Where(logGroupCol+" = ?", group)
+	}
+	for _, filter := range filters {
+		if filter.RequestId != "" {
+			tx = tx.Where("request_id = ?", filter.RequestId)
+		}
+		if filter.UpstreamRequestId != "" {
+			tx = tx.Where("upstream_request_id = ?", filter.UpstreamRequestId)
+		}
+		if filter.UserId != 0 {
+			tx = tx.Where("user_id = ?", filter.UserId)
+		}
+	}
+	rpmTpmQuery := tx.Session(&gorm.Session{}).
+		Select("count(*) rpm, COALESCE(sum(prompt_tokens), 0) + COALESCE(sum(completion_tokens), 0) tpm").
+		Where("created_at >= ?", time.Now().Add(-60*time.Second).Unix())
+	tx = tx.Session(&gorm.Session{})
 	if startTimestamp != 0 {
 		tx = tx.Where("created_at >= ?", startTimestamp)
 	}
 	if endTimestamp != 0 {
 		tx = tx.Where("created_at <= ?", endTimestamp)
 	}
-	if tx, err = applyExplicitLogTextFilter(tx, "model_name", modelName); err != nil {
+	if err = rpmTpmQuery.Scan(&stat).Error; err != nil {
 		return stat, err
 	}
-	if rpmTpmQuery, err = applyExplicitLogTextFilter(rpmTpmQuery, "model_name", modelName); err != nil {
+
+	// Project raw JSON scalars so numeric amounts never pass through SQL floats.
+	// PostgreSQL <16 cannot safely cast malformed text to JSON without installing
+	// a function, so it retains a streaming compatibility path under the deadline.
+	var amountSQL string
+	switch common.LogDatabaseType() {
+	case common.DatabaseTypeSQLite:
+		amountSQL = "CASE WHEN json_valid(other) THEN CASE WHEN json_type(other) = 'object' THEN other -> '$.user_charge_cny' END END"
+	case common.DatabaseTypeMySQL:
+		amountSQL = "CASE WHEN JSON_VALID(other) THEN CAST(JSON_EXTRACT(other, '$.user_charge_cny') AS CHAR) END"
+	case common.DatabaseTypePostgreSQL:
+		var version string
+		if err = LOG_DB.WithContext(ctx).Raw("SELECT current_setting('server_version_num')").Scan(&version).Error; err != nil {
+			return stat, err
+		}
+		versionNum, parseErr := strconv.Atoi(version)
+		if parseErr != nil {
+			return stat, parseErr
+		}
+		if versionNum >= 160000 {
+			amountSQL = "CASE WHEN pg_input_is_valid(other, 'json') THEN (other::json -> 'user_charge_cny')::text END"
+		}
+	case common.DatabaseTypeClickHouse:
+		amountSQL = "CASE WHEN isValidJSON(other) THEN JSONExtractRaw(other, 'user_charge_cny') END"
+	}
+	grouped := amountSQL != ""
+	if grouped {
+		tx = tx.Select("COALESCE(sum(quota), 0) quota, count(*) charge_count, " + amountSQL + " AS charge_amount").Group("charge_amount")
+	} else {
+		tx = tx.Select("quota, 1 AS charge_count, other AS charge_amount")
+	}
+	rows, err := tx.Rows()
+	if err != nil {
 		return stat, err
 	}
-	if channel != 0 {
-		tx = tx.Where("channel_id = ?", channel)
-		rpmTpmQuery = rpmTpmQuery.Where("channel_id = ?", channel)
+	defer rows.Close()
+	total, legacyQuota := decimal.Zero, decimal.Zero
+	for rows.Next() {
+		var quota, count int64
+		var rawAmount *string
+		if err = rows.Scan(&quota, &count, &rawAmount); err != nil {
+			return stat, err
+		}
+		stat.Quota += int(quota)
+		metadata := ""
+		if rawAmount != nil {
+			if grouped {
+				metadata = `{"user_charge_cny":` + *rawAmount + `}`
+			} else {
+				metadata = *rawAmount
+			}
+		}
+		if amount, exact := logExactUserChargeCNY(metadata); exact {
+			total = total.Add(amount.Mul(decimal.NewFromInt(count)))
+			stat.ExactChargeCount += count
+		} else {
+			legacyQuota = legacyQuota.Add(decimal.NewFromInt(quota))
+			stat.LegacyChargeCount += count
+		}
 	}
-	if group != "" {
-		tx = tx.Where(logGroupCol+" = ?", group)
-		rpmTpmQuery = rpmTpmQuery.Where(logGroupCol+" = ?", group)
+	if err = rows.Err(); err != nil {
+		return stat, err
 	}
-
-	tx = tx.Where("type = ?", LogTypeConsume)
-	rpmTpmQuery = rpmTpmQuery.Where("type = ?", LogTypeConsume)
-
-	// 只统计最近60秒的rpm和tpm
-	rpmTpmQuery = rpmTpmQuery.Where("created_at >= ?", time.Now().Add(-60*time.Second).Unix())
-
-	// 执行查询
-	if err := tx.Scan(&stat).Error; err != nil {
-		common.SysError("failed to query log stat: " + err.Error())
-		return stat, errors.New("查询统计数据失败")
+	if stat.LegacyChargeCount > 0 {
+		quotaPerUnit, fx := common.QuotaPerUnit, operation_setting.USDExchangeRate
+		if quotaPerUnit <= 0 || fx <= 0 || math.IsNaN(quotaPerUnit) || math.IsInf(quotaPerUnit, 0) || math.IsNaN(fx) || math.IsInf(fx, 0) {
+			return stat, errors.New("invalid legacy quota currency conversion")
+		}
+		total = total.Add(legacyQuota.Mul(decimal.NewFromFloat(fx)).Div(decimal.NewFromFloat(quotaPerUnit)))
 	}
-	if err := rpmTpmQuery.Scan(&stat).Error; err != nil {
-		common.SysError("failed to query rpm/tpm stat: " + err.Error())
-		return stat, errors.New("查询统计数据失败")
-	}
-
+	stat.UserChargeCNY = total.String()
 	return stat, nil
 }
 

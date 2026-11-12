@@ -252,13 +252,18 @@ export function ACUMonitorProfile(
         </div>
         <div className='grid grid-cols-3 gap-2 text-xs'>
           <div>
-            <div className='text-muted-foreground'>{t('Price factor')}</div>
+            <div className='text-muted-foreground'>
+              {t('Supplier cost factor')}
+            </div>
             <div className='mt-1 font-medium tabular-nums'>
               {profile.effectivePriceMultiplier == null
                 ? t('No price data')
                 : (formatMultiplier(profile.effectivePriceMultiplier, '×') ??
                   t('No price data'))}
             </div>
+            <p className='text-muted-foreground mt-1'>
+              {t('Not the user model multiplier.')}
+            </p>
           </div>
           <div>
             <div className='text-muted-foreground'>{t('Response latency')}</div>
@@ -408,7 +413,7 @@ export function ACUMonitorProfile(
                           : 'Disable this Profile from global routing?'
                       ),
                       `${t('Line')}: ${profile.channel}`,
-                      `${t('Price factor')}: ${profile.effectivePriceMultiplier == null ? t('No price data') : formatMultiplier(profile.effectivePriceMultiplier, '×')}`,
+                      `${t('Supplier cost factor')}: ${profile.effectivePriceMultiplier == null ? t('No price data') : formatMultiplier(profile.effectivePriceMultiplier, '×')}`,
                       `${t('Note')}: ${profile.publicNote || t('No public note')}`,
                       `${t('Execution Profile ID')}: ${profile.executionProfileId}`,
                     ].join('\n')

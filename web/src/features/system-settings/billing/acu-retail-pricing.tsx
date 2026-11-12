@@ -38,10 +38,12 @@ type Economics = {
     suggestedMultiplier: string | null
     observedCostMultiplier: number | null
     matchedCoverage: number
+    reportingCoverage?: number
     replayRevenueCny?: string | null
     replayCoverage?: number
   }>
   totals: { calls: number; revenueCny: string; recordedCostCny: string }
+  costScope?: string
 }
 type PricingResponse = {
   active: PriceBook | null
@@ -135,6 +137,12 @@ export function ACURetailPricing() {
     ),
   ]
   const rows = new Map(economics.models.map((model) => [model.model_id, model]))
+  const incompleteReporting = economics.models.some(
+    (model) => Number(model.calls) > 0 && (model.reportingCoverage ?? 0) < 1
+  )
+  const incompleteReplay = economics.models.some(
+    (model) => Number(model.calls) > 0 && (model.replayCoverage ?? 0) < 1
+  )
   return (
     <section className='min-w-0 space-y-4'>
       <div className='flex flex-wrap items-center justify-between gap-3'>
@@ -170,6 +178,26 @@ export function ACURetailPricing() {
           <dd>{data.active?.version ?? t('Not published')}</dd>
         </div>
       </dl>
+      {economics.costScope ===
+        'recorded_cost_excludes_fixed_infrastructure_and_payment_fees' && (
+        <p role='note' className='text-muted-foreground text-sm'>
+          {t('Recorded cost excludes fixed infrastructure and payment fees.')}
+        </p>
+      )}
+      {incompleteReporting && (
+        <p role='note' className='text-muted-foreground text-sm'>
+          {t(
+            'Missing historical reporting summaries do not mean zero cost. Recorded revenue and cost totals are retained; matched and replay coverage may be incomplete.'
+          )}
+        </p>
+      )}
+      {incompleteReplay && (
+        <p role='note' className='text-muted-foreground text-sm'>
+          {t(
+            'Replay revenue covers only replayable requests, not the full period total.'
+          )}
+        </p>
+      )}
       {!draft && (
         <Button
           onClick={() => {
@@ -234,11 +262,13 @@ export function ACURetailPricing() {
                 'Requests',
                 'Revenue',
                 'Recorded cost',
+                'Reporting coverage',
                 'Matched coverage',
                 'Observed cost multiplier',
                 'Suggested multiplier',
                 'Price multiplier',
                 'Replay revenue',
+                'Replay coverage',
               ].map((label) => (
                 <th className='px-2 py-3 font-medium' key={label}>
                   {t(label)}
@@ -252,15 +282,26 @@ export function ACURetailPricing() {
               return (
                 <tr key={model.modelId} className='border-b'>
                   <th className='px-2 py-2 font-normal'>{model.modelId}</th>
-                  <td className='px-2 py-2'>{row?.calls ?? '0'}</td>
+                  <td className='px-2 py-2'>{row?.calls ?? '-'}</td>
                   <td className='px-2 py-2'>
-                    {Number(row?.totalRevenueCny ?? 0).toFixed(2)}
+                    {row?.totalRevenueCny == null
+                      ? '-'
+                      : Number(row.totalRevenueCny).toFixed(2)}
                   </td>
                   <td className='px-2 py-2'>
-                    {Number(row?.totalRecordedCostCny ?? 0).toFixed(2)}
+                    {row?.totalRecordedCostCny == null
+                      ? '-'
+                      : Number(row.totalRecordedCostCny).toFixed(2)}
                   </td>
                   <td className='px-2 py-2'>
-                    {((row?.matchedCoverage ?? 0) * 100).toFixed(0)}%
+                    {row?.reportingCoverage == null
+                      ? '-'
+                      : `${(row.reportingCoverage * 100).toFixed(0)}%`}
+                  </td>
+                  <td className='px-2 py-2'>
+                    {row?.matchedCoverage == null
+                      ? '-'
+                      : `${(row.matchedCoverage * 100).toFixed(0)}%`}
                   </td>
                   <td className='px-2 py-2'>
                     {row?.observedCostMultiplier?.toFixed(4) ?? '-'}
@@ -291,9 +332,14 @@ export function ACURetailPricing() {
                     )}
                   </td>
                   <td className='px-2 py-2'>
-                    {row?.replayRevenueCny == null
+                    {row?.replayRevenueCny == null || row.replayCoverage === 0
                       ? '-'
-                      : `${Number(row.replayRevenueCny).toFixed(2)} (${((row.replayCoverage ?? 0) * 100).toFixed(0)}%)`}
+                      : Number(row.replayRevenueCny).toFixed(2)}
+                  </td>
+                  <td className='px-2 py-2'>
+                    {row?.replayCoverage == null
+                      ? '-'
+                      : `${(row.replayCoverage * 100).toFixed(0)}%`}
                   </td>
                 </tr>
               )

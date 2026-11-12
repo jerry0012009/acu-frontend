@@ -56,6 +56,7 @@ import {
   acuResolvedReasoningEffort,
   acuSuccessfulAttempt,
 } from '../../lib/acu-log-view'
+import { formatExactDecimal } from '../../lib/decimal-format'
 import {
   parseLogOther,
   getParamOverrideActionLabel,
@@ -82,6 +83,7 @@ import { ACUSessionTracePanel } from './acu-session-trace'
 import {
   isFinalizedAcuUsageLog,
   shouldShowAcuInternalDetails,
+  frozenBilledInputTokens,
 } from './details-dialog-model'
 
 const ACU_CURVE_COLORS = [
@@ -412,15 +414,24 @@ export function AcuExecutionAttempts(props: {
   )
 }
 
-function AcuPricingDetails(props: {
+export function AcuPricingDetails(props: {
   breakdown: NonNullable<LogOtherData['acu_cost_breakdown']>
   modelId: string
   isAdmin: boolean
 }) {
   const { t } = useTranslation()
-  const { models } = usePricingData()
   if (props.breakdown.retail_price_version) {
     const snapshot = props.breakdown.retail_reference_prices
+    let referenceType = t('Unknown')
+    if (props.breakdown.retail_reference_type === 'official') {
+      referenceType = t('Official reference')
+    }
+    if (props.breakdown.retail_reference_type === 'platform') {
+      referenceType = t('Platform reference')
+    }
+    if (props.breakdown.retail_reference_type === 'openrouter') {
+      referenceType = t('OpenRouter reference')
+    }
     return (
       <DetailSection label={t('Pricing details')}>
         <DetailRow
@@ -429,42 +440,65 @@ function AcuPricingDetails(props: {
           mono
         />
         <DetailRow
-          label={t('Price multiplier')}
-          value={`${props.breakdown.retail_model_multiplier}x`}
+          label={t('Model multiplier')}
+          value={
+            formatExactDecimal(props.breakdown.retail_model_multiplier) != null
+              ? `${formatExactDecimal(props.breakdown.retail_model_multiplier)}x`
+              : '-'
+          }
           mono
         />
+        <DetailRow label={t('Reference type')} value={referenceType} />
         <DetailRow
-          label={t('Official reference')}
-          value={`${props.breakdown.retail_reference_currency} · ${props.breakdown.retail_reference_source}`}
+          label={t('Reference currency')}
+          value={props.breakdown.retail_reference_currency ?? '-'}
         />
         <DetailRow
+          label={t('Reference source')}
+          value={props.breakdown.retail_reference_source ?? '-'}
+        />
+        <DetailRow
+          label={t('Reference amount (CNY)')}
+          value={`¥${formatExactDecimal(props.breakdown.retail_reference_amount_cny) ?? '-'}`}
+          mono
+        />
+        {props.breakdown.user_charge_cny != null && (
+          <DetailRow
+            label={t('Actual charge')}
+            value={`¥${formatExactDecimal(props.breakdown.user_charge_cny) ?? '-'}`}
+            mono
+          />
+        )}
+        <DetailRow
           label={t('USD/CNY')}
-          value={props.breakdown.retail_fx_cny_per_usd ?? '-'}
+          value={
+            formatExactDecimal(props.breakdown.retail_fx_cny_per_usd) ?? '-'
+          }
           mono
         />
         {snapshot && (
           <>
             <DetailRow
               label={t('Input')}
-              value={`${snapshot.inputPricePerMillion} ${props.breakdown.retail_reference_currency} / M`}
+              value={`${formatExactDecimal(snapshot.inputPricePerMillion) ?? '-'} ${props.breakdown.retail_reference_currency ?? '-'} / M`}
               mono
             />
             <DetailRow
               label={t('Output')}
-              value={`${snapshot.outputPricePerMillion} ${props.breakdown.retail_reference_currency} / M`}
+              value={`${formatExactDecimal(snapshot.outputPricePerMillion) ?? '-'} ${props.breakdown.retail_reference_currency ?? '-'} / M`}
               mono
             />
             {snapshot.cachedInputPricePerMillion != null && (
               <DetailRow
                 label={t('Cached Input')}
-                value={`${snapshot.cachedInputPricePerMillion} ${props.breakdown.retail_reference_currency} / M`}
+                value={`${formatExactDecimal(snapshot.cachedInputPricePerMillion) ?? '-'} ${props.breakdown.retail_reference_currency ?? '-'} / M`}
                 mono
               />
             )}
             {snapshot.cacheWritePricePerMillion != null && (
               <DetailRow
                 label={t('Cache Write')}
-                value={`${snapshot.cacheWritePricePerMillion} ${props.breakdown.retail_reference_currency} / M`}
+                value={`${formatExactDecimal(snapshot.cacheWritePricePerMillion) ?? '-'} ${props.breakdown.retail_reference_currency ?? '-'} / M`}
                 mono
               />
             )}
@@ -473,6 +507,16 @@ function AcuPricingDetails(props: {
       </DetailSection>
     )
   }
+  return <LegacyAcuPricingDetails {...props} />
+}
+
+function LegacyAcuPricingDetails(props: {
+  breakdown: NonNullable<LogOtherData['acu_cost_breakdown']>
+  modelId: string
+  isAdmin: boolean
+}) {
+  const { t } = useTranslation()
+  const { models } = usePricingData()
   const pricing = models.find((model) => model.model_name === props.modelId)
   const rows = acuPriceComparisonRows(pricing, props.breakdown.protocol)
   const successfulAttempt = acuSuccessfulAttempt(props.breakdown)
@@ -707,13 +751,25 @@ function quotaSaturationKindLabel(
   return t('Invalid (NaN)')
 }
 
-function BillingBreakdown(props: {
+export function BillingBreakdown(props: {
   log: UsageLog
   other: LogOtherData
   isAdmin: boolean
 }) {
   const { t } = useTranslation()
   const { log, other, isAdmin } = props
+  const frozen = other.acu_cost_breakdown
+  if (frozen?.retail_price_version) {
+    return (
+      <DetailSection label={t('Billing Details')}>
+        <DetailRow
+          label={t('Actual charge')}
+          value={`¥${formatExactDecimal(other.user_charge_cny ?? frozen.user_charge_cny ?? frozen.user_charge) ?? '-'}`}
+          mono
+        />
+      </DetailSection>
+    )
+  }
   const isPerCall = isPerCallBilling(other.model_price)
   const isClaude = other.claude === true
   const isTieredExpr = other.billing_mode === 'tiered_expr'
@@ -943,23 +999,50 @@ function BillingBreakdown(props: {
   )
 }
 
-function TokenBreakdown(props: { log: UsageLog; other: LogOtherData }) {
+export function TokenBreakdown(props: { log: UsageLog; other: LogOtherData }) {
   const { t } = useTranslation()
   const { log, other } = props
 
   const promptTokens = log.prompt_tokens || 0
   const completionTokens = log.completion_tokens || 0
-  const cacheRead = acuCacheReadTokens(other)
+  const frozen = other.acu_cost_breakdown
+  const hasSnapshot = Boolean(frozen?.retail_price_version)
+  const settledCacheRead = other.cached_input_tokens ?? other.cache_tokens
+  const cacheRead = hasSnapshot
+    ? (settledCacheRead ?? 0)
+    : acuCacheReadTokens(other)
   const cacheWrite = other.cache_creation_tokens || 0
   const cacheWrite5m = other.cache_creation_tokens_5m || 0
   const cacheWrite1h = other.cache_creation_tokens_1h || 0
-  const hasTokens = promptTokens > 0 || completionTokens > 0
+  const hasTokens = promptTokens > 0 || completionTokens > 0 || hasSnapshot
 
   if (!hasTokens) return null
 
   const rows: Array<{ label: string; value: string }> = []
 
   rows.push({ label: t('Input Tokens'), value: promptTokens.toLocaleString() })
+  if (hasSnapshot) {
+    let modeLabel = t('Unknown')
+    if (frozen?.retail_input_accounting_mode === 'includes_cached') {
+      modeLabel = t('Input includes cached tokens')
+    }
+    if (frozen?.retail_input_accounting_mode === 'excludes_cached') {
+      modeLabel = t('Input excludes cached tokens')
+    }
+    const billed = frozenBilledInputTokens(
+      log.prompt_tokens,
+      settledCacheRead ?? Number.NaN,
+      frozen?.retail_cache_creation_input_tokens,
+      frozen?.retail_input_accounting_mode
+    )
+    rows.push({ label: t('Input accounting mode'), value: modeLabel })
+    rows.push({
+      label: t('Billed Uncached Input Tokens'),
+      value: billed?.toLocaleString() ?? t('Unknown'),
+    })
+    const write = formatExactDecimal(frozen?.retail_cache_creation_input_tokens)
+    rows.push({ label: t('Cache Write'), value: write ?? t('Unknown') })
+  }
   rows.push({
     label: t('Output Tokens'),
     value: completionTokens.toLocaleString(),
@@ -972,21 +1055,26 @@ function TokenBreakdown(props: { log: UsageLog; other: LogOtherData }) {
     })
   }
 
-  if (cacheWrite > 0 && cacheWrite5m === 0 && cacheWrite1h === 0) {
+  if (
+    !hasSnapshot &&
+    cacheWrite > 0 &&
+    cacheWrite5m === 0 &&
+    cacheWrite1h === 0
+  ) {
     rows.push({
       label: t('Cache Write'),
       value: cacheWrite.toLocaleString(),
     })
   }
 
-  if (cacheWrite5m > 0) {
+  if (!hasSnapshot && cacheWrite5m > 0) {
     rows.push({
       label: t('Cache Write (5m)'),
       value: cacheWrite5m.toLocaleString(),
     })
   }
 
-  if (cacheWrite1h > 0) {
+  if (!hasSnapshot && cacheWrite1h > 0) {
     rows.push({
       label: t('Cache Write (1h)'),
       value: cacheWrite1h.toLocaleString(),
@@ -2263,7 +2351,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
             {acuRoute?.user_charge != null && (
               <DetailRow
                 label={t('Actual charge')}
-                value={`¥${Number(acuRoute.user_charge).toFixed(8)}`}
+                value={`¥${acuRoute.retail_price_version ? (formatExactDecimal(acuRoute.user_charge) ?? '-') : Number(acuRoute.user_charge).toFixed(8)}`}
                 mono
               />
             )}

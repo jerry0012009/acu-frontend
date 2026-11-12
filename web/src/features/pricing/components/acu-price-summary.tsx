@@ -23,12 +23,20 @@ export function ACUPriceSummary(props: {
   const { t } = useTranslation()
   const quote = props.model.acu_quote
   const price = props.model.payable
+  let referenceLabel = t('Public reference')
+  let relativeLabel = t('Relative to public reference')
+  if (props.model.reference?.source_type === 'official') {
+    referenceLabel = t('Official reference')
+    relativeLabel = t('Relative to official price')
+  } else if (props.model.reference?.source_type === 'platform') {
+    referenceLabel = t('Platform reference')
+    relativeLabel = t('Relative to platform reference')
+  }
   if (price?.model_multiplier) {
     return (
       <div className='space-y-1'>
         <div className='text-muted-foreground text-xs'>
-          {props.model.reference?.source_type === 'official'
-            ? t('Relative to official price') : t('Relative to public reference')}
+          {t('Fixed retail price')} · {relativeLabel}
         </div>
         <strong
           className='font-mono text-2xl font-semibold tabular-nums'
@@ -91,11 +99,7 @@ export function ACUPriceSummary(props: {
   return (
     <div className='w-full min-w-0 space-y-2'>
       <div className='text-muted-foreground flex items-center gap-1 text-xs'>
-        <span>
-          {props.model.reference?.source_type === 'openrouter'
-            ? t('Relative to public reference')
-            : t('Relative to official price')}
-        </span>
+        <span>{relativeLabel}</span>
         <Tooltip>
           <TooltipTrigger
             type='button'
@@ -163,9 +167,7 @@ export function ACUPriceSummary(props: {
           {reference && (
             <tr>
               <th scope='row' className='py-1 pr-2 font-normal'>
-                {props.model.reference?.source_type === 'openrouter'
-                  ? t('Public reference')
-                  : t('Official reference')}
+                {referenceLabel}
               </th>
               <td className='text-right font-mono break-all tabular-nums'>
                 {formatACUCNY(reference.input_cny_per_million / divisor)}

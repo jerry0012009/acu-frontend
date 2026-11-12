@@ -56,6 +56,7 @@ import {
   type ACUGlobalRoutingPolicy,
   type ACURoutingUtilityConfig,
 } from '../api'
+import { formatListDecimal } from '../lib/decimal-format'
 import { ACUChannelHealthCard } from './acu-channel-health-card'
 import { groupACUChannels, groupACUModels } from './acu-channel-health-model'
 import { ACUChannelHistory } from './acu-channel-history'
@@ -2429,7 +2430,7 @@ export function MonitorTable(props: {
               'Current status',
               'Global weight / Routing score',
               'Production usage',
-              'Estimated cost',
+              'Estimated supplier cost',
               'Response speed',
               'Latest verification',
               ...(props.canPause ? ['Actions'] : []),
@@ -2465,7 +2466,7 @@ export function MonitorTable(props: {
                           }`}
                     </div>
                     <div>
-                      {t('Multiplier')}:{' '}
+                      {t('Channel billing multiplier')}:{' '}
                       {formatMultiplier(profile.multiplier) ?? t('n/a')}
                     </div>
                     <div>
@@ -2571,8 +2572,11 @@ export function MonitorTable(props: {
                 ) : (
                   <div className='font-medium'>
                     {t('Estimated ¥{{cost}} per request', {
-                      cost: profile.profileCost.toFixed(4),
+                      cost: formatListDecimal(profile.profileCost) ?? t('n/a'),
                     })}
+                    <p className='text-muted-foreground mt-1 font-normal'>
+                      {t('Routing cost estimate, not the user charge.')}
+                    </p>
                   </div>
                 )}
               </td>

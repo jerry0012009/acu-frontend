@@ -146,6 +146,11 @@ export function ACUModelPriceRange(props: {
         setConfirmOpen(true)
       })}
     >
+      <p className='text-muted-foreground text-xs'>
+        {t(
+          'Supplier cost factor range only; this does not change the user model multiplier.'
+        )}
+      </p>
       <div className='flex flex-wrap items-center gap-x-4 gap-y-2 text-xs'>
         <div className='flex min-w-0 flex-wrap items-center gap-x-1'>
           <span className='text-muted-foreground'>

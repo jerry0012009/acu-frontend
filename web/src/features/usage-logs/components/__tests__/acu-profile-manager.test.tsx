@@ -150,6 +150,13 @@ test('editing provider conversion retains channel controls and saves through DB 
     const dialog = document.querySelector('[role="dialog"]')
     assert.ok(dialog)
     assert.match(dialog.textContent ?? '', /Cost calculator/)
+    assert.match(dialog.textContent ?? '', /Legacy cost-plus simulation/)
+    assert.match(dialog.textContent ?? '', /not the current fixed retail price/)
+    assert.match(dialog.textContent ?? '', /USD credits \(not cash\)/)
+    assert.doesNotMatch(
+      dialog.textContent ?? '',
+      /Expected user charge|expected user charge|\$[\d.]+ USD credits/
+    )
     assert.match(dialog.textContent ?? '', /Channel connection/)
     assert.doesNotMatch(
       dialog.textContent ?? '',

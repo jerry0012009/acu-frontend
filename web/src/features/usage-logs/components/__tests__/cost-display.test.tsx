@@ -58,7 +58,9 @@ await i18n.use(initReactI18next).init({
   },
 })
 
-const { LogCostDisplay } = await import('../log-cost-display')
+const { LogCostDisplay, FrozenCostReference } =
+  await import('../log-cost-display')
+const { renderToStaticMarkup } = await import('react-dom/server')
 const { formatMultiplier } = await import('../../lib/format')
 const { formatLogQuota } = await import('@/lib/format')
 const reactTestGlobals = globalThis as typeof globalThis & {
@@ -173,6 +175,64 @@ describe('log cost display', () => {
     assert.equal(normalizedText(rendered.container.textContent), '¥0.00000000')
 
     await unmountCost(rendered)
+  })
+
+  test('keeps a tiny positive frozen actual charge visible instead of rounding to zero', async () => {
+    const rendered = await renderCost({
+      quota: 0,
+      other: {
+        user_charge_cny: '0.0000000004',
+        acu_cost_breakdown: { retail_price_version: 'frozen-v1' },
+      },
+    })
+    try {
+      assert.equal(
+        normalizedText(rendered.container.textContent),
+        '¥0.0000000004'
+      )
+    } finally {
+      await unmountCost(rendered)
+    }
+  })
+
+  test('uses frozen CNY platform reference and model multiplier instead of legacy official USD discount', async () => {
+    const breakdown = {
+      retail_price_version: 'frozen-v1',
+      retail_reference_type: 'platform',
+      retail_reference_currency: 'CNY' as const,
+      retail_reference_source: 'Frozen K3 catalog',
+      retail_reference_amount_cny: '0.0028740000',
+      retail_model_multiplier: '0.6000000001',
+      retail_reference_prices: {
+        inputPricePerMillion: 4,
+        outputPricePerMillion: 12,
+      },
+      official_reference_cost_usd: '99',
+      channel_discount_multiplier: '0.01',
+    }
+    const rendered = await renderCost({
+      quota: 0,
+      other: { user_charge_cny: '0.002874', acu_cost_breakdown: breakdown },
+    })
+    try {
+      const trigger =
+        rendered.container.querySelector<HTMLButtonElement>('button')
+      assert.ok(trigger)
+      assert.equal(trigger.getAttribute('aria-label'), 'View cost reference')
+      const text = renderToStaticMarkup(
+        <I18nextProvider i18n={i18n}>
+          <FrozenCostReference breakdown={breakdown} />
+        </I18nextProvider>
+      )
+      assert.match(text, /Platform reference/)
+      assert.match(text, /Frozen K3 catalog/)
+      assert.match(text, /CNY/)
+      assert.match(text, /0\.6000000001x/)
+      assert.match(text, /¥0\.0028740000/)
+      assert.doesNotMatch(text, /Channel discount|Official unit prices|\$99/)
+    } finally {
+      await unmountCost(rendered)
+    }
   })
 
   test('shows the official reference indicator without exposing internal billing', async () => {
