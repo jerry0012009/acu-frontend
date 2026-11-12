@@ -26,8 +26,10 @@ import (
 )
 
 type LoginRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Username      string `json:"username"`
+	Password      string `json:"password"`
+	CaptchaID     string `json:"captcha_id"`
+	CaptchaAnswer string `json:"captcha_answer"`
 }
 
 var (
@@ -52,6 +54,14 @@ func Login(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
 	}
+	required, protectionErr := service.LoginCaptchaRequired(c.Request.Context(), c.ClientIP(), username)
+	if protectionErr != nil {
+		authProtectionUnavailable(c)
+		return
+	}
+	if required && !requireAuthCaptcha(c, "login", loginRequest.CaptchaID, loginRequest.CaptchaAnswer) {
+		return
+	}
 	user := model.User{
 		Username: username,
 		Password: password,
@@ -65,8 +75,25 @@ func Login(c *gin.Context) {
 		case errors.Is(err, model.ErrUserEmptyCredentials):
 			common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		default:
+			if err := service.RecordLoginFailure(c.Request.Context(), c.ClientIP(), username); err != nil {
+				authProtectionUnavailable(c)
+				return
+			}
+			required, err := service.LoginCaptchaRequired(c.Request.Context(), c.ClientIP(), username)
+			if err != nil {
+				authProtectionUnavailable(c)
+				return
+			}
+			if required {
+				c.JSON(http.StatusOK, gin.H{"success": false, "code": "CAPTCHA_REQUIRED", "message_key": "Incorrect username or password. Please enter an image verification code to retry.", "message": "Incorrect username or password. Please enter an image verification code to retry."})
+				return
+			}
 			common.ApiErrorI18n(c, i18n.MsgUserUsernameOrPasswordError)
 		}
+		return
+	}
+	if err := service.ClearLoginFailures(c.Request.Context(), c.ClientIP(), username); err != nil {
+		authProtectionUnavailable(c)
 		return
 	}
 
@@ -243,6 +270,8 @@ func Register(c *gin.Context) {
 			common.ApiErrorI18n(c, i18n.MsgDatabaseError)
 			return
 		}
+	} else if !requireAuthCaptcha(c, "register", c.Query("captcha_id"), c.Query("captcha_answer")) {
+		return
 	}
 	emailForExistCheck := ""
 	if common.EmailVerificationEnabled {

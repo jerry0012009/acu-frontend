@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import type { z } from 'zod'
 
-import { Turnstile } from '@/components/turnstile'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -19,10 +18,13 @@ import {
 import { Input } from '@/components/ui/input'
 import { sendPasswordResetEmail } from '@/features/auth/api'
 import {
+  ImageCaptcha,
+  type CaptchaAnswer,
+} from '@/features/auth/components/image-captcha'
+import {
   forgotPasswordFormSchema,
   PASSWORD_RESET_COUNTDOWN,
 } from '@/features/auth/constants'
-import { useTurnstile } from '@/features/auth/hooks/use-turnstile'
 import { useCountdown } from '@/hooks/use-countdown'
 import { cn } from '@/lib/utils'
 
@@ -33,13 +35,11 @@ export function ForgotPasswordForm({
   const { t } = useTranslation()
   const [isLoading, setIsLoading] = useState(false)
 
-  const {
-    isTurnstileEnabled,
-    turnstileSiteKey,
-    turnstileToken,
-    setTurnstileToken,
-    validateTurnstile,
-  } = useTurnstile()
+  const [captcha, setCaptcha] = useState<CaptchaAnswer>({
+    captcha_id: '',
+    captcha_answer: '',
+  })
+  const [captchaGeneration, setCaptchaGeneration] = useState(0)
   const {
     secondsLeft,
     isActive,
@@ -50,14 +50,16 @@ export function ForgotPasswordForm({
     resolver: zodResolver(forgotPasswordFormSchema),
     defaultValues: { email: '' },
   })
-  const turnstileReady = !isTurnstileEnabled || Boolean(turnstileToken)
+  const captchaReady = Boolean(
+    captcha.captcha_id && captcha.captcha_answer.length === 5
+  )
 
   async function onSubmit(data: z.infer<typeof forgotPasswordFormSchema>) {
-    if (!validateTurnstile()) return
+    if (!captchaReady) return
 
     setIsLoading(true)
     try {
-      const res = await sendPasswordResetEmail(data.email, turnstileToken)
+      const res = await sendPasswordResetEmail(data.email, captcha)
       if (res?.success) {
         form.reset()
         startCountdown()
@@ -65,10 +67,11 @@ export function ForgotPasswordForm({
       } else {
         toast.error(res?.message || t('Failed to send reset email'))
       }
-    } catch (_error) {
+    } catch {
       // Errors are handled by global interceptor
     } finally {
       setIsLoading(false)
+      setCaptchaGeneration((value) => value + 1)
     }
   }
 
@@ -93,25 +96,22 @@ export function ForgotPasswordForm({
           )}
         />
 
+        <ImageCaptcha
+          key={captchaGeneration}
+          purpose='reset-email'
+          onChange={setCaptcha}
+        />
+
         <Button
           type='submit'
           className='mt-2'
-          disabled={isLoading || isActive || !turnstileReady}
+          disabled={isLoading || isActive || !captchaReady}
         >
           {isActive
             ? t('Resend ({{seconds}}s)', { seconds: secondsLeft })
             : t('Send reset email')}
           {isLoading ? <Loader2 className='animate-spin' /> : <ArrowRight />}
         </Button>
-
-        {isTurnstileEnabled && (
-          <div className='mt-2'>
-            <Turnstile
-              siteKey={turnstileSiteKey}
-              onVerify={setTurnstileToken}
-            />
-          </div>
-        )}
       </form>
     </Form>
   )

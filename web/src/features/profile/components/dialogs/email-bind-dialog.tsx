@@ -7,6 +7,10 @@ import { Dialog } from '@/components/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  ImageCaptcha,
+  type CaptchaAnswer,
+} from '@/features/auth/components/image-captcha'
 import { useCountdown } from '@/hooks/use-countdown'
 
 import { sendEmailVerification, bindEmail } from '../../api'
@@ -33,6 +37,11 @@ export function EmailBindDialog({
   const [sendingCode, setSendingCode] = useState(false)
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
+  const [captcha, setCaptcha] = useState<CaptchaAnswer>({
+    captcha_id: '',
+    captcha_answer: '',
+  })
+  const [captchaGeneration, setCaptchaGeneration] = useState(0)
   const {
     secondsLeft,
     isActive,
@@ -50,7 +59,7 @@ export function EmailBindDialog({
 
     try {
       setSendingCode(true)
-      const response = await sendEmailVerification(email)
+      const response = await sendEmailVerification(email, captcha)
 
       if (response.success) {
         toast.success(t('Verification code sent! Please check your email.'))
@@ -58,10 +67,11 @@ export function EmailBindDialog({
       } else {
         toast.error(response.message || t('Failed to send verification code'))
       }
-    } catch (_error) {
+    } catch {
       toast.error(t('Failed to send verification code'))
     } finally {
       setSendingCode(false)
+      setCaptchaGeneration((value) => value + 1)
     }
   }
 
@@ -86,7 +96,7 @@ export function EmailBindDialog({
       } else {
         toast.error(response.message || t('Failed to bind email'))
       }
-    } catch (_error) {
+    } catch {
       toast.error(t('Failed to bind email'))
     } finally {
       setLoading(false)
@@ -169,16 +179,25 @@ export function EmailBindDialog({
               type='button'
               variant='outline'
               onClick={handleSendCode}
-              disabled={sendingCode || isActive || !email}
+              disabled={
+                sendingCode ||
+                isActive ||
+                !email ||
+                captcha.captcha_answer.length !== 5
+              }
             >
-              {isActive
-                ? `${secondsLeft}s`
-                : sendingCode
-                  ? t('Sending...')
-                  : t('Send')}
+              {isActive ? `${secondsLeft}s` : t('Send')}
+              {sendingCode && <Loader2 className='h-4 w-4 animate-spin' />}
             </Button>
           </div>
         </div>
+        {open && (
+          <ImageCaptcha
+            key={captchaGeneration}
+            purpose='register-email'
+            onChange={setCaptcha}
+          />
+        )}
       </div>
     </Dialog>
   )

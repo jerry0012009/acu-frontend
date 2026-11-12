@@ -5,11 +5,11 @@ import { toast } from 'sonner'
 import { useCountdown } from '@/hooks/use-countdown'
 
 import { sendEmailVerification } from '../api'
+import type { CaptchaAnswer } from '../components/image-captcha'
 import { EMAIL_VERIFICATION_COUNTDOWN } from '../constants'
 
 interface UseEmailVerificationOptions {
-  turnstileToken?: string
-  validateTurnstile?: () => boolean
+  captcha?: CaptchaAnswer
 }
 
 /**
@@ -32,14 +32,17 @@ export function useEmailVerification(options?: UseEmailVerificationOptions) {
       return false
     }
 
-    // Validate turnstile if validation function is provided
-    if (options?.validateTurnstile && !options.validateTurnstile()) {
+    if (
+      !options?.captcha?.captcha_id ||
+      options.captcha.captcha_answer.length !== 5
+    ) {
+      toast.info(i18next.t('Please enter the image verification code'))
       return false
     }
 
     setIsSending(true)
     try {
-      const res = await sendEmailVerification(email, options?.turnstileToken)
+      const res = await sendEmailVerification(email, options?.captcha)
       if (res?.success) {
         startCountdown()
         toast.success(i18next.t('Verification email sent'))
@@ -49,7 +52,7 @@ export function useEmailVerification(options?: UseEmailVerificationOptions) {
         res?.message || i18next.t('Failed to send verification email')
       )
       return false
-    } catch (_error) {
+    } catch {
       // Errors are handled by global interceptor
       return false
     } finally {

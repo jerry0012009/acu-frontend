@@ -80,7 +80,7 @@ export function BotProtectionSection({
                   <FormLabel>{t('Enable Turnstile')}</FormLabel>
                   <FormDescription>
                     {t(
-                      'Protect login and registration with Cloudflare Turnstile'
+                      'Turnstile protects legacy check-in only. Login, registration and email verification use local image verification.'
                     )}
                   </FormDescription>
                 </SettingsSwitchContent>

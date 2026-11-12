@@ -72,6 +72,7 @@ func GetStatus(c *gin.Context) {
 		"wechat_login":                common.WeChatAuthEnabled,
 		"server_address":              publicServerAddress(c),
 		"turnstile_check":             common.TurnstileCheckEnabled,
+		"auth_captcha":                "local-image",
 		"turnstile_site_key":          common.TurnstileSiteKey,
 		"docs_link":                   operation_setting.GetGeneralSetting().DocsLink,
 		"quota_per_unit":              common.QuotaPerUnit,

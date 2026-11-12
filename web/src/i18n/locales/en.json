@@ -1,5 +1,15 @@
 {
   "translation": {
+    "Turnstile protects legacy check-in only. Login, registration and email verification use local image verification.": "Turnstile protects legacy check-in only. Login, registration and email verification use local image verification.",
+    "Image verification code": "Image verification code",
+    "Verification code image": "Verification code image",
+    "Refresh verification code": "Refresh verification code",
+    "Could not load verification code. Please refresh it.": "Could not load verification code. Please refresh it.",
+    "Please enter the image verification code": "Please enter the image verification code",
+    "Please enter a new image verification code.": "Please enter a new image verification code.",
+    "Verification is temporarily unavailable. Please retry.": "Verification is temporarily unavailable. Please retry.",
+    "Too many verification emails. Please try again later.": "Too many verification emails. Please try again later.",
+    "Incorrect username or password. Please enter an image verification code to retry.": "Incorrect username or password. Please enter an image verification code to retry.",
     "Estimated model charge divided by reference cost for {{input}} input and {{output}} output tokens. Judge evaluations carry no additional charge.": "Estimated model charge divided by reference cost for {{input}} input and {{output}} output tokens. Judge evaluations carry no additional charge.",
     "Final charges use the selected model fixed retail price and actual usage. Judge evaluations carry no additional charge.": "Final charges use the selected model fixed retail price and actual usage. Judge evaluations carry no additional charge.",
     "Estimated model charge (CNY)": "Estimated model charge (CNY)",

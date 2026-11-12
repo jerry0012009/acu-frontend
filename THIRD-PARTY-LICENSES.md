@@ -8,6 +8,10 @@ Transitive dependencies should be audited before a final external release.
 
 ## Dependency Inventory
 
+Authentication image generation additionally uses `github.com/dchest/captcha` v1.1.0 (MIT).
+Copyright (c) 2011-2014 Dmitry Chestnykh <dmitry@codingrobots.com>.
+The MIT license text below applies to this component.
+
 | Area        | Scope       | Ecosystem | Dependency                                            | Version                              | License                                            |
 |-------------|-------------|-----------|-------------------------------------------------------|--------------------------------------|----------------------------------------------------|
 | backend     | production  | Go        | `github.com/Calcium-Ion/go-epay`                      | `v0.0.4`                             | Proprietary/Internal - owned by project maintainer |

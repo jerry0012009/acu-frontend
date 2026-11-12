@@ -82,11 +82,12 @@ export async function generateAccessToken(): Promise<ApiResponse<string>> {
  */
 export async function sendEmailVerification(
   email: string,
-  turnstileToken?: string
+  captcha?: import('@/features/auth/components/image-captcha').CaptchaAnswer
 ): Promise<ApiResponse> {
   const params = new URLSearchParams({ email })
-  if (turnstileToken) {
-    params.append('turnstile', turnstileToken)
+  if (captcha) {
+    params.append('captcha_id', captcha.captcha_id)
+    params.append('captcha_answer', captcha.captcha_answer)
   }
   const res = await api.get(`/api/verification?${params}`)
   return res.data

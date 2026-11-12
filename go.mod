@@ -70,6 +70,7 @@ require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.32.0 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.6.1 // indirect
 	github.com/casbin/govaluate v1.10.0 // indirect
+	github.com/dchest/captcha v1.1.0
 	github.com/go-faster/city v1.0.1 // indirect
 	github.com/go-faster/errors v0.7.1 // indirect
 	github.com/hashicorp/go-version v1.7.0 // indirect

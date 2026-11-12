@@ -3,6 +3,7 @@ import axios from 'axios'
 import { api, refreshAuthentication, type RefreshOutcome } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
+import type { CaptchaAnswer } from './components/image-captcha'
 import {
   getAffiliateCode,
   getRedemptionCode,
@@ -28,12 +29,13 @@ import type {
 
 // User login with username and password
 export async function login(payload: LoginPayload) {
-  const turnstile = payload.turnstile ?? ''
   const res = await api.post<LoginResponse>(
-    `/api/user/login?turnstile=${turnstile}`,
+    '/api/user/login',
     {
       username: payload.username,
       password: payload.password,
+      captcha_id: payload.captcha_id,
+      captcha_answer: payload.captcha_answer,
     },
     { skipAuthRefresh: true }
   )
@@ -105,10 +107,10 @@ export async function logout(): Promise<ApiResponse> {
 // Send password reset email
 export async function sendPasswordResetEmail(
   email: string,
-  turnstile?: string
+  captcha?: CaptchaAnswer
 ): Promise<ApiResponse> {
   const res = await api.get('/api/reset_password', {
-    params: { email, turnstile },
+    params: { email, ...captcha },
   })
   return res.data
 }
@@ -182,7 +184,10 @@ export async function telegramLogin(
 // User registration
 export async function register(payload: RegisterPayload): Promise<ApiResponse> {
   const res = await api.post(`/api/user/register`, payload, {
-    params: { turnstile: payload.turnstile ?? '' },
+    params: {
+      captcha_id: payload.captcha_id,
+      captcha_answer: payload.captcha_answer,
+    },
     skipBusinessError: true,
   })
   return res.data
@@ -191,10 +196,10 @@ export async function register(payload: RegisterPayload): Promise<ApiResponse> {
 // Send email verification code
 export async function sendEmailVerification(
   email: string,
-  turnstile?: string
+  captcha?: CaptchaAnswer
 ): Promise<ApiResponse> {
   const res = await api.get('/api/verification', {
-    params: { email, turnstile },
+    params: { email, ...captcha },
   })
   return res.data
 }

@@ -178,6 +178,16 @@ func CriticalRateLimit() func(c *gin.Context) {
 	return defNext
 }
 
+func AuthCaptchaRateLimit() func(c *gin.Context)  { return rateLimitFactory(60, 60, "AUTH_CAPTCHA") }
+func AuthRegisterRateLimit() func(c *gin.Context) { return rateLimitFactory(10, 1200, "AUTH_REGISTER") }
+
+func AuthLoginRateLimit() func(c *gin.Context) {
+	return rateLimitFactory(common.CriticalRateLimitNum, common.CriticalRateLimitDuration, "AUTH_LOGIN")
+}
+func AuthResetRateLimit() func(c *gin.Context) {
+	return rateLimitFactory(common.CriticalRateLimitNum, common.CriticalRateLimitDuration, "AUTH_RESET")
+}
+
 func DownloadRateLimit() func(c *gin.Context) {
 	return rateLimitFactory(common.DownloadRateLimitNum, common.DownloadRateLimitDuration, "DW")
 }

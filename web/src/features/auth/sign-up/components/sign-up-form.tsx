@@ -8,7 +8,6 @@ import type { z } from 'zod'
 
 import { Dialog } from '@/components/dialog'
 import { PasswordInput } from '@/components/password-input'
-import { Turnstile } from '@/components/turnstile'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -21,12 +20,15 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { register, wechatLoginByCode } from '@/features/auth/api'
+import {
+  ImageCaptcha,
+  type CaptchaAnswer,
+} from '@/features/auth/components/image-captcha'
 import { LegalConsent } from '@/features/auth/components/legal-consent'
 import { OAuthProviders } from '@/features/auth/components/oauth-providers'
 import { registerFormSchema } from '@/features/auth/constants'
 import { useAuthRedirect } from '@/features/auth/hooks/use-auth-redirect'
 import { useEmailVerification } from '@/features/auth/hooks/use-email-verification'
-import { useTurnstile } from '@/features/auth/hooks/use-turnstile'
 import {
   clearRedemptionCode,
   clearRedemptionError,
@@ -52,17 +54,14 @@ export function SignUpForm({
   const [isWeChatSubmitting, setIsWeChatSubmitting] = useState(false)
   const [isRedemptionErrorDialogOpen, setIsRedemptionErrorDialogOpen] =
     useState(false)
-  const [turnstileWidgetKey, setTurnstileWidgetKey] = useState(0)
+  const [captchaGeneration, setCaptchaGeneration] = useState(0)
+  const [captcha, setCaptcha] = useState<CaptchaAnswer>({
+    captcha_id: '',
+    captcha_answer: '',
+  })
   const legalConsentErrorMessage = t('Please agree to the legal terms first')
 
   const { status } = useStatus()
-  const {
-    isTurnstileEnabled,
-    turnstileSiteKey,
-    turnstileToken,
-    setTurnstileToken,
-    validateTurnstile,
-  } = useTurnstile()
   const { redirectToLogin, handleLoginSuccess } = useAuthRedirect()
   const {
     isSending: isSendingCode,
@@ -70,8 +69,7 @@ export function SignUpForm({
     isActive,
     sendCode,
   } = useEmailVerification({
-    turnstileToken,
-    validateTurnstile,
+    captcha,
   })
 
   const form = useForm<z.infer<typeof registerFormSchema>>({
@@ -94,7 +92,9 @@ export function SignUpForm({
     status?.data?.oauth_register_enabled ??
     true
   const hasWeChatLogin = Boolean(status?.wechat_login)
-  const turnstileReady = !isTurnstileEnabled || Boolean(turnstileToken)
+  const captchaReady = Boolean(
+    captcha.captcha_id && captcha.captcha_answer.length === 5
+  )
 
   const wechatQrCodeUrl = useMemo(() => {
     return (
@@ -147,7 +147,10 @@ export function SignUpForm({
       }
     }
 
-    if (!validateTurnstile()) return
+    if (!emailVerificationRequired && !captchaReady) {
+      toast.info(t('Please enter the image verification code'))
+      return
+    }
 
     setIsLoading(true)
     try {
@@ -158,7 +161,7 @@ export function SignUpForm({
         verification_code: verificationCode || undefined,
         aff_code: getAffiliateCode(),
         redeem_code: getRedemptionCode(),
-        turnstile: turnstileToken,
+        ...(!emailVerificationRequired ? captcha : {}),
       })
 
       if (res?.success) {
@@ -178,14 +181,13 @@ export function SignUpForm({
       }
     } finally {
       setIsLoading(false)
+      if (!emailVerificationRequired) setCaptchaGeneration((value) => value + 1)
     }
   }
 
   async function handleSendVerificationCode() {
-    if (await sendCode(emailValue || '')) {
-      setTurnstileToken('')
-      setTurnstileWidgetKey((current) => current + 1)
-    }
+    await sendCode(emailValue || '')
+    setCaptchaGeneration((current) => current + 1)
   }
 
   const handleOpenWeChatDialog = () => {
@@ -247,8 +249,7 @@ export function SignUpForm({
 
   const handleContinueWithoutRedemptionCode = () => {
     clearRedemptionCode()
-    setTurnstileToken('')
-    setTurnstileWidgetKey((current) => current + 1)
+    setCaptchaGeneration((current) => current + 1)
     setIsRedemptionErrorDialogOpen(false)
   }
 
@@ -342,6 +343,12 @@ export function SignUpForm({
               )}
             />
 
+            <ImageCaptcha
+              key={captchaGeneration}
+              purpose='register-email'
+              onChange={setCaptcha}
+            />
+
             {/* Verification Code Field */}
             <div className='flex items-end gap-2'>
               <div className='flex-1'>
@@ -359,7 +366,7 @@ export function SignUpForm({
                   isSendingCode ||
                   isActive ||
                   !emailValue ||
-                  !turnstileReady
+                  !captchaReady
                 }
                 onClick={handleSendVerificationCode}
               >
@@ -369,15 +376,12 @@ export function SignUpForm({
           </>
         )}
 
-        {/* Turnstile */}
-        {isTurnstileEnabled && (
-          <div className='mt-2'>
-            <Turnstile
-              key={turnstileWidgetKey}
-              siteKey={turnstileSiteKey}
-              onVerify={setTurnstileToken}
-            />
-          </div>
+        {!emailVerificationRequired && (
+          <ImageCaptcha
+            key={captchaGeneration}
+            purpose='register'
+            onChange={setCaptcha}
+          />
         )}
 
         <LegalConsent
@@ -394,7 +398,7 @@ export function SignUpForm({
           disabled={
             isLoading ||
             (requiresLegalConsent && !agreedToLegal) ||
-            !turnstileReady
+            (!emailVerificationRequired && !captchaReady)
           }
         >
           {isLoading ? <Loader2 className='h-4 w-4 animate-spin' /> : null}

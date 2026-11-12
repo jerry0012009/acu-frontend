@@ -1,4 +1,7 @@
 const serverErrorMessageKeys = {
+  CAPTCHA_REQUIRED: 'Please enter a new image verification code.',
+  AUTH_PROTECTION_UNAVAILABLE:
+    'Verification is temporarily unavailable. Please retry.',
   AUTH_SESSION_LIMIT:
     'Too many active login sessions. On a device where you are already signed in, open Login sessions and use “Sign out other sessions” to revoke them. If you cannot access a signed-in device, reset your password to sign out all sessions.',
   AUTH_SESSION_ISSUANCE_LIMIT:
@@ -32,6 +35,18 @@ function serverErrorPayload(value: unknown): Record<string, unknown> | null {
 
 export function getServerErrorMessageKey(value: unknown): string | null {
   const payload = serverErrorPayload(value)
+  if (
+    payload &&
+    typeof payload.message_key === 'string' &&
+    [
+      'Please enter a new image verification code.',
+      'Verification is temporarily unavailable. Please retry.',
+      'Too many verification emails. Please try again later.',
+      'Incorrect username or password. Please enter an image verification code to retry.',
+    ].includes(payload.message_key)
+  ) {
+    return payload.message_key
+  }
   if (!payload || typeof payload.code !== 'string') return null
 
   return (

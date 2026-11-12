@@ -8,6 +8,8 @@ export interface LoginPayload {
   username: string
   password: string
   turnstile?: string
+  captcha_id?: string
+  captcha_answer?: string
 }
 
 export interface TwoFAPayload {
@@ -23,6 +25,8 @@ export interface RegisterPayload {
   aff_code?: string
   redeem_code?: string
   turnstile?: string
+  captcha_id?: string
+  captcha_answer?: string
 }
 
 export interface PasswordResetPayload {
@@ -47,6 +51,7 @@ export interface BindEmailPayload {
 export interface LoginResponse {
   success: boolean
   message: string
+  code?: string
   data?:
     | AuthBundle
     | {
