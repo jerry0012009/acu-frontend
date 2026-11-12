@@ -2,11 +2,12 @@
 
 Implement a first-version **My preferences / 我的偏好** view in ACU Runtime.
 First read the paired Console contract `2026-11-12-runtime-preferences.md` on
-the Console branch `feat/runtime-preference-presentation-20261112`. The server
-changes are prepared but NOT deployed. Do not assume they exist in production:
-implement against fixtures, confirm server availability before live acceptance,
-and treat 404 as unsupported rather than an empty account. Do not deploy Console
-or Router as part of this desktop task.
+Console main. The server changes are deployed as application `b3a309d58`, release
+`bg-20261112T134244-2463e229`, completed on 2026-11-12. Both version-1 endpoints
+are available at `https://console.acucompute.com`. Use fixtures for development
+and the existing authenticated session for live acceptance. Treat 404 on an old
+server as unsupported, not empty preferences. Do not deploy Console or Router
+as part of this desktop task.
 
 Keep existing Runtime workbench, Agent setup, Key-only usage, usage, request
 records, settings and native authentication intact. Add a focused navigation

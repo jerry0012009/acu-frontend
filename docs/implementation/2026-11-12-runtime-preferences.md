@@ -1,9 +1,12 @@
 # Runtime preference reading contract
 
-Status: implemented in a task worktree, NOT deployed. No Router/Core changes,
-schema migration, learning replay, new model calls or local Agent configuration
-writes. Integrate/review and release Console separately before relying on the
-new endpoints. A 404 on an older Console means unsupported, not empty preferences.
+Status: merged into main and deployed on 2026-11-12. Console application revision
+`b3a309d584f92a761a3031d3adcd28f0a7603cb8`; release manifest
+`/var/lib/acu/releases/bg-20261112T134244-2463e229/manifest.json` is completed.
+Both version-1 endpoints are available at `https://console.acucompute.com`.
+No Router/Core changes, schema migration, learning replay, new display model
+calls or local Agent configuration writes. A 404 on an older Console means
+unsupported, not empty preferences.
 
 ## Evidence and product decision
 
