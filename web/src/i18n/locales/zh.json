@@ -1,5 +1,12 @@
 {
   "translation": {
+    "Preference rule updated": "偏好规则已修订",
+    "Manage preferences": "管理偏好",
+    "Preference changed or unavailable. Refresh and retry.": "偏好已变化或暂时不可用，请刷新后重试。",
+    "Edit preference": "修正理解",
+    "Pause preference": "停用偏好",
+    "Restore preference": "恢复偏好",
+    "Applies when": "适用范围",
     "Saved preference records": "偏好记录",
     "Saved interpretations, not original user quotations": "已保存的偏好理解，非用户原话",
     "No readable preference records available": "暂无可展示的偏好摘要",

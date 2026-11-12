@@ -103,6 +103,8 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.GET("/self/acu-memory", middleware.DisableCache(), controller.GetPrivateACUMemoryForUser)
 				selfRoute.GET("/self/acu-preference-profile", middleware.DisableCache(), controller.GetPrivateACUPreferenceProfile)
 				selfRoute.GET("/self/acu-preference-library", middleware.DisableCache(), controller.GetPrivateACUPreferenceLibrary)
+				selfRoute.GET("/self/acu-preference-controls", middleware.DisableCache(), controller.PrivateACUPreferenceControls)
+				selfRoute.PUT("/self/acu-preference-controls/:preference_id", middleware.DisableCache(), controller.PrivateACUPreferenceControls)
 				selfRoute.GET("/self/acu-preference-activity", middleware.DisableCache(), controller.GetPrivateACUPreferenceActivity)
 				selfRoute.GET("/self/acu-private-usage", middleware.DisableCache(), controller.GetPrivateACUUsageSummaryForUser)
 				selfRoute.GET("/self/acu-learning-runs/:run_id", middleware.DisableCache(), controller.GetPrivateACULearningRunDetailForUser)

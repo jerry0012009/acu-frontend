@@ -44,11 +44,12 @@ import {
 import { PrivateACUUserSettings } from '@/features/dashboard/components/advisor/private-acu-advisor'
 
 import { PreferenceRecentActivity } from './preference-activity'
+import { PreferenceControls } from './preference-controls'
 import {
   preferenceDisplayText,
   preferenceDocumentLabel,
 } from './preference-display'
-import { PreferenceRecords } from './preference-records'
+import { PreferenceStarfish } from './preference-starfish'
 
 function getUsageWindowLabel(
   window: PrivateACUUsageWindow['window'],
@@ -439,13 +440,9 @@ export function PrivateACUUserAccount() {
       <section>
         <h1 className='text-xl font-semibold'>{t('My preferences')}</h1>
       </section>
+      <PreferenceStarfish />
       <PreferenceRecentActivity />
-      <section aria-label={t('Saved preference records')}>
-        <h2 className='text-base font-semibold'>
-          {t('Saved preference records')}
-        </h2>
-        <PreferenceRecords searchable />
-      </section>
+      <PreferenceControls />
       <details
         className='border-t pt-4'
         onToggle={(event) => setShowDocuments(event.currentTarget.open)}

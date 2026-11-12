@@ -7,7 +7,7 @@ export type PreferenceChangeEvent = {
   recordedAt: string
   changes: Array<{
     preferenceId: string
-    kind: 'created' | 'updated' | 'deleted'
+    kind: 'created' | 'updated' | 'deleted' | 'rule_updated'
     before: string
     after: string
   }>

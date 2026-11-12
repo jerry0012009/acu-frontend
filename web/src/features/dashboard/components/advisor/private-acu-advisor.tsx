@@ -520,7 +520,7 @@ export function PrivateACUUserSettings() {
                 learningEnabled: checked,
                 observerEnabled: checked,
                 advisorEnabled: checked,
-                injectionEnabled: checked ? settings.injectionEnabled : false,
+                injectionEnabled: checked,
               })
             }
           />

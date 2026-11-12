@@ -65,6 +65,29 @@ func GetPrivateACUPreferenceActivity(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": result})
 }
 
+func PrivateACUPreferenceControls(c *gin.Context) {
+	if _, ok := requireBrowserSession(c); !ok {
+		return
+	}
+	var change map[string]interface{}
+	if c.Request.Method == http.MethodPut {
+		if c.Request.ContentLength > 8192 {
+			c.AbortWithStatus(http.StatusRequestEntityTooLarge)
+			return
+		}
+		if err := c.ShouldBindJSON(&change); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
+	result, err := service.PrivateACUPreferenceControls(c.Request.Context(), c.GetInt("id"), c.Param("preference_id"), change)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": result})
+}
+
 func GetPrivateACUUserConfig(c *gin.Context) {
 	result, err := service.GetPrivateACUUserConfig(c.Request.Context(), c.GetInt("id"))
 	if err != nil {

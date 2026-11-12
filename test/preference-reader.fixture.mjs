@@ -21,6 +21,7 @@ export function preferenceFixture(path) {
   if (path.endsWith('/self')) return user
   if (path.endsWith('/status')) return { system_name: 'ACU Preview', setup: true, version: 'local-preview' }
   if (path.endsWith('/acu-preference-library')) return { version: 1, records: preferenceRecords }
+  if (path.endsWith('/acu-preference-controls')) return { records: preferenceRecords.map(record => ({ ...record, scope: '面向用户的交付', disabled: false, revision: 'a'.repeat(64) })) }
   if (path.endsWith('/acu-preference-activity')) return preferenceActivity
   if (path.endsWith('/acu-preference-profile')) return { status: 'ready', generatedAt: '2026-11-12T12:51:00Z', error: null, profile: { summary: '注重可核验的交付、清晰的依据与直接可用的结果。', rays: preferenceRecords.map((record, index) => ({ id: record.id, label: ['真实呈现验收', '直接安装使用', '依据可读可查'][index], summary: record.summary, category: '交付与核验', score: 70 + index * 5, confidence: 75, scope: '面向用户的交付', sourceIds: [record.id] })), sourceCount: 3, excluded: [] } }
   if (path.endsWith('/acu-memory')) return { enabled: true, skills: [] }

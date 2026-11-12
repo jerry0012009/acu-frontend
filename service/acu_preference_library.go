@@ -3,11 +3,14 @@ package service
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/url"
 	"strings"
 	"time"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 )
 
@@ -39,9 +42,57 @@ func GetPrivateACUPreferenceLibrary(ctx context.Context, userID int) (dto.ACUPre
 	}
 	result := dto.ACUPreferenceLibrary{Version: 1, Records: []dto.ACUPreferenceRecord{}}
 	for _, source := range memory.Skills {
+		if strings.HasPrefix(source.Description, "[ACU_PREFERENCE_") || source.Name == "daily-logs" || source.Name == "user-general-facts" {
+			continue
+		}
 		summary := preferenceRecordText(source.Description)
 		if source.ID != "" && summary != "" {
 			result.Records = append(result.Records, dto.ACUPreferenceRecord{ID: source.ID, Summary: summary})
+		}
+	}
+	return result, nil
+}
+
+func PrivateACUPreferenceControls(ctx context.Context, userID int, skillID string, change map[string]interface{}) (map[string]interface{}, error) {
+	if userID <= 0 {
+		return nil, fmt.Errorf("authenticated user is required")
+	}
+	query := url.Values{"newapiUserId": {fmt.Sprint(userID)}}
+	method := http.MethodGet
+	var body []byte
+	if change != nil {
+		if skillID == "" {
+			return nil, fmt.Errorf("preference record is required")
+		}
+		query.Set("skillId", skillID)
+		method = http.MethodPut
+		var err error
+		body, err = common.Marshal(change)
+		if err != nil {
+			return nil, err
+		}
+	}
+	response, err := acuRouterAdminRequest(ctx, method, "/internal/admin/private-acu/preference-controls?"+query.Encode(), body)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("preference unavailable or changed; refresh and retry")
+	}
+	var result map[string]interface{}
+	if err := common.DecodeJson(response.Body, &result); err != nil {
+		return nil, err
+	}
+	if records, ok := result["records"].([]interface{}); ok {
+		for _, raw := range records {
+			if record, ok := raw.(map[string]interface{}); ok {
+				for _, key := range []string{"summary", "scope"} {
+					if text, ok := record[key].(string); ok {
+						record[key] = advisorPrivateText.ReplaceAllString(text, "[redacted]")
+					}
+				}
+			}
 		}
 	}
 	return result, nil
@@ -61,6 +112,8 @@ func preferenceChangeEvent(detail dto.ACUPrivateLearningRunSelfDetail) dto.ACUPr
 		before, _ := change["descriptionBefore"].(string)
 		after, _ := change["descriptionAfter"].(string)
 		before, after = preferenceRecordText(before), preferenceRecordText(after)
+		ruleSummary, _ := change["ruleChangeSummary"].(string)
+		ruleSummary = preferenceRecordText(ruleSummary)
 		if id == "" {
 			continue
 		}
@@ -71,6 +124,10 @@ func preferenceChangeEvent(detail dto.ACUPrivateLearningRunSelfDetail) dto.ACUPr
 			}
 			before = ""
 		case "updated":
+			if ruleSummary != "" {
+				event.Changes = append(event.Changes, dto.ACUPreferenceChange{PreferenceID: id, Kind: "rule_updated", After: ruleSummary})
+				continue
+			}
 			if before == "" || after == "" || before == after {
 				continue
 			}

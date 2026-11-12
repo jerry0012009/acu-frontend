@@ -18,6 +18,7 @@ export function PreferenceActivityList(props: {
     created: t('Preference recorded'),
     updated: t('Preference summary updated'),
     deleted: t('Preference record removed'),
+    rule_updated: t('Preference rule updated'),
   }
   return (
     <div className='min-w-0'>

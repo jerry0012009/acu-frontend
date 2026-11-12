@@ -58,6 +58,29 @@ func TestPreferenceChangesRequireCompletedReadableSummaryDifferences(t *testing.
 	assert.Empty(t, preferenceChangeEvent(detail).Changes)
 }
 
+func TestRuleChangeIsVisibleEvenWhenDescriptionIsUnchanged(t *testing.T) {
+	detail := dto.ACUPrivateLearningRunSelfDetail{RunID: "run", Status: "completed", CompletedAt: "2026-11-12T12:00:00Z", SkillChanges: []map[string]interface{}{{"skillId": "one", "changeType": "updated", "descriptionBefore": "Keep concise", "descriptionAfter": "Keep concise", "ruleChangeSummary": "Technical reports retain evidence in an appendix."}}}
+	event := preferenceChangeEvent(detail)
+	require.Len(t, event.Changes, 1)
+	assert.Equal(t, "rule_updated", event.Changes[0].Kind)
+	assert.Equal(t, "Technical reports retain evidence in an appendix.", event.Changes[0].After)
+}
+
+func TestPreferenceControlsBindOwnerAndDoNotForwardClientIdentity(t *testing.T) {
+	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "42", r.URL.Query().Get("newapiUserId"))
+		assert.Equal(t, "record", r.URL.Query().Get("skillId"))
+		assert.Equal(t, http.MethodPut, r.Method)
+		_, _ = w.Write([]byte(`{"updated":true}`))
+	}))
+	t.Cleanup(router.Close)
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test")
+	result, err := PrivateACUPreferenceControls(context.Background(), 42, "record", map[string]interface{}{"action": "disable", "expected_hash": strings.Repeat("a", 64)})
+	require.NoError(t, err)
+	assert.Equal(t, true, result["updated"])
+}
+
 func TestPreferenceActivityFiltersOtherScopesAndDoesNotHidePartialFailure(t *testing.T) {
 	router := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
