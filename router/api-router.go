@@ -22,6 +22,8 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/setup", controller.GetSetup)
 		apiRouter.POST("/setup", anonymousRequestBodyLimit, controller.PostSetup)
 		apiRouter.GET("/status", controller.GetStatus)
+		apiRouter.GET("/acu-runtime/release", controller.GetRuntimeRelease)
+		apiRouter.GET("/acu-runtime/download/:platform", controller.DownloadRuntime)
 		apiRouter.GET("/acu-quick-start/media/:filename", controller.GetAcuQuickStartMedia)
 		apiRouter.GET("/uptime/status", controller.GetUptimeKumaStatus)
 		apiRouter.GET("/models", middleware.UserAuth(), controller.DashboardListModels)

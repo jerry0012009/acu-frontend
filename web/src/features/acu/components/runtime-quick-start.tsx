@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query'
 import {
   Download,
   ArrowRight,
@@ -18,17 +19,24 @@ import { Button } from '@/components/ui/button'
 
 import {
   RUNTIME_RELEASE_URL,
-  RUNTIME_VERSION,
   detectRuntimePlatform,
   runtimeDownloadUrl,
   type RuntimePlatform,
 } from '../lib/runtime-onboarding'
+import { getRuntimeRelease } from '../lib/runtime-release'
 
 export function RuntimeQuickStart(props: {
   onDirect: () => void
   compact?: boolean
 }) {
   const { t } = useTranslation()
+  const release = useQuery({
+    queryKey: ['acu-runtime-release'],
+    queryFn: getRuntimeRelease,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    retry: false,
+  })
   const [platform, setPlatform] = useState<RuntimePlatform>(() =>
     detectRuntimePlatform(
       typeof navigator === 'undefined' ? '' : navigator.userAgent
@@ -60,7 +68,9 @@ export function RuntimeQuickStart(props: {
         <div>
           <div className='acu-runtime-title-row'>
             <h3>ACU Runtime</h3>
-            <span className='acu-release-tag'>v{RUNTIME_VERSION}</span>
+            {release.data && !release.isError ? (
+              <span className='acu-release-tag'>v{release.data.version}</span>
+            ) : null}
           </div>
           {!props.compact && (
             <p className='acu-runtime-subtitle'>
