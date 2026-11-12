@@ -462,8 +462,12 @@ func acuFixedReference(price map[string]interface{}) *acuCatalogReference {
 		cache = &value
 	}
 	tiers := dto.ParseACUContextTierPrices(prices["contextTiers"])
+	sourceType := stringMapValue(raw, "referenceType")
+	if sourceType != "official" && sourceType != "openrouter" {
+		sourceType = "platform"
+	}
 	return &acuCatalogReference{InputCNYPerMillion: input * factor, OutputCNYPerMillion: output * factor,
-		CachedInputCNYPerMillion: cache, ContextTiers: tiers.Scale(factor), SourceType: "official",
+		CachedInputCNYPerMillion: cache, ContextTiers: tiers.Scale(factor), SourceType: sourceType,
 		SourceName: stringMapValue(raw, "referenceSource"), ObservedAt: stringMapValue(raw, "referenceObservedAt"),
 		OriginalCurrency: currency, FXCNYPerUSD: &fx}
 }

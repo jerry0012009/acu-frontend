@@ -27,7 +27,8 @@ export function ACUPriceSummary(props: {
     return (
       <div className='space-y-1'>
         <div className='text-muted-foreground text-xs'>
-          {t('Relative to official price')}
+          {props.model.reference?.source_type === 'official'
+            ? t('Relative to official price') : t('Relative to public reference')}
         </div>
         <strong
           className='font-mono text-2xl font-semibold tabular-nums'

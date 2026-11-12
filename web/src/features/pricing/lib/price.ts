@@ -105,6 +105,7 @@ export function formatPublicReferenceSource(
   if (reference.source_type === 'openrouter') {
     return openRouterPublicPricingLabel
   }
+  if (reference.source_type === 'platform') return reference.source_name
   const vendor = reference.source_name.replace(/ official pricing$/i, '')
   return `${vendor} ${officialPricingLabel}`
 }

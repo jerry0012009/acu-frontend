@@ -151,7 +151,7 @@ export type PricingReference = {
   input_cny_per_million: number
   output_cny_per_million: number
   cached_input_cny_per_million?: number
-  source_type: 'official' | 'openrouter'
+  source_type: 'official' | 'openrouter' | 'platform'
   source_name: string
   observed_at: string
   original_currency: 'USD' | 'CNY'
