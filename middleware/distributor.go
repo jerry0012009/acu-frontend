@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -230,6 +231,41 @@ func getModelFromJSONBody(c *gin.Context) (*ModelRequest, error) {
 	group, err := getJSONStringValue(values[1], "group")
 	if err != nil {
 		return nil, err
+	}
+	canonical := model
+	if c.Request.URL.Path == "/v1/chat/completions" || c.Request.URL.Path == "/v1/messages" || c.Request.URL.Path == "/v1/responses" {
+		switch model {
+		case "claude-fable-5.1":
+			canonical = "claude-fable-5-1"
+		case "claude-5-fable":
+			canonical = "claude-fable-5"
+		}
+	}
+	if canonical != model && isPublicACURouterModel(c, canonical) {
+		// Normalize before channel/permission selection and retain unknown protocol fields.
+		var body map[string]json.RawMessage
+		if err := common.Unmarshal(requestBody, &body); err != nil {
+			return nil, err
+		}
+		body["model"], err = common.Marshal(canonical)
+		if err != nil {
+			return nil, err
+		}
+		data, err := common.Marshal(body)
+		if err != nil {
+			return nil, err
+		}
+		replacement, err := common.CreateBodyStorage(data)
+		if err != nil {
+			return nil, err
+		}
+		c.Set(common.KeyBodyStorage, replacement)
+		c.Set(common.KeyRequestBody, nil)
+		_ = storage.Close()
+		storage = replacement
+		c.Request.ContentLength = int64(len(data))
+		c.Request.Header.Del("Content-Length")
+		model = canonical
 	}
 
 	if _, seekErr := storage.Seek(0, io.SeekStart); seekErr != nil {
