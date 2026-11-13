@@ -51,7 +51,9 @@ func TestRuntimeReleasePublicEndpoints(t *testing.T) {
 		status   int
 		location string
 	}{
-		{"windows", http.StatusFound, "https://github.com/jerry0012009/acu-runtime/releases/download/v0.1.99/ACU-Runtime-0.1.99-windows-amd64-Setup.exe"},
+		{"windows", http.StatusFound, "https://gh-proxy.com/https://github.com/jerry0012009/acu-runtime/releases/download/v0.1.99/ACU-Runtime-0.1.99-windows-amd64-Setup.exe"},
+		{"windows?source=github", http.StatusFound, "https://github.com/jerry0012009/acu-runtime/releases/download/v0.1.99/ACU-Runtime-0.1.99-windows-amd64-Setup.exe"},
+		{"windows?source=https://evil.example", http.StatusFound, "https://gh-proxy.com/https://github.com/jerry0012009/acu-runtime/releases/download/v0.1.99/ACU-Runtime-0.1.99-windows-amd64-Setup.exe"},
 		{"mac-arm", http.StatusFound, service.RuntimeLatestReleaseURL},
 		{"mac-intel", http.StatusFound, service.RuntimeLatestReleaseURL},
 		{"other", http.StatusNotFound, ""},

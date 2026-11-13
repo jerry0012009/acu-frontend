@@ -29,6 +29,7 @@ func TestRuntimeReleaseRefreshAndFailure(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "0.1.52", release.Version)
 	assert.Contains(t, release.Downloads["windows"], "/v0.1.52/")
+	assert.Equal(t, "https://gh-proxy.com/https://github.com/jerry0012009/acu-runtime/releases/download/v0.1.52/ACU-Runtime-0.1.52-windows-amd64-Setup.exe", release.Downloads["windows"])
 	assert.Empty(t, release.Downloads["mac-arm"])
 	version = "0.1.53"
 	_, err = cache.get(context.Background(), server.Client(), server.URL, now.Add(time.Minute))
@@ -72,4 +73,5 @@ func TestRuntimeReleaseRejectsUnsafeOrUnstableAssets(t *testing.T) {
 	assert.Empty(t, release.Downloads["windows"])
 	assert.Empty(t, release.Downloads["mac-arm"])
 	assert.Contains(t, release.Downloads["mac-intel"], "macos-amd64.dmg")
+	assert.Equal(t, "https://gh-proxy.com/https://github.com/jerry0012009/acu-runtime/releases/download/v0.1.52/ACU-Runtime-0.1.52-macos-amd64.dmg", release.Downloads["mac-intel"])
 }

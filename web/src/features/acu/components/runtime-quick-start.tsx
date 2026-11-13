@@ -153,6 +153,12 @@ export function RuntimeQuickStart(props: {
         </div>
         <div className='acu-download-meta'>
           <span>{t(platformNote)}</span>
+          {platform !== 'other' ? (
+            <a href={`${runtimeDownloadUrl(platform)}?source=github`}>
+              GitHub
+              <Download aria-hidden='true' />
+            </a>
+          ) : null}
           <a href={RUNTIME_RELEASE_URL} target='_blank' rel='noreferrer'>
             {t('Release notes & installation help')}
             <ExternalLink aria-hidden='true' />

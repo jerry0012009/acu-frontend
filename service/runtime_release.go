@@ -14,6 +14,7 @@ import (
 )
 
 const RuntimeLatestReleaseURL = "https://github.com/jerry0012009/acu-runtime/releases/latest"
+const RuntimeDownloadProxy = "https://gh-proxy.com/"
 
 type RuntimeRelease struct {
 	Version   string            `json:"version"`
@@ -93,7 +94,7 @@ func fetchRuntimeRelease(ctx context.Context, client *http.Client, releaseURL st
 		expectedURL := "https://github.com/jerry0012009/acu-runtime/releases/download/" + payload.Tag + "/" + name
 		for _, asset := range payload.Assets {
 			if asset.Name == name && asset.State == "uploaded" && asset.URL == expectedURL {
-				release.Downloads[platform] = asset.URL
+				release.Downloads[platform] = RuntimeDownloadProxy + asset.URL
 				break
 			}
 		}

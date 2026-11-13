@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
@@ -29,5 +30,9 @@ func DownloadRuntime(c *gin.Context) {
 		c.Redirect(http.StatusFound, service.RuntimeLatestReleaseURL)
 		return
 	}
-	c.Redirect(http.StatusFound, release.Downloads[platform])
+	download := release.Downloads[platform]
+	if c.Query("source") == "github" {
+		download = strings.TrimPrefix(download, service.RuntimeDownloadProxy)
+	}
+	c.Redirect(http.StatusFound, download)
 }

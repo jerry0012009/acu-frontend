@@ -58,6 +58,11 @@ test('Runtime displays the fetched version and keeps platform downloads on the l
     )
     assert.ok(
       dom.document.querySelector(
+        'a[href="/api/acu-runtime/download/windows?source=github"]'
+      )
+    )
+    assert.ok(
+      dom.document.querySelector(
         'a[href="https://github.com/jerry0012009/acu-runtime/releases/latest"]'
       )
     )
