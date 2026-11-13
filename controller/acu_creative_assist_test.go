@@ -16,7 +16,7 @@ import (
 
 func TestImagePromptRewritePreservesJSONFields(t *testing.T) {
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	c.Request = httptest.NewRequest("POST", "/v1/images/generations", bytes.NewBufferString(`{"model":"gpt-image-2","prompt":"original","n":1,"stream":false,"output_compression":0,"images":[{"image_url":"reference"}],"custom":{"untouched":true}}`))
+	c.Request = httptest.NewRequest("POST", "/v1/images/generations", bytes.NewBufferString(`{"model":"gpt-image-2","prompt":"original","size":"1024x1024","quality":"low","n":1,"stream":false,"output_compression":0,"images":[{"image_url":"reference"}],"custom":{"untouched":true}}`))
 	c.Request.Header.Set("Content-Type", "application/json")
 	defer common.CleanupBodyStorage(c)
 	require.NoError(t, replaceImagePrompt(c, "original\naddition"))
@@ -25,6 +25,8 @@ func TestImagePromptRewritePreservesJSONFields(t *testing.T) {
 	var body map[string]any
 	require.NoError(t, common.DecodeJson(storage, &body))
 	assert.Equal(t, "original\naddition", body["prompt"])
+	assert.Equal(t, "1024x1024", body["size"])
+	assert.Equal(t, "low", body["quality"])
 	assert.Equal(t, false, body["stream"])
 	assert.Equal(t, float64(0), body["output_compression"])
 	assert.Equal(t, map[string]any{"untouched": true}, body["custom"])
@@ -36,6 +38,7 @@ func TestImagePromptRewritePreservesMultipartOrderAndFiles(t *testing.T) {
 	w := multipart.NewWriter(&body)
 	require.NoError(t, w.WriteField("prompt", "original"))
 	require.NoError(t, w.WriteField("model", "gpt-image-2"))
+	require.NoError(t, w.WriteField("size", "1024x1024"))
 	for _, name := range []string{"image[]", "image[]", "mask"} {
 		p, err := w.CreateFormFile(name, name+".png")
 		require.NoError(t, err)
@@ -70,6 +73,9 @@ func TestImagePromptRewritePreservesMultipartOrderAndFiles(t *testing.T) {
 		if p.FormName() == "prompt" {
 			assert.Equal(t, "new prompt", string(b))
 		}
+		if p.FormName() == "size" {
+			assert.Equal(t, "1024x1024", string(b))
+		}
 	}
-	assert.Equal(t, []string{"prompt", "model", "image[]", "image[]", "mask", "output_compression"}, names)
+	assert.Equal(t, []string{"prompt", "model", "size", "image[]", "image[]", "mask", "output_compression"}, names)
 }
