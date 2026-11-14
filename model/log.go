@@ -349,6 +349,12 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 	if !common.LogConsumeEnabled {
 		return
 	}
+	if fingerprint := c.GetString("acu_creative_fingerprint"); fingerprint != "" {
+		if params.Other == nil {
+			params.Other = map[string]interface{}{}
+		}
+		params.Other["acu_creative_applied"] = fingerprint
+	}
 	logger.LogInfo(c, fmt.Sprintf("record consume log: userId=%d, params=%s", userId, common.GetJsonString(params)))
 	username := c.GetString("username")
 	requestId := c.GetString(common.RequestIdKey)
