@@ -37,6 +37,9 @@ func IsOpenAIResponseOnlyModel(modelName string) bool {
 
 func IsImageGenerationModel(modelName string) bool {
 	modelName = strings.ToLower(modelName)
+	if strings.HasPrefix(modelName, "grok-imagine-image") || strings.Contains(modelName, "banana") || (strings.HasPrefix(modelName, "gemini-") && strings.Contains(modelName, "image")) {
+		return true
+	}
 	for _, m := range ImageGenerationModels {
 		if prefix, ok := strings.CutPrefix(m, "prefix:"); ok {
 			if strings.HasPrefix(modelName, prefix) {

@@ -39,6 +39,7 @@ type ImageURL struct {
 }
 
 type responseTask struct {
+	RequestID          string `json:"request_id,omitempty"`
 	ID                 string `json:"id"`
 	TaskID             string `json:"task_id,omitempty"` //兼容旧接口
 	Object             string `json:"object"`
@@ -89,9 +90,25 @@ func validateRemixRequest(c *gin.Context) *dto.TaskError {
 
 func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycommon.RelayInfo) (taskErr *dto.TaskError) {
 	if info.Action == constant.TaskActionRemix {
+		if strings.HasPrefix(info.UpstreamModelName, "grok-imagine-video") {
+			return service.TaskErrorWrapperLocal(fmt.Errorf("Grok video remix is not supported"), "invalid_request", 400)
+		}
 		return validateRemixRequest(c)
 	}
-	return relaycommon.ValidateMultipartDirect(c, info)
+	if taskErr = relaycommon.ValidateMultipartDirect(c, info); taskErr != nil {
+		return taskErr
+	}
+	if strings.HasPrefix(info.UpstreamModelName, "grok-imagine-video") {
+		req, err := relaycommon.GetTaskRequest(c)
+		if err != nil {
+			return service.TaskErrorWrapperLocal(err, "invalid_request", 400)
+		}
+		_, err = grokVideoRequest(req, info.UpstreamModelName)
+		if err != nil {
+			return service.TaskErrorWrapperLocal(err, "invalid_request", 400)
+		}
+	}
+	return nil
 }
 
 // EstimateBilling 根据用户请求的 seconds 和 size 计算 OtherRatios。
@@ -113,6 +130,24 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 	if seconds <= 0 {
 		seconds = 4
 	}
+	if strings.HasPrefix(info.UpstreamModelName, "grok-imagine-video") {
+		payload, err := grokVideoRequest(req, info.UpstreamModelName)
+		if err != nil {
+			return nil
+		}
+		ratio := 1.0
+		if strings.HasSuffix(info.UpstreamModelName, "1.5") {
+			switch payload["resolution"] {
+			case "720p":
+				ratio = 1.75
+			case "1080p":
+				ratio = 3.125
+			}
+		} else if payload["resolution"] == "720p" {
+			ratio = 1.4
+		}
+		return map[string]float64{"seconds": float64(payload["duration"].(int)), "size": ratio}
+	}
 
 	size := req.Size
 	if size == "" {
@@ -130,6 +165,9 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, error) {
+	if strings.HasPrefix(info.UpstreamModelName, "grok-imagine-video") {
+		return strings.TrimRight(a.baseURL, "/") + "/v1/videos/generations", nil
+	}
 	if info.Action == constant.TaskActionRemix {
 		return fmt.Sprintf("%s/v1/videos/%s/remix", a.baseURL, info.OriginTaskID), nil
 	}
@@ -140,10 +178,25 @@ func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, erro
 func (a *TaskAdaptor) BuildRequestHeader(c *gin.Context, req *http.Request, info *relaycommon.RelayInfo) error {
 	req.Header.Set("Authorization", "Bearer "+a.apiKey)
 	req.Header.Set("Content-Type", c.Request.Header.Get("Content-Type"))
+	if strings.HasPrefix(info.UpstreamModelName, "grok-imagine-video") {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	return nil
 }
 
 func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayInfo) (io.Reader, error) {
+	if strings.HasPrefix(info.UpstreamModelName, "grok-imagine-video") {
+		req, err := relaycommon.GetTaskRequest(c)
+		if err != nil {
+			return nil, err
+		}
+		payload, err := grokVideoRequest(req, info.UpstreamModelName)
+		if err != nil {
+			return nil, err
+		}
+		data, err := common.Marshal(payload)
+		return bytes.NewReader(data), err
+	}
 	storage, err := common.GetBodyStorage(c)
 	if err != nil {
 		return nil, errors.Wrap(err, "get_request_body_failed")
@@ -245,6 +298,9 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 		upstreamID = dResp.TaskID
 	}
 	if upstreamID == "" {
+		upstreamID = dResp.RequestID
+	}
+	if upstreamID == "" {
 		taskErr = service.TaskErrorWrapper(fmt.Errorf("task_id is empty"), "invalid_response", http.StatusInternalServerError)
 		return
 	}
@@ -252,6 +308,16 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 	// 使用公开 task_xxxx ID 返回给客户端
 	dResp.ID = info.PublicTaskID
 	dResp.TaskID = info.PublicTaskID
+	dResp.RequestID = ""
+	if strings.HasPrefix(info.UpstreamModelName, "grok-imagine-video") && dResp.Status == "" {
+		dResp.Status = "queued"
+	}
+	if strings.HasPrefix(info.UpstreamModelName, "grok-imagine-video") && dResp.Model == "" {
+		dResp.Model = info.OriginModelName
+	}
+	if strings.HasPrefix(info.UpstreamModelName, "grok-imagine-video") {
+		dResp.Object = "video"
+	}
 	c.JSON(http.StatusOK, dResp)
 	return upstreamID, responseBody, nil
 }
@@ -302,7 +368,7 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 		taskResult.Status = model.TaskStatusQueued
 	case "processing", "in_progress":
 		taskResult.Status = model.TaskStatusInProgress
-	case "completed":
+	case "completed", "done":
 		taskResult.Status = model.TaskStatusSuccess
 		// Url intentionally left empty — the caller constructs the proxy URL using the public task ID
 	case "failed", "cancelled":
@@ -326,6 +392,22 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(task *model.Task) ([]byte, error) {
 	var err error
 	if data, err = sjson.SetBytes(data, "id", task.TaskID); err != nil {
 		return nil, errors.Wrap(err, "set id failed")
+	}
+	data, err = sjson.DeleteBytes(data, "request_id")
+	if err != nil {
+		return nil, err
+	}
+	var state responseTask
+	if common.Unmarshal(data, &state) == nil && state.Status == "done" {
+		data, err = sjson.SetBytes(data, "status", "completed")
+		if err != nil {
+			return nil, err
+		}
+	}
+	// Never expose provider-relative content URLs; downloads use the owned task proxy.
+	data, err = sjson.DeleteBytes(data, "video")
+	if err != nil {
+		return nil, err
 	}
 	return data, nil
 }

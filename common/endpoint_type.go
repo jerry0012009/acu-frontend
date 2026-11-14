@@ -2,12 +2,16 @@ package common
 
 import (
 	"slices"
+	"strings"
 
 	"github.com/QuantumNous/new-api/constant"
 )
 
 // GetEndpointTypesByChannelType 获取渠道最优先端点类型（所有的渠道都支持 OpenAI 端点）
 func GetEndpointTypesByChannelType(channelType int, modelName string) []constant.EndpointType {
+	if strings.HasPrefix(modelName, "grok-imagine-video") && (channelType == constant.ChannelTypeOpenAI || channelType == constant.ChannelTypeSora) {
+		return []constant.EndpointType{constant.EndpointTypeOpenAIVideo}
+	}
 	var endpointTypes []constant.EndpointType
 	switch channelType {
 	case constant.ChannelTypeJina:

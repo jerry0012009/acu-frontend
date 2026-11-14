@@ -167,6 +167,16 @@ func buildOpenAIModel(modelName string, ownerByModel map[string]string) dto.Open
 		oaiModel.OwnedBy = owner
 	}
 	oaiModel.SupportedEndpointTypes = model.GetModelSupportEndpointTypes(modelName)
+	// Media discovery is consumed by existing Magpie tools; no client-side allowlist needed.
+	for _, endpoint := range oaiModel.SupportedEndpointTypes {
+		if endpoint == constant.EndpointTypeOpenAIVideo {
+			oaiModel.Kind = "video"
+			break
+		}
+		if endpoint == constant.EndpointTypeImageGeneration {
+			oaiModel.Kind = "image"
+		}
+	}
 	return oaiModel
 }
 
