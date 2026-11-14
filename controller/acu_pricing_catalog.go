@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 
@@ -306,6 +307,15 @@ func overlayACUPricing(catalog *acuPricingCatalog, current []model.Pricing) []mo
 		item.PricingVersion = catalog.PricingVersion
 		item.EnableGroup = []string{"default"}
 		item.SupportedEndpointTypes = acuEndpointTypes(source.Protocol)
+		result = append(result, item)
+	}
+	for _, item := range current {
+		if !common.IsImageGenerationModel(item.ModelName) && !strings.HasPrefix(item.ModelName, "grok-imagine-video") {
+			continue
+		}
+		if slices.ContainsFunc(result, func(existing model.Pricing) bool { return existing.ModelName == item.ModelName }) {
+			continue
+		}
 		result = append(result, item)
 	}
 	return result

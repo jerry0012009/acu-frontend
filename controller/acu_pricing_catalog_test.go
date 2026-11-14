@@ -8,8 +8,18 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestOverlayACUPricingPreservesMediaBilling(t *testing.T) {
+	image := model.Pricing{ModelName: "grok-imagine-image", ModelPrice: 0.001, QuotaType: 1}
+	video := model.Pricing{ModelName: "grok-imagine-video", ModelPrice: 0.002, QuotaType: 1}
+	gemini := model.Pricing{ModelName: "gemini-3.1-flash-image-preview", BillingMode: "tiered_expr"}
+	got := overlayACUPricing(&acuPricingCatalog{Auto: acuPricingAuto{ModelID: "acu-auto"}}, []model.Pricing{image, video, gemini, {ModelName: "unpublished-text"}})
+	require.Len(t, got, 4)
+	assert.Equal(t, []model.Pricing{image, video, gemini}, got[1:])
+}
 
 func TestOverlayACUPricingUsesDynamicAutoAndCatalogPrices(t *testing.T) {
 	cachePayable := 0.006

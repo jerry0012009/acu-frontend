@@ -12,6 +12,8 @@ import (
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestImageFixedPriceSettlementUsesActualCount(t *testing.T) {
@@ -37,6 +39,32 @@ func TestImageFixedPriceSettlementUsesActualCount(t *testing.T) {
 	want := common.QuotaRound(common.ImageDefaultPriceUSD * common.QuotaPerUnit * 2)
 	if summary.Quota != want {
 		t.Fatalf("quota = %d, want %d", summary.Quota, want)
+	}
+}
+
+func TestObservedImageOutputChargesWithoutSyntheticTokens(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	for _, count := range []int{0, 1, 2, dto.MaxImageN + 1} {
+		info := &relaycommon.RelayInfo{
+			OriginModelName:            "grok-imagine-image",
+			StartTime:                  time.Now(),
+			ImageResponseCountObserved: true,
+			ImageResponseCount:         count,
+			PriceData:                  types.PriceData{UsePrice: true, ModelPrice: 0.001, GroupRatioInfo: types.GroupRatioInfo{GroupRatio: 1}},
+		}
+		if count > 0 && count <= dto.MaxImageN {
+			info.PriceData.AddOtherRatio("n", float64(count))
+		}
+		summary := calculateTextQuotaSummary(ctx, info, &dto.Usage{})
+		if count > 0 && count <= dto.MaxImageN {
+			require.True(t, summary.hasBillableUsage())
+			assert.Equal(t, common.QuotaRound(0.001*common.QuotaPerUnit*float64(count)), summary.Quota)
+		} else {
+			assert.False(t, summary.hasBillableUsage())
+			assert.Zero(t, summary.Quota)
+		}
+		assert.Zero(t, summary.TotalTokens)
 	}
 }
 
