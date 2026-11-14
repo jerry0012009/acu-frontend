@@ -15,16 +15,12 @@ import (
 )
 
 type creativeHistoryItem struct {
-	RequestID    string `json:"requestId"`
-	OccurredAt   string `json:"occurredAt"`
-	Fingerprint  string `json:"fingerprint"`
-	Supplement   string `json:"supplement"`
-	Presentation *struct {
-		Title   string `json:"title"`
-		Summary string `json:"summary"`
-		Basis   string `json:"basis"`
-	} `json:"presentation"`
-	References []struct {
+	RequestID    string                `json:"requestId"`
+	OccurredAt   string                `json:"occurredAt"`
+	Fingerprint  string                `json:"fingerprint"`
+	Supplement   string                `json:"supplement"`
+	Presentation *CreativePresentation `json:"presentation"`
+	References   []struct {
 		Scope string `json:"scope"`
 		Quote string `json:"quote"`
 	} `json:"references"`

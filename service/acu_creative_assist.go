@@ -18,15 +18,22 @@ type CreativeAssistRequest struct {
 }
 
 type CreativeAssistResult struct {
-	Status      string `json:"status"`
-	Prompt      string `json:"prompt"`
-	Supplement  string `json:"supplement"`
-	Fingerprint string `json:"fingerprint"`
-	References  []struct {
+	Status       string                `json:"status"`
+	Prompt       string                `json:"prompt"`
+	Supplement   string                `json:"supplement"`
+	Fingerprint  string                `json:"fingerprint"`
+	Presentation *CreativePresentation `json:"presentation,omitempty"`
+	References   []struct {
 		ID    string `json:"id"`
 		Name  string `json:"name"`
 		Quote string `json:"quote"`
 	} `json:"references"`
+}
+
+type CreativePresentation struct {
+	Title   string `json:"title"`
+	Summary string `json:"summary"`
+	Basis   string `json:"basis"`
 }
 
 func AssistCreativeRequest(ctx context.Context, userID, tokenID int, requestID string, input CreativeAssistRequest) (CreativeAssistResult, error) {
