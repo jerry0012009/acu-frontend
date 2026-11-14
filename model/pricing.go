@@ -154,6 +154,7 @@ func GetModelSupportEndpointTypes(model string) []constant.EndpointType {
 	if model == "" {
 		return make([]constant.EndpointType, 0)
 	}
+	GetPricing()
 	modelSupportEndpointsLock.RLock()
 	defer modelSupportEndpointsLock.RUnlock()
 	if endpoints, ok := modelSupportEndpointTypes[model]; ok {

@@ -190,6 +190,19 @@ func TestPricingNativeChannelEndpointTypesUnchanged(t *testing.T) {
 	assert.Equal(t, []constant.EndpointType{constant.EndpointTypeAnthropic, constant.EndpointTypeOpenAI}, byModel["claude-3-5-sonnet"])
 }
 
+func TestModelEndpointsRefreshWithoutPricingPageVisit(t *testing.T) {
+	resetPricingEndpointTestTables(t)
+	insertPricingEndpointChannel(t, 204, constant.ChannelTypeSora, dto.ChannelOtherSettings{})
+	insertPricingEndpointAbility(t, 204, "grok-imagine-video")
+	InitChannelCache()
+	assert.Equal(t, []constant.EndpointType{constant.EndpointTypeOpenAIVideo}, GetModelSupportEndpointTypes("grok-imagine-video"))
+
+	insertPricingEndpointChannel(t, 205, constant.ChannelTypeGemini, dto.ChannelOtherSettings{})
+	insertPricingEndpointAbility(t, 205, "gemini-3.1-flash-image-preview")
+	InitChannelCache()
+	assert.Contains(t, GetModelSupportEndpointTypes("gemini-3.1-flash-image-preview"), constant.EndpointTypeImageGeneration)
+}
+
 func TestInitChannelCacheInvalidatesPricingCache(t *testing.T) {
 	resetPricingEndpointTestTables(t)
 
