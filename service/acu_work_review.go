@@ -15,11 +15,16 @@ import (
 )
 
 type creativeHistoryItem struct {
-	RequestID   string `json:"requestId"`
-	OccurredAt  string `json:"occurredAt"`
-	Fingerprint string `json:"fingerprint"`
-	Supplement  string `json:"supplement"`
-	References  []struct {
+	RequestID    string `json:"requestId"`
+	OccurredAt   string `json:"occurredAt"`
+	Fingerprint  string `json:"fingerprint"`
+	Supplement   string `json:"supplement"`
+	Presentation *struct {
+		Title   string `json:"title"`
+		Summary string `json:"summary"`
+		Basis   string `json:"basis"`
+	} `json:"presentation"`
+	References []struct {
 		Scope string `json:"scope"`
 		Quote string `json:"quote"`
 	} `json:"references"`
@@ -113,10 +118,32 @@ func projectCreativeWorkRecord(item creativeHistoryItem, filmAllowed bool, recei
 		for _, ref := range item.References {
 			record.Sources = append(record.Sources, dto.ACUWorkSource{Scope: ref.Scope, Quote: advisorPrivateText.ReplaceAllString(ref.Quote, "[redacted]")})
 		}
+		if p := item.Presentation; p != nil && validWorkReviewText(p.Title, 24) && validWorkReviewText(p.Summary, 90) && validWorkReviewText(p.Basis, 100) {
+			record.Title = advisorPrivateText.ReplaceAllString(p.Title, "[redacted]")
+			record.Summary = advisorPrivateText.ReplaceAllString(p.Summary, "[redacted]")
+			record.Rationale = advisorPrivateText.ReplaceAllString(p.Basis, "[redacted]")
+		}
 	} else {
 		record.Basis = "历史参考 · 详情暂不可用"
 	}
 	return record
+}
+
+func validWorkReviewText(value string, limit int) bool {
+	runes := []rune(value)
+	if len(runes) == 0 || len(runes) > limit {
+		return false
+	}
+	chinese := false
+	for _, r := range runes {
+		if unicode.IsControl(r) || unicode.In(r, unicode.Cf) {
+			return false
+		}
+		if unicode.Is(unicode.Han, r) {
+			chinese = true
+		}
+	}
+	return chinese
 }
 
 func GetACUWorkReview(ctx context.Context, userID int) (dto.ACUWorkReview, error) {

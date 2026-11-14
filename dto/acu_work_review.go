@@ -9,6 +9,7 @@ type ACUWorkRecord struct {
 	Basis      string                `json:"basis"`
 	State      string                `json:"state"`
 	Detail     string                `json:"detail,omitempty"`
+	Rationale  string                `json:"rationale,omitempty"`
 	Changes    []ACUPreferenceChange `json:"changes,omitempty"`
 	Sources    []ACUWorkSource       `json:"sources,omitempty"`
 	RequestID  string                `json:"requestId,omitempty"`
