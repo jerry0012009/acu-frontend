@@ -51,6 +51,7 @@ import {
   preferenceDocumentLabel,
 } from './preference-display'
 import { PreferenceStarfish } from './preference-starfish'
+import { TeamPreferences, TeamSpaceLinks } from './team-preferences'
 
 export type PrivateACUSection =
   | 'overview'
@@ -1431,7 +1432,7 @@ export function PrivateACUWorkspace(props: {
   const titleBySection: Record<PrivateACUSection, string> = {
     overview: t('Private ACU'),
     account: t('Account learning'),
-    film: t('Film POC'),
+    film: t('Team creative vectors'),
     'learning-runs': t('Learning runs'),
     advisor: t('Advisor'),
     prompts: t('Prompts'),
@@ -1441,6 +1442,7 @@ export function PrivateACUWorkspace(props: {
   if (props.section === 'overview') {
     content = (
       <div className='space-y-6'>
+        <TeamSpaceLinks />
         <PreferenceStarfish />
         {isAdmin ? <OverviewPage isAdmin /> : <PrivateACUUserOverview />}
       </div>
@@ -1452,7 +1454,23 @@ export function PrivateACUWorkspace(props: {
       <PrivateACUUserAccount />
     )
   } else if (props.section === 'film') {
-    content = isAdmin ? <PrivateACUFilmPOC /> : <MemberFilmPage />
+    content = (
+      <div className='min-w-0 space-y-6'>
+        <TeamPreferences />
+        <details className='border-t pt-4'>
+          <summary className='cursor-pointer text-sm font-medium'>
+            {t(
+              isAdmin
+                ? 'Team learning and management'
+                : 'All creative experience'
+            )}
+          </summary>
+          <div className='mt-4'>
+            {isAdmin ? <PrivateACUFilmPOC /> : <MemberFilmPage />}
+          </div>
+        </details>
+      </div>
+    )
   } else if (props.section === 'learning-runs') {
     content = isAdmin ? (
       <PrivateACULearningRuns learningKind={props.learningKind} />

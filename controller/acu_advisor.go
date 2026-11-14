@@ -41,6 +41,18 @@ func GetPrivateACUPreferenceProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "", "data": result})
 }
 
+func GetPrivateACUTeamPreferences(c *gin.Context) {
+	if _, ok := requireBrowserSession(c); !ok {
+		return
+	}
+	result, err := service.GetPrivateACUTeamPreferences(c.Request.Context(), c.GetInt("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": result})
+}
+
 func GetPrivateACUPreferenceLibrary(c *gin.Context) {
 	if _, ok := requireBrowserSession(c); !ok {
 		return

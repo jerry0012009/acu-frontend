@@ -10,7 +10,7 @@ import (
 )
 
 func TestPreferenceReadModelsRequireDashboardSessionNotJustUserID(t *testing.T) {
-	for _, handler := range []gin.HandlerFunc{GetPrivateACUPreferenceLibrary, GetPrivateACUPreferenceActivity} {
+	for _, handler := range []gin.HandlerFunc{GetPrivateACUPreferenceLibrary, GetPrivateACUPreferenceActivity, GetPrivateACUTeamPreferences} {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
 		c.Request = httptest.NewRequest(http.MethodGet, "/", nil)

@@ -7,12 +7,13 @@ import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { bipolarRayGeometry } from './bipolar-ray-geometry'
+import type { PreferenceRecord } from './preference-library-api'
 import {
   getPreferenceProfile,
   type PreferenceProfileView,
 } from './preference-profile-api'
 import { preferenceRayLengths } from './preference-ray-lengths'
-import { PreferenceRecords } from './preference-records'
+import { PreferenceRecords, PreferenceRecordList } from './preference-records'
 
 const STARFISH_CSS = `
   @keyframes preference-starfish-pulse {
@@ -41,6 +42,7 @@ const STARFISH_CSS = `
 
 export function PreferenceStarfishChart(props: {
   view: PreferenceProfileView
+  records?: PreferenceRecord[]
 }) {
   const { t } = useTranslation()
   const [selectedId, setSelectedId] = useState('')
@@ -158,10 +160,11 @@ export function PreferenceStarfishChart(props: {
               <defs>
                 <filter
                   id='preference-starfish-glow'
-                  x='-100%'
-                  y='-100%'
-                  width='300%'
-                  height='300%'
+                  filterUnits='userSpaceOnUse'
+                  x='-100'
+                  y='-100'
+                  width='840'
+                  height='840'
                 >
                   <feGaussianBlur stdDeviation='4' result='blur' />
                   <feMerge>
@@ -389,20 +392,22 @@ export function PreferenceStarfishChart(props: {
                   </dl>
                 </div>
               ) : (
-                <dl className='grid grid-cols-2 gap-3 text-xs'>
-                  <div>
-                    <dt>{t('Preference strength estimate')}</dt>
-                    <dd className='mt-1 text-lg tabular-nums'>
-                      {selected.score}/100
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>{t('Evidence confidence estimate')}</dt>
-                    <dd className='mt-1 text-lg tabular-nums'>
-                      {selected.confidence}/100
-                    </dd>
-                  </div>
-                </dl>
+                !props.records && (
+                  <dl className='grid grid-cols-2 gap-3 text-xs'>
+                    <div>
+                      <dt>{t('Preference strength estimate')}</dt>
+                      <dd className='mt-1 text-lg tabular-nums'>
+                        {selected.score}/100
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{t('Evidence confidence estimate')}</dt>
+                      <dd className='mt-1 text-lg tabular-nums'>
+                        {selected.confidence}/100
+                      </dd>
+                    </div>
+                  </dl>
+                )
               )}
               <details
                 onToggle={(event) => {
@@ -412,13 +417,24 @@ export function PreferenceStarfishChart(props: {
                 <summary className='cursor-pointer text-xs'>
                   {t('Saved preference records')} ({selected.sourceIds.length})
                 </summary>
-                <p className='text-muted-foreground mt-2 text-xs'>
-                  {t('Saved interpretations, not original user quotations')}
-                </p>
-                <PreferenceRecords
-                  key={selected.id}
-                  sourceIds={selected.sourceIds}
-                />
+                {props.records ? (
+                  <PreferenceRecordList
+                    records={
+                      selected.evidence?.length
+                        ? selected.evidence.map((entry) => ({
+                            id: entry.sourceId,
+                            summary: entry.quote,
+                          }))
+                        : props.records
+                    }
+                    sourceIds={selected.sourceIds}
+                  />
+                ) : (
+                  <PreferenceRecords
+                    key={selected.id}
+                    sourceIds={selected.sourceIds}
+                  />
+                )}
               </details>
             </article>
           )}

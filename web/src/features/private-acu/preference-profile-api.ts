@@ -9,6 +9,7 @@ export type PreferenceRay = {
   summary: string
   scope: string
   sourceIds: string[]
+  evidence?: Array<{ sourceId: string; quote: string }>
   bipolar?: {
     axis_id: string
     schema_version: 'acu-preference-v5-bipolar'

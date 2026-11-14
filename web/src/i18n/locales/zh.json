@@ -1,5 +1,13 @@
 {
   "translation": {
+    "Team creative vectors": "团队创作向量",
+    "Preference domains": "偏好领域",
+    "Team learning and management": "团队学习与管理",
+    "All creative experience": "全部创作经验",
+    "{{team}} creative vectors": "{{team}} 创作向量",
+    "No creative experience yet": "暂无创作经验",
+    "Updating creative vectors": "正在整理创作向量…",
+    "Refresh failed. Please retry.": "刷新失败，请重试。",
     "Preference summary": "偏好摘要",
     "Exceptions": "例外情况",
     "Updating preference starfish": "偏好图谱更新中",
