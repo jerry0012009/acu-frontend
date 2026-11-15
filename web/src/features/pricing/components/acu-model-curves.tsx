@@ -28,6 +28,7 @@ import {
   executionPresetLabels,
   executionPresetPricingCosts,
 } from '../lib/execution-preset-series'
+import { isMediaModel } from '../lib/model-helpers'
 import { formatACUCNY, formatPublicReferenceSource } from '../lib/price'
 import {
   PRICE_COLOR_STOPS,
@@ -100,6 +101,7 @@ export function ACUModelCurves(props: {
       props.models
         .filter(
           (model) =>
+            !isMediaModel(model) &&
             model.acu_active === true &&
             model.price_currency === 'CNY' &&
             (model.acu_curve?.length ?? 0) > 0

@@ -6,6 +6,7 @@ import {
   ENDPOINT_TYPES,
 } from '../constants'
 import type { PricingModel } from '../types'
+import { isMediaModel, mediaPriceUnit } from './model-helpers'
 
 // ----------------------------------------------------------------------------
 // Filter Utilities
@@ -88,6 +89,14 @@ function getModelPrice(model: PricingModel): number {
   return model.quota_type === 0 ? model.model_ratio : model.model_price || 0
 }
 
+function priceSortUnit(model: PricingModel): string {
+  if (!isMediaModel(model)) {
+    return model.quota_type === 0 ? '0-token' : '4-request'
+  }
+  if (model.quota_type === 0) return '2-media-token'
+  return mediaPriceUnit(model) === 'second' ? '3-second' : '1-image'
+}
+
 /**
  * Sort models by specified option
  */
@@ -106,6 +115,11 @@ export function sortModels(
     case SORT_OPTIONS.PRICE_LOW:
     case SORT_OPTIONS.PRICE_HIGH:
       sorted.sort((a, b) => {
+        const unitDifference = priceSortUnit(a).localeCompare(priceSortUnit(b))
+        if (unitDifference !== 0) return unitDifference
+        // Token-priced media can have separate image-output rates and tiers.
+        // Their text-input ratio is not a comparable image generation price.
+        if (isMediaModel(a) && a.quota_type === 0) return byName(a, b)
         const left = getModelPrice(a)
         const right = getModelPrice(b)
         if (!Number.isFinite(left)) {

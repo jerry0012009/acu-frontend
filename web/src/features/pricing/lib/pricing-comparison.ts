@@ -6,6 +6,7 @@ import type {
   PricingPayable,
   PricingProtocol,
 } from '../types'
+import { isMediaModel } from './model-helpers'
 
 export function modelPricingProtocol(
   model: PricingModel,
@@ -37,6 +38,7 @@ export function applyPricingPreview(
   status: 'loading' | 'error' | 'ready'
 ): PricingModel[] {
   return models.map((model) => {
+    if (isMediaModel(model)) return model
     if (model.payable?.model_multiplier) return model
     if (
       model.price_currency !== 'CNY' ||

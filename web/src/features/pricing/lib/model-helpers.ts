@@ -90,6 +90,15 @@ export function isTokenBasedModel(model: PricingModel): boolean {
   return model.quota_type === QUOTA_TYPE_VALUES.TOKEN
 }
 
+export function isMediaModel(model: PricingModel): boolean {
+  return (
+    model.supported_endpoint_types?.some(
+      (endpoint) =>
+        endpoint === 'image-generation' || endpoint === 'openai-video'
+    ) ?? false
+  )
+}
+
 export function mediaPriceUnit(
   model: PricingModel
 ): 'second' | 'image' | 'request' {

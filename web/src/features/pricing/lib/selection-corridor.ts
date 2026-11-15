@@ -9,6 +9,7 @@ import type {
   ACUSelectionCorridorPoint,
   PricingModel,
 } from '../types'
+import { isMediaModel } from './model-helpers'
 
 export {
   CURVE_DISPLAY_SMOOTH_RADIUS,
@@ -52,6 +53,7 @@ export function corridorVisibleModels(
   eligibleModelIds?: Set<string>
 ): PricingModel[] {
   return models.filter((model) => {
+    if (isMediaModel(model)) return false
     if (eligibleModelIds && !eligibleModelIds.has(model.model_name)) {
       return false
     }

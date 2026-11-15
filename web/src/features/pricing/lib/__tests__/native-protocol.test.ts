@@ -30,6 +30,18 @@ test('Messages-only models use Messages even when the page opens in Chat', () =>
   assert.equal(modelPricingProtocol(opus, 'responses'), 'messages')
 })
 
+test('media catalog prices are not replaced by text route previews', () => {
+  const image = {
+    ...opus,
+    model_name: 'image',
+    supported_endpoint_types: ['image-generation', 'gemini'],
+    billing_mode: 'tiered_expr',
+    billing_expr: 'tier("image", img_o * 9)',
+  }
+  const [result] = applyPricingPreview([image], undefined, 'gemini', 'error')
+  assert.equal(result, image)
+})
+
 test('supported selected protocol is retained even if its price is missing', () => {
   assert.equal(
     modelPricingProtocol(

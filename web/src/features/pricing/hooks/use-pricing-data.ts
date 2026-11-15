@@ -16,6 +16,7 @@ import { useStatus } from '@/hooks/use-status'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { getACUSelectionCorridor, getPricing } from '../api'
+import { isMediaModel } from '../lib/model-helpers'
 import {
   applyPricingPreview,
   modelPricingProtocol,
@@ -44,9 +45,9 @@ export function usePricingData() {
     () => [
       ...new Set([
         pricingProtocol,
-        ...(data?.data ?? []).map((model) =>
-          modelPricingProtocol(model, pricingProtocol)
-        ),
+        ...(data?.data ?? [])
+          .filter((model) => !isMediaModel(model))
+          .map((model) => modelPricingProtocol(model, pricingProtocol)),
       ]),
     ],
     [data, pricingProtocol]
@@ -125,6 +126,7 @@ export function usePricingData() {
       }
     })
     return catalogModels.map((model) => {
+      if (isMediaModel(model)) return model
       const protocol = modelPricingProtocol(model, pricingProtocol)
       const query = previewQueries[protocols.indexOf(protocol)]
       let status: 'loading' | 'error' | 'ready' = 'loading'

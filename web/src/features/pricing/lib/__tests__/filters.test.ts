@@ -47,3 +47,56 @@ test('unavailable ACU quotes sort after priced models in both price directions',
     )
   }
 })
+
+test('price sorting compares only matching billing units and keeps text first', () => {
+  const image = {
+    ...model('image', 0),
+    quota_type: 1,
+    model_price: 0.001,
+    supported_endpoint_types: ['image-generation'],
+  }
+  const video = {
+    ...model('grok-imagine-video', 0),
+    quota_type: 1,
+    model_price: 0.0001,
+    supported_endpoint_types: ['openai-video'],
+  }
+  const secondImage = {
+    ...image,
+    model_name: 'image-expensive',
+    model_price: 0.02,
+  }
+  assert.deepEqual(
+    sortModels(
+      [video, secondImage, model('text', 1), image],
+      SORT_OPTIONS.PRICE_LOW
+    ).map((m) => m.model_name),
+    ['text', 'image', 'image-expensive', 'grok-imagine-video']
+  )
+  assert.deepEqual(
+    sortModels(
+      [video, image, model('text', 1), secondImage],
+      SORT_OPTIONS.PRICE_HIGH
+    ).map((m) => m.model_name),
+    ['text', 'image-expensive', 'image', 'grok-imagine-video']
+  )
+})
+
+test('token-priced images are not ranked by their text-input price', () => {
+  const images = [
+    {
+      ...model('z-image', 0.001),
+      supported_endpoint_types: ['image-generation', 'gemini'],
+    },
+    {
+      ...model('a-image', 100),
+      supported_endpoint_types: ['image-generation', 'gemini'],
+    },
+  ]
+  for (const direction of [SORT_OPTIONS.PRICE_LOW, SORT_OPTIONS.PRICE_HIGH]) {
+    assert.deepEqual(
+      sortModels(images, direction).map((m) => m.model_name),
+      ['a-image', 'z-image']
+    )
+  }
+})

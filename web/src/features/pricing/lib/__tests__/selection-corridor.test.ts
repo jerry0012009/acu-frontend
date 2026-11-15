@@ -71,6 +71,52 @@ test('Default and protocol views keep only priced, eligible model curves', () =>
   )
 })
 
+test('media models never join text quality curves even when curve metadata exists', () => {
+  const base = {
+    id: 1,
+    model_name: 'text',
+    quota_type: 0,
+    model_ratio: 1,
+    completion_ratio: 1,
+    enable_groups: [],
+    acu_active: true,
+    price_currency: 'CNY',
+    acu_curve: [
+      {
+        difficultyScore: 0,
+        estimatedQuality: 90,
+        qualityLower: 80,
+        qualityUpper: 95,
+      },
+    ],
+    payable_by_protocol: {
+      responses: {
+        input_cny_per_million: 1,
+        output_cny_per_million: 2,
+        status: 'verified',
+        pricing_policy_version: 'test',
+      },
+    },
+  } as PricingModel
+  const models = [
+    base,
+    {
+      ...base,
+      model_name: 'image',
+      supported_endpoint_types: ['image-generation', 'openai-response'],
+    },
+    {
+      ...base,
+      model_name: 'video',
+      supported_endpoint_types: ['openai-video'],
+    },
+  ]
+  assert.deepEqual(
+    corridorVisibleModels(models, 'responses').map((m) => m.model_name),
+    ['text']
+  )
+})
+
 const point = (
   difficulty: number,
   selectedModelId: string,

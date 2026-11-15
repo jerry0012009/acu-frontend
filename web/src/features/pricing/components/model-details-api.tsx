@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import {
   ChevronRight,
   Gauge,
@@ -19,6 +20,7 @@ import {
   staticDataTableClassNames as tableStyles,
 } from '@/components/data-table'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useStatus } from '@/hooks/use-status'
 import { resolveServerAddress } from '@/lib/server-address'
@@ -29,7 +31,7 @@ import {
   formatRateLimit,
   type SupportedParameter,
 } from '../lib/mock-stats'
-import { replaceModelInPath } from '../lib/model-helpers'
+import { isMediaModel, replaceModelInPath } from '../lib/model-helpers'
 import type { PricingModel } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -461,7 +463,7 @@ function CodeSamplesSection(props: {
     return types
       .map((type) => {
         const info = props.endpointMap[type] || {}
-        let path = info.path || ''
+        let path = info.path || (type === 'openai-video' ? '/v1/videos' : '')
         if (path && path.includes('{model}')) {
           path = replaceModelInPath(path, props.model.model_name || '')
         }
@@ -758,12 +760,52 @@ export function ModelDetailsApi(props: {
   model: PricingModel
   endpointMap: Record<string, { path?: string; method?: string }>
 }) {
+  const { t } = useTranslation()
+  const video = props.model.supported_endpoint_types?.includes('openai-video')
   return (
     <div className='space-y-6'>
+      {isMediaModel(props.model) && (
+        <section
+          className='space-y-2 border-b pb-4'
+          aria-label={t('Media access')}
+        >
+          <div className='flex flex-wrap items-center justify-between gap-2'>
+            <h3 className='text-sm font-semibold'>
+              {t('Use with ACU Runtime')}
+            </h3>
+            <Button
+              variant='outline'
+              size='sm'
+              render={<Link to='/' hash='start' />}
+            >
+              {t('Get ACU Runtime')}
+              <ChevronRight />
+            </Button>
+          </div>
+          <p className='text-muted-foreground text-xs leading-relaxed'>
+            {video
+              ? t(
+                  'In Runtime, open Images, videos and search, enable video, then send a generation request in your connected app. The existing tool waits for the task and saves the video.'
+                )
+              : t(
+                  'Choose an image model in Runtime, then generate images in your connected app.'
+                )}
+          </p>
+          {video && (
+            <p className='text-muted-foreground text-xs leading-relaxed'>
+              {t(
+                'API workflow: submit once, query the returned task ID, then download when completed.'
+              )}
+            </p>
+          )}
+        </section>
+      )}
       <CodeSamplesSection model={props.model} endpointMap={props.endpointMap} />
       <AuthSection />
-      <SupportedParametersSection model={props.model} />
-      <RateLimitsSection model={props.model} />
+      {!isMediaModel(props.model) && (
+        <SupportedParametersSection model={props.model} />
+      )}
+      {!isMediaModel(props.model) && <RateLimitsSection model={props.model} />}
     </div>
   )
 }
