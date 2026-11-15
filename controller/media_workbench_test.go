@@ -26,6 +26,18 @@ func TestMediaCapabilitiesRespectProviderLimits(t *testing.T) {
 	assert.True(t, pro.FrameModes)
 }
 
+func TestWorkbenchVideoPollingUsesExistingOpenAIResponseContract(t *testing.T) {
+	r := gin.New()
+	r.GET("/pg/videos/:task_id", MediaWorkbenchVideoPath, func(c *gin.Context) {
+		assert.Equal(t, "/v1/videos/task_owned", c.Request.URL.Path)
+		assert.Equal(t, "/v1/videos/task_owned", c.Request.RequestURI)
+		c.Status(200)
+	})
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/pg/videos/task_owned", nil))
+	assert.Equal(t, 200, w.Code)
+}
+
 func TestMediaCaptureDefersHeadersUntilStoredImageResponseIsReady(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)

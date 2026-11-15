@@ -119,6 +119,7 @@ func GetMediaWorkbenchModels(c *gin.Context) {
 // Rewrite only the internal path so the existing video distributor and task adapters are reused.
 func MediaWorkbenchVideoPath(c *gin.Context) {
 	c.Request.URL.Path = strings.Replace(c.Request.URL.Path, "/pg/videos", "/v1/videos", 1)
+	c.Request.RequestURI = strings.Replace(c.Request.RequestURI, "/pg/videos", "/v1/videos", 1)
 	c.Next()
 }
 
