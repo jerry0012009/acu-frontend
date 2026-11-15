@@ -541,7 +541,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
           {bottomTags.map((item) => (
             <span key={item}>{item}</span>
           ))}
-          {!hasRouteQuote && (
+          {!hasRouteQuote && isTokenBasedModel(props.model) && (
             <span className='text-muted-foreground/50 text-xs'>
               {tokenUnitLabel}
             </span>
