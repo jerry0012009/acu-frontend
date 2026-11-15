@@ -89,6 +89,9 @@ func validateRemixRequest(c *gin.Context) *dto.TaskError {
 }
 
 func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycommon.RelayInfo) (taskErr *dto.TaskError) {
+	if isSeedance(info.UpstreamModelName) && info.Action == constant.TaskActionRemix {
+		return service.TaskErrorWrapperLocal(fmt.Errorf("Seedance remix is not supported"), "invalid_request", 400)
+	}
 	if info.Action == constant.TaskActionRemix {
 		if strings.HasPrefix(info.UpstreamModelName, "grok-imagine-video") {
 			return service.TaskErrorWrapperLocal(fmt.Errorf("Grok video remix is not supported"), "invalid_request", 400)
@@ -97,6 +100,15 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 	}
 	if taskErr = relaycommon.ValidateMultipartDirect(c, info); taskErr != nil {
 		return taskErr
+	}
+	if isSeedance(info.UpstreamModelName) {
+		req, err := relaycommon.GetTaskRequest(c)
+		if err == nil {
+			_, err = seedanceVideoRequest(req, info.UpstreamModelName)
+		}
+		if err != nil {
+			return service.TaskErrorWrapperLocal(err, "invalid_request", 400)
+		}
 	}
 	if strings.HasPrefix(info.UpstreamModelName, "grok-imagine-video") {
 		req, err := relaycommon.GetTaskRequest(c)
@@ -129,6 +141,14 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 	}
 	if seconds <= 0 {
 		seconds = 4
+	}
+	if isSeedance(info.UpstreamModelName) {
+		payload, err := seedanceVideoRequest(req, info.UpstreamModelName)
+		if err != nil {
+			return nil
+		}
+		width, height := seedanceGeometry(payload["resolution"].(string), payload["ratio"].(string))
+		return map[string]float64{"seconds": float64(payload["duration"].(int)), "size": float64(width*height) / (864 * 480)}
 	}
 	if strings.HasPrefix(info.UpstreamModelName, "grok-imagine-video") {
 		payload, err := grokVideoRequest(req, info.UpstreamModelName)
@@ -165,6 +185,9 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, error) {
+	if isSeedance(info.UpstreamModelName) {
+		return strings.TrimRight(a.baseURL, "/") + "/v1/video/generations", nil
+	}
 	if strings.HasPrefix(info.UpstreamModelName, "grok-imagine-video") {
 		return strings.TrimRight(a.baseURL, "/") + "/v1/videos/generations", nil
 	}
@@ -178,13 +201,25 @@ func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, erro
 func (a *TaskAdaptor) BuildRequestHeader(c *gin.Context, req *http.Request, info *relaycommon.RelayInfo) error {
 	req.Header.Set("Authorization", "Bearer "+a.apiKey)
 	req.Header.Set("Content-Type", c.Request.Header.Get("Content-Type"))
-	if strings.HasPrefix(info.UpstreamModelName, "grok-imagine-video") {
+	if strings.HasPrefix(info.UpstreamModelName, "grok-imagine-video") || isSeedance(info.UpstreamModelName) {
 		req.Header.Set("Content-Type", "application/json")
 	}
 	return nil
 }
 
 func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayInfo) (io.Reader, error) {
+	if isSeedance(info.UpstreamModelName) {
+		req, err := relaycommon.GetTaskRequest(c)
+		if err != nil {
+			return nil, err
+		}
+		payload, err := seedanceVideoRequest(req, info.UpstreamModelName)
+		if err != nil {
+			return nil, err
+		}
+		data, err := common.Marshal(payload)
+		return bytes.NewReader(data), err
+	}
 	if strings.HasPrefix(info.UpstreamModelName, "grok-imagine-video") {
 		req, err := relaycommon.GetTaskRequest(c)
 		if err != nil {
@@ -330,6 +365,9 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 	}
 
 	uri := fmt.Sprintf("%s/v1/videos/%s", baseUrl, taskID)
+	if model, _ := body["model"].(string); isSeedance(model) {
+		uri = fmt.Sprintf("%s/v1/video/generations/%s", strings.TrimRight(baseUrl, "/"), taskID)
+	}
 
 	req, err := http.NewRequest(http.MethodGet, uri, nil)
 	if err != nil {
@@ -408,6 +446,18 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(task *model.Task) ([]byte, error) {
 	data, err = sjson.DeleteBytes(data, "video")
 	if err != nil {
 		return nil, err
+	}
+	if isSeedance(task.Properties.UpstreamModelName) {
+		data, err = sjson.SetBytes(data, "task_id", task.TaskID)
+		if err != nil {
+			return nil, err
+		}
+		for _, key := range []string{"metadata.url", "url", "billing_evidence"} {
+			data, err = sjson.DeleteBytes(data, key)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 	return data, nil
 }
