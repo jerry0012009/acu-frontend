@@ -169,6 +169,7 @@ type mediaCaptureWriter struct {
 }
 
 func (w *mediaCaptureWriter) WriteHeaderNow() {}
+func (w *mediaCaptureWriter) Flush()          {}
 
 func (w *mediaCaptureWriter) Write(b []byte) (int, error) {
 	w.body = append(w.body, b...)

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,6 +24,23 @@ func TestMediaCapabilitiesRespectProviderLimits(t *testing.T) {
 	assert.Equal(t, 30, pro.MaxSeconds)
 	assert.Equal(t, 10, pro.MaxVideos)
 	assert.True(t, pro.FrameModes)
+}
+
+func TestMediaCaptureDefersHeadersUntilStoredImageResponseIsReady(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	original := c.Writer
+	capture := &mediaCaptureWriter{ResponseWriter: original}
+	c.Writer = capture
+	service.IOCopyBytesGracefully(c, nil, []byte(`{"data":[{"b64_json":"long-upstream-payload"}]}`))
+	assert.Empty(t, recorder.Body.String())
+	assert.False(t, original.Written())
+	c.Writer = original
+	original.Header().Del("Content-Length")
+	_, err := original.Write([]byte(`{"data":[{"url":"/pg/assets/result.png"}]}`))
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"data":[{"url":"/pg/assets/result.png"}]}`, recorder.Body.String())
+	assert.Empty(t, recorder.Header().Get("Content-Length"))
 }
 
 func TestMediaAssetRequiresUnexpiredSignedAddress(t *testing.T) {
