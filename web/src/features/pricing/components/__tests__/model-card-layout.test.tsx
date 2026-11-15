@@ -182,3 +182,37 @@ test('a useful model description is preserved and long model names can wrap', as
     window.close()
   }
 })
+
+test('video pricing card uses seconds and omits the token unit', async () => {
+  const i18n = createInstance()
+  await i18n.init({ lng: 'en', resources: { en: { translation: {} } } })
+  const window = new Window()
+  try {
+    window.document.body.innerHTML = renderToStaticMarkup(
+      <I18nextProvider i18n={i18n}>
+        <ModelCard
+          model={{
+            ...model,
+            model_name: 'grok-imagine-video',
+            display_name: 'Grok Video',
+            supported_endpoint_types: ['openai-video'],
+            quota_type: 1,
+            model_price: 0.01,
+            payable: undefined,
+            acu_quote: undefined,
+            description: undefined,
+            tags: undefined,
+          }}
+          onClick={() => {}}
+          pricingDisplayMode='comparison'
+        />
+      </I18nextProvider>
+    )
+    const text = window.document.body.textContent ?? ''
+    assert.match(text, /Per second/)
+    assert.match(text, /\/ second/)
+    assert.doesNotMatch(text, /1M|1K|\/ request/)
+  } finally {
+    window.close()
+  }
+})
