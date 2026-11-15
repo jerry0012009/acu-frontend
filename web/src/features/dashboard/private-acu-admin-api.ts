@@ -133,6 +133,7 @@ export type PrivateACUPOCSpaceAccess = {
   key: string
   spaceId: string
   memberUserIds: number[]
+  writerUserIds?: number[]
   enabled: boolean
 }
 

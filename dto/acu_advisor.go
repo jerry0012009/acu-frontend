@@ -252,6 +252,7 @@ type ACUPrivatePOCSpaceAccess struct {
 	SpaceID       string `json:"spaceId"`
 	MemberUserIDs []int  `json:"memberUserIds"`
 	Enabled       bool   `json:"enabled"`
+	WriterUserIDs []int  `json:"writerUserIds,omitempty"`
 }
 
 type ACUPrivatePOCAccess struct {

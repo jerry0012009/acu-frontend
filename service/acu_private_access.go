@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
@@ -59,6 +60,11 @@ func SavePrivateACUPOCAccess(input dto.ACUPrivatePOCAccess) error {
 		if len(space.MemberUserIDs) > 10_000 {
 			return fmt.Errorf("too many members in POC space %s", space.Key)
 		}
+		for _, writer := range space.WriterUserIDs {
+			if writer <= 0 || !containsUserID(space.MemberUserIDs, writer) {
+				return fmt.Errorf("team writers must be members")
+			}
+		}
 		sort.Ints(space.MemberUserIDs)
 	}
 	payload, err := common.Marshal(input)
@@ -66,6 +72,43 @@ func SavePrivateACUPOCAccess(input dto.ACUPrivatePOCAccess) error {
 		return err
 	}
 	return model.UpdateOption(acuPrivatePOCAccessOption, string(payload))
+}
+
+type ACULearningTeamContext struct {
+	SpaceID  string `json:"spaceId"`
+	Team     string `json:"team"`
+	CanWrite bool   `json:"canWrite"`
+}
+
+func ResolveACULearningTeam(userID, tokenID int) (*ACULearningTeamContext, error) {
+	if userID <= 0 || tokenID <= 0 {
+		return nil, fmt.Errorf("authenticated Key required")
+	}
+	var token model.Token
+	if err := model.DB.Where("id = ? AND user_id = ? AND status = ?", tokenID, userID, 1).First(&token).Error; err != nil {
+		return nil, fmt.Errorf("Key unavailable")
+	}
+	if token.ExpiredTime > 0 && token.ExpiredTime <= time.Now().Unix() {
+		return nil, fmt.Errorf("Key expired")
+	}
+	if !token.UnlimitedQuota && token.RemainQuota <= 0 {
+		return nil, fmt.Errorf("Key quota unavailable")
+	}
+	access, err := GetPrivateACUPOCAccess()
+	if err != nil {
+		return nil, err
+	}
+	var result *ACULearningTeamContext
+	for _, space := range access.Spaces {
+		if !space.Enabled || space.Key != "GYZ" || !containsUserID(space.MemberUserIDs, userID) {
+			continue
+		}
+		if result != nil {
+			return nil, fmt.Errorf("ambiguous team membership")
+		}
+		result = &ACULearningTeamContext{SpaceID: space.SpaceID, Team: space.Key, CanWrite: containsUserID(space.WriterUserIDs, userID)}
+	}
+	return result, nil
 }
 
 func GetPrivateACUFilmMemberView(ctx context.Context, userID int) (dto.ACUPrivateFilmMemberView, error) {

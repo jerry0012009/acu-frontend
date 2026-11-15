@@ -37,10 +37,15 @@ export function PrivateACUFilmPOC() {
     enabled: !query.isLoading && !query.isError,
   })
   const [memberIDs, setMemberIDs] = useState('')
+  const [writerIDs, setWriterIDs] = useState('')
   useEffect(() => {
-    const configured = accessQuery.data?.spaces[0]?.memberUserIds ?? []
+    const current = accessQuery.data?.spaces.find(
+      (space) => space.spaceId === query.data?.spaceId
+    )
+    const configured = current?.memberUserIds ?? []
     setMemberIDs(configured.join(', '))
-  }, [accessQuery.data])
+    setWriterIDs((current?.writerUserIds ?? []).join(', '))
+  }, [accessQuery.data, query.data?.spaceId])
   const saveAccessMutation = useMutation({
     mutationFn: savePrivateACUPOCAccess,
     onSuccess: (data) => {
@@ -267,11 +272,23 @@ export function PrivateACUFilmPOC() {
                 ]
                 saveAccessMutation.mutate({
                   spaces: [
+                    ...(accessQuery.data?.spaces ?? []).filter(
+                      (space) => space.spaceId !== status.spaceId
+                    ),
                     {
                       key: status.teamScope || 'GYZ',
                       spaceId: status.spaceId || '',
                       memberUserIds,
-                      enabled: true,
+                      writerUserIds: writerIDs
+                        .split(',')
+                        .map((value) => Number(value.trim()))
+                        .filter(
+                          (value) => Number.isInteger(value) && value > 0
+                        ),
+                      enabled:
+                        accessQuery.data?.spaces.find(
+                          (space) => space.spaceId === status.spaceId
+                        )?.enabled ?? true,
                     },
                   ],
                 })
@@ -281,6 +298,15 @@ export function PrivateACUFilmPOC() {
             </Button>
           )}
         </div>
+        <label className='grid gap-2 text-sm'>
+          {t('Learning contributor user IDs')}
+          <Input
+            value={writerIDs}
+            onChange={(event) => setWriterIDs(event.target.value)}
+            disabled={!canEditAccess || saveAccessMutation.isPending}
+            placeholder={t('Example: 12, 25, 31')}
+          />
+        </label>
         {!canEditAccess && (
           <p className='text-muted-foreground text-xs'>
             {t('Only Root can change POC member access.')}

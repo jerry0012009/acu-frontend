@@ -1,5 +1,10 @@
 {
   "translation": {
+    "Learning contributor user IDs": "可参与学习的用户 ID",
+    "Save access": "保存权限",
+    "POC member access saved": "权限已保存",
+    "POC member access": "团队成员与学习权限",
+    "Use New API user IDs separated by commas.": "成员用户 ID，用逗号分隔",
     "Team creative vectors": "团队创作向量",
     "Preference domains": "偏好领域",
     "Team learning and management": "团队学习与管理",
