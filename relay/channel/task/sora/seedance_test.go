@@ -75,7 +75,7 @@ func TestSeedanceReferencesPreserveVideoAndFrameRoles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(fmt.Sprint(payload["content"]), "reference_video") {
+	if !strings.Contains(fmt.Sprint(payload["videos"]), "reference.mp4") {
 		t.Fatal("video reference dropped")
 	}
 	request.Metadata["content"] = []any{map[string]any{"type": "image_url", "image_url": map[string]any{"url": "https://example.com/frame.png"}, "role": "first_frame"}}

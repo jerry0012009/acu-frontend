@@ -171,8 +171,23 @@ func seedanceVideoRequest(req relaycommon.TaskSubmitReq, model string) (map[stri
 		if first > 0 {
 			body["ratio"] = "adaptive"
 		}
-		body["content"] = append([]map[string]any{{"type": "text", "text": req.Prompt}}, content...)
-		delete(body, "prompt")
+		imageReferences := []map[string]string{}
+		videoReferences := []map[string]string{}
+		for _, item := range content {
+			typeName := item["type"].(string)
+			media := item[typeName].(map[string]string)
+			if typeName == "image_url" {
+				imageReferences = append(imageReferences, map[string]string{"url": media["url"], "role": item["role"].(string)})
+			} else {
+				videoReferences = append(videoReferences, map[string]string{"url": media["url"]})
+			}
+		}
+		if len(imageReferences) > 0 {
+			body["images"] = imageReferences
+		}
+		if len(videoReferences) > 0 {
+			body["videos"] = videoReferences
+		}
 	}
 	return body, nil
 }
