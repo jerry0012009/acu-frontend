@@ -60,9 +60,20 @@ func AssistCreativeRequest(ctx context.Context, userID, tokenID int, requestID s
 			filmSpaceID = space.SpaceID
 		}
 	}
+	var projectContext map[string]string
+	if tokenID > 0 {
+		project, projectErr := ResolveACULearningProject(userID, tokenID, "")
+		if projectErr != nil {
+			return CreativeAssistResult{}, projectErr
+		}
+		if project != nil {
+			projectContext = map[string]string{"id": project.ID, "name": project.Name}
+		}
+	}
 	body, err := common.Marshal(map[string]any{
 		"userId": strconv.Itoa(userID), "tokenId": strconv.Itoa(tokenID), "requestId": requestID,
 		"prompt": input.Prompt, "context": input.Context, "mode": input.Mode, "filmAllowed": allowed, "filmSpaceId": filmSpaceID,
+		"project": projectContext,
 	})
 	if err != nil {
 		return CreativeAssistResult{}, err

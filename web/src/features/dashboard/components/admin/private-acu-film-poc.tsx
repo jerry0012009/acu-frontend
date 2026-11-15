@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -37,10 +37,32 @@ export function PrivateACUFilmPOC() {
     enabled: !query.isLoading && !query.isError,
   })
   const [memberIDs, setMemberIDs] = useState('')
+  const [writerIDs, setWriterIDs] = useState('')
+  const [projects, setProjects] = useState<
+    Array<{
+      id: string
+      name: string
+      tokenIds: number[]
+      enabled: boolean
+      rowId: string
+      tokenText: string
+    }>
+  >([])
   useEffect(() => {
-    const configured = accessQuery.data?.spaces[0]?.memberUserIds ?? []
+    const current = accessQuery.data?.spaces.find(
+      (space) => space.spaceId === query.data?.spaceId
+    )
+    const configured = current?.memberUserIds ?? []
     setMemberIDs(configured.join(', '))
-  }, [accessQuery.data])
+    setWriterIDs((current?.writerUserIds ?? []).join(', '))
+    setProjects(
+      (current?.projects ?? []).map((project) => ({
+        ...project,
+        rowId: crypto.randomUUID(),
+        tokenText: project.tokenIds.join(', '),
+      }))
+    )
+  }, [accessQuery.data, query.data?.spaceId])
   const saveAccessMutation = useMutation({
     mutationFn: savePrivateACUPOCAccess,
     onSuccess: (data) => {
@@ -267,17 +289,155 @@ export function PrivateACUFilmPOC() {
                 ]
                 saveAccessMutation.mutate({
                   spaces: [
+                    ...(accessQuery.data?.spaces ?? []).filter(
+                      (space) => space.spaceId !== status.spaceId
+                    ),
                     {
                       key: status.teamScope || 'GYZ',
                       spaceId: status.spaceId || '',
                       memberUserIds,
-                      enabled: true,
+                      writerUserIds: writerIDs
+                        .split(',')
+                        .map((value) => Number(value.trim()))
+                        .filter(
+                          (value) => Number.isInteger(value) && value > 0
+                        ),
+                      projects: projects.map(
+                        ({ rowId: _rowId, tokenText, ...project }) => ({
+                          ...project,
+                          tokenIds: tokenText
+                            .split(',')
+                            .map((value) => Number(value.trim()))
+                            .filter(
+                              (value) => Number.isInteger(value) && value > 0
+                            ),
+                        })
+                      ),
+                      enabled:
+                        accessQuery.data?.spaces.find(
+                          (space) => space.spaceId === status.spaceId
+                        )?.enabled ?? true,
                     },
                   ],
                 })
               }}
             >
               {t('Save access')}
+            </Button>
+          )}
+        </div>
+        <label className='grid gap-2 text-sm'>
+          {t('Learning contributor user IDs')}
+          <Input
+            value={writerIDs}
+            onChange={(event) => setWriterIDs(event.target.value)}
+            disabled={!canEditAccess || saveAccessMutation.isPending}
+            placeholder={t('Example: 12, 25, 31')}
+          />
+        </label>
+        <div className='space-y-3'>
+          <h3 className='text-sm font-medium'>{t('Learning projects')}</h3>
+          {projects.map((project, index) => (
+            <div
+              key={project.rowId}
+              className='grid gap-2 border-b pb-3 sm:grid-cols-[repeat(3,minmax(0,1fr))_auto_auto]'
+            >
+              <Input
+                aria-label={t('Project ID')}
+                placeholder={t('Project ID')}
+                value={project.id}
+                disabled={!canEditAccess}
+                onChange={(event) =>
+                  setProjects((items) =>
+                    items.map((item, i) =>
+                      i === index ? { ...item, id: event.target.value } : item
+                    )
+                  )
+                }
+              />
+              <Input
+                aria-label={t('Project name')}
+                placeholder={t('Project name')}
+                value={project.name}
+                disabled={!canEditAccess}
+                onChange={(event) =>
+                  setProjects((items) =>
+                    items.map((item, i) =>
+                      i === index ? { ...item, name: event.target.value } : item
+                    )
+                  )
+                }
+              />
+              <Input
+                aria-label={t('Project Key IDs')}
+                placeholder={t('Project Key IDs')}
+                value={project.tokenText}
+                disabled={!canEditAccess}
+                onChange={(event) =>
+                  setProjects((items) =>
+                    items.map((item, i) =>
+                      i === index
+                        ? {
+                            ...item,
+                            tokenText: event.target.value,
+                          }
+                        : item
+                    )
+                  )
+                }
+              />
+              <label className='flex items-center gap-2 text-sm'>
+                <input
+                  type='checkbox'
+                  checked={project.enabled}
+                  disabled={!canEditAccess}
+                  onChange={(event) =>
+                    setProjects((items) =>
+                      items.map((item, i) =>
+                        i === index
+                          ? { ...item, enabled: event.target.checked }
+                          : item
+                      )
+                    )
+                  }
+                />
+                {t('Enabled')}
+              </label>
+              {canEditAccess && (
+                <Button
+                  size='icon'
+                  variant='ghost'
+                  title={t('Delete project')}
+                  aria-label={t('Delete project')}
+                  onClick={() =>
+                    setProjects((items) =>
+                      items.filter((item) => item.rowId !== project.rowId)
+                    )
+                  }
+                >
+                  <Trash2 />
+                </Button>
+              )}
+            </div>
+          ))}
+          {canEditAccess && (
+            <Button
+              variant='outline'
+              onClick={() =>
+                setProjects((items) => [
+                  ...items,
+                  {
+                    id: '',
+                    name: '',
+                    tokenIds: [],
+                    enabled: true,
+                    rowId: crypto.randomUUID(),
+                    tokenText: '',
+                  },
+                ])
+              }
+            >
+              {t('Add project')}
             </Button>
           )}
         </div>

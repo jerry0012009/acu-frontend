@@ -248,10 +248,19 @@ type ACUPrivateFilmStatus struct {
 }
 
 type ACUPrivatePOCSpaceAccess struct {
-	Key           string `json:"key"`
-	SpaceID       string `json:"spaceId"`
-	MemberUserIDs []int  `json:"memberUserIds"`
-	Enabled       bool   `json:"enabled"`
+	Key           string               `json:"key"`
+	SpaceID       string               `json:"spaceId"`
+	MemberUserIDs []int                `json:"memberUserIds"`
+	Enabled       bool                 `json:"enabled"`
+	WriterUserIDs []int                `json:"writerUserIds,omitempty"`
+	Projects      []ACULearningProject `json:"projects,omitempty"`
+}
+
+type ACULearningProject struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	TokenIDs []int  `json:"tokenIds"`
+	Enabled  bool   `json:"enabled"`
 }
 
 type ACUPrivatePOCAccess struct {

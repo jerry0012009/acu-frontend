@@ -33,6 +33,25 @@ func CreativeAssist(c *gin.Context) {
 	c.JSON(200, result)
 }
 
+func ImageLearningFeedback(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 20000)
+	var input struct {
+		RequestID string `json:"requestId"`
+		Feedback  string `json:"feedback"`
+	}
+	if common.DecodeJson(c.Request.Body, &input) != nil || input.RequestID == "" || len(input.RequestID) > 200 || strings.TrimSpace(input.Feedback) == "" || len(input.Feedback) > 12000 {
+		c.JSON(400, gin.H{"error": "invalid image feedback"})
+		return
+	}
+	body, _ := common.Marshal(map[string]string{"userId": fmt.Sprint(common.GetContextKeyInt(c, constant.ContextKeyUserId)), "tokenId": fmt.Sprint(common.GetContextKeyInt(c, constant.ContextKeyTokenId)), "requestId": input.RequestID, "feedback": input.Feedback})
+	response, err := service.ForwardImageLearningFeedback(c.Request.Context(), body)
+	if err != nil {
+		c.JSON(503, gin.H{"error": "image feedback unavailable"})
+		return
+	}
+	c.JSON(202, response)
+}
+
 // Rewrite only the prompt in the reusable body. Ordered multipart parts, file
 // bytes, masks, unknown JSON fields and explicit zero-valued settings survive.
 func replaceImagePrompt(c *gin.Context, prompt string) error {

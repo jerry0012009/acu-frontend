@@ -27,7 +27,7 @@ func TestCreativeAssistScopesActualUserAndChecksBalance(t *testing.T) {
 	previousDB, previousRedis := model.DB, common.RedisEnabled
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.User{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}))
 	model.DB, common.RedisEnabled = db, false
 	common.OptionMapRWMutex.Lock()
 	previousOptions := common.OptionMap
@@ -47,6 +47,10 @@ func TestCreativeAssistScopesActualUserAndChecksBalance(t *testing.T) {
 	require.NoError(t, db.Create(&model.User{Id: 3, Username: "creative-member", AffCode: "creative3", Quota: 1000, Status: 1}).Error)
 	require.NoError(t, db.Create(&model.User{Id: 4, Username: "creative-other", AffCode: "creative4", Quota: 1000, Status: 1}).Error)
 	require.NoError(t, db.Create(&model.User{Id: 5, Username: "creative-empty", AffCode: "creative5", Quota: 0, Status: 1}).Error)
+	for _, token := range []model.Token{{Id: 7, UserId: 3, Key: "creative-a", Status: 1, ExpiredTime: -1}, {Id: 8, UserId: 4, Key: "creative-b", Status: 1, ExpiredTime: -1}} {
+		token.UnlimitedQuota = true
+		require.NoError(t, db.Create(&token).Error)
+	}
 	var requests []map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "Bearer internal", r.Header.Get("Authorization"))
