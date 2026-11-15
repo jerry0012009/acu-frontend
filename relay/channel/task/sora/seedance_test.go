@@ -1,6 +1,7 @@
 package sora
 
 import (
+	"fmt"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"io"
@@ -65,5 +66,25 @@ func TestSeedanceTaskLifecycle(t *testing.T) {
 	}
 	if strings.Contains(string(b), "private") || strings.Contains(string(b), "task_upstream") {
 		t.Fatalf("leaked upstream data: %s", b)
+	}
+}
+
+func TestSeedanceReferencesPreserveVideoAndFrameRoles(t *testing.T) {
+	request := relaycommon.TaskSubmitReq{Prompt: "follow motion", Seconds: "4", Metadata: map[string]any{"content": []any{map[string]any{"type": "video_url", "video_url": map[string]any{"url": "https://example.com/reference.mp4"}, "role": "reference_video"}}}}
+	payload, err := seedanceVideoRequest(request, "doubao-seedance-2.0-mini")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(fmt.Sprint(payload["content"]), "reference_video") {
+		t.Fatal("video reference dropped")
+	}
+	request.Metadata["content"] = []any{map[string]any{"type": "image_url", "image_url": map[string]any{"url": "https://example.com/frame.png"}, "role": "first_frame"}}
+	payload, err = seedanceVideoRequest(request, "doubao-seedance-2.0-mini")
+	if err != nil || payload["ratio"] != "adaptive" {
+		t.Fatalf("frame payload %#v: %v", payload, err)
+	}
+	request.Metadata["content"] = []any{map[string]any{"type": "image_url", "image_url": map[string]any{"url": "https://example.com/frame.png"}, "role": "last_frame"}}
+	if _, err = seedanceVideoRequest(request, "doubao-seedance-2.0-mini"); err == nil {
+		t.Fatal("accepted orphan last frame")
 	}
 }

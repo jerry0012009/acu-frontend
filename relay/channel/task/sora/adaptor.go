@@ -147,7 +147,11 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 		if err != nil {
 			return nil
 		}
-		width, height := seedanceGeometry(payload["resolution"].(string), payload["ratio"].(string))
+		ratio := payload["ratio"].(string)
+		if ratio == "adaptive" {
+			ratio = "16:9"
+		}
+		width, height := seedanceGeometry(payload["resolution"].(string), ratio)
 		return map[string]float64{"seconds": float64(payload["duration"].(int)), "size": float64(width*height) / (864 * 480)}
 	}
 	if strings.HasPrefix(info.UpstreamModelName, "grok-imagine-video") {

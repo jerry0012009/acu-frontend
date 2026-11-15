@@ -2,6 +2,7 @@ package sora
 
 import (
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -80,7 +81,7 @@ func seedanceVideoRequest(req relaycommon.TaskSubmitReq, model string) (map[stri
 	if v, ok := req.Metadata["ratio"].(string); ok {
 		ratio = v
 	}
-	if !strings.Contains("|16:9|9:16|1:1|4:3|3:4|21:9|", "|"+ratio+"|") {
+	if !strings.Contains("|16:9|9:16|1:1|4:3|3:4|21:9|adaptive|", "|"+ratio+"|") {
 		return nil, fmt.Errorf("unsupported Seedance ratio")
 	}
 	if resolution != "480p" && resolution != "720p" && resolution != "1080p" && resolution != "4k" {
@@ -97,13 +98,17 @@ func seedanceVideoRequest(req relaycommon.TaskSubmitReq, model string) (map[stri
 		switch k {
 		case "generate_audio", "output_format", "seed", "watermark", "camera_fixed":
 			body[k] = v
-		case "resolution", "ratio":
+		case "resolution", "ratio", "content":
 		default:
 			return nil, fmt.Errorf("unsupported Seedance metadata field: %s", k)
 		}
 	}
-	if len(req.Images) > 9 {
-		return nil, fmt.Errorf("Seedance accepts at most 9 reference images on this endpoint")
+	maxImages, maxVideos := 9, 3
+	if model == "doubao-seedance-2.5" {
+		maxImages, maxVideos = 30, 10
+	}
+	if len(req.Images) > maxImages {
+		return nil, fmt.Errorf("too many Seedance reference images")
 	}
 	if len(req.Images) > 0 {
 		images := make([]map[string]string, 0, len(req.Images))
@@ -114,6 +119,60 @@ func seedanceVideoRequest(req relaycommon.TaskSubmitReq, model string) (map[stri
 			images = append(images, map[string]string{"url": image, "role": "reference_image"})
 		}
 		body["images"] = images
+	}
+	if raw, ok := req.Metadata["content"]; ok {
+		items, ok := raw.([]any)
+		if !ok || len(items) > maxImages+maxVideos+1 {
+			return nil, fmt.Errorf("invalid Seedance reference content")
+		}
+		content := []map[string]any{}
+		images, videos, first, last := 0, 0, 0, 0
+		for _, rawItem := range items {
+			item, ok := rawItem.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("invalid reference item")
+			}
+			typeName, _ := item["type"].(string)
+			role, _ := item["role"].(string)
+			if typeName != "image_url" && typeName != "video_url" {
+				return nil, fmt.Errorf("unsupported reference type")
+			}
+			media, ok := item[typeName].(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("invalid reference URL")
+			}
+			address, _ := media["url"].(string)
+			parsed, err := url.Parse(address)
+			if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || parsed.User != nil {
+				return nil, fmt.Errorf("references require public HTTPS URLs")
+			}
+			if typeName == "image_url" {
+				images++
+				switch role {
+				case "first_frame":
+					first++
+				case "last_frame":
+					last++
+				case "reference_image":
+				default:
+					return nil, fmt.Errorf("invalid image role")
+				}
+			} else {
+				videos++
+				if role != "reference_video" {
+					return nil, fmt.Errorf("invalid video role")
+				}
+			}
+			content = append(content, map[string]any{"type": typeName, typeName: map[string]string{"url": address}, "role": role})
+		}
+		if images > maxImages || videos > maxVideos || first > 1 || last > 1 || last > first || ((first+last) > 0 && (videos > 0 || images != first+last)) || len(req.Images) > 0 {
+			return nil, fmt.Errorf("invalid reference combination")
+		}
+		if first > 0 {
+			body["ratio"] = "adaptive"
+		}
+		body["content"] = append([]map[string]any{{"type": "text", "text": req.Prompt}}, content...)
+		delete(body, "prompt")
 	}
 	return body, nil
 }
