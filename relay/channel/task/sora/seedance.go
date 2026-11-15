@@ -15,6 +15,9 @@ func seedanceGeometry(resolution, ratio string) (int, int) {
 	parts := strings.Split(ratio, ":")
 	w, _ := strconv.Atoi(parts[0])
 	h, _ := strconv.Atoi(parts[1])
+	if w < h {
+		return height, (height*h/w + 15) / 16 * 16
+	}
 	return (height*w/h + 15) / 16 * 16, height
 }
 

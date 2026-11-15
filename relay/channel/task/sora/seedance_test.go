@@ -27,6 +27,10 @@ func TestSeedanceRequest(t *testing.T) {
 	if w != 864 || h != 480 {
 		t.Fatalf("geometry %dx%d", w, h)
 	}
+	w, h = seedanceGeometry("480p", "9:16")
+	if w != 480 || h != 864 {
+		t.Fatalf("portrait geometry %dx%d", w, h)
+	}
 }
 
 func TestSeedanceTaskLifecycle(t *testing.T) {
