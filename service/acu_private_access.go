@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -43,7 +42,6 @@ func SavePrivateACUPOCAccess(input dto.ACUPrivatePOCAccess) error {
 	}
 	seenKeys := make(map[string]struct{}, len(input.Spaces))
 	seenSpaceIDs := make(map[string]struct{}, len(input.Spaces))
-	boundTokens := map[int]bool{}
 	for index := range input.Spaces {
 		space := &input.Spaces[index]
 		space.Key = strings.TrimSpace(space.Key)
@@ -67,26 +65,6 @@ func SavePrivateACUPOCAccess(input dto.ACUPrivatePOCAccess) error {
 				return fmt.Errorf("team writers must be members")
 			}
 		}
-		if len(space.Projects) > 100 {
-			return fmt.Errorf("too many learning projects")
-		}
-		projectIDs := map[string]bool{}
-		for _, project := range space.Projects {
-			if !regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`).MatchString(project.ID) || len(project.Name) == 0 || len(project.Name) > 240 || projectIDs[project.ID] || len(project.TokenIDs) > 1000 {
-				return fmt.Errorf("invalid learning project")
-			}
-			projectIDs[project.ID] = true
-			for _, tokenID := range project.TokenIDs {
-				if tokenID <= 0 || boundTokens[tokenID] {
-					return fmt.Errorf("a Key may belong to only one project")
-				}
-				boundTokens[tokenID] = true
-				var token model.Token
-				if err := model.DB.Where("id = ?", tokenID).First(&token).Error; err != nil || !containsUserID(space.MemberUserIDs, token.UserId) {
-					return fmt.Errorf("project Key owner must be a team member")
-				}
-			}
-		}
 		sort.Ints(space.MemberUserIDs)
 	}
 	payload, err := common.Marshal(input)
@@ -96,15 +74,13 @@ func SavePrivateACUPOCAccess(input dto.ACUPrivatePOCAccess) error {
 	return model.UpdateOption(acuPrivatePOCAccessOption, string(payload))
 }
 
-type ACULearningProjectContext struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
+type ACULearningTeamContext struct {
 	SpaceID  string `json:"spaceId"`
 	Team     string `json:"team"`
 	CanWrite bool   `json:"canWrite"`
 }
 
-func ResolveACULearningProject(userID, tokenID int, requestedProject string) (*ACULearningProjectContext, error) {
+func ResolveACULearningTeam(userID, tokenID int) (*ACULearningTeamContext, error) {
 	if userID <= 0 || tokenID <= 0 {
 		return nil, fmt.Errorf("authenticated Key required")
 	}
@@ -122,23 +98,15 @@ func ResolveACULearningProject(userID, tokenID int, requestedProject string) (*A
 	if err != nil {
 		return nil, err
 	}
-	var result *ACULearningProjectContext
+	var result *ACULearningTeamContext
 	for _, space := range access.Spaces {
-		for _, project := range space.Projects {
-			if !containsUserID(project.TokenIDs, tokenID) {
-				continue
-			}
-			if requestedProject != "" && requestedProject != project.ID {
-				return nil, fmt.Errorf("project does not match Key binding")
-			}
-			if result != nil {
-				return nil, fmt.Errorf("ambiguous project binding")
-			}
-			result = &ACULearningProjectContext{ID: project.ID, Name: project.Name, SpaceID: space.SpaceID, Team: space.Key, CanWrite: space.Enabled && project.Enabled && containsUserID(space.MemberUserIDs, userID) && containsUserID(space.WriterUserIDs, userID)}
+		if !space.Enabled || space.Key != "GYZ" || !containsUserID(space.MemberUserIDs, userID) {
+			continue
 		}
-	}
-	if requestedProject != "" && result == nil {
-		return nil, fmt.Errorf("project not bound to Key")
+		if result != nil {
+			return nil, fmt.Errorf("ambiguous team membership")
+		}
+		result = &ACULearningTeamContext{SpaceID: space.SpaceID, Team: space.Key, CanWrite: containsUserID(space.WriterUserIDs, userID)}
 	}
 	return result, nil
 }

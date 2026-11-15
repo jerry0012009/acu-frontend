@@ -13,5 +13,5 @@ func SetACUInternalRouter(router *gin.Engine) {
 	internal.GET("/full-pool-probe-scope", controller.GetACUFullPoolProbeScope)
 	internal.POST("/usage/finalize", controller.FinalizeACUUsage)
 	internal.POST("/advisor-events", controller.ReceivePrivateACUAdvisorEvent)
-	internal.POST("/learning-project", controller.ResolveACULearningProject)
+	internal.POST("/learning-team", controller.ResolveACULearningTeam)
 }

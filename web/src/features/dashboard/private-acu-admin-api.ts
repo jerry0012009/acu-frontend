@@ -134,12 +134,6 @@ export type PrivateACUPOCSpaceAccess = {
   spaceId: string
   memberUserIds: number[]
   writerUserIds?: number[]
-  projects?: Array<{
-    id: string
-    name: string
-    tokenIds: number[]
-    enabled: boolean
-  }>
   enabled: boolean
 }
 

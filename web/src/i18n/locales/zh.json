@@ -1,12 +1,6 @@
 {
   "translation": {
     "Learning contributor user IDs": "可参与学习的用户 ID",
-    "Learning projects": "学习项目",
-    "Project ID": "项目标识",
-    "Project name": "项目名称",
-    "Project Key IDs": "项目 API Key ID",
-    "Add project": "添加项目",
-    "Delete project": "删除项目",
     "Save access": "保存权限",
     "POC member access saved": "权限已保存",
     "POC member access": "团队成员与学习权限",
