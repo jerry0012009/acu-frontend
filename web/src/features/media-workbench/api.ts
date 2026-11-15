@@ -29,13 +29,21 @@ export function mediaLocalURL(raw: string): string {
 }
 
 export async function mediaModels(token: number): Promise<MediaModel[]> {
-  return (await api.get('/pg/media/models', { headers: mediaHeaders(token) }))
-    .data.data
+  return (
+    await api.get('/pg/media/models', {
+      params: { token_id: token },
+      headers: mediaHeaders(token),
+    })
+  ).data.data
 }
 
 export async function mediaHistory(token: number): Promise<MediaRecord[]> {
-  return (await api.get('/pg/media/history', { headers: mediaHeaders(token) }))
-    .data.data
+  return (
+    await api.get('/pg/media/history', {
+      params: { token_id: token },
+      headers: mediaHeaders(token),
+    })
+  ).data.data
 }
 
 export async function uploadMedia(

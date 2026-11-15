@@ -1,5 +1,12 @@
 {
   "translation": {
+    "Generate": "生成",
+    "Generating": "生成中",
+    "Uploading": "上传中",
+    "Resolution": "分辨率",
+    "Reuse prompt": "复用提示词",
+    "Use as reference": "用作参考图",
+    "Output format": "输出格式",
     "Image generation": "图片生成",
     "Video generation": "视频生成",
     "Reference media": "参考素材",

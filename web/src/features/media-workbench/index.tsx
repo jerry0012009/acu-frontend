@@ -39,6 +39,7 @@ export function MediaWorkbench(props: { kind: 'image' | 'video' }) {
   const [resolution, setResolution] = useState('')
   const [seconds, setSeconds] = useState(4)
   const [audio, setAudio] = useState(false)
+  const [format, setFormat] = useState('mp4')
   const [uploading, setUploading] = useState(false)
   const [prompt, setPrompt] = useState('')
   const [refs, setRefs] = useState<ReferenceMedia[]>([])
@@ -83,6 +84,7 @@ export function MediaWorkbench(props: { kind: 'image' | 'video' }) {
         metadata.resolution = resolution
         metadata.ratio = size
         metadata.generate_audio = audio
+        if (model.id === 'doubao-seedance-2.5') metadata.output_format = format
         if (refs.length) {
           metadata.content = refs.map((item) => ({
             type: `${item.type}_url`,
@@ -106,7 +108,17 @@ export function MediaWorkbench(props: { kind: 'image' | 'video' }) {
       })
     }, 400)
     return () => clearTimeout(timer)
-  }, [props.kind, model, size, resolution, audio, seconds, refs, prompt])
+  }, [
+    props.kind,
+    model,
+    size,
+    resolution,
+    audio,
+    seconds,
+    refs,
+    prompt,
+    format,
+  ])
   const estimate = useQuery({
     queryKey: ['media-estimate', user, selectedToken, estimateBody],
     queryFn: async () =>
@@ -193,6 +205,7 @@ export function MediaWorkbench(props: { kind: 'image' | 'video' }) {
         metadata.resolution = resolution
         metadata.ratio = size
         metadata.generate_audio = audio
+        if (model.id === 'doubao-seedance-2.5') metadata.output_format = format
         if (refs.length) {
           metadata.content = refs.map((item) => ({
             type: `${item.type}_url`,
@@ -392,6 +405,20 @@ export function MediaWorkbench(props: { kind: 'image' | 'video' }) {
               )}
             </div>
           )}
+          {model?.id === 'doubao-seedance-2.5' && (
+            <label className='flex items-center justify-between gap-3 text-sm'>
+              {t('Output format')}
+              <select
+                aria-label={t('Output format')}
+                className='bg-background rounded-md border p-2'
+                value={format}
+                onChange={(event) => setFormat(event.target.value)}
+              >
+                <option value='mp4'>MP4</option>
+                <option value='mov'>MOV</option>
+              </select>
+            </label>
+          )}
           <MediaReferences
             model={model}
             token={selectedToken}
@@ -465,6 +492,36 @@ export function MediaWorkbench(props: { kind: 'image' | 'video' }) {
               <span className='text-muted-foreground min-w-0 text-xs break-all'>
                 {active.model}
               </span>
+              {active.prompt && (
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  onClick={() => setPrompt(active.prompt || '')}
+                >
+                  {t('Reuse prompt')}
+                </Button>
+              )}
+              {active.kind === 'image' && active.status === 'completed' && (
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  disabled={busy}
+                  onClick={() => {
+                    setRefs([
+                      {
+                        id: crypto.randomUUID(),
+                        name: active.id,
+                        url: active.url,
+                        type: 'image',
+                        role: 'reference_image',
+                      },
+                    ])
+                    if (active.prompt) setPrompt(active.prompt)
+                  }}
+                >
+                  {t('Use as reference')}
+                </Button>
+              )}
               {active.status === 'completed' && (
                 <Button
                   variant='outline'
