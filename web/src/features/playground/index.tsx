@@ -1,4 +1,6 @@
 import { PlaygroundChat } from './components/chat/playground-chat'
+import { ConversationKeyEmpty } from './components/conversation-key-empty'
+import { ConversationTabs } from './components/conversation-tabs'
 import { PlaygroundInput } from './components/input/playground-input'
 import {
   useChatHandler,
@@ -59,6 +61,8 @@ export function Playground() {
 
   return (
     <div className='relative flex size-full min-h-0 flex-col overflow-hidden'>
+      <ConversationTabs />
+      {!isLoadingModels && tokens.length === 0 && <ConversationKeyEmpty />}
       {/* Full-width scroll container: scrolling works even over side whitespace */}
       <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
         <PlaygroundChat

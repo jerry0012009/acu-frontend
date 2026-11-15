@@ -14,14 +14,14 @@ func TestSelectPlaygroundACUTokenUsesEnabledBillableToken(t *testing.T) {
 	tokens := []*model.Token{
 		{Id: 5, Status: common.TokenStatusEnabled, ExpiredTime: -1, UnlimitedQuota: true, ACUProfileLimitsEnabled: true, ACUProfileLimits: []string{"provider:claude-opus:messages"}},
 		{Id: 4, Status: common.TokenStatusEnabled, ExpiredTime: now - 1, UnlimitedQuota: true},
-		{Id: 3, Status: common.TokenStatusEnabled, ExpiredTime: -1, RemainQuota: common.PreConsumedQuota - 1},
+		{Id: 3, Status: common.TokenStatusEnabled, ExpiredTime: -1, RemainQuota: 0},
 		{Id: 2, Status: common.TokenStatusDisabled, ExpiredTime: -1, UnlimitedQuota: true},
 		{Id: 1, Status: common.TokenStatusEnabled, ExpiredTime: -1, UnlimitedQuota: true, ACUProfileLimitsEnabled: true, ACUProfileLimits: []string{"provider:glm-5.2:responses"}},
 	}
 
 	token, err := service.SelectACUConversationToken(tokens, now)
 	require.NoError(t, err)
-	require.Equal(t, 1, token.Id)
+	require.Equal(t, 5, token.Id)
 }
 
 func TestSelectPlaygroundACUTokenRejectsMissingUsableToken(t *testing.T) {

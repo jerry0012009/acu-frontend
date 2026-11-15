@@ -47,6 +47,7 @@ func TestPlaygroundACUTokenBindsSelectedOwnedTokenBeforeDistribution(t *testing.
 	token := &model.Token{
 		UserId: 17, Key: "playground-token", Name: "Playground key",
 		Status: common.TokenStatusEnabled, ExpiredTime: -1, UnlimitedQuota: true,
+		ACUProfileLimitsEnabled: true, ACUProfileLimits: []string{"provider:model:messages"},
 	}
 	require.NoError(t, model.DB.Create(token).Error)
 

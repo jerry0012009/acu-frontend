@@ -25,18 +25,10 @@ func IsACUConversationTokenEligible(token *model.Token, now int64) bool {
 	if token.ExpiredTime != -1 && token.ExpiredTime <= now {
 		return false
 	}
-	if !token.UnlimitedQuota && token.RemainQuota < max(1, common.PreConsumedQuota) {
+	if !token.UnlimitedQuota && token.RemainQuota <= 0 {
 		return false
 	}
-	if !token.ACUProfileLimitsEnabled {
-		return true
-	}
-	for _, profileID := range token.ACUProfileLimits {
-		if strings.HasSuffix(strings.ToLower(strings.TrimSpace(profileID)), ":responses") {
-			return true
-		}
-	}
-	return false
+	return true
 }
 
 func SelectACUConversationToken(tokens []*model.Token, now int64) (*model.Token, error) {
@@ -79,8 +71,7 @@ func GetACUConversationModels(ctx context.Context, token *model.Token, userGroup
 	models := make([]string, 0, len(catalog.Models)+2)
 	for _, catalogModel := range catalog.Models {
 		modelID := strings.TrimSpace(catalogModel.ModelID)
-		if modelID == "" || !catalogModel.AutoRouteEnabled ||
-			!supportsACUConversationResponses(catalogModel.Protocols) {
+		if modelID == "" || len(catalogModel.Protocols) == 0 {
 			continue
 		}
 		if !tokenAllowsACUConversationModel(token, modelID) {
@@ -88,7 +79,9 @@ func GetACUConversationModels(ctx context.Context, token *model.Token, userGroup
 		}
 		if policy.RoutingPolicy == ACURoutingPolicyCustom {
 			if _, ok := allowedModels[modelID]; !ok {
-				continue
+				if policy.ModelAccess[modelID] != ACUModelAccessExplicit {
+					continue
+				}
 			}
 		}
 		if !tokenAllowsACUConversationProfile(modelID, catalog.Profiles, allowedProfiles) ||
@@ -130,8 +123,7 @@ func tokenAllowsACUConversationProfile(modelID string, profiles []dto.ACURouting
 		return true
 	}
 	for _, profile := range profiles {
-		if profile.CanonicalModel != modelID ||
-			!supportsACUConversationResponses(profile.Protocol) {
+		if profile.CanonicalModel != modelID {
 			continue
 		}
 		if _, ok := allowedProfiles[profile.ExecutionProfileID]; ok {

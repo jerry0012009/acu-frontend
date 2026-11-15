@@ -1,5 +1,9 @@
 {
   "translation": {
+    "Text models": "文本模型",
+    "Create a key to use your account balance": "创建对话密钥，即可使用账户余额",
+    "Create conversation key": "创建对话密钥",
+    "No available API key": "暂无可用密钥",
     "Generate": "生成",
     "Generating": "生成中",
     "Uploading": "上传中",

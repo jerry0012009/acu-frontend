@@ -42,8 +42,16 @@ export async function sendImageGeneration(
 export async function getACUConversationOptions(
   selectedTokenId: number | null
 ): Promise<ACUConversationOptions> {
+  const runtimeTokenId = Number(
+    new URLSearchParams(globalThis.location?.search || '').get('token_id')
+  )
+  const requested =
+    selectedTokenId ||
+    (Number.isSafeInteger(runtimeTokenId) && runtimeTokenId > 0
+      ? runtimeTokenId
+      : null)
   const res = await api.get(API_ENDPOINTS.ACU_CONVERSATION_OPTIONS, {
-    params: selectedTokenId ? { token_id: selectedTokenId } : undefined,
+    params: requested ? { token_id: requested } : undefined,
   })
   const { data } = res
 

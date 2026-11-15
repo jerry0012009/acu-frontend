@@ -14,6 +14,8 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { getACUConversationOptions } from '@/features/playground/api'
+import { ConversationKeyEmpty } from '@/features/playground/components/conversation-key-empty'
+import { ConversationTabs } from '@/features/playground/components/conversation-tabs'
 import { PlaygroundApiKeySelector } from '@/features/playground/components/input/playground-api-key-selector'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
@@ -52,7 +54,7 @@ export function MediaWorkbench(props: { kind: 'image' | 'video' }) {
     queryKey: ['media-options', user, token],
     queryFn: () => getACUConversationOptions(token || null),
   })
-  const selectedToken = token || options.data?.selectedTokenId || 0
+  const selectedToken = options.data?.selectedTokenId || 0
   const models = useQuery({
     queryKey: ['media-models', user, selectedToken],
     queryFn: () => mediaModels(selectedToken),
@@ -273,6 +275,10 @@ export function MediaWorkbench(props: { kind: 'image' | 'video' }) {
   const busy = generate.isPending || uploading
   return (
     <div className='flex min-h-0 flex-1 flex-col overflow-y-auto p-4 md:p-6'>
+      <ConversationTabs />
+      {!options.isPending && options.data?.tokens.length === 0 && (
+        <ConversationKeyEmpty />
+      )}
       <header className='mb-5 flex items-center justify-between gap-3'>
         <h1 className='text-xl font-semibold'>
           {props.kind === 'image'
