@@ -89,6 +89,7 @@ export function ACUPriceSummary(props: {
     chat_completions: 'Chat',
     responses: 'Responses',
     messages: 'Messages',
+    gemini: 'Gemini',
   }
   const strategyLabels = {
     balanced: t('Balanced routing'),

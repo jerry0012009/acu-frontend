@@ -19,7 +19,7 @@ import {
   isDynamicPricingModel,
 } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
-import { isTokenBasedModel } from '../lib/model-helpers'
+import { isTokenBasedModel, mediaPriceUnit } from '../lib/model-helpers'
 import {
   formatACUCNY,
   formatPrice,
@@ -72,6 +72,7 @@ function ACUPricingTooltip(props: {
       key: 'chat_completions',
       label: t('OpenAI Chat Completions'),
     },
+    { key: 'gemini', label: t('Gemini') },
   ]
     .map((protocol) => ({
       ...protocol,
@@ -86,6 +87,7 @@ function ACUPricingTooltip(props: {
     responses: t('Responses'),
     messages: t('Messages'),
     chat_completions: t('Chat Completions'),
+    gemini: t('Gemini'),
   }
   const defaultProtocolLabel = defaultProtocol
     ? protocolLabels[defaultProtocol]
@@ -315,6 +317,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
     responses: t('Responses'),
     messages: t('Messages'),
     chat_completions: t('Chat Completions'),
+    gemini: t('Gemini'),
   }
   const defaultProtocolLabel = defaultProtocol
     ? protocolLabels[defaultProtocol]
@@ -470,7 +473,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
             props.selectedGroup
           )}
         </span>{' '}
-        / {t('request')}
+        / {t(mediaPriceUnit(props.model))}
       </span>
     )
   }

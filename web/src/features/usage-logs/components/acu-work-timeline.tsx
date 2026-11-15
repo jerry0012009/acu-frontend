@@ -362,9 +362,7 @@ function StepDetailContent(props: {
           {props.isAdmin && difficultySourceDescription ? (
             <div className='text-muted-foreground lg:col-span-2'>
               <div className='mb-1 text-[11px]'>{t('Difficulty source')}</div>
-              <div className='text-[11px]'>
-                {difficultySourceDescription}
-              </div>
+              <div className='text-[11px]'>{difficultySourceDescription}</div>
             </div>
           ) : null}
           {item.pointType === 'judge' ? (
@@ -1266,6 +1264,10 @@ export function ACUWorkTimeline() {
             <option value='messages'>
               {t('Anthropic Messages (Claude protocol)')}
             </option>
+            <option value='chat_completions'>
+              {t('OpenAI Chat Completions')}
+            </option>
+            <option value='gemini'>{t('Gemini')}</option>
           </select>
         </label>
         <label className='grid min-w-44 flex-1 gap-1 text-xs sm:flex-none'>

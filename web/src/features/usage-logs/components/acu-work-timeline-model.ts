@@ -11,7 +11,12 @@ import {
   type ACUWorkTimelineDisplayItem,
 } from '../lib/explicit-difficulty'
 
-export type TimelineProtocolFilter = 'all' | 'responses' | 'messages'
+export type TimelineProtocolFilter =
+  | 'all'
+  | 'responses'
+  | 'messages'
+  | 'chat_completions'
+  | 'gemini'
 
 export type TimelineChannelOption = {
   value: string

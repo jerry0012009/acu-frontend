@@ -40,6 +40,7 @@ export const PRICING_CURVE_PROTOCOL_OPTIONS = [
   { id: 'chat_completions', labelKey: 'Chat protocol' },
   { id: 'responses', labelKey: 'Responses' },
   { id: 'messages', labelKey: 'Messages' },
+  { id: 'gemini', labelKey: 'Gemini' },
 ] as const
 
 export type PricingCurveProtocol =

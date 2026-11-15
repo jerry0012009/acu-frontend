@@ -16,7 +16,7 @@ import {
   getDynamicPricingSummary,
 } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
-import { isTokenBasedModel } from '../lib/model-helpers'
+import { isTokenBasedModel, mediaPriceUnit } from '../lib/model-helpers'
 import {
   formatPrice,
   formatRequestPrice,
@@ -135,7 +135,7 @@ export function usePricingColumns(
             )
           }
 
-          const primaryEntries = dynamicSummary.primaryEntries.slice(0, 2)
+          const primaryEntries = dynamicSummary.primaryEntries
           if (primaryEntries.length === 0) {
             return (
               <span className='text-muted-foreground text-xs'>
@@ -221,7 +221,7 @@ export function usePricingColumns(
           <div className='max-w-full min-w-0'>
             <span className='font-mono text-sm tabular-nums'>{price}</span>
             <div className='text-muted-foreground/50 text-[10px]'>
-              / {t('request')}
+              / {t(mediaPriceUnit(model))}
             </div>
           </div>
         )

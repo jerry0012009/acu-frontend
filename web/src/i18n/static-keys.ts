@@ -588,4 +588,11 @@ export const STATIC_I18N_KEYS = [
   'This user account is disabled.',
   'Telegram binding failed. Please try again.',
   'Verification scope is missing',
+  'Client protocols',
+  'Upstream protocol',
+  'Per second',
+  'Per image',
+  'second',
+  'image',
+  'The upstream response does not satisfy the requested protocol requirements.',
 ] as const

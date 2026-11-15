@@ -148,6 +148,10 @@ export function getDynamicPricingSummary(
   const tier = tiers[0] || null
   const entries = getDynamicPriceEntries(tier, options)
   const rawExpression = model.billing_expr || ''
+  const primaryFields = new Set(PRIMARY_DYNAMIC_FIELDS)
+  if (model.supported_endpoint_types?.includes('image-generation')) {
+    primaryFields.add('imageOutputPrice')
+  }
 
   return {
     tiers,
@@ -157,11 +161,9 @@ export function getDynamicPricingSummary(
     isSpecialExpression: rawExpression.trim().length > 0 && tiers.length === 0,
     rawExpression,
     entries,
-    primaryEntries: entries.filter((entry) =>
-      PRIMARY_DYNAMIC_FIELDS.has(entry.field)
-    ),
+    primaryEntries: entries.filter((entry) => primaryFields.has(entry.field)),
     secondaryEntries: entries.filter(
-      (entry) => !PRIMARY_DYNAMIC_FIELDS.has(entry.field)
+      (entry) => !primaryFields.has(entry.field)
     ),
   }
 }

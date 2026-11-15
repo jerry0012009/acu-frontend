@@ -191,7 +191,7 @@ func acuEndpointTypes(protocol string) []constant.EndpointType {
 		result = append(result, constant.EndpointTypeAnthropic)
 	}
 	if strings.Contains(protocol, "Gemini") {
-		result = append(result, constant.EndpointTypeOpenAI)
+		result = append(result, constant.EndpointTypeGemini)
 	}
 	return result
 }

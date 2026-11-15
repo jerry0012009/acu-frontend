@@ -89,3 +89,18 @@ export function replaceModelInPath(path: string, modelName: string): string {
 export function isTokenBasedModel(model: PricingModel): boolean {
   return model.quota_type === QUOTA_TYPE_VALUES.TOKEN
 }
+
+export function mediaPriceUnit(
+  model: PricingModel
+): 'second' | 'image' | 'request' {
+  if (
+    model.model_name.startsWith('grok-imagine-video') &&
+    model.supported_endpoint_types?.includes('openai-video')
+  ) {
+    return 'second'
+  }
+  if (model.supported_endpoint_types?.includes('image-generation')) {
+    return 'image'
+  }
+  return 'request'
+}

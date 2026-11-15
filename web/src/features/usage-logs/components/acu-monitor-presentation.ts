@@ -14,6 +14,7 @@ export type ACUMonitorProtocol =
   | 'responses'
   | 'messages'
   | 'chat_completions'
+  | 'gemini'
 
 export function modelProfilePriceRange(
   profiles: ACUChannelMonitorProfile[],
@@ -74,6 +75,7 @@ export function protocolLabel(protocol: string, t: TFunction): string {
   if (protocol === 'responses') return t('OpenAI Responses (Codex)')
   if (protocol === 'messages') return t('Anthropic Messages (Claude protocol)')
   if (protocol === 'chat_completions') return t('OpenAI Chat Completions')
+  if (protocol === 'gemini') return t('Gemini')
   return protocol
 }
 
@@ -81,6 +83,7 @@ export function protocolShortLabel(protocol: string, t: TFunction): string {
   if (protocol === 'responses') return t('Responses')
   if (protocol === 'messages') return t('Messages')
   if (protocol === 'chat_completions') return t('Chat')
+  if (protocol === 'gemini') return t('Gemini')
   return protocol
 }
 
@@ -124,7 +127,7 @@ const ERROR_KEYS: Record<string, { title: string; description: string }> = {
   protocol_incompatible: {
     title: 'Protocol response is incompatible',
     description:
-      'The upstream response does not satisfy the current Anthropic Messages or OpenAI Responses protocol requirements.',
+      'The upstream response does not satisfy the requested protocol requirements.',
   },
   profile_cooldown: {
     title: 'Execution Profile is cooling down',
@@ -164,7 +167,9 @@ export function filterProfilesByProtocol(
   protocol: ACUMonitorProtocol
 ): ACUChannelMonitorProfile[] {
   if (protocol === 'all') return profiles
-  return profiles.filter((profile) => profile.protocol.includes(protocol))
+  return profiles.filter((profile) =>
+    (profile.executableProtocols ?? profile.protocol).includes(protocol)
+  )
 }
 
 export function monitorProfileEligible(

@@ -32,7 +32,7 @@ const usageLogsSearchSchema = z.object({
   monitorLine: z.string().optional().catch(''),
   monitorModel: z.string().optional().catch(''),
   monitorProtocol: z
-    .enum(['responses', 'messages', 'chat_completions'])
+    .enum(['responses', 'messages', 'chat_completions', 'gemini'])
     .optional()
     .catch(undefined),
   startTime: z.number().optional(),

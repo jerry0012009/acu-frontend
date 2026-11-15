@@ -281,6 +281,7 @@ export async function getACUWorkTimeline(
 }
 
 export type ACUChannelMonitorProfile = {
+  executableProtocols?: string[]
   rawCostUtility?: number | null
   rawSpeedUtility?: number | null
   rawReliabilityUtility?: number | null
@@ -410,7 +411,7 @@ export type ACUModelPoolEntry = {
     presetId?: string
     reasoningEffort?: string
     calibrationStatus?: string
-    protocols: Array<'responses' | 'messages' | 'chat_completions'>
+    protocols: Array<'responses' | 'messages' | 'chat_completions' | 'gemini'>
     responsesProfileCount: number
     messagesProfileCount: number
   }>
@@ -446,7 +447,7 @@ export type ACURoutingCatalog = {
       presetId?: string
       reasoningEffort?: string
       calibrationStatus?: string
-      protocols: Array<'responses' | 'messages' | 'chat_completions'>
+      protocols: Array<'responses' | 'messages' | 'chat_completions' | 'gemini'>
     }>
     curve?: Array<{
       difficultyScore: number
@@ -560,7 +561,7 @@ export type ACUChannelMonitor = {
   range: string
   supplyStrategy: ACUSupplyStrategy
   scenario: ACUMonitorScenario
-  protocol: 'all' | 'responses' | 'messages' | 'chat_completions'
+  protocol: 'all' | 'responses' | 'messages' | 'chat_completions' | 'gemini'
   generatedAt: string
   profiles: ACUChannelMonitorProfile[]
   history: ACUChannelHistoryRow[]
@@ -581,7 +582,7 @@ export type ACUExecutionProfile = {
   channelId?: string
   routingGroupName?: string
   inputTokenAccountingMode?: 'includes_cached' | 'excludes_cached'
-  protocols: Array<'responses' | 'messages' | 'chat_completions'>
+  protocols: Array<'responses' | 'messages' | 'chat_completions' | 'gemini'>
   baseUrl?: string
   apiKeyConfigured?: boolean
   routingEnabled?: boolean
@@ -760,7 +761,7 @@ export type ACUQuickAddDiscovery = {
     executionProfileId: string
     modelId: string
     providerModelId: string
-    protocols: Array<'responses' | 'messages' | 'chat_completions'>
+    protocols: Array<'responses' | 'messages' | 'chat_completions' | 'gemini'>
   }>
   message?: string
 }
@@ -852,7 +853,12 @@ export async function getACUChannelMonitor(
   supplyStrategy: ACUSupplyStrategy = 'balanced',
   scenario: ACUMonitorScenario = 'standard',
   probeRange: ACUProbeTimelineRange = '48h',
-  protocol: 'all' | 'responses' | 'messages' | 'chat_completions' = 'responses'
+  protocol:
+    | 'all'
+    | 'responses'
+    | 'messages'
+    | 'chat_completions'
+    | 'gemini' = 'responses'
 ) {
   const params = new URLSearchParams({
     range,
@@ -1094,7 +1100,7 @@ export async function quickAddACUProviderProbe(input: {
     billingPrice?: Record<string, number>
     observedBillingMultiplier?: number
   }
-  protocol: 'responses' | 'messages' | 'chat_completions'
+  protocol: 'responses' | 'messages' | 'chat_completions' | 'gemini'
 }) {
   const res = await api.post(
     '/api/log/acu-execution-profiles/quick-add/probe',
@@ -1118,7 +1124,7 @@ export async function quickAddACUProviderSave(input: {
   models: Array<{
     providerModelId: string
     modelId?: string
-    protocols: Array<'responses' | 'messages' | 'chat_completions'>
+    protocols: Array<'responses' | 'messages' | 'chat_completions' | 'gemini'>
     billingPrice?: Record<string, number>
     observedBillingMultiplier?: number
     routingEnabled?: boolean

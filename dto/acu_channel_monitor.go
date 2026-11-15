@@ -103,6 +103,7 @@ type ACUChannelMonitorProfile struct {
 	ExecutionProfileID              string                   `json:"executionProfileId"`
 	CanonicalModel                  string                   `json:"canonicalModel"`
 	Protocol                        []string                 `json:"protocol"`
+	ExecutableProtocols             []string                 `json:"executableProtocols,omitempty"`
 	Provider                        string                   `json:"provider"`
 	Channel                         string                   `json:"channel"`
 	PublicNote                      string                   `json:"publicNote"`

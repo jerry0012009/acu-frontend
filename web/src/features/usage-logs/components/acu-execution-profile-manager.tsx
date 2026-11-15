@@ -27,7 +27,12 @@ import {
 import { estimateProfileCost, type CostInputs } from './acu-profile-cost'
 import { ACUProviderQuickAdd } from './acu-provider-quick-add'
 
-const PROTOCOLS = ['responses', 'messages', 'chat_completions'] as const
+const PROTOCOLS = [
+  'responses',
+  'messages',
+  'chat_completions',
+  'gemini',
+] as const
 type Protocol = (typeof PROTOCOLS)[number]
 
 function emptyProfile(): ACUExecutionProfile {

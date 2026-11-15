@@ -92,7 +92,7 @@ function buildChatSample(lang: Lang, ctx: SampleContext): string {
       `curl ${url} \\`,
       `  -H "Authorization: Bearer $${ctx.apiKeyEnv}" \\`,
       `  -H "Content-Type: application/json" \\`,
-      `  -d '${bodyJson.replace(/\n/g, '\n     ')}'`,
+      `  -d '${bodyJson.replaceAll('\n', '\n     ')}'`,
     ].join('\n')
   }
 
@@ -160,7 +160,7 @@ function buildAnthropicSample(lang: Lang, ctx: SampleContext): string {
       `  -H "x-api-key: $${ctx.apiKeyEnv}" \\`,
       `  -H "anthropic-version: 2023-06-01" \\`,
       `  -H "Content-Type: application/json" \\`,
-      `  -d '${body.replace(/\n/g, '\n     ')}'`,
+      `  -d '${body.replaceAll('\n', '\n     ')}'`,
     ].join('\n')
   }
   if (lang === 'python') {
@@ -232,7 +232,7 @@ function buildGeminiSample(lang: Lang, ctx: SampleContext): string {
     return [
       `curl '${url}' \\`,
       `  -H 'Content-Type: application/json' \\`,
-      `  -d '${body.replace(/\n/g, '\n     ')}'`,
+      `  -d '${body.replaceAll('\n', '\n     ')}'`,
     ].join('\n')
   }
   if (lang === 'python') {
@@ -282,7 +282,7 @@ function buildEmbeddingSample(lang: Lang, ctx: SampleContext): string {
       `curl ${url} \\`,
       `  -H "Authorization: Bearer $${ctx.apiKeyEnv}" \\`,
       `  -H "Content-Type: application/json" \\`,
-      `  -d '${body.replace(/\n/g, '\n     ')}'`,
+      `  -d '${body.replaceAll('\n', '\n     ')}'`,
     ].join('\n')
   }
   if (lang === 'python') {
@@ -348,7 +348,7 @@ function buildImageSample(lang: Lang, ctx: SampleContext): string {
       `curl ${url} \\`,
       `  -H "Authorization: Bearer $${ctx.apiKeyEnv}" \\`,
       `  -H "Content-Type: application/json" \\`,
-      `  -d '${body.replace(/\n/g, '\n     ')}'`,
+      `  -d '${body.replaceAll('\n', '\n     ')}'`,
     ].join('\n')
   }
   if (lang === 'python') {
@@ -413,9 +413,26 @@ function buildSample(
 ): string {
   if (endpointType === 'anthropic') return buildAnthropicSample(lang, ctx)
   if (endpointType === 'gemini') return buildGeminiSample(lang, ctx)
-  if (endpointType === 'embeddings' || endpointType === 'jina-rerank')
+  if (endpointType === 'embeddings' || endpointType === 'jina-rerank') {
     return buildEmbeddingSample(lang, ctx)
+  }
   if (endpointType === 'image-generation') return buildImageSample(lang, ctx)
+  if (endpointType === 'openai-video') {
+    const payload = {
+      model: ctx.modelName,
+      prompt: 'A red ball rolls across a white floor.',
+      seconds: '2',
+      size: '848x480',
+    }
+    const url = `${ctx.baseUrl}${ctx.endpointPath}`
+    if (lang === 'curl') {
+      return `curl ${url} \\\n  -H "Authorization: Bearer $${ctx.apiKeyEnv}" \\\n  -H "Content-Type: application/json" \\\n  -d '${JSON.stringify(payload)}'\n\n# Query the returned task id, then download its content:\n# GET ${url}/TASK_ID\n# GET ${url}/TASK_ID/content`
+    }
+    if (lang === 'python') {
+      return `import os, time, requests\n\nbase = "${url}"\nheaders = {"Authorization": "Bearer " + os.environ["${ctx.apiKeyEnv}"]}\nresponse = requests.post(base, headers=headers, json=${JSON.stringify(payload)})\nresponse.raise_for_status()\ntask = response.json()\nwhile task["status"] not in ("completed", "failed"):\n    time.sleep(3)\n    response = requests.get(base + "/" + task["id"], headers=headers)\n    response.raise_for_status()\n    task = response.json()\nif task["status"] == "failed":\n    raise RuntimeError(task.get("error"))\nresponse = requests.get(base + "/" + task["id"] + "/content", headers=headers)\nresponse.raise_for_status()\nopen("video.mp4", "wb").write(response.content)`
+    }
+    return `const base = '${url}'\nconst headers = { Authorization: \`Bearer \${process.env.${ctx.apiKeyEnv}}\`, 'Content-Type': 'application/json' }\nconst response = await fetch(base, { method: 'POST', headers, body: JSON.stringify(${JSON.stringify(payload)}) })\nif (!response.ok) throw new Error(await response.text())\nlet task = await response.json()\nwhile (!['completed', 'failed'].includes(task.status)) {\n  await new Promise(resolve => setTimeout(resolve, 3000))\n  const poll = await fetch(base + '/' + task.id, { headers })\n  if (!poll.ok) throw new Error(await poll.text())\n  task = await poll.json()\n}\nif (task.status === 'failed') throw new Error(JSON.stringify(task.error))\nconst video = await fetch(base + '/' + task.id + '/content', { headers })\nif (!video.ok) throw new Error(await video.text())\nconst bytes = await video.arrayBuffer()`
+  }
   return buildChatSample(lang, ctx)
 }
 

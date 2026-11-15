@@ -306,7 +306,9 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
       line === 'ACU 线路' ||
       !model ||
       !protocol ||
-      !['responses', 'messages', 'chat_completions'].includes(protocol)
+      !['responses', 'messages', 'chat_completions', 'gemini'].includes(
+        protocol
+      )
     ) {
       return
     }
@@ -319,7 +321,8 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         monitorProtocol: protocol as
           | 'responses'
           | 'messages'
-          | 'chat_completions',
+          | 'chat_completions'
+          | 'gemini',
       },
     })
   }

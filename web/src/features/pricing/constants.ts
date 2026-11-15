@@ -1,4 +1,4 @@
-import { type TFunction } from 'i18next'
+import type { TFunction } from 'i18next'
 
 import type { TokenUnit } from './types'
 
@@ -69,8 +69,8 @@ export function getEndpointTypeLabels(
   return {
     [ENDPOINT_TYPES.ALL]: t('All Types'),
     [ENDPOINT_TYPES.OPENAI]: 'Chat',
-    [ENDPOINT_TYPES.OPENAI_RESPONSE]: 'Response',
-    [ENDPOINT_TYPES.ANTHROPIC]: 'Anthropic',
+    [ENDPOINT_TYPES.OPENAI_RESPONSE]: 'Responses',
+    [ENDPOINT_TYPES.ANTHROPIC]: 'Messages',
     [ENDPOINT_TYPES.GEMINI]: 'Gemini',
     [ENDPOINT_TYPES.JINA_RERANK]: 'Rerank',
     [ENDPOINT_TYPES.IMAGE_GENERATION]: t('Image'),

@@ -111,7 +111,11 @@ export type PricingPayable = {
   pricing_policy_version: string
 }
 
-export type PricingProtocol = 'chat_completions' | 'responses' | 'messages'
+export type PricingProtocol =
+  | 'chat_completions'
+  | 'responses'
+  | 'messages'
+  | 'gemini'
 
 export type ACURoutePayable = {
   modelMultiplier?: string

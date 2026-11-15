@@ -80,7 +80,9 @@ export function ACUChannelHealthCard(
           </span>
           {[
             ...new Set(
-              props.channel.profiles.flatMap((profile) => profile.protocol)
+              props.channel.profiles.flatMap(
+                (profile) => profile.executableProtocols ?? profile.protocol
+              )
             ),
           ].map((protocol) => (
             <Badge

@@ -88,7 +88,7 @@ const MONITOR_REFRESH_MS = 30 * 60_000
 
 type ProbeInspectorState = {
   profile: ACUChannelMonitorProfile
-  protocol: 'responses' | 'messages' | 'chat_completions'
+  protocol: 'responses' | 'messages' | 'chat_completions' | 'gemini'
   result: ACUExecutionProfileProbeResult | null
   requestError?: string
 }
@@ -158,7 +158,7 @@ function buildCandidatePreferenceGroups(
             displayName: model.modelId,
             kind: 'base' as const,
             protocols: [] as Array<
-              'responses' | 'messages' | 'chat_completions'
+              'responses' | 'messages' | 'chat_completions' | 'gemini'
             >,
             responsesProfileCount: 0,
             messagesProfileCount: 0,
@@ -496,7 +496,7 @@ export function ACUChannelMonitor(
       protocol,
     }: {
       executionProfileId: string
-      protocol: 'responses' | 'messages' | 'chat_completions'
+      protocol: 'responses' | 'messages' | 'chat_completions' | 'gemini'
     }) => probeACUExecutionProfileById(executionProfileId, protocol),
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({
@@ -531,7 +531,7 @@ export function ACUChannelMonitor(
       protocol,
     }: {
       executionProfileId: string
-      protocol: 'responses' | 'messages' | 'chat_completions'
+      protocol: 'responses' | 'messages' | 'chat_completions' | 'gemini'
     }) => runACUProfileVeridrop(executionProfileId, protocol),
     onSuccess: (result) => {
       setVeridropInspector((current) =>
@@ -737,7 +737,8 @@ export function ACUChannelMonitor(
             protocol: probeProtocol as
               | 'responses'
               | 'messages'
-              | 'chat_completions',
+              | 'chat_completions'
+              | 'gemini',
           })
         },
       }
@@ -758,7 +759,8 @@ export function ACUChannelMonitor(
         protocol: checkProtocol as
           | 'responses'
           | 'messages'
-          | 'chat_completions',
+          | 'chat_completions'
+          | 'gemini',
       })
     },
   }
@@ -1117,6 +1119,7 @@ export function ACUChannelMonitor(
                   ['responses', t('Responses')],
                   ['messages', t('Messages')],
                   ['chat_completions', t('Chat')],
+                  ['gemini', t('Gemini')],
                 ] as const
               ).map(([value, label]) => (
                 <Button
@@ -2218,7 +2221,7 @@ function ProbeTable({ rows }: { rows: ACUProbeHistoryRow[] }) {
             {[
               'Started',
               'Model',
-              'Protocol',
+              'Upstream protocol',
               'Provider / Channel',
               'Result',
               'HTTP',
@@ -2428,7 +2431,7 @@ export function MonitorTable(props: {
           <tr>
             {[
               'Model',
-              'Protocol',
+              'Upstream protocol',
               'Provider / Channel',
               'Current status',
               ...(props.canPause ? ['Global weight / Routing score'] : []),
@@ -2506,6 +2509,14 @@ export function MonitorTable(props: {
                 {profile.protocol
                   .map((value) => protocolLabel(value, t))
                   .join(', ')}
+                {profile.executableProtocols && (
+                  <div className='text-muted-foreground text-xs'>
+                    {t('Client protocols')}:{' '}
+                    {profile.executableProtocols
+                      .map((value) => protocolLabel(value, t))
+                      .join(', ')}
+                  </div>
+                )}
               </td>
               <td className='px-3 py-2'>
                 <div>{profile.provider}</div>

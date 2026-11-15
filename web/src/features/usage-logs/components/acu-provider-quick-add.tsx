@@ -28,7 +28,12 @@ import {
   type ACUProbePriceDraft,
 } from './acu-probe-result-panel'
 
-const PROTOCOLS = ['responses', 'chat_completions', 'messages'] as const
+const PROTOCOLS = [
+  'responses',
+  'chat_completions',
+  'messages',
+  'gemini',
+] as const
 type Protocol = (typeof PROTOCOLS)[number]
 type PriceDraft = ACUProbePriceDraft
 

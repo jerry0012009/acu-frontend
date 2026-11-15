@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { StatusBadge, type StatusVariant } from '@/components/status-badge'
 
 import { isDynamicPricingModel } from '../lib/dynamic-price'
-import { isTokenBasedModel } from '../lib/model-helpers'
+import { isTokenBasedModel, mediaPriceUnit } from '../lib/model-helpers'
 import type { PricingModel } from '../types'
 
 interface ModelBillingModeBadgeProps {
@@ -25,6 +25,10 @@ export function ModelBillingModeBadge(props: ModelBillingModeBadgeProps) {
   } else if (isTokenBasedModel(props.model)) {
     label = t('Token-based')
     variant = 'info'
+  } else if (mediaPriceUnit(props.model) === 'second') {
+    label = t('Per second')
+  } else if (mediaPriceUnit(props.model) === 'image') {
+    label = t('Per image')
   }
 
   return (

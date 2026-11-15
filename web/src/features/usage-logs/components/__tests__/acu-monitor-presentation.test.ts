@@ -45,6 +45,28 @@ async function translator(language: 'en' | 'zh') {
     key) as TFunction
 }
 
+test('client protocol filter includes a bridge-enabled native Chat profile', () => {
+  const profile = {
+    executionProfileId: 'bridge:chat',
+    protocol: ['chat_completions'],
+    executableProtocols: [
+      'messages',
+      'responses',
+      'chat_completions',
+      'gemini',
+    ],
+  } as ACUChannelMonitorProfile
+  assert.equal(filterProfilesByProtocol([profile], 'messages').length, 1)
+  assert.equal(filterProfilesByProtocol([profile], 'gemini').length, 1)
+  assert.equal(
+    filterProfilesByProtocol(
+      [{ ...profile, executableProtocols: ['chat_completions'] }],
+      'messages'
+    ).length,
+    0
+  )
+})
+
 test('filters protocol and recomputes available Messages supply', () => {
   const profiles = [
     profile(),

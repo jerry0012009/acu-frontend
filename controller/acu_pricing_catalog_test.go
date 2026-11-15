@@ -21,6 +21,11 @@ func TestOverlayACUPricingPreservesMediaBilling(t *testing.T) {
 	assert.Equal(t, []model.Pricing{image, video, gemini}, got[1:])
 }
 
+func TestACUProtocolEndpointsKeepGeminiDistinctFromChat(t *testing.T) {
+	require.Equal(t, []constant.EndpointType{constant.EndpointTypeGemini}, acuEndpointTypes("Gemini"))
+	require.Equal(t, []constant.EndpointType{constant.EndpointTypeOpenAI, constant.EndpointTypeOpenAIResponse, constant.EndpointTypeAnthropic, constant.EndpointTypeGemini}, acuEndpointTypes("Chat Completions / Responses / Messages / Gemini"))
+}
+
 func TestOverlayACUPricingUsesDynamicAutoAndCatalogPrices(t *testing.T) {
 	cachePayable := 0.006
 	cacheWritePayable := 0.075

@@ -6421,7 +6421,14 @@
     "Go to console": "进入控制台",
     "Do not show this guide on sign-in": "下次登录不再显示",
     "Could not save your preference. Please try again.": "未能保存偏好，请重试。",
-    "Linux / Other devices": "Linux / 其他设备"
+    "Linux / Other devices": "Linux / 其他设备",
+    "Client protocols": "可接入协议",
+    "Upstream protocol": "上游协议",
+    "Per second": "按秒计费",
+    "Per image": "按张计费",
+    "second": "秒",
+    "image": "张",
+    "The upstream response does not satisfy the requested protocol requirements.": "上游响应不符合本次请求协议的要求。"
   },
   "Enter a positive balance conversion": "请输入大于零的余额换算比例",
   "Reused from Judge": "复用自 Judge",

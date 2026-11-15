@@ -15,6 +15,7 @@ export function modelPricingProtocol(
     chat_completions: 'openai',
     responses: 'openai-response',
     messages: 'anthropic',
+    gemini: 'gemini',
   }
   const supported = model.supported_endpoint_types ?? []
   if (supported.includes(endpoints[preferred])) return preferred
@@ -22,6 +23,7 @@ export function modelPricingProtocol(
     'chat_completions',
     'responses',
     'messages',
+    'gemini',
   ] as const) {
     if (supported.includes(endpoints[protocol])) return protocol
   }
@@ -218,15 +220,11 @@ export function estimatedPricingCost(
 
 export function defaultACUPricingProtocol(
   payableByProtocol: PricingModel['payable_by_protocol']
-):
-  | 'responses'
-  | 'messages'
-  | 'chat_completions'
-  | 'chat_completions'
-  | undefined {
+): PricingProtocol | undefined {
   if (payableByProtocol?.responses) return 'responses'
   if (payableByProtocol?.messages) return 'messages'
   if (payableByProtocol?.chat_completions) return 'chat_completions'
+  if (payableByProtocol?.gemini) return 'gemini'
   return undefined
 }
 
@@ -244,7 +242,7 @@ export function displayedPricingCost(
   _mode: PricingDisplayMode,
   inputTokens: number,
   outputTokens: number,
-  protocol: 'all' | 'responses' | 'messages' | 'chat_completions' = 'all'
+  protocol: 'all' | PricingProtocol = 'all'
 ): number {
   const selectedProtocol =
     protocol === 'all'

@@ -6409,7 +6409,14 @@
     "Go to console": "Go to console",
     "Do not show this guide on sign-in": "Do not show this guide on sign-in",
     "Could not save your preference. Please try again.": "Could not save your preference. Please try again.",
-    "Linux / Other devices": "Linux / Other devices"
+    "Linux / Other devices": "Linux / Other devices",
+    "Client protocols": "Client protocols",
+    "Upstream protocol": "Upstream protocol",
+    "Per second": "Per second",
+    "Per image": "Per image",
+    "second": "second",
+    "image": "image",
+    "The upstream response does not satisfy the requested protocol requirements.": "The upstream response does not satisfy the requested protocol requirements."
   },
   "Enter a positive balance conversion": "Enter a positive balance conversion",
   "Reused from Judge": "Reused from Judge",
