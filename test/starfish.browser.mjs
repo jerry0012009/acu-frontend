@@ -245,6 +245,7 @@ try {
         await exampleRay.focus();
         await page.keyboard.press('Enter');
         assert.equal(await exampleRay.getAttribute('aria-pressed'), 'true');
+        await page.waitForFunction(() => document.documentElement.scrollWidth <= innerWidth);
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
         await page.screenshot({ path: `${output}/example-${width}.png`, fullPage: true });
       }
