@@ -595,10 +595,11 @@ func GetACUExecutionProfiles(ctx context.Context) (map[string]interface{}, error
 }
 
 type acuProfileConfiguration struct {
-	ExecutionProfileID string  `json:"executionProfileId"`
-	ModelID            string  `json:"modelId"`
-	RoutingEnabled     bool    `json:"routingEnabled"`
-	RoutingWeight      float64 `json:"routingWeight"`
+	ExecutionProfileID string   `json:"executionProfileId"`
+	ModelID            string   `json:"modelId"`
+	RoutingEnabled     bool     `json:"routingEnabled"`
+	RoutingWeight      float64  `json:"routingWeight"`
+	Protocols          []string `json:"protocols"`
 }
 
 // Configuration edits must not depend on historical monitoring aggregation.

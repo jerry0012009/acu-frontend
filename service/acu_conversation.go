@@ -3,11 +3,11 @@ package service
 import (
 	"context"
 	"errors"
+	"sort"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 )
@@ -41,7 +41,7 @@ func SelectACUConversationToken(tokens []*model.Token, now int64) (*model.Token,
 }
 
 func GetACUConversationModels(ctx context.Context, token *model.Token, userGroup string) ([]string, error) {
-	catalog, err := GetACURoutingCatalog(ctx)
+	profiles, err := globalACUProfileConfiguration(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -68,11 +68,17 @@ func GetACUConversationModels(ctx context.Context, token *model.Token, userGroup
 		groups = GetUserAutoGroup(userGroup)
 	}
 
-	models := make([]string, 0, len(catalog.Models)+2)
-	for _, catalogModel := range catalog.Models {
-		modelID := strings.TrimSpace(catalogModel.ModelID)
-		if modelID == "" || len(catalogModel.Protocols) == 0 {
+	models := make([]string, 0, len(profiles)+2)
+	seen := make(map[string]bool)
+	for _, profile := range profiles {
+		modelID := strings.TrimSpace(profile.ModelID)
+		if modelID == "" || len(profile.Protocols) == 0 || seen[modelID] {
 			continue
+		}
+		if len(allowedProfiles) > 0 {
+			if _, ok := allowedProfiles[profile.ExecutionProfileID]; !ok {
+				continue
+			}
 		}
 		if !tokenAllowsACUConversationModel(token, modelID) {
 			continue
@@ -84,25 +90,28 @@ func GetACUConversationModels(ctx context.Context, token *model.Token, userGroup
 				}
 			}
 		}
-		if !tokenAllowsACUConversationProfile(modelID, catalog.Profiles, allowedProfiles) ||
-			!hasACUConversationAbility(groups, modelID) {
+		if !hasACUConversationAbility(groups, modelID) {
 			continue
 		}
 		models = append(models, modelID)
+		seen[modelID] = true
 	}
 
 	for _, virtualModel := range []string{"acu-auto", "acu-high"} {
-		if tokenAllowsACUConversationModel(token, virtualModel) &&
+		if !seen[virtualModel] && tokenAllowsACUConversationModel(token, virtualModel) &&
 			hasACUConversationAbility(groups, virtualModel) {
 			models = append(models, virtualModel)
+			seen[virtualModel] = true
 		}
 	}
 	for _, imageModel := range acuConversationImageModels {
-		if tokenAllowsACUConversationModel(token, imageModel) &&
+		if !seen[imageModel] && tokenAllowsACUConversationModel(token, imageModel) &&
 			hasACUConversationImageAbility(groups, imageModel) {
 			models = append(models, imageModel)
+			seen[imageModel] = true
 		}
 	}
+	sort.Strings(models)
 	return models, nil
 }
 
@@ -116,21 +125,6 @@ func tokenAllowsACUConversationModel(token *model.Token, modelID string) bool {
 	}
 	_, ok := limits[ratio_setting.FormatMatchingModelName(modelID)]
 	return ok
-}
-
-func tokenAllowsACUConversationProfile(modelID string, profiles []dto.ACURoutingCatalogProfile, allowedProfiles map[string]struct{}) bool {
-	if len(allowedProfiles) == 0 {
-		return true
-	}
-	for _, profile := range profiles {
-		if profile.CanonicalModel != modelID {
-			continue
-		}
-		if _, ok := allowedProfiles[profile.ExecutionProfileID]; ok {
-			return true
-		}
-	}
-	return false
 }
 
 func supportsACUConversationResponses(protocols []string) bool {
