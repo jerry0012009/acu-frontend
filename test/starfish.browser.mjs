@@ -237,7 +237,7 @@ try {
     if (status === "empty") {
       await page.getByText("No learned preferences yet", { exact: true }).waitFor();
       await page.getByRole('heading', { name: 'Example data, not your personal preferences', exact: true }).waitFor();
-      assert.equal(await page.locator('svg[aria-label="Preference starfish"] [role="button"]').count(), 50);
+      assert.equal(await page.locator('svg[aria-label="Preference starfish"] [role="button"]').count(), 150);
       assert.equal(await page.getByText('Saved preference records', { exact: false }).count(), 0);
       for (const width of [390, 1440]) {
         await page.setViewportSize({ width, height: 1000 });

@@ -2,7 +2,7 @@
 
 Private ACU renders an explicitly labeled, read-only example when the personal
 profile endpoint reports `empty` without rays. It reuses the existing chart with
-50 directions in five domains. Example details omit source records and numerical
+150 directions in five domains. Example details omit source records and numerical
 evidence estimates. Data is local to the presentation layer, not persisted or
 sent for personalization. The account's learning settings are unchanged.
 

@@ -46,10 +46,10 @@ test('only a confirmed empty personal profile is eligible for the example', () =
   )
 })
 
-test('example shows fifty distinct illustrative directions without personal sources or evidence scores', () => {
+test('example shows one hundred fifty distinct illustrative directions without personal sources or evidence scores', () => {
   const view = createPreferenceExample(i18next.t)
-  assert.equal(view.profile?.rays.length, 50)
-  assert.equal(new Set(view.profile?.rays.map((ray) => ray.id)).size, 50)
+  assert.equal(view.profile?.rays.length, 150)
+  assert.equal(new Set(view.profile?.rays.map((ray) => ray.id)).size, 150)
   assert.equal(new Set(view.profile?.rays.map((ray) => ray.category)).size, 5)
   assert(view.profile?.rays.every((ray) => ray.sourceIds.length === 0))
   const html = renderToStaticMarkup(
@@ -59,7 +59,7 @@ test('example shows fifty distinct illustrative directions without personal sour
   assert.match(html, /Example preference details/)
   assert.equal(
     (html.match(/class="preference-starfish-ray"/g) || []).length,
-    50
+    150
   )
   assert.doesNotMatch(
     html,
