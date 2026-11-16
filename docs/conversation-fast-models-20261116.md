@@ -17,3 +17,16 @@ passes using only execution-profiles and checks duplicate removal, disabled
 Profiles, Messages-native supply, Key model/profile limits and acu-auto.
 Existing default-Key/error preservation tests remain. Frontend assets are
 unchanged, and the release scope is only acu-frontend via canonical blue/green.
+
+Production release `bg-20261116T070856-5792667e` completed on
+`8bf1fb3d8cb023b92c649c0fe9ea9afcdb602db4`, candidate image
+`sha256:48925194f0e8dd5849300431cad6a5e0b0ae12ddcefa9e2113558928e256ad0b`.
+Candidate full-options request was 742ms. Four public requests were
+1285/482/435/1411ms versus the measured old 15822/30954ms. All return the
+same 71 sorted model IDs and same selected key. Real browser opened the text
+model selector and displayed 71 options. Candidate/public standard three
+protocol streams and unique settlement passed. Maintenance and read-only
+acceptance sessions revoked, reuse rejected 401 and private auth files removed.
+Evidence: `/root/jerry/exports/conversation-fast-models-20261116/` and
+`/tmp/acu-fast-model-list-public.png`. No cache warming or server-side timer
+is needed to obtain the list; no Router/Runtime release occurred.
