@@ -47,13 +47,8 @@ func GetPrivateACUTeamPreferences(ctx context.Context, userID int) (dto.ACUTeamP
 		if !space.Enabled || !containsUserID(space.MemberUserIDs, userID) {
 			continue
 		}
-		status, err := GetPrivateACUFilmStatus(ctx)
-		if err != nil {
-			return result, err
-		}
-		if !status.Enabled || status.SpaceID != space.SpaceID {
-			continue
-		}
+		// The saved profile is the read model; loading the film management view
+		// also reads every source attachment and prompt card before returning.
 		query := url.Values{"spaceId": {space.SpaceID}}
 		response, err := acuRouterAdminRequest(ctx, http.MethodGet, "/internal/admin/private-acu/team-preference-profile?"+query.Encode(), nil)
 		if err != nil {
@@ -68,9 +63,15 @@ func GetPrivateACUTeamPreferences(ctx context.Context, userID int) (dto.ACUTeamP
 			return result, fmt.Errorf("team profile unavailable")
 		}
 		records := []dto.ACUPreferenceRecord{}
-		for _, skill := range status.Skills {
-			if summary := preferenceRecordText(skill.Description); summary != "" {
-				records = append(records, dto.ACUPreferenceRecord{ID: skill.ID, Summary: summary})
+		seen := map[string]bool{}
+		if envelope.Profile.Profile != nil {
+			for _, ray := range envelope.Profile.Profile.Rays {
+				for _, sourceID := range ray.SourceIDs {
+					if !seen[sourceID] && ray.Summary != "" {
+						seen[sourceID] = true
+						records = append(records, dto.ACUPreferenceRecord{ID: sourceID, Summary: ray.Summary})
+					}
+				}
 			}
 		}
 		result.Spaces = append(result.Spaces, dto.ACUTeamPreferenceSpace{Key: space.Key, View: envelope.Profile, Records: records})
