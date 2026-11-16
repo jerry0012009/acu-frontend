@@ -94,15 +94,19 @@ func TestAccountOverviewPrefersOfficialBenchmarkInsteadOfMixingReferences(t *tes
 	assert.EqualValues(t, 1, result.Comparison.Count)
 }
 
-func TestAccountOverviewSuppressesAmbiguousNonOfficialBenchmarks(t *testing.T) {
+func TestAccountOverviewKeepsOneCohortWhenAnotherBenchmarkAppears(t *testing.T) {
 	db := setupLogStatTestDB(t)
 	require.NoError(t, db.Create(&[]Log{
 		{UserId: 122, Type: LogTypeConsume, CreatedAt: 100, ModelName: "a", Other: `{"user_charge_cny":"2","acu_billing_status":"finalized","acu_cost_breakdown":{"retail_reference_amount_cny":"10","retail_reference_type":"platform","retail_reference_source":"a"}}`},
 		{UserId: 122, Type: LogTypeConsume, CreatedAt: 101, ModelName: "b", Other: `{"user_charge_cny":"1","acu_billing_status":"finalized","acu_cost_breakdown":{"retail_reference_amount_cny":"50","retail_reference_type":"openrouter","retail_reference_source":"b"}}`},
+		{UserId: 122, Type: LogTypeConsume, CreatedAt: 102, ModelName: "a", Other: `{"user_charge_cny":"3","acu_billing_status":"finalized","acu_cost_breakdown":{"retail_reference_amount_cny":"10","retail_reference_type":"platform","retail_reference_source":"a"}}`},
 	}).Error)
 	result, err := GetACUAccountOverview(context.Background(), 122, 1, 200)
 	require.NoError(t, err)
-	assert.Equal(t, "unavailable", result.Comparison.Basis)
-	assert.Nil(t, result.Comparison.SavedPercent)
-	assert.Equal(t, "0", result.Comparison.ReferenceCNY)
+	assert.Equal(t, "platform", result.Comparison.Basis)
+	require.NotNil(t, result.Comparison.SavedPercent)
+	assert.Equal(t, "75.00", *result.Comparison.SavedPercent)
+	assert.Equal(t, "20", result.Comparison.ReferenceCNY)
+	assert.Equal(t, "5", result.Comparison.ChargeCNY)
+	assert.EqualValues(t, 2, result.Comparison.Count)
 }

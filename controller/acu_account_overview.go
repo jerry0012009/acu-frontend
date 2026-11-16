@@ -3,10 +3,9 @@ package controller
 import (
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -20,8 +19,7 @@ func GetACUAccountOverview(c *gin.Context) {
 	if days != 1 && days != 7 && days != 30 {
 		days = 7
 	}
-	now := time.Now().Unix()
-	result, err := model.GetACUAccountOverview(c.Request.Context(), userID, now-int64(days)*86400, now)
+	result, err := service.GetAccountOverview(c.Request.Context(), userID, days)
 	if err != nil {
 		common.ApiError(c, err)
 		return

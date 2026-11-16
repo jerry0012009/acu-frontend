@@ -29,10 +29,12 @@ type ACUAccountComparison struct {
 }
 
 type ACUAccountOverview struct {
-	ChargeCNY  string                 `json:"chargeCny"`
-	Count      int64                  `json:"count"`
-	Models     []ACUAccountModelUsage `json:"models"`
-	Comparison ACUAccountComparison   `json:"comparison"`
+	ChargeCNY         string                 `json:"chargeCny"`
+	Count             int64                  `json:"count"`
+	Models            []ACUAccountModelUsage `json:"models"`
+	Comparison        ACUAccountComparison   `json:"comparison"`
+	ExactChargeCount  int64                  `json:"exactChargeCount"`
+	LegacyChargeCount int64                  `json:"legacyChargeCount"`
 }
 
 // Project only billing facts, not private prompt, route or provider diagnostics.
@@ -49,6 +51,19 @@ func accountOverviewMetadataSQL(ctx context.Context) (string, bool, error) {
 		if version < 160000 {
 			return "other", false, nil
 		}
+		// Parse the large log envelope once, then its small billing object once.
+		// JSON scalar columns preserve decimal text without a float round trip.
+		return `(SELECT json_build_object(
+			'user_charge_cny', envelope.user_charge_cny,
+			'acu_billing_status', envelope.acu_billing_status,
+			'acu_cost_breakdown.canonical_model', billing.canonical_model,
+			'acu_cost_breakdown.retail_reference_amount_cny', billing.retail_reference_amount_cny,
+			'acu_cost_breakdown.retail_reference_type', billing.retail_reference_type,
+			'acu_cost_breakdown.retail_reference_source', billing.retail_reference_source)::text
+		FROM json_to_record(CASE WHEN pg_input_is_valid(other, 'json') AND left(ltrim(other),1)='{' THEN other::json ELSE '{}'::json END)
+		AS envelope(user_charge_cny json, acu_billing_status text, acu_cost_breakdown json)
+		LEFT JOIN LATERAL json_to_record(CASE WHEN json_typeof(envelope.acu_cost_breakdown)='object' THEN envelope.acu_cost_breakdown ELSE '{}'::json END)
+		AS billing(canonical_model text, retail_reference_amount_cny json, retail_reference_type text, retail_reference_source text) ON true)`, false, nil
 	}
 	for _, field := range fields {
 		path := "$." + field
@@ -143,6 +158,11 @@ func GetACUAccountOverview(ctx context.Context, userID int, start, end int64) (A
 			continue
 		}
 		charge, exact := accountOverviewAmount(fields["user_charge_cny"])
+		if exact {
+			result.ExactChargeCount++
+		} else {
+			result.LegacyChargeCount++
+		}
 		if !exact {
 			if common.QuotaPerUnit <= 0 || operation_setting.USDExchangeRate <= 0 {
 				return result, fmt.Errorf("invalid quota conversion")
@@ -199,9 +219,13 @@ func GetACUAccountOverview(ctx context.Context, userID int, start, end int64) (A
 	selectedBasis := ""
 	if buckets["official"].count > 0 {
 		selectedBasis = "official"
-	} else if len(buckets) == 1 {
-		for key := range buckets {
-			selectedBasis = key
+	} else {
+		// Compare a single explicit benchmark cohort; a new minority source must
+		// not erase an otherwise usable comparison. Never add unrelated bases.
+		for key, bucket := range buckets {
+			if selectedBasis == "" || bucket.count > buckets[selectedBasis].count || (bucket.count == buckets[selectedBasis].count && key < selectedBasis) {
+				selectedBasis = key
+			}
 		}
 	}
 	if selectedBasis != "" {
