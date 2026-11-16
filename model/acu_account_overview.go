@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/shopspring/decimal"
+	"github.com/tidwall/gjson"
 )
 
 type ACUAccountModelUsage struct {
@@ -37,48 +38,19 @@ type ACUAccountOverview struct {
 	LegacyChargeCount int64                  `json:"legacyChargeCount"`
 }
 
-// Project only billing facts, not private prompt, route or provider diagnostics.
-// Older PostgreSQL keeps the streaming compatibility path used by log stats.
-func accountOverviewMetadataSQL(ctx context.Context) (string, bool, error) {
+// Stream rows and retain only billing facts; do not deserialize large diagnostics.
+func accountOverviewMetadata(metadata string) map[string]json.RawMessage {
 	fields := []string{"user_charge_cny", "acu_cost_breakdown.canonical_model", "acu_cost_breakdown.retail_reference_amount_cny", "acu_cost_breakdown.retail_reference_type", "acu_cost_breakdown.retail_reference_source", "acu_billing_status"}
-	parts := make([]string, 0, len(fields))
-	kind := common.LogDatabaseType()
-	if kind == common.DatabaseTypePostgreSQL {
-		var version int
-		if err := LOG_DB.WithContext(ctx).Raw("SELECT current_setting('server_version_num')::integer").Scan(&version).Error; err != nil {
-			return "", false, err
-		}
-		if version < 160000 {
-			return "other", false, nil
-		}
-		// Parse the large log envelope once, then its small billing object once.
-		// JSON scalar columns preserve decimal text without a float round trip.
-		return `(SELECT json_build_object(
-			'user_charge_cny', envelope.user_charge_cny,
-			'acu_billing_status', envelope.acu_billing_status,
-			'acu_cost_breakdown.canonical_model', billing.canonical_model,
-			'acu_cost_breakdown.retail_reference_amount_cny', billing.retail_reference_amount_cny,
-			'acu_cost_breakdown.retail_reference_type', billing.retail_reference_type,
-			'acu_cost_breakdown.retail_reference_source', billing.retail_reference_source)::text
-		FROM json_to_record(CASE WHEN pg_input_is_valid(other, 'json') AND left(ltrim(other),1)='{' THEN other::json ELSE '{}'::json END)
-		AS envelope(user_charge_cny json, acu_billing_status text, acu_cost_breakdown json)
-		LEFT JOIN LATERAL json_to_record(CASE WHEN json_typeof(envelope.acu_cost_breakdown)='object' THEN envelope.acu_cost_breakdown ELSE '{}'::json END)
-		AS billing(canonical_model text, retail_reference_amount_cny json, retail_reference_type text, retail_reference_source text) ON true)`, false, nil
+	result := make(map[string]json.RawMessage, len(fields))
+	if !gjson.Valid(metadata) || !gjson.Parse(metadata).IsObject() {
+		return result
 	}
-	for _, field := range fields {
-		path := "$." + field
-		switch kind {
-		case common.DatabaseTypeSQLite:
-			parts = append(parts, "CASE WHEN json_valid(other) THEN other -> '"+path+"' END")
-		case common.DatabaseTypeMySQL:
-			parts = append(parts, "CASE WHEN JSON_VALID(other) THEN CAST(JSON_EXTRACT(other, '"+path+"') AS CHAR) END")
-		case common.DatabaseTypePostgreSQL:
-			parts = append(parts, "CASE WHEN pg_input_is_valid(other, 'json') THEN (other::json #> '{"+strings.ReplaceAll(field, ".", ",")+"}')::text END")
-		default:
-			return "other", false, nil
+	for i, value := range gjson.GetMany(metadata, fields...) {
+		if value.Exists() {
+			result[fields[i]] = json.RawMessage(value.Raw)
 		}
 	}
-	return strings.Join(parts, ","), true, nil
+	return result
 }
 
 func accountOverviewAmount(raw json.RawMessage) (decimal.Decimal, bool) {
@@ -103,11 +75,7 @@ func GetACUAccountOverview(ctx context.Context, userID int, start, end int64) (A
 	}
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
-	projection, projected, err := accountOverviewMetadataSQL(ctx)
-	if err != nil {
-		return result, err
-	}
-	rows, err := LOG_DB.WithContext(ctx).Table("logs").Select("model_name, quota, "+projection).Where("user_id = ? AND type = ? AND created_at >= ? AND created_at <= ?", userID, LogTypeConsume, start, end).Rows()
+	rows, err := LOG_DB.WithContext(ctx).Table("logs").Select("model_name, quota, other").Where("user_id = ? AND type = ? AND created_at >= ? AND created_at <= ?", userID, LogTypeConsume, start, end).Rows()
 	if err != nil {
 		return result, err
 	}
@@ -126,32 +94,10 @@ func GetACUAccountOverview(ctx context.Context, userID int, start, end int64) (A
 	for rows.Next() {
 		var name, metadata string
 		var quota int64
-		fields := map[string]json.RawMessage{}
-		if projected {
-			var charge, canonical, reference, basis, referenceSource, status *string
-			if err = rows.Scan(&name, &quota, &charge, &canonical, &reference, &basis, &referenceSource, &status); err != nil {
-				return result, err
-			}
-			for key, value := range map[string]*string{"user_charge_cny": charge, "acu_cost_breakdown.canonical_model": canonical, "acu_cost_breakdown.retail_reference_amount_cny": reference, "acu_cost_breakdown.retail_reference_type": basis, "acu_cost_breakdown.retail_reference_source": referenceSource, "acu_billing_status": status} {
-				if value != nil {
-					fields[key] = json.RawMessage(*value)
-				}
-			}
-		} else {
-			if err = rows.Scan(&name, &quota, &metadata); err != nil {
-				return result, err
-			}
-			_ = common.UnmarshalJsonStr(metadata, &fields)
+		if err = rows.Scan(&name, &quota, &metadata); err != nil {
+			return result, err
 		}
-		// Compatibility path for old PostgreSQL and optional log databases.
-		if nested := fields["acu_cost_breakdown"]; len(nested) > 0 {
-			var breakdown map[string]json.RawMessage
-			if common.Unmarshal(nested, &breakdown) == nil {
-				for key, value := range breakdown {
-					fields["acu_cost_breakdown."+key] = value
-				}
-			}
-		}
+		fields := accountOverviewMetadata(metadata)
 		var status string
 		_ = common.Unmarshal(fields["acu_billing_status"], &status)
 		if status == "unsettled" || status == "pending" {

@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -35,6 +36,17 @@ func TestAccountOverviewUsesAllScopedConsumptionAndMatchedReference(t *testing.T
 	assert.Equal(t, "83.33", *result.Comparison.SavedPercent)
 	assert.Equal(t, "official", result.Comparison.Basis)
 	assert.EqualValues(t, 2, result.Comparison.Count, "include valid zero charges, but never mix a third-party reference into an official comparison")
+}
+
+func TestAccountOverviewMetadataIgnoresDiagnosticsAndInvalidEnvelopes(t *testing.T) {
+	for _, invalid := range []string{`broken`, `{"user_charge_cny":"999"`, `[{"user_charge_cny":"999"}]`, `null`} {
+		assert.Empty(t, accountOverviewMetadata(invalid))
+	}
+	metadata := `{"admin_info":{"user_charge_cny":"999","debug":"` + strings.Repeat("x", 512*1024) + `"},"user_charge_cny":0.1234567890123456789,"acu_billing_status":"finalized","acu_cost_breakdown":{"canonical_model":"sol","retail_reference_amount_cny":"2"}}`
+	fields := accountOverviewMetadata(metadata)
+	assert.Equal(t, "0.1234567890123456789", string(fields["user_charge_cny"]))
+	assert.Equal(t, `"sol"`, string(fields["acu_cost_breakdown.canonical_model"]))
+	assert.Len(t, fields, 4)
 }
 
 func TestAccountOverviewDoesNotInventSavingsOrClampPremium(t *testing.T) {
