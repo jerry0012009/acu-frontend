@@ -100,6 +100,22 @@ func TestPlaygroundACUTokenRejectsTokenOwnedByAnotherUser(t *testing.T) {
 	require.Equal(t, http.StatusForbidden, response.Code)
 }
 
+func TestPlaygroundACUTokenDefaultsToFirstUsableOwnedKey(t *testing.T) {
+	setupDashboardAuthMiddlewareTest(t)
+	first := &model.Token{UserId: 17, Key: "first-existing-key", Name: "First", Status: common.TokenStatusEnabled, ExpiredTime: -1, UnlimitedQuota: true}
+	second := &model.Token{UserId: 17, Key: "latest-existing-key", Name: "Latest", Status: common.TokenStatusEnabled, ExpiredTime: -1, UnlimitedQuota: true}
+	disabled := &model.Token{UserId: 17, Key: "disabled-key", Status: common.TokenStatusDisabled, ExpiredTime: -1, UnlimitedQuota: true}
+	for _, token := range []*model.Token{first, second, disabled} {
+		require.NoError(t, model.DB.Create(token).Error)
+	}
+	router := gin.New()
+	router.POST("/pg/chat/completions", func(c *gin.Context) { c.Set("id", 17); c.Set("user_group", "default"); PlaygroundACUToken()(c) }, func(c *gin.Context) { c.JSON(200, gin.H{"token_id": c.GetInt("token_id")}) })
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/pg/chat/completions", nil))
+	require.Equal(t, 200, w.Code, w.Body.String())
+	require.Contains(t, w.Body.String(), fmt.Sprintf(`"token_id":%d`, second.Id))
+}
+
 func issueExpiredDashboardAccessToken(t *testing.T, identity service.AuthIdentity) string {
 	t.Helper()
 	claims := jwt.MapClaims{

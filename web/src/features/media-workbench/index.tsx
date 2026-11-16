@@ -52,7 +52,7 @@ export function MediaWorkbench(props: { kind: 'image' | 'video' }) {
   > | null>(null)
   const options = useQuery({
     queryKey: ['media-options', user, token],
-    queryFn: () => getACUConversationOptions(token || null),
+    queryFn: () => getACUConversationOptions(token || null, false),
   })
   const selectedToken = options.data?.selectedTokenId || 0
   const models = useQuery({
@@ -286,6 +286,7 @@ export function MediaWorkbench(props: { kind: 'image' | 'video' }) {
             : t('Video generation')}
         </h1>
         <PlaygroundApiKeySelector
+          loading={options.isPending}
           tokens={options.data?.tokens ?? []}
           selectedTokenId={selectedToken}
           onTokenChange={(id) => {

@@ -1,3 +1,7 @@
+import { useTranslation } from 'react-i18next'
+
+import { Button } from '@/components/ui/button'
+
 import { PlaygroundChat } from './components/chat/playground-chat'
 import { ConversationKeyEmpty } from './components/conversation-key-empty'
 import { ConversationTabs } from './components/conversation-tabs'
@@ -10,6 +14,7 @@ import {
 } from './hooks'
 
 export function Playground() {
+  const { t } = useTranslation()
   const {
     config,
     parameterEnabled,
@@ -51,18 +56,30 @@ export function Playground() {
     clearMessages()
   }
 
-  const { isLoadingModels } = usePlaygroundOptions({
-    currentModel: config.model,
-    setModels,
-    selectedTokenId: config.selectedTokenId,
-    setTokens,
-    updateConfig,
-  })
+  const { isLoadingModels, hasLoadedOptions, optionsError, retryOptions } =
+    usePlaygroundOptions({
+      currentModel: config.model,
+      setModels,
+      selectedTokenId: config.selectedTokenId,
+      setTokens,
+      updateConfig,
+    })
 
   return (
     <div className='relative flex size-full min-h-0 flex-col overflow-hidden'>
       <ConversationTabs />
-      {!isLoadingModels && tokens.length === 0 && <ConversationKeyEmpty />}
+      {hasLoadedOptions && tokens.length === 0 && <ConversationKeyEmpty />}
+      {optionsError && (
+        <div
+          role='alert'
+          className='flex items-center gap-3 border-b p-4 text-sm'
+        >
+          <span>{t('Failed to load ACU conversation options')}</span>
+          <Button variant='ghost' size='sm' onClick={retryOptions}>
+            {t('Retry')}
+          </Button>
+        </div>
+      )}
       {/* Full-width scroll container: scrolling works even over side whitespace */}
       <div className='flex min-h-0 flex-1 flex-col overflow-hidden'>
         <PlaygroundChat

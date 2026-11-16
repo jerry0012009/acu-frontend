@@ -3,6 +3,8 @@ import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { useAuthStore } from '@/stores/auth-store'
+
 import { getACUConversationOptions } from '../api'
 import {
   getModelFallback,
@@ -34,9 +36,15 @@ export function usePlaygroundOptions({
   updateConfig,
 }: UsePlaygroundOptionsParams) {
   const { t } = useTranslation()
-  const { data, error, isError, isLoading } = useQuery({
-    queryKey: ['acu-conversation-options', selectedTokenId],
-    queryFn: () => getACUConversationOptions(selectedTokenId),
+  const userId = useAuthStore((state) => state.auth.user?.id)
+  const { data, error, isError, isLoading, refetch } = useQuery({
+    queryKey: ['acu-conversation-options', userId, selectedTokenId, 'keys'],
+    queryFn: () => getACUConversationOptions(selectedTokenId, false),
+  })
+  const modelOptions = useQuery({
+    queryKey: ['acu-conversation-models', userId, data?.selectedTokenId],
+    queryFn: () => getACUConversationOptions(data?.selectedTokenId || null),
+    enabled: !!data?.selectedTokenId,
   })
 
   useEffect(() => {
@@ -53,23 +61,43 @@ export function usePlaygroundOptions({
     if (!data) return
 
     setTokens(data.tokens)
-    setModels(data.models)
     const resolvedTokenId = data.selectedTokenId || null
     if (selectedTokenId !== resolvedTokenId) {
       updateConfig('selectedTokenId', resolvedTokenId)
     }
+  }, [data, selectedTokenId, setTokens, updateConfig])
 
-    const fallback = getModelFallback(data.models, currentModel)
+  useEffect(() => {
+    const options = modelOptions.data
+    if (!options || options.modelsError) return
+    setModels(options.models)
+
+    const fallback = getModelFallback(options.models, currentModel)
     if (fallback) {
       updateConfig('model', fallback)
       return
     }
-    if (shouldClearModelForOptions(data.models, currentModel)) {
+    if (shouldClearModelForOptions(options.models, currentModel)) {
       updateConfig('model', '')
     }
-  }, [data, currentModel, selectedTokenId, setModels, setTokens, updateConfig])
+  }, [modelOptions.data, currentModel, setModels, updateConfig])
 
   return {
-    isLoadingModels: isLoading,
+    isLoadingModels:
+      isLoading || (!!data?.selectedTokenId && modelOptions.isPending),
+    hasLoadedOptions: !!data && !isError,
+    optionsError: isError
+      ? getOptionLoadErrorMessage(
+          error,
+          t('Failed to load ACU conversation options')
+        )
+      : modelOptions.data?.modelsError ||
+        (modelOptions.isError
+          ? t('Failed to load ACU conversation options')
+          : ''),
+    retryOptions: () => {
+      void refetch()
+      void modelOptions.refetch()
+    },
   }
 }

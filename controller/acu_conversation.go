@@ -60,15 +60,17 @@ func GetACUConversationOptions(c *gin.Context) {
 	}
 
 	models := make([]acuConversationModelResponse, 0)
+	modelsError := ""
 	selectedTokenID := 0
 	if selectedToken != nil {
 		selectedTokenID = selectedToken.Id
+	}
+	if selectedToken != nil && c.Query("include_models") != "false" {
 		modelNames, err := service.GetACUConversationModels(
 			c.Request.Context(), selectedToken, c.GetString("user_group"),
 		)
 		if err != nil {
-			common.ApiError(c, err)
-			return
+			modelsError = err.Error()
 		}
 		for _, modelName := range modelNames {
 			models = append(models, acuConversationModelResponse{
@@ -84,6 +86,7 @@ func GetACUConversationOptions(c *gin.Context) {
 			"tokens":            responseTokens,
 			"selected_token_id": selectedTokenID,
 			"models":            models,
+			"models_error":      modelsError,
 		},
 	})
 }

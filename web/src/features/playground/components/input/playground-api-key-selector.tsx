@@ -32,6 +32,7 @@ type PlaygroundApiKeySelectorProps = {
   selectedTokenId: number | null
   onTokenChange: (tokenId: number) => void
   disabled?: boolean
+  loading?: boolean
 }
 
 export function PlaygroundApiKeySelector(props: PlaygroundApiKeySelectorProps) {
@@ -39,11 +40,14 @@ export function PlaygroundApiKeySelector(props: PlaygroundApiKeySelectorProps) {
   const [open, setOpen] = useState(false)
   const isMobile = useIsMobile()
   const selectedToken = useMemo(
-    () => props.tokens.find((token) => token.id === props.selectedTokenId),
+    () =>
+      props.tokens.find((token) => token.id === props.selectedTokenId) ??
+      props.tokens[0],
     [props.selectedTokenId, props.tokens]
   )
   const isDisabled = props.disabled || props.tokens.length === 0
-  const currentLabel = selectedToken?.name || t('No available API key')
+  const currentLabel =
+    selectedToken?.name || t(props.loading ? 'Loading' : 'No available API key')
 
   const selectToken = (tokenId: number) => {
     props.onTokenChange(tokenId)

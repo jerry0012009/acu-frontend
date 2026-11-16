@@ -40,7 +40,8 @@ export async function sendImageGeneration(
 }
 
 export async function getACUConversationOptions(
-  selectedTokenId: number | null
+  selectedTokenId: number | null,
+  includeModels = true
 ): Promise<ACUConversationOptions> {
   const runtimeTokenId = Number(
     new URLSearchParams(globalThis.location?.search || '').get('token_id')
@@ -51,12 +52,15 @@ export async function getACUConversationOptions(
       ? runtimeTokenId
       : null)
   const res = await api.get(API_ENDPOINTS.ACU_CONVERSATION_OPTIONS, {
-    params: requested ? { token_id: requested } : undefined,
+    params: {
+      ...(requested ? { token_id: requested } : {}),
+      include_models: includeModels,
+    },
   })
   const { data } = res
 
   if (!data.success || !data.data) {
-    return { tokens: [], selectedTokenId: 0, models: [] }
+    throw new Error(data.message || 'Failed to load ACU conversation options')
   }
 
   return {
@@ -75,7 +79,13 @@ export async function getACUConversationOptions(
         routingPreference: token.routing_preference,
       })
     ),
-    selectedTokenId: data.data.selected_token_id,
+    selectedTokenId:
+      data.data.tokens.find(
+        (token: { id: number }) => token.id === data.data.selected_token_id
+      )?.id ||
+      data.data.tokens[0]?.id ||
+      0,
     models: data.data.models,
+    modelsError: data.data.models_error || '',
   }
 }

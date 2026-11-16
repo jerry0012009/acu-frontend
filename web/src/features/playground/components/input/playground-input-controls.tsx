@@ -45,6 +45,7 @@ export function PlaygroundInputControls(props: PlaygroundInputControlsProps) {
   const selectors = (
     <>
       <PlaygroundApiKeySelector
+        loading={props.isModelLoading}
         disabled={props.disabled || props.isModelLoading}
         onTokenChange={props.onTokenChange}
         selectedTokenId={props.selectedTokenId}

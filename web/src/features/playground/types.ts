@@ -159,4 +159,5 @@ export interface ACUConversationOptions {
   tokens: PlaygroundApiKeyOption[]
   selectedTokenId: number
   models: ModelOption[]
+  modelsError?: string
 }

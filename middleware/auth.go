@@ -106,13 +106,22 @@ func PlaygroundACUToken() func(c *gin.Context) {
 		rawTokenID := strings.TrimSpace(c.GetHeader(playgroundACUTokenIDHeader))
 		c.Request.Header.Del(playgroundACUTokenIDHeader)
 		tokenID, err := strconv.Atoi(rawTokenID)
-		if err != nil || tokenID <= 0 {
+		if rawTokenID != "" && (err != nil || tokenID <= 0) {
 			abortWithOpenAiMessage(c, http.StatusForbidden, "ACU Conversation requires a selected API key")
 			return
 		}
 
 		userID := c.GetInt("id")
-		token, err := model.GetTokenByIds(tokenID, userID)
+		var token *model.Token
+		if rawTokenID == "" {
+			var tokens []*model.Token
+			tokens, err = model.GetAllUserTokens(userID, 0, 1000)
+			if err == nil {
+				token, err = service.SelectACUConversationToken(tokens, time.Now().Unix())
+			}
+		} else {
+			token, err = model.GetTokenByIds(tokenID, userID)
+		}
 		if err != nil {
 			abortWithOpenAiMessage(c, http.StatusForbidden, "ACU Conversation API key is unavailable")
 			return
