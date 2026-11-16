@@ -234,8 +234,26 @@ try {
           exact: true,
         })
         .waitFor();
-    if (status === "empty")
+    if (status === "empty") {
       await page.getByText("No learned preferences yet", { exact: true }).waitFor();
+      await page.getByRole('heading', { name: 'Example data, not your personal preferences', exact: true }).waitFor();
+      assert.equal(await page.locator('svg[aria-label="Preference starfish"] [role="button"]').count(), 50);
+      assert.equal(await page.getByText('Saved preference records', { exact: false }).count(), 0);
+      for (const width of [390, 1440]) {
+        await page.setViewportSize({ width, height: 1000 });
+        const exampleRay = page.locator('svg[aria-label="Preference starfish"] [role="button"]').nth(15);
+        await exampleRay.focus();
+        await page.keyboard.press('Enter');
+        assert.equal(await exampleRay.getAttribute('aria-pressed'), 'true');
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+        await page.screenshot({ path: `${output}/example-${width}.png`, fullPage: true });
+      }
+      view = { ...view, status: 'ready', profile: {summary: 'Real preferences replace the example', rays: rays.slice(0,1), sourceCount: 1, excluded: []} };
+      await page.getByRole('button', {name:'Refresh', exact:true}).click();
+      await page.getByText('Real preferences replace the example', {exact:true}).waitFor();
+      assert.equal(await page.getByRole('heading', { name: 'Example data, not your personal preferences', exact: true }).count(), 0);
+      assert.equal(await page.locator('svg[aria-label="Preference starfish"] [role="button"]').count(), 1);
+    }
   }
   assert.deepEqual(errors, []);
   console.log(

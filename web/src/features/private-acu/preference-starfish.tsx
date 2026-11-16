@@ -7,6 +7,10 @@ import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { bipolarRayGeometry } from './bipolar-ray-geometry'
+import {
+  createPreferenceExample,
+  shouldShowPreferenceExample,
+} from './preference-example'
 import type { PreferenceRecord } from './preference-library-api'
 import {
   getPreferenceProfile,
@@ -43,6 +47,7 @@ const STARFISH_CSS = `
 export function PreferenceStarfishChart(props: {
   view: PreferenceProfileView
   records?: PreferenceRecord[]
+  example?: boolean
 }) {
   const { t } = useTranslation()
   const [selectedId, setSelectedId] = useState('')
@@ -118,6 +123,16 @@ export function PreferenceStarfishChart(props: {
   const hasFocus = Boolean(activeId)
   return (
     <div className='min-w-0 space-y-4'>
+      {props.example && (
+        <div className='border-l-2 pl-3 text-sm' role='note'>
+          <h3 className='font-semibold'>
+            {t('Example data, not your personal preferences')}
+          </h3>
+          <p className='text-muted-foreground mt-1 text-xs'>
+            {t('Illustrative only; not saved or used for personalization')}
+          </p>
+        </div>
+      )}
       <div className='grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,340px)]'>
         <div className='min-w-0'>
           <div className='flex justify-end gap-1'>
@@ -330,7 +345,12 @@ export function PreferenceStarfishChart(props: {
             </svg>
           </div>
         </div>
-        <div className='min-w-0 space-y-4 border-t pt-4 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-5'>
+        <div
+          className='min-w-0 space-y-4 border-t pt-4 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-5'
+          aria-label={
+            props.example ? t('Example preference details') : undefined
+          }
+        >
           {selected && (
             <article className='space-y-3 break-words'>
               <div className='text-muted-foreground text-xs'>
@@ -392,7 +412,8 @@ export function PreferenceStarfishChart(props: {
                   </dl>
                 </div>
               ) : (
-                !props.records && (
+                !props.records &&
+                !props.example && (
                   <dl className='grid grid-cols-2 gap-3 text-xs'>
                     <div>
                       <dt>{t('Preference strength estimate')}</dt>
@@ -409,33 +430,36 @@ export function PreferenceStarfishChart(props: {
                   </dl>
                 )
               )}
-              <details
-                onToggle={(event) => {
-                  if (event.currentTarget.open) setSelectedId(selected.id)
-                }}
-              >
-                <summary className='cursor-pointer text-xs'>
-                  {t('Saved preference records')} ({selected.sourceIds.length})
-                </summary>
-                {props.records ? (
-                  <PreferenceRecordList
-                    records={
-                      selected.evidence?.length
-                        ? selected.evidence.map((entry) => ({
-                            id: entry.sourceId,
-                            summary: entry.quote,
-                          }))
-                        : props.records
-                    }
-                    sourceIds={selected.sourceIds}
-                  />
-                ) : (
-                  <PreferenceRecords
-                    key={selected.id}
-                    sourceIds={selected.sourceIds}
-                  />
-                )}
-              </details>
+              {!props.example && (
+                <details
+                  onToggle={(event) => {
+                    if (event.currentTarget.open) setSelectedId(selected.id)
+                  }}
+                >
+                  <summary className='cursor-pointer text-xs'>
+                    {t('Saved preference records')} ({selected.sourceIds.length}
+                    )
+                  </summary>
+                  {props.records ? (
+                    <PreferenceRecordList
+                      records={
+                        selected.evidence?.length
+                          ? selected.evidence.map((entry) => ({
+                              id: entry.sourceId,
+                              summary: entry.quote,
+                            }))
+                          : props.records
+                      }
+                      sourceIds={selected.sourceIds}
+                    />
+                  ) : (
+                    <PreferenceRecords
+                      key={selected.id}
+                      sourceIds={selected.sourceIds}
+                    />
+                  )}
+                </details>
+              )}
             </article>
           )}
           <div className='border-t pt-3'>
@@ -494,6 +518,7 @@ export function PreferenceStarfish() {
     retry: false,
   })
   const view = query.data
+  const example = !query.isError && shouldShowPreferenceExample(view)
   const pending = view?.status === 'queued' || view?.status === 'generating'
   return (
     <section
@@ -547,7 +572,14 @@ export function PreferenceStarfish() {
       {view && Boolean(view.profile?.rays.length) && (
         <PreferenceStarfishChart view={view} />
       )}
-      {view?.status === 'empty' && (
+      {example && (
+        <PreferenceStarfishChart
+          key='example'
+          view={createPreferenceExample(t)}
+          example
+        />
+      )}
+      {view?.status === 'empty' && !view.profile?.rays.length && (
         <p className='text-muted-foreground py-12 text-center text-sm'>
           {t('No learned preferences yet')}
         </p>
