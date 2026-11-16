@@ -33,6 +33,20 @@ export function ACUPriceSummary(props: {
     relativeLabel = t('Relative to platform reference')
   }
   if (price?.model_multiplier) {
+    const reference = props.model.reference
+    const comparable =
+      reference &&
+      (reference.source_type === 'official' ||
+        reference.source_type === 'openrouter' ||
+        reference.original_currency === 'USD')
+    const input = comparable
+      ? relativePricingMultiplier(price, reference, 1, 0)
+      : undefined
+    const output = comparable
+      ? relativePricingMultiplier(price, reference, 0, 1)
+      : undefined
+    const uniform =
+      input != null && output != null && Math.abs(input - output) < 1e-10
     return (
       <div className='space-y-1'>
         <div className='text-muted-foreground text-xs'>
@@ -42,8 +56,24 @@ export function ACUPriceSummary(props: {
           className='font-mono text-2xl font-semibold tabular-nums'
           aria-label={t('Price multiplier')}
         >
-          {formatMultiplier(Number(price.model_multiplier))}
+          {uniform ? formatMultiplier(input) : '-'}
         </strong>
+        {!uniform && comparable && (
+          <div className='text-sm tabular-nums'>
+            {t('Input')} {formatMultiplier(input) ?? '-'} · {t('Output')}{' '}
+            {formatMultiplier(output) ?? '-'}
+          </div>
+        )}
+        <div className='font-mono text-sm tabular-nums'>
+          {t('Input')}{' '}
+          {formatACUCNY(
+            price.input_cny_per_million / TOKEN_UNIT_DIVISORS[props.tokenUnit]
+          )}{' '}
+          · {t('Output')}{' '}
+          {formatACUCNY(
+            price.output_cny_per_million / TOKEN_UNIT_DIVISORS[props.tokenUnit]
+          )}
+        </div>
         <div className='text-muted-foreground text-xs'>
           {price.price_version}
         </div>

@@ -11,12 +11,12 @@ import {
 } from '../acu-monitor-presentation'
 
 const profiles = [
-  { executionProfileId: 'low', effectivePriceMultiplier: 0.03 },
-  { executionProfileId: 'high', effectivePriceMultiplier: 0.2 },
-  { executionProfileId: 'cheap', effectivePriceMultiplier: 0.029 },
-  { executionProfileId: 'expensive', effectivePriceMultiplier: 0.201 },
-  { executionProfileId: 'unknown', effectivePriceMultiplier: null },
-  { executionProfileId: 'blocked', effectivePriceMultiplier: 0.1 },
+  { executionProfileId: 'low', supplierCostFactor: 0.03 },
+  { executionProfileId: 'high', supplierCostFactor: 0.2 },
+  { executionProfileId: 'cheap', supplierCostFactor: 0.029 },
+  { executionProfileId: 'expensive', supplierCostFactor: 0.201 },
+  { executionProfileId: 'unknown', supplierCostFactor: null },
+  { executionProfileId: 'blocked', supplierCostFactor: 0.1 },
 ] as ACUChannelMonitorProfile[]
 const scope: ACUTokenProfileRoutingScope = {
   tokenId: 7,
@@ -49,6 +49,22 @@ test('inclusive factor range excludes unknown prices and globally blocked profil
   assert.equal('other-model' in result.states, false)
 })
 
+test('supplier range selection does not use the separate user retail multiplier', () => {
+  const profile = {
+    executionProfileId: 'line',
+    supplierCostFactor: 0.015,
+    effectivePriceMultiplier: 0.04,
+  } as ACUChannelMonitorProfile
+  const selected = previewModelPriceRange(
+    [profile],
+    { globalProfileIds: ['line'], effectiveProfileIds: [] },
+    0.01,
+    0.02
+  )
+  assert.equal(selected.matched, 1)
+  assert.equal(selected.states.line, true)
+})
+
 test('empty or unavailable selections report zero matches and do not invent prices', () => {
   assert.equal(previewModelPriceRange([], scope, 0, 1).matched, 0)
   assert.equal(previewModelPriceRange(profiles, scope, 0.3, 0.4).matched, 0)
@@ -64,7 +80,7 @@ test('already applied selection produces no changes and retains zero prices', ()
     [
       {
         executionProfileId: 'free',
-        effectivePriceMultiplier: 0,
+        supplierCostFactor: 0,
       } as ACUChannelMonitorProfile,
     ],
     { ...scope, globalProfileIds: ['free'], effectiveProfileIds: ['free'] },
@@ -92,7 +108,7 @@ test('current and selectable ranges use only known prices in their respective AP
       [
         {
           executionProfileId: 'free',
-          effectivePriceMultiplier: 0,
+          supplierCostFactor: 0,
         } as ACUChannelMonitorProfile,
       ],
       ['free']

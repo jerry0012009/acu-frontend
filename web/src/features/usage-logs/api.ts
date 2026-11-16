@@ -303,6 +303,8 @@ export type ACUChannelMonitorProfile = {
   multiplier: number
   routingWeight: number
   effectivePriceMultiplier: number | null
+  supplierCostFactor?: number | null
+  priceVersion?: string | null
   effectiveCostStatus: string
   routingEnabled: boolean
   explicitRoutingEligible?: boolean

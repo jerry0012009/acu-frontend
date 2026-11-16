@@ -22,7 +22,7 @@ export function modelProfilePriceRange(
 ): { minimum: number; maximum: number } | null {
   const prices = profiles
     .filter((profile) => profileIds.includes(profile.executionProfileId))
-    .map((profile) => profile.effectivePriceMultiplier)
+    .map((profile) => profile.supplierCostFactor)
     .filter(
       (price): price is number =>
         price != null && Number.isFinite(price) && price >= 0
@@ -50,7 +50,7 @@ export function previewModelPriceRange(
   for (const profile of profiles) {
     const id = profile.executionProfileId
     if (!scope.globalProfileIds.includes(id)) continue
-    const price = profile.effectivePriceMultiplier
+    const price = profile.supplierCostFactor
     const known = price != null && Number.isFinite(price) && price >= 0
     const enabled = known && price >= minimum && price <= maximum
     if (!known) unknown++

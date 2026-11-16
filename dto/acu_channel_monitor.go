@@ -111,6 +111,8 @@ type ACUChannelMonitorProfile struct {
 	Multiplier                      float64                  `json:"multiplier"`
 	RoutingWeight                   float64                  `json:"routingWeight"`
 	EffectivePriceMultiplier        *float64                 `json:"effectivePriceMultiplier"`
+	SupplierCostFactor              *float64                 `json:"supplierCostFactor"`
+	PriceVersion                    string                   `json:"priceVersion,omitempty"`
 	EffectiveCostStatus             string                   `json:"effectiveCostStatus"`
 	Enabled                         bool                     `json:"enabled"`
 	AdministratorAllowed            bool                     `json:"administratorAllowed"`

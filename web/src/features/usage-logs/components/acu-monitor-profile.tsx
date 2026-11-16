@@ -251,7 +251,7 @@ export function ACUMonitorProfile(
           )}
         </div>
         <div
-          className={`grid gap-2 text-xs ${props.showDiagnostics ? 'grid-cols-3' : 'grid-cols-2'}`}
+          className={`grid gap-2 text-xs ${props.showDiagnostics ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}
         >
           {props.showDiagnostics && (
             <div>
@@ -259,9 +259,9 @@ export function ACUMonitorProfile(
                 {t('Supplier cost factor')}
               </div>
               <div className='mt-1 font-medium tabular-nums'>
-                {profile.effectivePriceMultiplier == null
+                {profile.supplierCostFactor == null
                   ? t('No price data')
-                  : (formatMultiplier(profile.effectivePriceMultiplier, '×') ??
+                  : (formatMultiplier(profile.supplierCostFactor, '×') ??
                     t('No price data'))}
               </div>
               <p className='text-muted-foreground mt-1'>
@@ -269,6 +269,15 @@ export function ACUMonitorProfile(
               </p>
             </div>
           )}
+          <div>
+            <div className='text-muted-foreground'>
+              {t('Relative to public reference')}
+            </div>
+            <div className='mt-1 font-medium tabular-nums'>
+              {formatMultiplier(profile.effectivePriceMultiplier, '×') ??
+                t('No price data')}
+            </div>
+          </div>
           <div>
             <div className='text-muted-foreground'>{t('Response latency')}</div>
             <div className='mt-1 font-medium' title={latency.source}>
@@ -417,7 +426,7 @@ export function ACUMonitorProfile(
                           : 'Disable this Profile from global routing?'
                       ),
                       `${t('Line')}: ${profile.channel}`,
-                      `${t('Supplier cost factor')}: ${profile.effectivePriceMultiplier == null ? t('No price data') : formatMultiplier(profile.effectivePriceMultiplier, '×')}`,
+                      `${t('Supplier cost factor')}: ${profile.supplierCostFactor == null ? t('No price data') : formatMultiplier(profile.supplierCostFactor, '×')}`,
                       `${t('Note')}: ${profile.publicNote || t('No public note')}`,
                       `${t('Execution Profile ID')}: ${profile.executionProfileId}`,
                     ].join('\n')

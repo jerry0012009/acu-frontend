@@ -94,7 +94,7 @@ test('fixed retail cards, table and details show the model multiplier without ro
         </QueryClientProvider>
       )
       const text = window.document.body.textContent ?? ''
-      assert.match(text, /0\.13x/)
+      assert.match(text, /0\.083x/)
       assert.match(text, /Fixed retail price/)
       assert.doesNotMatch(
         text,

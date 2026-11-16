@@ -45,6 +45,7 @@ const { useAuthStore } = await import('@/stores/auth-store')
 const { ACUChannelMonitor, MonitorTable } =
   await import('../acu-channel-monitor')
 const { ACUTokenProfileWeight } = await import('../acu-token-profile-weight')
+const { ACUMonitorProfile } = await import('../acu-monitor-profile')
 
 const i18n = createInstance()
 await i18n.use(initReactI18next).init({
@@ -74,6 +75,36 @@ const profile = {
   profileCost: null,
   multiplier: 1,
 } as ACUChannelMonitorProfile
+
+test('profile diagnostics distinguish supplier cash factor from the same-version user retail factor', async () => {
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  try {
+    await act(async () =>
+      root.render(
+        <I18nextProvider i18n={i18n}>
+          <ACUMonitorProfile
+            profile={{
+              ...profile,
+              supplierCostFactor: 0.014836795,
+              effectivePriceMultiplier: 0.04,
+              priceVersion: 'published-v2',
+            }}
+            showDiagnostics={true}
+          />
+        </I18nextProvider>
+      )
+    )
+    assert.match(host.textContent ?? '', /Supplier cost factor/)
+    assert.match(host.textContent ?? '', /0\.015×/)
+    assert.match(host.textContent ?? '', /Relative to public reference/)
+    assert.match(host.textContent ?? '', /0\.040×/)
+  } finally {
+    await act(async () => root.unmount())
+    host.remove()
+  }
+})
 
 test('a weight draft survives background changes and accepts 400 while rejecting blank input', async () => {
   const host = document.createElement('div')

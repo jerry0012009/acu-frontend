@@ -42,3 +42,18 @@ func TestMonitorScoreEvidenceSurvivesDecodeAndPublicAPISerialization(t *testing.
 	assert.Equal(t, float64(1), result["targetedProbeCount"])
 	assert.Nil(t, result["rawReliabilityUtility"])
 }
+
+func TestMonitorRetailAndSupplierFactorsRemainDistinct(t *testing.T) {
+	var profile ACUChannelMonitorProfile
+	require.NoError(t, common.Unmarshal([]byte(`{"effectivePriceMultiplier":0.04,"supplierCostFactor":0.014836795,"priceVersion":"published-v2"}`), &profile))
+	require.NotNil(t, profile.EffectivePriceMultiplier)
+	require.NotNil(t, profile.SupplierCostFactor)
+	assert.Equal(t, 0.04, *profile.EffectivePriceMultiplier)
+	assert.Equal(t, 0.014836795, *profile.SupplierCostFactor)
+	encoded, err := common.Marshal(profile)
+	require.NoError(t, err)
+	var decoded map[string]interface{}
+	require.NoError(t, common.Unmarshal(encoded, &decoded))
+	assert.Equal(t, "published-v2", decoded["priceVersion"])
+	assert.Equal(t, 0.014836795, decoded["supplierCostFactor"])
+}

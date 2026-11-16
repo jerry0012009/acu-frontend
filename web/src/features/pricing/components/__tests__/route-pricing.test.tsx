@@ -140,7 +140,7 @@ test('fixed model multiplier stays visible when route preview is unavailable', (
     assert.equal(
       window.document.querySelector('[aria-label="Price multiplier"]')
         ?.textContent,
-      '0.13x'
+      '0.030x'
     )
     assert.doesNotMatch(
       window.document.body.textContent ?? '',

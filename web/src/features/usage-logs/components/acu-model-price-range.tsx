@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { publicChannelAlias } from '@/features/acu/lib/public-channel-alias'
+import { formatMultiplier } from '@/lib/format'
 
 import type {
   ACUChannelMonitorProfile,
@@ -41,7 +42,7 @@ const priceRangeSchema = z
   .refine((value) => Number(value.minimum) <= Number(value.maximum))
 
 function formatFactor(value: number): string {
-  return `${value === 0 ? '0' : value.toPrecision(3)}×`
+  return formatMultiplier(value, '×') ?? '-'
 }
 
 // Outward rounding keeps a prefilled range from excluding a route at its edge.
@@ -279,9 +280,9 @@ export function ACUModelPriceRange(props: {
                   )}
                 </span>
                 <span className='tabular-nums'>
-                  {change.profile.effectivePriceMultiplier == null
+                  {change.profile.supplierCostFactor == null
                     ? t('No price data')
-                    : formatFactor(change.profile.effectivePriceMultiplier)}
+                    : formatFactor(change.profile.supplierCostFactor)}
                 </span>
                 <span className='min-w-0 break-words'>
                   {change.profile.publicNote || t('No public note')}
