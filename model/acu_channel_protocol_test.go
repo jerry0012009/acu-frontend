@@ -34,3 +34,14 @@ func TestSub2APIImageChannelSupportsVerifiedImageProtocols(t *testing.T) {
 	require.False(t, channel.SupportsRequestPath("/v1/messages", "gpt-image-2"))
 	require.True(t, channel.SupportsRequestPath("/v1/responses", "gpt-5.6-luna"))
 }
+
+func TestSystemOneCannotUseChatOrAutoEndpoints(t *testing.T) {
+	acuTag := constant.ChannelTagACURouter
+	channel := &Channel{Type: constant.ChannelTypeOpenAI, Tag: &acuTag}
+	require.True(t, channel.SupportsRequestPath("/v1/systemone", "typesafe/jev-1.14"))
+	require.False(t, channel.SupportsRequestPath("/v1/systemone", "acu-auto"))
+	require.False(t, channel.SupportsRequestPath("/v1/systemone", "acu-high"))
+	for _, path := range []string{"/v1/responses", "/v1/messages", "/v1/chat/completions", "/pg/chat/completions"} {
+		require.False(t, channel.SupportsRequestPath(path, "typesafe/jev-1.14"))
+	}
+}

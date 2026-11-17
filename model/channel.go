@@ -338,7 +338,12 @@ func (channel *Channel) SupportsRequestPath(requestPath string, modelName string
 		return false
 	}
 	if strings.EqualFold(strings.TrimSpace(channel.GetTag()), constant.ChannelTagACURouter) {
+		if modelName == "typesafe/jev-1.14" && requestPath != "/v1/systemone" {
+			return false
+		}
 		switch {
+		case requestPath == "/v1/systemone":
+			return channel.Type == constant.ChannelTypeOpenAI && modelName == "typesafe/jev-1.14"
 		case strings.HasPrefix(requestPath, "/v1/responses"):
 			return channel.Type == constant.ChannelTypeOpenAI
 		case strings.HasPrefix(requestPath, "/v1/messages"):

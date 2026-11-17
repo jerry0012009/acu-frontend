@@ -189,6 +189,7 @@ func TestACURawRelayPreservesFourProtocolsAndErrors(t *testing.T) {
 		path, body, reply string
 		status            int
 	}{
+		{"/v1/systemone", `{"model":"typesafe/jev-1.14","state":"refund","questions":{"q":{"type":"noul","instructions":"Refund requested"}},"zero":0,"flag":false}`, `{"model":"typesafe/jev-1.14","answers":{"q":{"type":"noul","noul":0.98}},"usage":{"input_tokens":20,"output_tokens":8}}`, 200},
 		{"/v1/responses", `{"model":"deepseek-v4.1-flash","input":"hello","new_field":false}`, `{"id":"r","output":[]}`, 200},
 		{"/v1/chat/completions", `{"model":"acu-auto","messages":[],"temperature":0}`, `{"choices":[]}`, 200},
 		{"/v1/messages", `{"model":"deepseek-v4.1-flash","messages":[],"max_tokens":64}`, `{"type":"error","error":{"message":"bad tool"}}`, 400},

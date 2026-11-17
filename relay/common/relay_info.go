@@ -560,6 +560,9 @@ func GenRelayInfo(c *gin.Context, relayFormat types.RelayFormat, request dto.Req
 	switch relayFormat {
 	case types.RelayFormatOpenAI:
 		info = GenRelayInfoOpenAI(c, request)
+	case types.RelayFormatSystemOne:
+		info = genBaseRelayInfo(c, request)
+		info.RelayFormat = types.RelayFormatSystemOne
 	case types.RelayFormatOpenAIAudio:
 		info = GenRelayInfoOpenAIAudio(c, request)
 	case types.RelayFormatOpenAIImage:

@@ -233,6 +233,7 @@ func hasPublicACURouterModel(ownerGroups []string, modelName string) bool {
 			"/v1/chat/completions",
 			"/v1/responses",
 			"/v1/messages",
+			"/v1/systemone",
 			"/v1beta/models/" + modelName + ":generateContent",
 			"/v1beta/models/" + modelName + ":streamGenerateContent",
 		} {

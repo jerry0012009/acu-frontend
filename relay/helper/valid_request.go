@@ -40,6 +40,8 @@ func GetAndValidateRequest(c *gin.Context, format types.RelayFormat) (request dt
 		request, err = GetAndValidateResponsesCompactionRequest(c)
 	case types.RelayFormatOpenAIAlphaSearch:
 		request, err = GetAndValidateAlphaSearchRequest(c)
+	case types.RelayFormatSystemOne:
+		request, err = GetAndValidateSystemOneRequest(c)
 
 	case types.RelayFormatOpenAIImage:
 		request, err = GetAndValidOpenAIImageRequest(c, relayMode)
@@ -166,6 +168,31 @@ func GetAndValidateAlphaSearchRequest(c *gin.Context) (*dto.AlphaSearchRequest, 
 	}
 	request.RawBody = rawBody
 	return request, nil
+}
+
+func GetAndValidateSystemOneRequest(c *gin.Context) (*dto.SystemOneRequest, error) {
+	request := &dto.SystemOneRequest{}
+	if err := common.UnmarshalBodyReusable(c, request); err != nil {
+		return nil, err
+	}
+	if request.Model != "typesafe/jev-1.14" {
+		return nil, errors.New("System One requires explicit model typesafe/jev-1.14")
+	}
+	if len(request.State) == 0 || string(request.State) == "null" {
+		return nil, errors.New("state is required")
+	}
+	if len(request.Questions) == 0 {
+		return nil, errors.New("questions must be a non-empty object")
+	}
+	if request.Stream != nil && *request.Stream {
+		return nil, errors.New("System One does not support streaming")
+	}
+	storage, err := common.GetBodyStorage(c)
+	if err != nil {
+		return nil, err
+	}
+	request.RawBody, err = storage.Bytes()
+	return request, err
 }
 
 func GetAndValidateResponsesCompactionRequest(c *gin.Context) (*dto.OpenAIResponsesCompactionRequest, error) {

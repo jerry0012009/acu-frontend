@@ -129,6 +129,10 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		newAPIError = types.NewError(err, types.ErrorCodeGenRelayInfoFailed)
 		return
 	}
+	if relayFormat == types.RelayFormatSystemOne && !relayInfo.IsACUChannel {
+		newAPIError = types.NewErrorWithStatusCode(errors.New("System One requires an ACU native channel"), types.ErrorCodeInvalidRequest, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+		return
+	}
 
 	needSensitiveCheck := setting.ShouldCheckPromptSensitive()
 	if imageRequest, ok := request.(*dto.ImageRequest); ok && relayFormat == types.RelayFormatOpenAIImage {

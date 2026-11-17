@@ -430,3 +430,25 @@ func TestRoutingCatalogRetainsEnabledProfileWhileModelPoolRefreshes(t *testing.T
 	assert.False(t, result.Models[0].AutoRouteEnabled, "missing pool evidence must not manufacture an Auto candidate")
 	require.Len(t, result.Profiles, 1)
 }
+
+func TestSystemOneCatalogRemainsExplicitOnly(t *testing.T) {
+	clearACUChannelMonitorCache()
+	previous := common.OptionMap
+	common.OptionMap = map[string]string{}
+	t.Cleanup(func() { common.OptionMap = previous; clearACUChannelMonitorCache() })
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"profiles":[{"executionProfileId":"openrouter:typesafe/jev-1.14:systemone","canonicalModel":"typesafe/jev-1.14","routingEnabled":true,"protocol":["systemone"]}],"modelPool":[{"modelId":"typesafe/jev-1.14","displayName":"Jev 1.14","modelCategory":"decision","routingEnabled":true,"autoRouteEnabled":false,"protocols":["systemone"]}]}`))
+	}))
+	defer server.Close()
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", server.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
+	result, err := GetACURoutingCatalog(context.Background())
+	require.NoError(t, err)
+	require.Len(t, result.Models, 1)
+	assert.Equal(t, "decision", result.Models[0].ModelCategory)
+	assert.Equal(t, []string{"systemone"}, result.Models[0].Protocols)
+	assert.False(t, result.Models[0].AutoRouteEnabled)
+	require.Len(t, result.Profiles, 1)
+	assert.False(t, result.Profiles[0].AutoRouteEnabled)
+}

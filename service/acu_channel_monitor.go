@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -258,7 +259,11 @@ func GetACURoutingCatalog(ctx context.Context) (dto.ACURoutingCatalog, error) {
 		if !hasRoutingFlag {
 			autoRouteEnabled = boolValue(value, "autoRouteEnabled")
 		}
-		if stringValue(value, "modelCategory") != "text_agent" ||
+		category := stringValue(value, "modelCategory")
+		if category == "decision" {
+			autoRouteEnabled = false
+		}
+		if (category != "text_agent" && category != "decision") ||
 			(!autoRouteEnabled &&
 				!hasConfiguredModel(configuredModels, stringValue(value, "modelId"))) {
 			continue
@@ -301,7 +306,13 @@ func GetACURoutingCatalog(ctx context.Context) (dto.ACURoutingCatalog, error) {
 				}
 			}
 		}
-		models = append(models, dto.ACURoutingCatalogModel{ModelID: profile.CanonicalModel, ModelCategory: "text_agent", Protocols: protocols, VerificationStatus: "discovered", AutoRouteEnabled: false})
+		category := "text_agent"
+		for _, protocol := range protocols {
+			if protocol == "systemone" {
+				category = "decision"
+			}
+		}
+		models = append(models, dto.ACURoutingCatalogModel{ModelID: profile.CanonicalModel, ModelCategory: category, Protocols: protocols, VerificationStatus: "discovered", AutoRouteEnabled: false})
 		seenModels[profile.CanonicalModel] = true
 	}
 	profiles := make([]dto.ACURoutingCatalogProfile, 0, len(monitor.Profiles))
@@ -313,7 +324,7 @@ func GetACURoutingCatalog(ctx context.Context) (dto.ACURoutingCatalog, error) {
 			ExecutionProfileID:        profile.ExecutionProfileID,
 			CanonicalModel:            profile.CanonicalModel,
 			Protocol:                  append([]string(nil), profile.Protocol...),
-			AutoRouteEnabled:          profile.RoutingEnabled,
+			AutoRouteEnabled:          profile.RoutingEnabled && !slices.Contains(profile.Protocol, "systemone"),
 			SupportedReasoningEfforts: append([]string(nil), profile.SupportedReasoningEfforts...),
 		})
 	}
