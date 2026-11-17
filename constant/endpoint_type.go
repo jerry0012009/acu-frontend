@@ -9,6 +9,7 @@ const (
 	EndpointTypeOpenAIAlphaSearch     EndpointType = "openai-alpha-search"
 	EndpointTypeAnthropic             EndpointType = "anthropic"
 	EndpointTypeGemini                EndpointType = "gemini"
+	EndpointTypeSystemOne             EndpointType = "systemone"
 	EndpointTypeJinaRerank            EndpointType = "jina-rerank"
 	EndpointTypeImageGeneration       EndpointType = "image-generation"
 	EndpointTypeEmbeddings            EndpointType = "embeddings"

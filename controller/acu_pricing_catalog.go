@@ -180,6 +180,9 @@ func firstNonEmpty(values ...string) string {
 }
 
 func acuEndpointTypes(protocol string) []constant.EndpointType {
+	if strings.Contains(strings.ToLower(protocol), "system one") {
+		return []constant.EndpointType{constant.EndpointTypeSystemOne}
+	}
 	result := make([]constant.EndpointType, 0, 3)
 	if strings.Contains(protocol, "Chat Completions") {
 		result = append(result, constant.EndpointTypeOpenAI)
@@ -256,7 +259,10 @@ func overlayACUPricing(catalog *acuPricingCatalog, current []model.Pricing) []mo
 		if source.Reasoning {
 			capabilities = append(capabilities, "Reasoning")
 		}
-		capabilities = append(capabilities, "ACU Auto", source.Status)
+		if source.ActiveInAcuAuto {
+			capabilities = append(capabilities, "ACU Auto")
+		}
+		capabilities = append(capabilities, source.Status)
 		item.Description = strings.Join(capabilities, " · ")
 		item.Tags = strings.Join(capabilities, ",")
 		// Public compatibility fields always represent the routed/payable

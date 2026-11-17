@@ -26,6 +26,22 @@ func TestACUProtocolEndpointsKeepGeminiDistinctFromChat(t *testing.T) {
 	require.Equal(t, []constant.EndpointType{constant.EndpointTypeOpenAI, constant.EndpointTypeOpenAIResponse, constant.EndpointTypeAnthropic, constant.EndpointTypeGemini}, acuEndpointTypes("Chat Completions / Responses / Messages / Gemini"))
 }
 
+func TestSystemOnePriceDoesNotAdvertiseAutoOrChat(t *testing.T) {
+	got := overlayACUPricing(&acuPricingCatalog{
+		Auto: acuPricingAuto{ModelID: "acu-auto"},
+		Responses: []acuPricingResponse{{ModelID: "typesafe/jev-1.14", Protocol: "System One", Status: "published_price",
+			Payable: &acuCatalogPayable{InputCNYPerMillion: 0.28308, OutputCNYPerMillion: 0}, ActiveInAcuAuto: false}},
+	}, nil)
+	require.Len(t, got, 2)
+	assert.NotContains(t, got[1].Description, "ACU Auto")
+	assert.NotContains(t, got[1].Tags, "ACU Auto")
+	assert.Equal(t, []constant.EndpointType{constant.EndpointTypeSystemOne}, got[1].SupportedEndpointTypes)
+	endpoint, ok := common.GetDefaultEndpointInfo(constant.EndpointTypeSystemOne)
+	assert.True(t, ok)
+	assert.Equal(t, "/v1/systemone", endpoint.Path)
+	assert.Zero(t, *got[1].OutputPricePerMillion)
+}
+
 func TestOverlayACUPricingUsesDynamicAutoAndCatalogPrices(t *testing.T) {
 	cachePayable := 0.006
 	cacheWritePayable := 0.075
