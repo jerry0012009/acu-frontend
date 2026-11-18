@@ -499,7 +499,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
             <h3 className='text-foreground text-[15px] leading-snug font-semibold [overflow-wrap:anywhere] break-words'>
               {displayName}
             </h3>
-            {props.model.display_name && (
+            {displayName !== props.model.model_name && (
               <div className='text-muted-foreground mt-1 font-mono text-[11px] leading-relaxed [overflow-wrap:anywhere] break-words'>
                 {props.model.model_name}
               </div>

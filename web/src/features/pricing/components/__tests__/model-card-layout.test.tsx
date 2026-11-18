@@ -44,6 +44,60 @@ const model: PricingModel = {
   },
 }
 
+test('pricing cards and table rows omit an identical model ID subtitle but retain a distinct ID', async () => {
+  const i18n = createInstance()
+  await i18n.init({ lng: 'en', resources: { en: { translation: {} } } })
+  const modelID = 'claude-sonnet-5-5'
+
+  function TableModel(props: { model: PricingModel }) {
+    const column = usePricingColumns().find(
+      (item) => 'accessorKey' in item && item.accessorKey === 'model_name'
+    )
+    assert.ok(column && typeof column.cell === 'function')
+    return column.cell({ row: { original: props.model } } as never)
+  }
+
+  const window = new Window()
+  try {
+    for (const displayName of [modelID, 'Claude Sonnet 5.5']) {
+      const sonnet = {
+        ...model,
+        model_name: modelID,
+        display_name: displayName,
+      }
+      for (const [surface, content] of [
+        [
+          'card',
+          <ModelCard
+            key='card'
+            model={sonnet}
+            onClick={() => {}}
+            pricingDisplayMode='comparison'
+          />,
+        ],
+        ['table', <TableModel key='table' model={sonnet} />],
+      ] as const) {
+        window.document.body.innerHTML = renderToStaticMarkup(
+          <I18nextProvider i18n={i18n}>{content}</I18nextProvider>
+        )
+        const labels = Array.from(
+          window.document.querySelectorAll('h3, header div, span'),
+          (element) =>
+            element.childElementCount === 0 ? element.textContent : null
+        )
+        assert.equal(
+          labels.filter((label) => label === modelID).length,
+          1,
+          surface
+        )
+        assert.ok(labels.includes(displayName), surface)
+      }
+    }
+  } finally {
+    window.close()
+  }
+})
+
 test('fixed retail cards, table and details show the model multiplier without route-dependent estimates', async () => {
   const i18n = createInstance()
   await i18n.init({ lng: 'en', resources: { en: { translation: {} } } })

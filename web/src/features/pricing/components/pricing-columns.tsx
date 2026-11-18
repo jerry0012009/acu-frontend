@@ -62,6 +62,7 @@ export function usePricingColumns(
       ),
       cell: ({ row }) => {
         const model = row.original
+        const displayName = model.display_name || model.model_name
         const modelIconKey = model.icon || model.vendor_icon
         const modelIcon = modelIconKey ? getLobeIcon(modelIconKey, 14) : null
 
@@ -70,9 +71,9 @@ export function usePricingColumns(
             {modelIcon}
             <span className='min-w-0'>
               <span className='block truncate font-mono text-sm font-medium'>
-                {model.display_name || model.model_name}
+                {displayName}
               </span>
-              {model.display_name && (
+              {displayName !== model.model_name && (
                 <span className='text-muted-foreground block truncate font-mono text-[10px]'>
                   {model.model_name}
                 </span>
