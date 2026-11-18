@@ -148,6 +148,9 @@ CLI 验证时设置 `CLAUDE_ACU_CLI_VERIFY=1`，最多等待 45 秒，超时只�
 
 ### GPT-6.2 模型选择
 
+Codex ACU 和 Claude ACU 均可显式选择 `claude-fable-5-2`，分别使用
+`codex-acu -m claude-fable-5-2` 和 `claude-acu --model claude-fable-5-2`。
+
 Codex ACU、Claude ACU 和 CC Switch 均提供精确模型 ID `gpt-6.2-sol`、
 `gpt-6.2-astra`。重新运行对应安装器可刷新启动器与模型菜单，保留凭证和
 已有默认模型；已运行的客户端需要重新打开以加载新菜单。

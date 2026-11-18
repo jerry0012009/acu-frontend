@@ -225,6 +225,7 @@ function Test-AcuAsset([string]$Path, [string]$Kind) {
         $text.Contains('deepseek-v4.1-flash-1017') -and
         $text.Contains('claude-opus-5-5') -and
         $text.Contains('claude-fable-5-1') -and
+        $text.Contains('claude-fable-5-2') -and
         $text.Contains('glm-5.3-flash') -and
         $text.Contains('Test-AllowedModel')
     }
@@ -243,7 +244,7 @@ function Test-AcuAsset([string]$Path, [string]$Kind) {
         'gpt-6.1-sol',
         'gpt-6.2-sol', 'gpt-6.2-astra',
         'deepseek-v4.1-flash-1017', 'deepseek-v4.1-flash',
-        'claude-opus-5-5', 'claude-fable-5', 'claude-fable-5-1',
+        'claude-opus-5-5', 'claude-fable-5', 'claude-fable-5-1', 'claude-fable-5-2',
         'claude-sonnet-5', 'claude-opus-4-8', 'glm-5.3', 'glm-5.3-flash'
       )) {
         if ($slugs -notcontains $required) { return $false }
@@ -488,7 +489,7 @@ function Test-AllowedModel([string]$Model) {
     'gpt-6.1-sol',
     'gpt-6.2-sol', 'gpt-6.2-astra',
     'deepseek-v4.1-flash-1017', 'deepseek-v4.1-flash',
-    'claude-opus-5-5', 'claude-fable-5', 'claude-fable-5-1',
+    'claude-opus-5-5', 'claude-fable-5', 'claude-fable-5-1', 'claude-fable-5-2',
     'claude-sonnet-5', 'claude-opus-4-8', 'glm-5.3', 'glm-5.3-flash'
   )
 }
@@ -582,7 +583,7 @@ $effectiveModel = if ($selectedModel) { $selectedModel } elseif ($configuredMode
 }
 switch -Wildcard ($effectiveModel) {
   { $_ -in @('claude-fable-5', 'claude-sonnet-5', 'claude-opus-4-8') } { $context = 200000; $compact = 170000; break }
-  { $_ -in @('claude-opus-5-5', 'claude-fable-5-1', 'glm-5.3', 'glm-5.3-flash') } { $context = 1000000; $compact = 850000; break }
+  { $_ -in @('claude-opus-5-5', 'claude-fable-5-1', 'claude-fable-5-2', 'glm-5.3', 'glm-5.3-flash') } { $context = 1000000; $compact = 850000; break }
   'deepseek-v4.1-flash*' { $context = 1048576; $compact = 891289; break }
   default { $context = 1050000; $compact = 900000 }
 }

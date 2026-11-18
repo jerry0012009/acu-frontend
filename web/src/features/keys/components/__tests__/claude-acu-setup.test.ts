@@ -17,6 +17,7 @@ const shellInstaller = readFileSync(
 )
 const frontierModels = [
   'claude-fable-5-1',
+  'claude-fable-5-2',
   'deepseek-v4.1-flash-1017',
   'deepseek-v4.1-flash',
   'gpt-6-astra',
@@ -242,6 +243,7 @@ test('Codex installers install the latest CLI with China and overseas fallbacks'
       'glm-5.3-flash',
       'gpt-6.2-sol',
       'gpt-6.2-astra',
+      'claude-fable-5-2',
     ]
   )
   assert.deepEqual(
@@ -268,6 +270,7 @@ test('Codex installers install the latest CLI with China and overseas fallbacks'
       [],
       ['low', 'medium', 'high', 'xhigh', 'max'],
       ['low', 'medium', 'high', 'xhigh', 'max'],
+      ['low', 'medium', 'high'],
     ]
   )
 })
