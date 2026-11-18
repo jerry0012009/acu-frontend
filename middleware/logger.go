@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/gin-gonic/gin"
@@ -26,7 +27,11 @@ func SetUpLogger(server *gin.Engine) {
 		if tag == "" {
 			tag = "web"
 		}
-		return fmt.Sprintf("[GIN] %s | %s | %s | %3d | %13v | %15s | %7s %s\n",
+		var bodyRead string
+		if elapsed, ok := param.Keys[common.KeyBodyReadMS].(int64); ok {
+			bodyRead = " | body_read_ms=" + strconv.FormatInt(elapsed, 10)
+		}
+		return fmt.Sprintf("[GIN] %s | %s | %s | %3d | %13v | %15s | %7s %s%s\n",
 			param.TimeStamp.Format("2006/01/02 - 15:04:05"),
 			tag,
 			requestID,
@@ -35,6 +40,7 @@ func SetUpLogger(server *gin.Engine) {
 			param.ClientIP,
 			param.Method,
 			param.Path,
+			bodyRead,
 		)
 	}))
 }

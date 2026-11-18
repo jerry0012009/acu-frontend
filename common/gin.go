@@ -19,6 +19,7 @@ import (
 
 const KeyRequestBody = "key_request_body"
 const KeyBodyStorage = "key_body_storage"
+const KeyBodyReadMS = "body_read_ms"
 
 var ErrRequestBodyTooLarge = errors.New("request body too large")
 
@@ -66,7 +67,14 @@ func GetRequestBody(c *gin.Context) (io.Seeker, error) {
 	contentLength := c.Request.ContentLength
 
 	// 使用新的存储系统
+	var readStarted time.Time
+	if c.Request.Method == http.MethodPost && c.Request.URL.Path == "/v1/responses" {
+		readStarted = time.Now()
+	}
 	storage, err := CreateBodyStorageFromReader(c.Request.Body, contentLength, maxBytes)
+	if err == nil && !readStarted.IsZero() {
+		c.Set(KeyBodyReadMS, time.Since(readStarted).Milliseconds())
+	}
 	_ = c.Request.Body.Close()
 
 	if err != nil {
