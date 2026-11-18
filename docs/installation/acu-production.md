@@ -146,6 +146,24 @@ CLI 验证时设置 `CLAUDE_ACU_CLI_VERIFY=1`，最多等待 45 秒，超时只�
 `CLAUDE_ACU_UPDATE_CLAUDE=0`，需要调整等待时间时可设置
 `CLAUDE_ACU_VERIFY_TIMEOUT_SEC`。`:8443` 永久保留既有客户端兼容，但不是新客户文档入口。
 
+### GPT-6.2 模型选择
+
+Codex ACU、Claude ACU 和 CC Switch 均提供精确模型 ID `gpt-6.2-sol`、
+`gpt-6.2-astra`。重新运行对应安装器可刷新启动器与模型菜单，保留凭证和
+已有默认模型；已运行的客户端需要重新打开以加载新菜单。
+
+```bash
+codex-acu -m gpt-6.2-sol
+codex-acu -m gpt-6.2-astra
+claude-acu --model gpt-6.2-sol
+claude-acu --model gpt-6.2-astra
+```
+
+ACU Runtime 0.1.119 的「推荐配置」会刷新并补齐当前 Key 下的两个新模型，
+Codex、Claude Code、Hermes 可选作主模型，WorkBuddy 保留应用内选择。
+已有模型受限 Key 需要先在官网添加新模型权限；安装器不修改云端权限。
+默认 `acu-auto` 不变，显式选择不会被静默改写为 Auto。
+
 ## 6. 发布验收
 
 ```bash

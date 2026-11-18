@@ -199,6 +199,8 @@ asset_is_current() {
         grep -Fq "gpt-6-luna" "$asset_path" &&
         grep -Fq "gpt-6-sol" "$asset_path" &&
         grep -Fq "gpt-6.1-sol" "$asset_path" &&
+        grep -Fq "gpt-6.2-sol" "$asset_path" &&
+        grep -Fq "gpt-6.2-astra" "$asset_path" &&
         grep -Fq "deepseek-v4.1-flash-1017" "$asset_path" &&
         grep -Fq "claude-opus-5-5" "$asset_path" &&
         grep -Fq "claude-fable-5-1" "$asset_path" &&
@@ -216,6 +218,7 @@ asset_is_current() {
         gpt-6-luna \
         gpt-6-sol \
         gpt-6.1-sol \
+        gpt-6.2-sol gpt-6.2-astra \
         deepseek-v4.1-flash-1017 deepseek-v4.1-flash \
         claude-opus-5-5 claude-fable-5 claude-fable-5-1 \
         claude-sonnet-5 claude-opus-4-8 glm-5.3 glm-5.3-flash; do

@@ -21,6 +21,8 @@ const frontierModels = [
   'deepseek-v4.1-flash',
   'gpt-6-astra',
   'gpt-6.1-sol',
+  'gpt-6.2-sol',
+  'gpt-6.2-astra',
   'gpt-6-sol',
   'gpt-6-luna',
   'gpt-5.6-sol',
@@ -238,6 +240,8 @@ test('Codex installers install the latest CLI with China and overseas fallbacks'
       'claude-opus-4-8',
       'glm-5.3',
       'glm-5.3-flash',
+      'gpt-6.2-sol',
+      'gpt-6.2-astra',
     ]
   )
   assert.deepEqual(
@@ -262,6 +266,8 @@ test('Codex installers install the latest CLI with China and overseas fallbacks'
       ['low', 'medium', 'high'],
       [],
       [],
+      ['low', 'medium', 'high', 'xhigh', 'max'],
+      ['low', 'medium', 'high', 'xhigh', 'max'],
     ]
   )
 })

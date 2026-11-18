@@ -7,7 +7,7 @@ test('all published models keep their declared image capability', () => {
   assert.equal(catalog.acu_catalog_revision, 'image-capabilities-20261109')
   const visionModels = [
     'acu-auto', 'gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol', 'gpt-6-astra',
-    'gpt-6-luna', 'gpt-6-sol', 'gpt-6.1-sol', 'deepseek-v4.1-flash-1017',
+    'gpt-6-luna', 'gpt-6-sol', 'gpt-6.1-sol', 'gpt-6.2-sol', 'gpt-6.2-astra', 'deepseek-v4.1-flash-1017',
     'deepseek-v4.1-flash', 'claude-opus-5-5', 'claude-fable-5', 'claude-fable-5-1',
     'claude-sonnet-5', 'claude-opus-4-8', 'glm-5.3-flash',
   ]

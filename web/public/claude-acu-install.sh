@@ -258,6 +258,8 @@ cat >"$model_settings_tmp" <<'EOF'
     "deepseek-v4.1-flash",
     "gpt-6-astra",
     "gpt-6.1-sol",
+    "gpt-6.2-sol",
+    "gpt-6.2-astra",
     "gpt-6-sol",
     "gpt-6-luna",
     "gpt-5.6-sol",
@@ -285,7 +287,7 @@ ACU_NATIVE_SETTINGS_FILE="${ACU_HOME}/config/settings.json"
 
 allowed_model() {
   case "$1" in
-    acu-auto|claude-opus-5-5|claude-opus-4-8|claude-sonnet-5|claude-fable-5|claude-fable-5-1|deepseek-v4.1-flash-1017|deepseek-v4.1-flash|gpt-6-astra|gpt-6.1-sol|gpt-6-sol|gpt-6-luna|gpt-5.6-sol|gpt-5.6-terra|gpt-5.6-luna|glm-5.3|glm-5.3-flash|opus|sonnet|fable) return 0 ;;
+    acu-auto|claude-opus-5-5|claude-opus-4-8|claude-sonnet-5|claude-fable-5|claude-fable-5-1|deepseek-v4.1-flash-1017|deepseek-v4.1-flash|gpt-6-astra|gpt-6.1-sol|gpt-6.2-sol|gpt-6.2-astra|gpt-6-sol|gpt-6-luna|gpt-5.6-sol|gpt-5.6-terra|gpt-5.6-luna|glm-5.3|glm-5.3-flash|opus|sonnet|fable) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -299,7 +301,7 @@ validate_model_args() {
         selected_model=$2
         allowed_model "$selected_model" || {
           printf '%s\n' "unsupported Claude ACU model: $selected_model" >&2
-          printf '%s\n' "allowed models: acu-auto, claude-opus-5-5, claude-opus-4-8, claude-sonnet-5, claude-fable-5, claude-fable-5-1, deepseek-v4.1-flash-1017, deepseek-v4.1-flash, gpt-6-astra, gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, glm-5.3, glm-5.3-flash" >&2
+          printf '%s\n' "allowed models: acu-auto, claude-opus-5-5, claude-opus-4-8, claude-sonnet-5, claude-fable-5, claude-fable-5-1, deepseek-v4.1-flash-1017, deepseek-v4.1-flash, gpt-6-astra, gpt-6.1-sol, gpt-6.2-sol, gpt-6.2-astra, gpt-6-sol, gpt-6-luna, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, glm-5.3, glm-5.3-flash" >&2
           exit 2
         }
         shift 2
@@ -308,7 +310,7 @@ validate_model_args() {
         selected_model=${1#--model=}
         allowed_model "$selected_model" || {
           printf '%s\n' "unsupported Claude ACU model: $selected_model" >&2
-          printf '%s\n' "allowed models: acu-auto, claude-opus-5-5, claude-opus-4-8, claude-sonnet-5, claude-fable-5, claude-fable-5-1, deepseek-v4.1-flash-1017, deepseek-v4.1-flash, gpt-6-astra, gpt-6.1-sol, gpt-6-sol, gpt-6-luna, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, glm-5.3, glm-5.3-flash" >&2
+          printf '%s\n' "allowed models: acu-auto, claude-opus-5-5, claude-opus-4-8, claude-sonnet-5, claude-fable-5, claude-fable-5-1, deepseek-v4.1-flash-1017, deepseek-v4.1-flash, gpt-6-astra, gpt-6.1-sol, gpt-6.2-sol, gpt-6.2-astra, gpt-6-sol, gpt-6-luna, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, glm-5.3, glm-5.3-flash" >&2
           exit 2
         }
         shift

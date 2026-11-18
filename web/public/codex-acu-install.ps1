@@ -220,6 +220,8 @@ function Test-AcuAsset([string]$Path, [string]$Kind) {
         $text.Contains('gpt-6-luna') -and
         $text.Contains('gpt-6-sol') -and
         $text.Contains('gpt-6.1-sol') -and
+        $text.Contains('gpt-6.2-sol') -and
+        $text.Contains('gpt-6.2-astra') -and
         $text.Contains('deepseek-v4.1-flash-1017') -and
         $text.Contains('claude-opus-5-5') -and
         $text.Contains('claude-fable-5-1') -and
@@ -239,6 +241,7 @@ function Test-AcuAsset([string]$Path, [string]$Kind) {
         'gpt-6-luna',
         'gpt-6-sol',
         'gpt-6.1-sol',
+        'gpt-6.2-sol', 'gpt-6.2-astra',
         'deepseek-v4.1-flash-1017', 'deepseek-v4.1-flash',
         'claude-opus-5-5', 'claude-fable-5', 'claude-fable-5-1',
         'claude-sonnet-5', 'claude-opus-4-8', 'glm-5.3', 'glm-5.3-flash'
@@ -483,6 +486,7 @@ function Test-AllowedModel([string]$Model) {
     'gpt-6-luna',
     'gpt-6-sol',
     'gpt-6.1-sol',
+    'gpt-6.2-sol', 'gpt-6.2-astra',
     'deepseek-v4.1-flash-1017', 'deepseek-v4.1-flash',
     'claude-opus-5-5', 'claude-fable-5', 'claude-fable-5-1',
     'claude-sonnet-5', 'claude-opus-4-8', 'glm-5.3', 'glm-5.3-flash'
