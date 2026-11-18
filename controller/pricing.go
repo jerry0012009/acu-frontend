@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"slices"
 	"strconv"
 
 	"github.com/QuantumNous/new-api/common"
@@ -10,6 +11,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+const hiddenPublicPricingModel = "gemini-4-carbon"
 
 func filterPricingByUsableGroups(pricing []model.Pricing, usableGroup map[string]string) []model.Pricing {
 	if len(pricing) == 0 {
@@ -44,7 +47,14 @@ func GetPricing(c *gin.Context) {
 	}
 	if acuCatalog != nil {
 		pricing = overlayACUPricing(acuCatalog, pricing)
+		// Only suppress public display; other consumers still use the full catalog.
+		acuCatalog.CurveModelStatuses = slices.DeleteFunc(acuCatalog.CurveModelStatuses, func(item acuCurveModelStatus) bool {
+			return item.ModelID == hiddenPublicPricingModel
+		})
 	}
+	pricing = slices.DeleteFunc(slices.Clone(pricing), func(item model.Pricing) bool {
+		return item.ModelName == hiddenPublicPricingModel
+	})
 	userId, exists := c.Get("id")
 	usableGroup := map[string]string{}
 	groupRatio := map[string]float64{}
@@ -122,6 +132,9 @@ func GetACUSelectionCorridor(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	if prices, ok := result["pricing"].(map[string]interface{}); ok {
+		delete(prices, hiddenPublicPricingModel)
+	}
 	c.JSON(200, gin.H{"success": true, "data": result})
 }
 
@@ -160,6 +173,9 @@ func GetACUTokenSelectionCorridor(c *gin.Context) {
 	if err := service.PublicACUPricingCorridor(result); err != nil {
 		common.ApiError(c, err)
 		return
+	}
+	if prices, ok := result["pricing"].(map[string]interface{}); ok {
+		delete(prices, hiddenPublicPricingModel)
 	}
 	c.JSON(200, gin.H{"success": true, "data": result, "token_id": token.Id, "routing_preference": policy.RoutingPreference})
 }

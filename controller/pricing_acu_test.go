@@ -7,9 +7,42 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
+
+func TestPublicPricingOmitsCarbonWithoutRemovingInternalCatalog(t *testing.T) {
+	setupModelListControllerTestDB(t)
+	model.InvalidatePricingCache()
+	t.Cleanup(model.InvalidatePricingCache)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{
+			"schemaVersion":"acu-pricing-static-v1","pricingVersion":"test-price-v1",
+			"auto":{"modelId":"acu-auto"},
+			"responses":[{"modelId":"gemini-4-carbon"},{"modelId":"gemini-4-hydrogen"}],
+			"curveModelStatuses":[
+				{"modelId":"gemini-4-carbon","statuses":["published_price"]},
+				{"modelId":"gemini-4-hydrogen","statuses":["published_price"]}
+			]}`)
+	}))
+	t.Cleanup(upstream.Close)
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", upstream.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
+
+	response := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(response)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/pricing", nil)
+	GetPricing(c)
+	require.Equal(t, http.StatusOK, response.Code)
+	require.NotContains(t, response.Body.String(), "gemini-4-carbon")
+	require.Contains(t, response.Body.String(), "gemini-4-hydrogen")
+	require.Contains(t, response.Body.String(), `"published_price":1`)
+
+	catalog, err := loadACUPricingCatalog(c.Request.Context())
+	require.NoError(t, err)
+	require.Contains(t, acuCurveModelIDSet(catalog), "gemini-4-carbon")
+}
 
 func TestGetACUSelectionCorridorUsesGlobalPolicy(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -24,7 +57,7 @@ func TestGetACUSelectionCorridorUsesGlobalPolicy(t *testing.T) {
 		method = r.Method
 		body, _ = io.ReadAll(r.Body)
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"series":{},"defaultPreference":"balanced"}`))
+		_, _ = w.Write([]byte(`{"series":{},"defaultPreference":"balanced","pricing":{"gemini-4-carbon":{},"gemini-4-hydrogen":{}}}`))
 	}))
 	defer router.Close()
 	t.Setenv("ACU_ROUTER_INTERNAL_URL", router.URL)
@@ -37,6 +70,8 @@ func TestGetACUSelectionCorridorUsesGlobalPolicy(t *testing.T) {
 	GetACUSelectionCorridor(c)
 
 	require.Equal(t, http.StatusOK, response.Code)
+	require.NotContains(t, response.Body.String(), "gemini-4-carbon")
+	require.Contains(t, response.Body.String(), "gemini-4-hydrogen")
 	require.Equal(t, http.MethodPost, method)
 	require.Contains(t, string(body), `"allowedModelIds":["gpt-5.6-sol"]`)
 	require.Contains(t, string(body), `"allowedProfileIds":[]`)
