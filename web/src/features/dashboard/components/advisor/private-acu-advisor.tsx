@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertTriangle,
   Check,
+  CheckCheck,
   CircleSlash,
   History,
   Lightbulb,
@@ -19,18 +20,23 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { preferenceDisplayText } from '@/features/private-acu/preference-display'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/auth-store'
 
 import {
   getPrivateACUMemory,
   getPrivateACUAdvisors,
   getPrivateACUUserConfig,
-  getPrivateACUAdvisorNotificationPreferences,
   updatePrivateACUUserConfig,
   updatePrivateACUAdvisorNotificationPreferences,
   updatePrivateACUAdvisorFeedback,
   type PrivateACUAdvisor,
   type PrivateACUUserConfig,
 } from '../../advisor-api'
+import {
+  advisorNotificationPreferencesOptions,
+  advisorNotificationsOptions,
+  useReadAllAdvisorNotifications,
+} from '../../hooks/use-advisor-notifications'
 import { requestAdvisorBrowserNotificationPermission } from '../../lib/advisor-browser-notification'
 import type { PrivateACUMemorySkill } from '../../private-acu-admin-api'
 import { PrivateACUSkillCatalog } from '../admin/private-acu-skill-catalog'
@@ -220,6 +226,10 @@ function AdvisorCard(props: {
 function AdvisorList(props: { advisorId?: string }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const userId = useAuthStore((state) => state.auth.user?.id)
+  const notificationsQuery = useQuery(advisorNotificationsOptions(userId))
+  const unreadCount = notificationsQuery.data?.unreadCount ?? 0
+  const readAll = useReadAllAdvisorNotifications(userId)
   const [showAllHistory, setShowAllHistory] = useState(true)
   const advisorsQuery = useQuery({
     queryKey: ['dashboard', 'private-acu-advisor'],
@@ -292,7 +302,22 @@ function AdvisorList(props: { advisorId?: string }) {
     <div
       className={cn('space-y-3', feedbackMutation.isPending && 'opacity-90')}
     >
-      <div className='flex justify-end'>
+      <div className='flex flex-wrap justify-end gap-2'>
+        {unreadCount > 0 && (
+          <Button
+            type='button'
+            variant='outline'
+            size='sm'
+            disabled={readAll.isPending}
+            onClick={() => readAll.mutate()}
+          >
+            <CheckCheck aria-hidden='true' />
+            {readAll.isPending ? t('Loading...') : t('Mark all as read')}
+            <span className='text-muted-foreground tabular-nums'>
+              ({unreadCount})
+            </span>
+          </Button>
+        )}
         <Button
           variant='outline'
           size='sm'
@@ -305,6 +330,11 @@ function AdvisorList(props: { advisorId?: string }) {
             : t('View all history')}
         </Button>
       </div>
+      {readAll.isError && (
+        <p role='alert' className='text-destructive text-sm'>
+          {t('Could not mark all notifications as read')}
+        </p>
+      )}
 
       {visibleAdvisors.length === 0 ? (
         <div className='text-muted-foreground border-border/70 rounded-xl border border-dashed p-8 text-center text-sm'>
@@ -341,18 +371,19 @@ function AdvisorList(props: { advisorId?: string }) {
 function AdvisorNotificationPreferences() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const userId = useAuthStore((state) => state.auth.user?.id)
+  const preferencesOptions = advisorNotificationPreferencesOptions(userId)
   const preferencesQuery = useQuery({
-    queryKey: ['private-acu', 'advisor-notification-preferences'],
-    queryFn: getPrivateACUAdvisorNotificationPreferences,
+    ...preferencesOptions,
     retry: false,
   })
   const mutation = useMutation({
     mutationFn: updatePrivateACUAdvisorNotificationPreferences,
     onSuccess: (data) => {
-      queryClient.setQueryData(
-        ['private-acu', 'advisor-notification-preferences'],
-        data
-      )
+      queryClient.setQueryData(preferencesOptions.queryKey, data)
+      void queryClient.invalidateQueries({
+        queryKey: advisorNotificationsOptions(userId).queryKey,
+      })
       toast.success(t('Notification preferences saved'))
     },
     onError: () => toast.error(t('Failed to save notification preferences')),

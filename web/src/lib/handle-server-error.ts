@@ -2,9 +2,12 @@ import { AxiosError } from 'axios'
 import i18next from 'i18next'
 import { toast } from 'sonner'
 
+import { handleNetworkError } from '@/lib/network-feedback'
 import { getServerErrorMessageKey } from '@/lib/server-error-message'
 
 export function handleServerError(error: unknown) {
+  if (handleNetworkError(error)) return
+
   // eslint-disable-next-line no-console
   console.log(error)
 
@@ -26,7 +29,7 @@ export function handleServerError(error: unknown) {
   }
 
   if (error instanceof AxiosError) {
-    errMsg = error.response?.data.title
+    errMsg = error.response?.data?.title || errMsg
   }
 
   toast.error(errMsg)

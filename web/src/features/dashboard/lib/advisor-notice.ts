@@ -14,16 +14,17 @@ export function advisorNoticePresentation(
         .slice(0, 42)
         .join('')
     : notification.title || t('Private ACU Advisor')
-  const body = (
+  const heading = title.replace(/^Private ACU\s*[|｜]\s*/i, '').trim() || title
+  const parts = (
     oldPlaceholder
       ? [notification.problemSummary, notification.adviceSummary]
       : [notification.summary, notification.preference, notification.correction]
-  )
-    .filter(Boolean)
-    .join(' → ')
+  ).filter(Boolean)
   return {
     title,
-    body: body || t('View audit details'),
+    heading,
+    body: parts.join(' → ') || t('View audit details'),
+    preview: parts.find((part) => part && !part.startsWith(heading)) || '',
     status: [notification.action, notification.verification]
       .filter(Boolean)
       .join(' · '),

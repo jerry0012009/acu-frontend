@@ -1,15 +1,19 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import {
-  getPrivateACUAdvisorNotificationPreferences,
-  getPrivateACUAdvisorNotifications,
-  markAllPrivateACUAdvisorNotificationsRead,
   markPrivateACUAdvisorNotificationRead,
   type PrivateACUAdvisorNotification,
 } from '@/features/dashboard/advisor-api'
+import {
+  ADVISOR_TOAST_ID,
+  advisorNotificationPreferencesOptions,
+  advisorNotificationsOptions,
+  useReadAllAdvisorNotifications,
+} from '@/features/dashboard/hooks/use-advisor-notifications'
 import { showAdvisorBrowserNotifications } from '@/features/dashboard/lib/advisor-browser-notification'
 import {
   advisorNoticePresentation,
@@ -61,6 +65,7 @@ function getAnnouncementKey(item: Record<string, unknown>): string {
  */
 export function useNotifications() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [popoverOpen, setPopoverOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<
     'notice' | 'announcements' | 'advisor'
@@ -95,17 +100,13 @@ export function useNotifications() {
   )
 
   const advisorNotificationsQuery = useQuery({
-    queryKey: ['private-acu', 'advisor-notifications', userId],
-    queryFn: () => getPrivateACUAdvisorNotifications(10),
-    enabled: authenticated,
+    ...advisorNotificationsOptions(userId),
     refetchInterval: authenticated ? 30_000 : false,
-    staleTime: 10_000,
   })
+  const readAllAdvisorNotifications = useReadAllAdvisorNotifications(userId)
   const advisorPreferencesQuery = useQuery({
-    queryKey: ['private-acu', 'advisor-notification-preferences', userId],
-    queryFn: getPrivateACUAdvisorNotificationPreferences,
+    ...advisorNotificationPreferencesOptions(userId),
     enabled: authenticated,
-    staleTime: 60_000,
   })
   const seenAdvisorIds = useRef<Set<string> | null>(null)
   const seenAdvisorUser = useRef(userId)
@@ -115,8 +116,28 @@ export function useNotifications() {
   )
   const advisorUnreadCount = advisorNotificationsQuery.data?.unreadCount ?? 0
 
+  const openAdvisorNotification = useCallback(
+    async (notification: PrivateACUAdvisorNotification) => {
+      // Navigation does not depend on the read receipt. The API reports failures.
+      void markPrivateACUAdvisorNotificationRead(notification.advisorId)
+        .then(() =>
+          queryClient.invalidateQueries({
+            queryKey: advisorNotificationsOptions(userId).queryKey,
+          })
+        )
+        .catch(() => undefined)
+      await navigate({
+        to: '/private-acu/$section',
+        params: { section: 'advisor' },
+        search: { advisor: notification.advisorId },
+      })
+    },
+    [navigate, queryClient, userId]
+  )
+
   useEffect(() => {
     if (seenAdvisorUser.current !== userId) {
+      toast.dismiss(ADVISOR_TOAST_ID)
       seenAdvisorUser.current = userId
       seenAdvisorIds.current = null
     }
@@ -138,23 +159,33 @@ export function useNotifications() {
     })
 
     if (advisorPreferencesQuery.data?.inAppEnabled) {
-      for (const notification of newNotifications) {
-        const notice = advisorNoticePresentation(notification)
-        toast(notice.title, {
-          id: `acu-advisor-${notification.advisorId}`,
-          position: 'bottom-right',
-          duration: 8000,
-          description: notice.body,
-          action: {
-            label: t('View audit details'),
-            onClick: () => {
-              void markPrivateACUAdvisorNotificationRead(
-                notification.advisorId
-              ).then(() => window.location.assign(notification.targetPath))
-            },
+      const notification = newNotifications[0]
+      const count = newNotifications.length
+      toast.info(t('Advisor'), {
+        id: ADVISOR_TOAST_ID,
+        position: 'bottom-right',
+        duration: 8000,
+        richColors: false,
+        description:
+          count > 1
+            ? t('New suggestions: {{count}}', { count })
+            : advisorNoticePresentation(notification).heading,
+        descriptionClassName: 'line-clamp-2',
+        action: {
+          label: t('View suggestions'),
+          onClick: () => {
+            if (count === 1) {
+              void openAdvisorNotification(notification)
+              return
+            }
+            void navigate({
+              to: '/private-acu/$section',
+              params: { section: 'advisor' },
+              search: {},
+            })
           },
-        })
-      }
+        },
+      })
     }
 
     showAdvisorBrowserNotifications(newNotifications, {
@@ -168,6 +199,8 @@ export function useNotifications() {
     advisorNotificationsQuery.isSuccess,
     authenticated,
     userId,
+    openAdvisorNotification,
+    navigate,
     t,
   ])
 
@@ -176,7 +209,7 @@ export function useNotifications() {
     lastReadNotice,
     markNoticeRead,
     markAnnouncementsRead,
-    isAnnouncementRead,
+    readAnnouncementKeys,
   } = useNotificationStore()
 
   // Extract notice content
@@ -192,7 +225,7 @@ export function useNotifications() {
     const announcementsUnread = announcements.filter(
       (item: Record<string, unknown>) => {
         const key = getAnnouncementKey(item)
-        return !isAnnouncementRead(key)
+        return !readAnnouncementKeys.includes(key)
       }
     ).length
 
@@ -206,7 +239,7 @@ export function useNotifications() {
     noticeContent,
     lastReadNotice,
     announcements,
-    isAnnouncementRead,
+    readAnnouncementKeys,
     advisorUnreadCount,
   ])
 
@@ -226,8 +259,7 @@ export function useNotifications() {
     markAnnouncementsAsRead()
 
     if (advisorUnreadCount > 0) {
-      await markAllPrivateACUAdvisorNotificationsRead()
-      await advisorNotificationsQuery.refetch()
+      await readAllAdvisorNotifications.mutateAsync()
     }
   }
 
@@ -289,12 +321,7 @@ export function useNotifications() {
     setPopoverOpen: handlePopoverOpenChange,
     activeTab,
     setActiveTab: handleTabChange,
-    openAdvisorNotification: async (
-      notification: PrivateACUAdvisorNotification
-    ) => {
-      await markPrivateACUAdvisorNotificationRead(notification.advisorId)
-      window.location.assign(notification.targetPath)
-    },
+    openAdvisorNotification,
 
     // Actions
     markAllNotificationsAsRead,

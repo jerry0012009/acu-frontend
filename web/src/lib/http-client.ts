@@ -7,6 +7,7 @@ import {
   clearAuthentication,
   refreshAuthentication,
 } from '@/lib/auth-session'
+import { handleNetworkError } from '@/lib/network-feedback'
 import { getServerErrorMessageKey } from '@/lib/server-error-message'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -110,7 +111,7 @@ api.interceptors.response.use(
       } else if (!skipErrorHandler) {
         toast.error(t('Session expired!'))
       }
-    } else if (!skipErrorHandler) {
+    } else if (!skipErrorHandler && !handleNetworkError(error)) {
       const messageKey = getServerErrorMessageKey(error)
       const message = messageKey
         ? t(messageKey)

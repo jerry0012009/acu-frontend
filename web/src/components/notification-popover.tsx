@@ -1,5 +1,11 @@
 import type { TFunction } from 'i18next'
-import { Bell, CheckCheck, Megaphone } from 'lucide-react'
+import {
+  Bell,
+  CheckCheck,
+  ChevronRight,
+  Lightbulb,
+  Megaphone,
+} from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -292,38 +298,46 @@ function AdvisorNotificationsContent({
   return (
     <ScrollArea className='h-[min(52vh,28rem)] pr-3'>
       <div className='flex flex-col'>
-        {notifications.map((notification, idx) => (
-          <div key={notification.advisorId}>
-            <button
-              type='button'
-              className='hover:bg-muted/50 w-full rounded-md p-3 text-left'
-              onClick={() => void onOpen(notification)}
-            >
-              <div className='flex items-start gap-3'>
+        {notifications.map((notification, idx) => {
+          const notice = advisorNoticePresentation(notification)
+          return (
+            <div key={notification.advisorId}>
+              <button
+                type='button'
+                className='hover:bg-muted/50 focus-visible:ring-ring flex w-full items-start gap-2 rounded-md p-2.5 text-start focus-visible:ring-2 focus-visible:ring-inset'
+                onClick={() => void onOpen(notification)}
+              >
                 <span
+                  aria-hidden='true'
                   className={cn(
-                    'mt-1.5 size-2 shrink-0 rounded-full',
-                    notification.readAt
-                      ? 'bg-muted-foreground/40'
-                      : 'bg-amber-500'
+                    'mt-1.5 size-1.5 shrink-0 rounded-full',
+                    notification.readAt ? 'bg-transparent' : 'bg-primary'
                   )}
                 />
                 <div className='min-w-0 flex-1 space-y-1'>
-                  <p className='text-sm font-medium wrap-anywhere'>
-                    {advisorNoticePresentation(notification).title}
+                  <p className='line-clamp-2 text-sm font-medium wrap-anywhere'>
+                    {notice.heading}
                   </p>
-                  <p className='text-muted-foreground line-clamp-4 text-xs wrap-anywhere'>
-                    {advisorNoticePresentation(notification).body}
-                  </p>
-                  <p className='text-muted-foreground text-[11px]'>
-                    {advisorNoticePresentation(notification).status}
-                  </p>
+                  {notice.preview && (
+                    <p className='text-muted-foreground line-clamp-2 text-xs wrap-anywhere'>
+                      {notice.preview}
+                    </p>
+                  )}
+                  {notice.status && (
+                    <p className='text-muted-foreground line-clamp-1 text-xs wrap-anywhere'>
+                      {notice.status}
+                    </p>
+                  )}
                 </div>
-              </div>
-            </button>
-            {idx < notifications.length - 1 ? <Separator /> : null}
-          </div>
-        ))}
+                <ChevronRight
+                  className='text-muted-foreground mt-0.5 size-4 shrink-0 rtl:rotate-180'
+                  aria-hidden='true'
+                />
+              </button>
+              {idx < notifications.length - 1 ? <Separator /> : null}
+            </div>
+          )
+        })}
       </div>
     </ScrollArea>
   )
@@ -348,11 +362,15 @@ export function NotificationPopover({
 }: NotificationPopoverProps) {
   const { t } = useTranslation()
   const [markingAllRead, setMarkingAllRead] = useState(false)
+  const [markAllFailed, setMarkAllFailed] = useState(false)
 
   const handleMarkAllRead = async () => {
     setMarkingAllRead(true)
+    setMarkAllFailed(false)
     try {
       await onMarkAllRead()
+    } catch {
+      setMarkAllFailed(true)
     } finally {
       setMarkingAllRead(false)
     }
@@ -391,19 +409,21 @@ export function NotificationPopover({
             <PopoverTitle>{t('Notifications')}</PopoverTitle>
             <Button
               type='button'
-              variant='ghost'
+              variant='outline'
               size='sm'
               className='h-7 shrink-0 gap-1.5 px-2 text-xs'
               disabled={unreadCount === 0 || markingAllRead}
               onClick={() => void handleMarkAllRead()}
             >
               <CheckCheck className='size-3.5' />
-              {t('Mark all as read')}
+              {markingAllRead ? t('Loading...') : t('Mark all as read')}
             </Button>
           </div>
-          <p className='text-muted-foreground text-xs'>
-            {t('Latest platform updates and notices')}
-          </p>
+          {markAllFailed && (
+            <p role='alert' className='text-destructive text-xs'>
+              {t('Could not mark all notifications as read')}
+            </p>
+          )}
         </PopoverHeader>
 
         <Tabs
@@ -420,7 +440,7 @@ export function NotificationPopover({
               {t('Timeline')}
             </TabsTrigger>
             <TabsTrigger value='advisor' className='gap-1.5'>
-              <Bell className='size-3.5' />
+              <Lightbulb className='size-3.5' aria-hidden='true' />
               {t('Advisor')}
             </TabsTrigger>
           </TabsList>

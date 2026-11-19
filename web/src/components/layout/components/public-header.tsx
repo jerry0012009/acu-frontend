@@ -9,6 +9,7 @@ import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useMediaQuery } from '@/hooks/use-media-query'
 import { useNotifications } from '@/hooks/use-notifications'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { useTopNavLinks } from '@/hooks/use-top-nav-links'
@@ -71,6 +72,7 @@ export function PublicHeader(props: PublicHeaderProps) {
   const { loading } = useSystemConfig()
   const dynamicLinks = useTopNavLinks()
   const notifications = useNotifications()
+  const mobile = useMediaQuery('(width < 40rem)')
   const routerState = useRouterState()
   const pathname = routerState.location.pathname
 
@@ -154,6 +156,37 @@ export function PublicHeader(props: PublicHeaderProps) {
     [t]
   )
 
+  let authAction = <ProfileDropdown />
+  if (loading) {
+    authAction = <Skeleton className='h-8 w-20 rounded-lg' />
+  } else if (!isAuthenticated) {
+    authAction = (
+      <Button
+        size='sm'
+        className='h-8 rounded-lg px-3.5 text-xs font-medium'
+        render={<Link to='/sign-in' />}
+      >
+        {t('Sign in')}
+      </Button>
+    )
+  }
+
+  const notificationPopover = showNotifications && (
+    <NotificationPopover
+      open={notifications.popoverOpen}
+      onOpenChange={notifications.setPopoverOpen}
+      unreadCount={notifications.unreadCount}
+      activeTab={notifications.activeTab}
+      onTabChange={notifications.setActiveTab}
+      notice={notifications.notice}
+      announcements={notifications.announcements}
+      advisorNotifications={notifications.advisorNotifications}
+      onAdvisorNotificationOpen={notifications.openAdvisorNotification}
+      onMarkAllRead={notifications.markAllNotificationsAsRead}
+      loading={notifications.loading}
+    />
+  )
+
   return (
     <>
       <header className='pointer-events-none fixed inset-x-0 top-0 z-50'>
@@ -198,12 +231,13 @@ export function PublicHeader(props: PublicHeaderProps) {
 
             {/* Desktop nav */}
             <div className='hidden items-center gap-0.5 sm:flex'>
-              {links.map((link, i) => {
+              {links.map((link) => {
                 const isActive = pathname === link.href
+                const key = JSON.stringify([link.href, link.title])
                 if (isPublicHomeLink(link.href)) {
                   return (
                     <a
-                      key={i}
+                      key={key}
                       href={PUBLIC_HOME_URL}
                       className={cn(
                         'rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors duration-200',
@@ -219,7 +253,7 @@ export function PublicHeader(props: PublicHeaderProps) {
                 if (link.external) {
                   return (
                     <a
-                      key={i}
+                      key={key}
                       href={link.href}
                       target='_blank'
                       rel='noopener noreferrer'
@@ -237,7 +271,7 @@ export function PublicHeader(props: PublicHeaderProps) {
                 }
                 return (
                   <Link
-                    key={i}
+                    key={key}
                     to={link.href}
                     disabled={link.disabled}
                     onClick={(event) => handleNavLinkClick(event, link)}
@@ -262,40 +296,12 @@ export function PublicHeader(props: PublicHeaderProps) {
 
               {showLanguageSwitcher && <LanguageSwitcher />}
               {showThemeSwitch && <ThemeSwitch />}
-              {showNotifications && (
-                <NotificationPopover
-                  open={notifications.popoverOpen}
-                  onOpenChange={notifications.setPopoverOpen}
-                  unreadCount={notifications.unreadCount}
-                  activeTab={notifications.activeTab}
-                  onTabChange={notifications.setActiveTab}
-                  notice={notifications.notice}
-                  announcements={notifications.announcements}
-                  advisorNotifications={notifications.advisorNotifications}
-                  onAdvisorNotificationOpen={
-                    notifications.openAdvisorNotification
-                  }
-                  onMarkAllRead={notifications.markAllNotificationsAsRead}
-                  loading={notifications.loading}
-                />
-              )}
+              {!mobile && notificationPopover}
 
               {showAuthButtons && (
                 <>
                   <div className='bg-border/40 mx-1 h-4 w-px' />
-                  {loading ? (
-                    <Skeleton className='h-8 w-20 rounded-lg' />
-                  ) : isAuthenticated ? (
-                    <ProfileDropdown />
-                  ) : (
-                    <Button
-                      size='sm'
-                      className='h-8 rounded-lg px-3.5 text-xs font-medium'
-                      render={<Link to='/sign-in' />}
-                    >
-                      {t('Sign in')}
-                    </Button>
-                  )}
+                  {authAction}
                 </>
               )}
             </div>
@@ -303,6 +309,7 @@ export function PublicHeader(props: PublicHeaderProps) {
             {/* Mobile: compact actions + hamburger */}
             <div className='flex items-center gap-2 sm:hidden'>
               {showThemeSwitch && <ThemeSwitch />}
+              {mobile && notificationPopover}
               {showAuthButtons && !loading && isAuthenticated && (
                 <ProfileDropdown />
               )}
@@ -353,6 +360,7 @@ export function PublicHeader(props: PublicHeaderProps) {
           <nav className='flex flex-col gap-1'>
             {links.map((link, i) => {
               const isActive = pathname === link.href
+              const key = JSON.stringify([link.href, link.title])
               const linkClassName = cn(
                 'flex items-center gap-3 py-3 text-base font-medium tracking-tight transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]',
                 mobileOpen
@@ -367,7 +375,7 @@ export function PublicHeader(props: PublicHeaderProps) {
               if (link.external) {
                 return (
                   <a
-                    key={i}
+                    key={key}
                     href={link.href}
                     target='_blank'
                     rel='noopener noreferrer'
@@ -384,7 +392,7 @@ export function PublicHeader(props: PublicHeaderProps) {
               if (isPublicHomeLink(link.href)) {
                 return (
                   <a
-                    key={i}
+                    key={key}
                     href={PUBLIC_HOME_URL}
                     onClick={() => setMobileOpen(false)}
                     className={linkClassName}
@@ -396,7 +404,7 @@ export function PublicHeader(props: PublicHeaderProps) {
               }
               return (
                 <Link
-                  key={i}
+                  key={key}
                   to={link.href}
                   disabled={link.disabled}
                   onClick={(event) => handleNavLinkClick(event, link, true)}

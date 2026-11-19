@@ -160,7 +160,14 @@ export async function markPrivateACUAdvisorNotificationRead(
 }
 
 export async function markAllPrivateACUAdvisorNotificationsRead(): Promise<void> {
-  await api.post('/api/user/self/acu-advisor/notifications/read-all')
+  const { data } = await api.post<{ success: boolean; message?: string }>(
+    '/api/user/self/acu-advisor/notifications/read-all',
+    undefined,
+    { skipBusinessError: true, skipErrorHandler: true }
+  )
+  if (!data?.success) {
+    throw new Error(data?.message || 'Advisor read-all failed')
+  }
 }
 
 export async function getPrivateACUAdvisorNotificationPreferences(): Promise<PrivateACUAdvisorNotificationPreferences> {

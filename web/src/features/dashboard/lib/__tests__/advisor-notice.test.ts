@@ -36,6 +36,7 @@ describe('Advisor short notice presentation', () => {
     })
     assert.equal(result.title, 'raw private detail')
     assert.equal(result.body, 'raw private detail → raw advice')
+    assert.equal(result.preview, 'raw advice')
     assert.doesNotMatch(result.body, /未找到|未提供|可靠的简短/)
   })
   test('first successful load establishes baseline and reappearing ids never notify twice', () => {
@@ -58,9 +59,22 @@ describe('Advisor short notice presentation', () => {
   test('shows deviation, actual preference and corrective reference before status', () => {
     assert.deepEqual(advisorNoticePresentation(notification), {
       title: notification.title,
+      heading: notification.title,
       body: '列表不限类型，统计限定 consume。 → 共用筛选口径。 → 核对 type=0。',
+      preview: '列表不限类型，统计限定 consume。',
       status: '提醒已加入上下文 · 效果待核实',
     })
+  })
+  test('in-app previews omit the product prefix and repeated title', () => {
+    const result = advisorNoticePresentation({
+      ...notification,
+      title: 'Private ACU | Restore command missing',
+      summary: 'Restore command missing after cleanup.',
+      preference: '',
+      correction: 'Check how the restored session is printed.',
+    })
+    assert.equal(result.heading, 'Restore command missing')
+    assert.equal(result.preview, 'Check how the restored session is printed.')
   })
   test('new risks with different ids remain independently presentable', () => {
     const notices = [
