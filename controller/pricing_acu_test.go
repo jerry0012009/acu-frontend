@@ -44,6 +44,48 @@ func TestPublicPricingOmitsCarbonWithoutRemovingInternalCatalog(t *testing.T) {
 	require.Contains(t, acuCurveModelIDSet(catalog), "gemini-4-carbon")
 }
 
+func TestRuntimePricingKeepsPublishedPricesWithoutCurves(t *testing.T) {
+	setupModelListControllerTestDB(t)
+	model.InvalidatePricingCache()
+	t.Cleanup(model.InvalidatePricingCache)
+	t.Setenv("ACU_PRICING_DISPLAY_MODE", "comparison")
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"schemaVersion":"acu-pricing-static-v1","pricingVersion":"fixture-v1",
+		  "auto":{"modelId":"acu-auto"},"responses":[
+		    {"modelId":"gemini-4-carbon"},
+		    {"modelId":"sample","displayName":"Sample","payable":{"inputCnyPerMillion":1,"outputCnyPerMillion":2,"cacheWriteCnyPerMillion":0},
+		     "reference":{"inputCnyPerMillion":10,"outputCnyPerMillion":20,"sourceType":"official"},
+		     "curve":[{"difficultyScore":10,"estimatedQuality":90}]}]}`)
+	}))
+	t.Cleanup(upstream.Close)
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", upstream.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
+
+	response := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(response)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/pricing?view=runtime", nil)
+	GetPricing(c)
+	require.Equal(t, http.StatusOK, response.Code)
+	var result struct {
+		Success bool            `json:"success"`
+		Data    []model.Pricing `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(response.Body.Bytes(), &result))
+	require.True(t, result.Success)
+	require.Len(t, result.Data, 2)
+	require.Equal(t, "acu-auto", result.Data[0].ModelName)
+	row := result.Data[1]
+	require.Equal(t, "sample", row.ModelName)
+	require.Equal(t, "fixture-v1", row.PricingVersion)
+	require.NotNil(t, row.Payable)
+	require.Equal(t, float64(2), row.Payable.OutputCNYPerMillion)
+	require.NotNil(t, row.Payable.CacheWriteCNYPerMillion)
+	require.Zero(t, *row.Payable.CacheWriteCNYPerMillion)
+	require.NotNil(t, row.Reference)
+	require.Equal(t, "official", row.Reference.SourceType)
+	require.Empty(t, row.ACUCurve)
+}
+
 func TestGetACUSelectionCorridorUsesGlobalPolicy(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	previousOptions := common.OptionMap

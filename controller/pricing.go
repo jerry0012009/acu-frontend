@@ -77,6 +77,22 @@ func GetPricing(c *gin.Context) {
 
 	usableGroup = service.GetUserUsableGroups(group)
 	pricing = filterPricingByUsableGroups(pricing, usableGroup)
+	if c.Query("view") == "runtime" {
+		// The desktop table does not need quality curves or per-protocol duplicates.
+		type runtimePrice struct {
+			ModelName      string                  `json:"model_name"`
+			DisplayName    string                  `json:"display_name,omitempty"`
+			Payable        *model.PricingPayable   `json:"payable,omitempty"`
+			Reference      *model.PricingReference `json:"reference,omitempty"`
+			PricingVersion string                  `json:"pricing_version,omitempty"`
+		}
+		rows := make([]runtimePrice, 0, len(pricing))
+		for _, item := range pricing {
+			rows = append(rows, runtimePrice{item.ModelName, item.DisplayName, item.Payable, item.Reference, item.PricingVersion})
+		}
+		c.JSON(200, gin.H{"success": true, "data": rows})
+		return
+	}
 	// check groupRatio contains usableGroup
 	for group := range ratio_setting.GetGroupRatioCopy() {
 		if _, ok := usableGroup[group]; !ok {
