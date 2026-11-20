@@ -41,3 +41,28 @@ for (const anthropic of [false, true]) {
     }
   })
 }
+
+test('compact addresses show only the two routes and their copy controls', async () => {
+  const dom = new Window()
+  try {
+    dom.document.body.innerHTML = renderToStaticMarkup(
+      <I18nextProvider i18n={i18n}>
+        <ApiBaseUrls compact />
+      </I18nextProvider>
+    )
+    assert.deepEqual(
+      Array.from(dom.document.querySelectorAll('dt'), (el) =>
+        el.getAttribute('aria-label')
+      ),
+      ['Mainland China', 'Overseas']
+    )
+    assert.deepEqual(
+      Array.from(dom.document.querySelectorAll('code'), (el) => el.textContent),
+      ['https://api.acucompute.com/v1', 'https://acu.best/v1']
+    )
+    assert.equal(dom.document.querySelectorAll('button').length, 2)
+    assert.equal(dom.document.querySelector('p'), null)
+  } finally {
+    await dom.close()
+  }
+})

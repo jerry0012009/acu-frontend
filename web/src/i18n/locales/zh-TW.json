@@ -6157,5 +6157,9 @@
   "Global weight": "全域權重",
   "Global weight / Routing score": "全域權重 / 路由評分",
   "Model-local routing rank": "模型內路由排名",
-  "Availability first (recommended)": "可用性優先（推薦）"
+  "Availability first (recommended)": "可用性優先（推薦）",
+  "Mainland China": "中國大陸線路",
+  "Overseas": "海外線路",
+  "China": "大陸",
+  "Global": "海外"
 }

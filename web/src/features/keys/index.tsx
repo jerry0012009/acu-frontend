@@ -18,8 +18,8 @@ export function ApiKeys() {
           <ApiKeysPrimaryButtons />
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
-          <div className='flex h-full min-h-0 flex-col gap-3'>
-            <ApiBaseUrls className='border-border shrink-0 border-b pb-2' />
+          <div className='flex h-full min-h-0 flex-col gap-2'>
+            <ApiBaseUrls compact className='shrink-0' />
             <div className='min-h-0 flex-1'>
               <ApiKeysTable />
             </div>
