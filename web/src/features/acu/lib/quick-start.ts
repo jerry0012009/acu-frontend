@@ -1,4 +1,6 @@
 export const ACU_API_BASE_URL = 'https://api.acucompute.com/v1'
+export const ACU_OVERSEAS_API_ORIGIN = 'https://acu.best'
+export const ACU_OVERSEAS_API_BASE_URL = `${ACU_OVERSEAS_API_ORIGIN}/v1`
 export const ACU_DEFAULT_MODEL = 'acu-auto'
 export const ACU_MASKED_API_KEY = 'sk-••••••'
 export const CC_SWITCH_CODEX_API_BASE_URL = ACU_API_BASE_URL

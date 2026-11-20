@@ -45,6 +45,7 @@ import {
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { ApiBaseUrls } from '@/features/acu/components/api-base-urls'
 import { publicChannelAlias } from '@/features/acu/lib/public-channel-alias'
 import { getACURoutingCatalog } from '@/features/usage-logs/api'
 import { useStatus } from '@/hooks/use-status'
@@ -408,6 +409,9 @@ export function ApiKeysMutateDrawer({
             onSubmit={form.handleSubmit(onSubmit, onInvalid)}
             className={sideDrawerFormClassName('gap-5')}
           >
+            {!isUpdate && (
+              <ApiBaseUrls className='border-border border-b pb-2' />
+            )}
             <SideDrawerSection>
               <SideDrawerSectionHeader
                 title={t('Basic Information')}

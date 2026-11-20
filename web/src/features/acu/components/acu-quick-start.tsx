@@ -67,6 +67,7 @@ import {
   type AcuApiProtocol,
   type AcuClient,
 } from '../lib/quick-start'
+import { ApiBaseUrls } from './api-base-urls'
 import { RuntimeQuickStart } from './runtime-quick-start'
 
 import './connect-experience.css'
@@ -419,9 +420,6 @@ function ManualClientConfig(props: {
   mode: AcuQuickStartMode
 }) {
   const { t } = useTranslation()
-  const baseUrl =
-    props.client === 'codex' ? ACU_API_BASE_URL : CC_SWITCH_CLAUDE_API_BASE_URL
-
   return (
     <div className='mt-5 space-y-4'>
       <div className='border-primary/15 bg-muted/50 text-foreground rounded-lg border px-3 py-2.5 text-[11px] leading-relaxed'>
@@ -435,7 +433,7 @@ function ManualClientConfig(props: {
       </div>
 
       <div className='divide-border border-border divide-y border-y'>
-        <ConnectionRow label='Base URL' value={baseUrl} copyValue={baseUrl} />
+        <ApiBaseUrls anthropic={props.client === 'claude'} className='pb-2' />
         <ConnectionRow
           label='API Key'
           value={displayCredentialValue(props.copyKey, props.mode)}
@@ -642,7 +640,7 @@ function ApiQuickStart(props: {
   return (
     <div className='p-4 sm:p-5'>
       <div className='divide-border border-border divide-y border-y'>
-        <ConnectionRow label='Base URL' value={ACU_API_BASE_URL} />
+        <ApiBaseUrls className='pb-2' />
         <ConnectionRow
           label='API Key'
           value={displayCredentialValue(props.copyKey, props.mode)}

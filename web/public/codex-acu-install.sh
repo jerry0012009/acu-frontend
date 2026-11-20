@@ -1,7 +1,8 @@
 #!/usr/bin/env sh
 set -eu
 
-DEFAULT_BASE_URL="https://api.acucompute.com/v1"
+DEFAULT_BASE_URL="https://acu.best/v1"
+DOMESTIC_BASE_URL="https://api.acucompute.com/v1"
 FALLBACK_BASE_URL="https://acu-api-direct.jerrypsy.top/v1"
 MIN_CODEX_VERSION="0.124.0"
 PUBLIC_ASSET_BASE="https://api.acucompute.com"
@@ -377,7 +378,7 @@ if [ -z "$base_url" ]; then
   fi
 fi
 if [ -z "$base_url" ]; then
-  for candidate in "$DEFAULT_BASE_URL" "$FALLBACK_BASE_URL"; do
+  for candidate in "$DEFAULT_BASE_URL" "$DOMESTIC_BASE_URL" "$FALLBACK_BASE_URL"; do
     if endpoint_available "$candidate" "$api_key"; then
       base_url=$candidate
       break

@@ -1,7 +1,8 @@
 $ErrorActionPreference = 'Stop'
 
 $MinimumCodexVersion = [version]'0.124.0'
-$PrimaryBaseUrl = 'https://api.acucompute.com/v1'
+$PrimaryBaseUrl = 'https://acu.best/v1'
+$DomesticBaseUrl = 'https://api.acucompute.com/v1'
 $FallbackBaseUrl = 'https://acu-api-direct.jerrypsy.top/v1'
 $PublicCodexMirrorBase = 'https://api.acucompute.com/codex-releases'
 $DirectCodexMirrorBase = 'https://acu-api-direct.jerrypsy.top/codex-releases'
@@ -408,7 +409,7 @@ if (Test-Path $ConfigPath) {
 }
 $baseUrl = if ($RequestedBaseUrl) { $RequestedBaseUrl } else { $existingBaseUrl }
 if (-not $baseUrl) {
-  foreach ($candidate in @($PrimaryBaseUrl, $FallbackBaseUrl)) {
+  foreach ($candidate in @($PrimaryBaseUrl, $DomesticBaseUrl, $FallbackBaseUrl)) {
     if (Test-AcuEndpoint $candidate $ApiKey) {
       $baseUrl = $candidate
       break
@@ -521,7 +522,7 @@ if (-not $configuredMatch.Success) { throw 'Invalid ACU Base URL.' }
 $configuredBaseUrl = $configuredMatch.Groups[1].Value
 $effectiveBaseUrl = $configuredBaseUrl
 if ($env:CODEX_ACU_SKIP_ENDPOINT_PREFLIGHT -ne '1') {
-  foreach ($candidate in @($configuredBaseUrl, 'https://api.acucompute.com/v1', 'https://acu-api-direct.jerrypsy.top/v1') | Select-Object -Unique) {
+  foreach ($candidate in @($configuredBaseUrl, 'https://acu.best/v1', 'https://api.acucompute.com/v1', 'https://acu-api-direct.jerrypsy.top/v1') | Select-Object -Unique) {
     try {
       Invoke-RestMethod -Method Get -Uri "$candidate/models" -Headers @{ Authorization = "Bearer $env:ACU_API_KEY" } -TimeoutSec 12 | Out-Null
       $effectiveBaseUrl = $candidate

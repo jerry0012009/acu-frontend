@@ -1,7 +1,8 @@
 #!/usr/bin/env sh
 set -eu
 
-ACU_PUBLIC_BASE_URL="https://api.acucompute.com"
+ACU_PUBLIC_BASE_URL="https://acu.best"
+ACU_DOMESTIC_BASE_URL="https://api.acucompute.com"
 ACU_DIRECT_BASE_URL="https://acu-api-direct.jerrypsy.top"
 ACU_HOME=${CLAUDE_ACU_HOME:-"${HOME}/.claude-acu"}
 ACU_BIN_DIR=${CLAUDE_ACU_BIN_DIR:-"${HOME}/.local/bin"}
@@ -212,6 +213,7 @@ elif [ "$LIVE_VERIFY" = "0" ]; then
 else
   for candidate in \
     "$ACU_PUBLIC_BASE_URL" \
+    "$ACU_DOMESTIC_BASE_URL" \
     "$ACU_DIRECT_BASE_URL"; do
     [ -n "$candidate" ] || continue
     if validation_response=$(validate_messages "$candidate" "$ACU_TOKEN" 2>/dev/null) &&

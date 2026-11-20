@@ -30,30 +30,20 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import {
+  ACU_API_BASE_URL,
+  ACU_OVERSEAS_API_BASE_URL,
+} from '@/features/acu/lib/quick-start'
 import { useChatPresets } from '@/features/chat/hooks/use-chat-presets'
 import { resolveChatUrl, type ChatPreset } from '@/features/chat/lib/chat-links'
 import { sendToFluent } from '@/features/chat/lib/send-to-fluent'
 import { encodeChannelConnectionInfo } from '@/lib/channel-connection-info'
 import { copyToClipboard } from '@/lib/copy-to-clipboard'
-import { resolveApiBaseUrl, resolveServerAddress } from '@/lib/server-address'
 
 import { updateApiKeyStatus } from '../api'
 import { API_KEY_STATUS, ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
 import { apiKeySchema } from '../types'
 import { useApiKeys } from './api-keys-provider'
-
-function getServerAddress(): string {
-  try {
-    const raw = localStorage.getItem('status')
-    if (raw) {
-      const status = JSON.parse(raw)
-      return resolveServerAddress(status.server_address)
-    }
-  } catch {
-    /* empty */
-  }
-  return resolveServerAddress()
-}
 
 type DataTableRowActionsProps<TData> = {
   row: Row<TData>
@@ -98,6 +88,15 @@ export function DataTableRowActions<TData>({
     toast.info(t('API key is loading, please try again in a moment'))
     return null
   }, [apiKey.id, resolvedRealKey, resolveRealKey, t])
+
+  const copyConnection = async (baseUrl: string) => {
+    const realKey = getCachedRealKey()
+    if (!realKey) return
+    const ok = await copyToClipboard(
+      encodeChannelConnectionInfo(realKey, baseUrl)
+    )
+    if (ok) toast.success(t('Copied'))
+  }
 
   const handleOpenChatPreset = useCallback(
     async (preset: ChatPreset) => {
@@ -249,23 +248,24 @@ export function DataTableRowActions<TData>({
             <Copy size={16} />
           </DropdownMenuShortcut>
         </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={async () => {
-            const realKey = getCachedRealKey()
-            if (!realKey) return
-            const connStr = encodeChannelConnectionInfo(
-              realKey,
-              resolveApiBaseUrl(getServerAddress())
-            )
-            const ok = await copyToClipboard(connStr)
-            if (ok) toast.success(t('Copied'))
-          }}
-        >
-          {t('Copy Connection Info')}
-          <DropdownMenuShortcut>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
             <Link size={16} />
-          </DropdownMenuShortcut>
-        </DropdownMenuItem>
+            {t('Copy Connection Info')}
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <DropdownMenuItem
+              onClick={() => void copyConnection(ACU_API_BASE_URL)}
+            >
+              {t('Mainland China Base URL')}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => void copyConnection(ACU_OVERSEAS_API_BASE_URL)}
+            >
+              {t('Overseas Base URL')}
+            </DropdownMenuItem>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={async () => {

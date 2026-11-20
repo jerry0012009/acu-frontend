@@ -82,7 +82,7 @@ try {
   Invoke-CodexInstaller $CodexCleanHome $CodexCleanBin 'sk-codex-clean'
   $CodexCleanConfig = [System.IO.File]::ReadAllText((Join-Path $CodexCleanHome 'config.toml'))
   Assert-Contains $CodexCleanConfig 'model = "acu-auto"' 'Codex clean install changed the default model.'
-  Assert-Contains $CodexCleanConfig 'base_url = "https://api.acucompute.com/v1"' 'Codex clean install used the wrong Base URL.'
+  Assert-Contains $CodexCleanConfig 'base_url = "https://acu.best/v1"' 'Codex clean install used the wrong Base URL.'
   $CodexCleanCatalog = [System.IO.File]::ReadAllText((Join-Path $CodexCleanHome 'model-catalog.json'))
   foreach ($model in @('acu-auto', 'gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol')) {
     Assert-Contains $CodexCleanCatalog "`"slug`": `"$model`"" "Codex clean install is missing $model."
@@ -109,7 +109,7 @@ try {
   $ClaudeCleanHome = Join-Path $Root 'claude-clean-home'
   $ClaudeCleanBin = Join-Path $Root 'claude-clean-bin'
   Invoke-ClaudeInstaller $ClaudeCleanHome $ClaudeCleanBin 'sk-claude-clean'
-  Assert-Equal ([System.IO.File]::ReadAllText((Join-Path $ClaudeCleanHome 'base-url'))) 'https://api.acucompute.com' 'Claude clean install used the wrong Base URL.'
+  Assert-Equal ([System.IO.File]::ReadAllText((Join-Path $ClaudeCleanHome 'base-url'))) 'https://acu.best' 'Claude clean install used the wrong Base URL.'
   $ClaudeCleanSettings = [System.IO.File]::ReadAllText((Join-Path $ClaudeCleanHome 'config/acu-model-settings.json'))
   foreach ($model in @('acu-auto', 'claude-opus-4-8', 'claude-sonnet-5', 'claude-fable-5')) {
     Assert-Contains $ClaudeCleanSettings $model "Claude clean install is missing $model."

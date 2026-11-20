@@ -425,7 +425,7 @@ chmod 755 "$prefix/bin/claude"
   )
   assert.equal(
     readFileSync(join(acuHome, 'base-url'), 'utf8'),
-    'https://api.acucompute.com\n'
+    'https://acu.best\n'
   )
   assert.equal(
     readFileSync(join(acuHome, 'native-claude-path'), 'utf8'),
@@ -505,19 +505,19 @@ chmod 755 "$prefix/bin/claude"
   assert.match(
     claudeCalls,
     new RegExp(
-      `https://api\\.acucompute\\.com\\|--settings ${settingsPath} --model acu-auto -p test task`
+      `https://acu\\.best\\|--settings ${settingsPath} --model acu-auto -p test task`
     )
   )
   assert.match(
     claudeCalls,
     new RegExp(
-      `https://api\\.acucompute\\.com\\|--settings ${settingsPath} -p test task`
+      `https://acu\\.best\\|--settings ${settingsPath} -p test task`
     )
   )
   assert.match(
     claudeCalls,
     new RegExp(
-      `https://api\\.acucompute\\.com\\|--settings ${settingsPath} --model claude-opus-4-8 -p test task`
+      `https://acu\\.best\\|--settings ${settingsPath} --model claude-opus-4-8 -p test task`
     )
   )
   assert.doesNotMatch(claudeCalls, /sk-claude-test/)

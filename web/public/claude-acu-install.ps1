@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'Stop'
 
-$AcuPublicBaseUrl = 'https://api.acucompute.com'
+$AcuPublicBaseUrl = 'https://acu.best'
+$AcuDomesticBaseUrl = 'https://api.acucompute.com'
 $AcuDirectBaseUrl = 'https://acu-api-direct.jerrypsy.top'
 $AcuHome = if ($env:CLAUDE_ACU_HOME) { $env:CLAUDE_ACU_HOME } else { Join-Path $env:USERPROFILE '.claude-acu' }
 $AcuBin = if ($env:CLAUDE_ACU_BIN_DIR) { $env:CLAUDE_ACU_BIN_DIR } else { Join-Path $env:LOCALAPPDATA 'Programs\claude-acu' }
@@ -199,7 +200,7 @@ if ($env:CLAUDE_ACU_BASE_URL) {
 } elseif ($existingBaseUrl) {
   $baseUrl = $existingBaseUrl
 } else {
-  foreach ($candidate in @($AcuPublicBaseUrl, $AcuDirectBaseUrl)) {
+  foreach ($candidate in @($AcuPublicBaseUrl, $AcuDomesticBaseUrl, $AcuDirectBaseUrl)) {
     if (-not $LiveVerify -or (Test-MessagesEndpoint $candidate $Token)) {
       $baseUrl = $candidate
       break

@@ -10,13 +10,10 @@ import { getApiKeys, fetchTokenKey } from '@/features/keys/api'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
-import {
-  ACU_API_BASE_URL,
-  ACU_DEFAULT_MODEL,
-  normalizeApiKey,
-} from '../lib/quick-start'
+import { ACU_DEFAULT_MODEL, normalizeApiKey } from '../lib/quick-start'
 import { onboardingPending, isRuntimeLogin } from '../lib/runtime-onboarding'
 import { AcuQuickStart } from './acu-quick-start'
+import { ApiBaseUrls } from './api-base-urls'
 
 export function ConnectionGuide() {
   const userID = useAuthStore((state) => state.auth.user?.id)
@@ -230,16 +227,15 @@ function DirectCredentials(props: { onKey: (key: string) => void }) {
           {t('Sign in to view your API key')}
         </Link>
       )}
-      {[
-        [t('API address'), ACU_API_BASE_URL],
-        [t('Recommended model'), ACU_DEFAULT_MODEL],
-      ].map(([label, value]) => (
-        <div key={label} className='acu-credential-row'>
-          <span className='acu-credential-label'>{label}</span>
-          <code className='min-w-0 flex-1 text-xs break-all'>{value}</code>
-          <CopyButton value={value} aria-label={`${t('Copy')} ${label}`} />
-        </div>
-      ))}
+      <ApiBaseUrls />
+      <div className='acu-credential-row'>
+        <span className='acu-credential-label'>{t('Recommended model')}</span>
+        <code className='min-w-0 flex-1 text-xs'>{ACU_DEFAULT_MODEL}</code>
+        <CopyButton
+          value={ACU_DEFAULT_MODEL}
+          aria-label={t('Copy recommended model')}
+        />
+      </div>
       <p className='text-muted-foreground text-xs'>
         {t(
           'Choose an application below for its exact endpoint and configuration. No Runtime download is required.'
