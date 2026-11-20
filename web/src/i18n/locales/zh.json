@@ -1338,6 +1338,8 @@
     "Codex CLI Header Passthrough": "Codex CLI 请求头透传",
     "Codex credential must be a JSON object with access_token and account_id": "Codex 凭据必须是包含 access_token 和 account_id 的 JSON 对象",
     "Cohere": "Cohere",
+    "Close filters": "收起筛选",
+    "Search and filters": "搜索与筛选",
     "Collapse": "收起",
     "Collapse All": "全部收起",
     "Collect relay latency and success-rate metrics for the model square.": "收集 Relay 延迟和成功率指标，用于模型广场展示。",

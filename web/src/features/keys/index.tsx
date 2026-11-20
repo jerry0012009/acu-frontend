@@ -1,7 +1,6 @@
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
-import { ApiBaseUrls } from '@/features/acu/components/api-base-urls'
 
 import { ApiKeysDialogs } from './components/api-keys-dialogs'
 import { ApiKeysPrimaryButtons } from './components/api-keys-primary-buttons'
@@ -18,12 +17,7 @@ export function ApiKeys() {
           <ApiKeysPrimaryButtons />
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
-          <div className='flex h-full min-h-0 flex-col gap-2'>
-            <ApiBaseUrls compact className='shrink-0' />
-            <div className='min-h-0 flex-1'>
-              <ApiKeysTable />
-            </div>
-          </div>
+          <ApiKeysTable />
         </SectionPageLayout.Content>
       </SectionPageLayout>
 

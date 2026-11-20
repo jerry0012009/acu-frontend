@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ApiBaseUrls } from '@/features/acu/components/api-base-urls'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { formatQuota } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -288,15 +289,30 @@ export function ApiKeysTable() {
       skeletonKeyPrefix='api-keys-skeleton'
       applyHeaderSize
       toolbarProps={{
-        searchPlaceholder: t('Filter by name...'),
-        additionalSearch: (
-          <Input
-            placeholder={t('Filter by API key...')}
-            aria-label={t('Filter by API key...')}
-            value={tokenFilterInput}
-            onChange={(e) => setTokenFilterInput(e.target.value)}
-            className='w-full sm:w-50 lg:w-60'
-          />
+        customSearch: <ApiBaseUrls compact />,
+        hideViewOptions: true,
+        expandIconOnly: true,
+        filtersExpandable: true,
+        hasExpandedActiveFilters: Boolean(
+          globalFilter?.trim() || tokenFilter.trim() || columnFilters.length
+        ),
+        expandable: (
+          <>
+            <Input
+              placeholder={t('Filter by name...')}
+              aria-label={t('Filter by name...')}
+              value={globalFilter ?? ''}
+              onChange={(event) => onGlobalFilterChange?.(event.target.value)}
+              className='w-full sm:w-50 lg:w-60'
+            />
+            <Input
+              placeholder={t('Filter by API key...')}
+              aria-label={t('Filter by API key...')}
+              value={tokenFilterInput}
+              onChange={(e) => setTokenFilterInput(e.target.value)}
+              className='w-full sm:w-50 lg:w-60'
+            />
+          </>
         ),
         filters: [
           {

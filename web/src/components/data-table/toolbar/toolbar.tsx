@@ -1,5 +1,5 @@
 import type { Table } from '@tanstack/react-table'
-import { ChevronDown, Loader2, X as Cross2Icon } from 'lucide-react'
+import { ChevronDown, Loader2, Search, X as Cross2Icon } from 'lucide-react'
 import * as React from 'react'
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -75,6 +75,14 @@ export type DataTableToolbarProps<TData> = {
    * Inputs flow inline with the primary row when expanded.
    */
   expandable?: ReactNode
+  /**
+   * Render column filter chips in the expandable area instead of the main row.
+   */
+  filtersExpandable?: boolean
+  /**
+   * Use a compact search icon for the expandable toggle.
+   */
+  expandIconOnly?: boolean
   /**
    * When `expandable` is collapsed, highlights the toggle if any of
    * the expandable inputs currently hold a value.
@@ -298,26 +306,45 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
   ) : null
 
   const viewToggleNode = props.viewToggle ?? null
+  const expandToggleLabel = expanded
+    ? t('Close filters')
+    : t('Search and filters')
+  const expandToggleIcon = expanded ? (
+    <Cross2Icon className='size-4' />
+  ) : (
+    <Search className='size-4' />
+  )
 
   const expandToggle = hasExpandable ? (
     <Button
       variant='ghost'
+      size={props.expandIconOnly ? 'icon' : 'default'}
       onClick={() => setExpanded((p) => !p)}
       aria-expanded={expanded}
+      aria-label={props.expandIconOnly ? expandToggleLabel : undefined}
+      title={props.expandIconOnly ? expandToggleLabel : undefined}
       className={cn(
         'text-muted-foreground hover:text-foreground gap-1 px-2',
+        props.expandIconOnly &&
+          'size-8 px-0 aria-expanded:bg-muted aria-expanded:text-foreground',
         props.hasExpandedActiveFilters &&
           !expanded &&
           'text-primary hover:text-primary'
       )}
     >
-      {expanded ? t('Collapse') : t('Expand')}
-      <ChevronDown
-        className={cn(
-          'size-3.5 transition-transform duration-200',
-          expanded && 'rotate-180'
-        )}
-      />
+      {props.expandIconOnly ? (
+        expandToggleIcon
+      ) : (
+        <>
+          {expanded ? t('Collapse') : t('Expand')}
+          <ChevronDown
+            className={cn(
+              'size-3.5 transition-transform duration-200',
+              expanded && 'rotate-180'
+            )}
+          />
+        </>
+      )}
     </Button>
   ) : null
 
@@ -329,7 +356,7 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
         <div className='flex flex-wrap items-center gap-2 sm:gap-3'>
           {props.customSearch !== undefined ? props.customSearch : searchInput}
           {props.additionalSearch}
-          {filterChips}
+          {!props.filtersExpandable && filterChips}
           <div className='ms-auto flex shrink-0 items-center gap-1.5 sm:gap-2'>
             {expandToggle}
           </div>
@@ -338,6 +365,7 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
         {expanded && hasExpandable && (
           <div className='flex flex-wrap items-center gap-2 sm:gap-3'>
             {props.expandable}
+            {props.filtersExpandable && filterChips}
           </div>
         )}
 
@@ -364,8 +392,13 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
     >
       {props.customSearch !== undefined ? props.customSearch : searchInput}
       {props.additionalSearch}
-      {filterChips}
-      {expanded && hasExpandable && props.expandable}
+      {!props.filtersExpandable && filterChips}
+      {expanded && hasExpandable && (
+        <>
+          {props.expandable}
+          {props.filtersExpandable && filterChips}
+        </>
+      )}
 
       <div className='ms-auto flex shrink-0 items-center gap-1.5 sm:gap-2'>
         {props.preActions}

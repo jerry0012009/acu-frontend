@@ -1281,6 +1281,8 @@
     "Codex CLI Header Passthrough": "Codex CLI Header Passthrough",
     "Codex credential must be a JSON object with access_token and account_id": "Codex credential must be a JSON object with access_token and account_id",
     "Cohere": "Cohere",
+    "Close filters": "Close filters",
+    "Search and filters": "Search and filters",
     "Collapse": "Collapse",
     "Collapse All": "Collapse All",
     "Collect relay latency and success-rate metrics for the model square.": "Collect relay latency and success-rate metrics for the model square.",
