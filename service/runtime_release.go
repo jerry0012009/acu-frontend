@@ -14,7 +14,7 @@ import (
 )
 
 const RuntimeLatestReleaseURL = "https://github.com/jerry0012009/acu-runtime/releases/latest"
-const RuntimeDownloadProxy = "https://gh-proxy.com/"
+const RuntimeDownloadProxy = "https://cdn.gh-proxy.com/"
 
 type RuntimeRelease struct {
 	Version   string            `json:"version"`
