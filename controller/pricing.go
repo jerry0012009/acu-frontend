@@ -47,14 +47,7 @@ func GetPricing(c *gin.Context) {
 	}
 	if acuCatalog != nil {
 		pricing = overlayACUPricing(acuCatalog, pricing)
-		// Only suppress public display; other consumers still use the full catalog.
-		acuCatalog.CurveModelStatuses = slices.DeleteFunc(acuCatalog.CurveModelStatuses, func(item acuCurveModelStatus) bool {
-			return item.ModelID == hiddenPublicPricingModel
-		})
 	}
-	pricing = slices.DeleteFunc(slices.Clone(pricing), func(item model.Pricing) bool {
-		return item.ModelName == hiddenPublicPricingModel
-	})
 	userId, exists := c.Get("id")
 	usableGroup := map[string]string{}
 	groupRatio := map[string]float64{}
@@ -77,6 +70,34 @@ func GetPricing(c *gin.Context) {
 
 	usableGroup = service.GetUserUsableGroups(group)
 	pricing = filterPricingByUsableGroups(pricing, usableGroup)
+	groups := make([]string, 0, len(usableGroup))
+	for group := range usableGroup {
+		groups = append(groups, group)
+	}
+	enabledModels := service.GetGroupsEnabledModels(groups)
+	globalScope, scopeErr := service.GetACUGlobalRoutingScope()
+	published := map[string]bool{}
+	if acuCatalog != nil {
+		published[acuCatalog.Auto.ModelID] = true
+		for _, row := range acuCatalog.Responses {
+			published[row.ModelID] = true
+		}
+	}
+	pricing = slices.DeleteFunc(slices.Clone(pricing), func(item model.Pricing) bool {
+		id := item.ModelName
+		return id == hiddenPublicPricingModel || (scopeErr == nil && globalScope.ModelAccess[id] == service.ACUModelAccessDisabled) ||
+			// Channel-priced media rows can outlive their ability in the pricing cache.
+			(!published[id] && !slices.Contains(enabledModels, id))
+	})
+	if acuCatalog != nil {
+		listed := make(map[string]bool, len(pricing))
+		for _, item := range pricing {
+			listed[item.ModelName] = true
+		}
+		acuCatalog.CurveModelStatuses = slices.DeleteFunc(acuCatalog.CurveModelStatuses, func(item acuCurveModelStatus) bool {
+			return !listed[item.ModelID]
+		})
+	}
 	if c.Query("view") == "runtime" {
 		// The desktop table does not need quality curves or per-protocol duplicates.
 		type runtimePrice struct {

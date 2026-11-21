@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -216,17 +217,6 @@ func getModelListGroups(c *gin.Context) (modelListGroups, error) {
 	}, nil
 }
 
-func hasPublicACURouterChatModel(ownerGroups []string, modelName string) bool {
-	for _, group := range ownerGroups {
-		if model.HasEnabledChannelTagForGroupModel(
-			group, modelName, "/v1/chat/completions", constant.ChannelTagACURouter,
-		) {
-			return true
-		}
-	}
-	return false
-}
-
 func hasPublicACURouterModel(ownerGroups []string, modelName string) bool {
 	for _, group := range ownerGroups {
 		for _, requestPath := range []string{
@@ -251,7 +241,7 @@ func filterPublicACUModelsByProfileVisibility(
 	ctx context.Context,
 	modelNames []string,
 	ownerGroups []string,
-) []string {
+) ([]string, map[string]map[string]bool) {
 	hasPublicACUModel := false
 	for _, modelName := range modelNames {
 		if hasPublicACURouterModel(ownerGroups, modelName) {
@@ -260,11 +250,12 @@ func filterPublicACUModelsByProfileVisibility(
 		}
 	}
 	if !hasPublicACUModel {
-		return modelNames
+		return modelNames, nil
 	}
 
 	profilePayload, err := service.GetACUExecutionProfiles(ctx)
 	visibleModels := make(map[string]struct{})
+	protocolsByModel := make(map[string]map[string]bool)
 	if err != nil {
 		common.SysError("failed to load ACU execution profiles for model discovery: " + err.Error())
 	} else if profiles, ok := profilePayload["profiles"].([]interface{}); ok {
@@ -284,6 +275,19 @@ func filterPublicACUModelsByProfileVisibility(
 			}
 			modelID, _ := profile["modelId"].(string)
 			if modelID != "" {
+				if protocols, current := profile["executableProtocols"].([]interface{}); current {
+					if len(protocols) == 0 {
+						continue
+					}
+					if protocolsByModel[modelID] == nil {
+						protocolsByModel[modelID] = make(map[string]bool)
+					}
+					for _, protocol := range protocols {
+						if name, ok := protocol.(string); ok {
+							protocolsByModel[modelID][name] = true
+						}
+					}
+				}
 				visibleModels[modelID] = struct{}{}
 			}
 		}
@@ -304,10 +308,10 @@ func filterPublicACUModelsByProfileVisibility(
 		}
 		filtered = append(filtered, modelName)
 	}
-	return filtered
+	return filtered, protocolsByModel
 }
 
-func ListModels(c *gin.Context, modelType int) {
+func discoverableModels(c *gin.Context, ownerGroups []string, candidates []string) ([]string, map[string]map[string]bool) {
 	acceptUnsetRatioModel := operation_setting.SelfUseModeEnabled
 	if !acceptUnsetRatioModel {
 		userId := c.GetInt("id")
@@ -319,58 +323,70 @@ func ListModels(c *gin.Context, modelType int) {
 		}
 	}
 
-	userModelNames := make([]string, 0)
+	userModelNames := make([]string, 0, len(candidates))
+	modelLimitEnable := common.GetContextKeyBool(c, constant.ContextKeyTokenModelLimitEnabled)
+	s, _ := common.GetContextKey(c, constant.ContextKeyTokenModelLimit)
+	tokenModelLimit, _ := s.(map[string]bool)
+	for _, modelName := range candidates {
+		if _, allowed := tokenModelLimit[modelName]; modelLimitEnable && !allowed {
+			continue
+		}
+		if hasPublicACURouterModel(ownerGroups, modelName) {
+			if !service.IsACUGlobalModelExposed(modelName) {
+				continue
+			}
+		} else if !acceptUnsetRatioModel && !helper.HasModelBillingConfig(modelName) {
+			continue
+		}
+		userModelNames = append(userModelNames, modelName)
+	}
+	return filterPublicACUModelsByProfileVisibility(c.Request.Context(), userModelNames, ownerGroups)
+}
+
+func discoveryModelEntry(modelName string, ownerByModel map[string]string, ownerGroups []string, protocols map[string]bool) dto.OpenAIModels {
+	entry := buildOpenAIModel(modelName, ownerByModel)
+	if !hasPublicACURouterModel(ownerGroups, modelName) {
+		return entry
+	}
+	if protocols != nil {
+		entry.SupportedEndpointTypes = nil
+	}
+	for _, endpoint := range []struct {
+		protocol string
+		kind     constant.EndpointType
+		paths    []string
+	}{
+		{"chat_completions", constant.EndpointTypeOpenAI, []string{"/v1/chat/completions"}},
+		{"responses", constant.EndpointTypeOpenAIResponse, []string{"/v1/responses"}},
+		{"messages", constant.EndpointTypeAnthropic, []string{"/v1/messages"}},
+		{"gemini", constant.EndpointTypeGemini, []string{"/v1beta/models/" + modelName + ":generateContent", "/v1beta/models/" + modelName + ":streamGenerateContent"}},
+		{"systemone", constant.EndpointTypeSystemOne, []string{"/v1/systemone"}},
+	} {
+		if protocols != nil && !protocols[endpoint.protocol] {
+			continue
+		}
+		for _, path := range endpoint.paths {
+			if slices.ContainsFunc(ownerGroups, func(group string) bool {
+				return model.HasEnabledChannelTagForGroupModel(group, modelName, path, constant.ChannelTagACURouter)
+			}) {
+				entry.SupportedEndpoints = append(entry.SupportedEndpoints, path)
+				if protocols != nil && !slices.Contains(entry.SupportedEndpointTypes, endpoint.kind) {
+					entry.SupportedEndpointTypes = append(entry.SupportedEndpointTypes, endpoint.kind)
+				}
+			}
+		}
+	}
+	return entry
+}
+
+func ListModels(c *gin.Context, modelType int) {
 	groups, err := getModelListGroups(c)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": "get user group failed",
-		})
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "get user group failed"})
 		return
 	}
 	ownerGroups := groups.ownerGroups
-	modelLimitEnable := common.GetContextKeyBool(c, constant.ContextKeyTokenModelLimitEnabled)
-	if modelLimitEnable {
-		s, ok := common.GetContextKey(c, constant.ContextKeyTokenModelLimit)
-		var tokenModelLimit map[string]bool
-		if ok {
-			tokenModelLimit = s.(map[string]bool)
-		} else {
-			tokenModelLimit = map[string]bool{}
-		}
-		for allowModel, _ := range tokenModelLimit {
-			if hasPublicACURouterModel(ownerGroups, allowModel) &&
-				!service.IsACUGlobalModelExposed(allowModel) {
-				continue
-			}
-			if !acceptUnsetRatioModel && !hasPublicACURouterModel(ownerGroups, allowModel) {
-				if !helper.HasModelBillingConfig(allowModel) && !hasPublicACURouterChatModel(ownerGroups, allowModel) {
-					continue
-				}
-			}
-			userModelNames = append(userModelNames, allowModel)
-		}
-	} else {
-		models := service.GetGroupsEnabledModels(ownerGroups)
-		for _, modelName := range models {
-			if hasPublicACURouterModel(ownerGroups, modelName) &&
-				!service.IsACUGlobalModelExposed(modelName) {
-				continue
-			}
-			if !acceptUnsetRatioModel && !hasPublicACURouterModel(ownerGroups, modelName) {
-				if !helper.HasModelBillingConfig(modelName) && !hasPublicACURouterChatModel(ownerGroups, modelName) {
-					continue
-				}
-			}
-			userModelNames = append(userModelNames, modelName)
-		}
-	}
-
-	userModelNames = filterPublicACUModelsByProfileVisibility(
-		c.Request.Context(),
-		userModelNames,
-		ownerGroups,
-	)
+	userModelNames, protocolsByModel := discoverableModels(c, ownerGroups, service.GetGroupsEnabledModels(ownerGroups))
 
 	ownerByModel := map[string]string{}
 	if len(ownerGroups) > 0 {
@@ -378,22 +394,7 @@ func ListModels(c *gin.Context, modelType int) {
 	}
 	userOpenAiModels := make([]dto.OpenAIModels, 0, len(userModelNames))
 	for _, modelName := range userModelNames {
-		entry := buildOpenAIModel(modelName, ownerByModel)
-		if hasPublicACURouterModel(ownerGroups, modelName) {
-			for _, path := range []string{
-				"/v1/chat/completions", "/v1/responses", "/v1/messages",
-				"/v1beta/models/" + modelName + ":generateContent",
-				"/v1beta/models/" + modelName + ":streamGenerateContent",
-			} {
-				for _, group := range ownerGroups {
-					if model.HasEnabledChannelTagForGroupModel(group, modelName, path, constant.ChannelTagACURouter) {
-						entry.SupportedEndpoints = append(entry.SupportedEndpoints, path)
-						break
-					}
-				}
-			}
-		}
-		userOpenAiModels = append(userOpenAiModels, entry)
+		userOpenAiModels = append(userOpenAiModels, discoveryModelEntry(modelName, ownerByModel, ownerGroups, protocolsByModel[modelName]))
 	}
 
 	switch modelType {
@@ -461,7 +462,14 @@ func EnabledListModels(c *gin.Context) {
 
 func RetrieveModel(c *gin.Context, modelType int) {
 	modelId := c.Param("model")
-	if aiModel, ok := openAIModelsMap[modelId]; ok {
+	groups, err := getModelListGroups(c)
+	var names []string
+	var protocols map[string]map[string]bool
+	if err == nil && slices.Contains(service.GetGroupsEnabledModels(groups.ownerGroups), modelId) {
+		names, protocols = discoverableModels(c, groups.ownerGroups, []string{modelId})
+	}
+	if len(names) != 0 {
+		aiModel := discoveryModelEntry(modelId, getPreferredModelOwners(names, groups.ownerGroups), groups.ownerGroups, protocols[modelId])
 		switch modelType {
 		case constant.ChannelTypeAnthropic:
 			c.JSON(200, dto.AnthropicModel{

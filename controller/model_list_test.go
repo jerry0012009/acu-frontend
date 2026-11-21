@@ -564,7 +564,7 @@ func TestListModelsUsesProfileVisibilityAcrossProtocolsAndHonorsDisabledProfiles
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"profiles":[
 {"modelId":"claude-opus-5-5","protocols":["messages"],"routingEnabled":true},
-{"modelId":"gpt-6-astra","protocols":["responses"],"routingEnabled":true},
+{"modelId":"gpt-6-astra","protocols":["responses"],"executableProtocols":["responses"],"routingEnabled":true},
 {"modelId":"disabled-routing-acu","protocols":["chat_completions"],"routingEnabled":false,"enabled":true},
 {"modelId":"disabled-admin-acu","protocols":["chat_completions"],"enabled":true,"administratorAllowed":false},
 			{"modelId":"zz-response-only-acu-model","protocols":["responses"],"enabled":true},
@@ -593,6 +593,14 @@ func TestListModelsUsesProfileVisibilityAcrossProtocolsAndHonorsDisabledProfiles
 	ids := decodeListModelsResponse(t, recorder)
 	require.Contains(t, ids, "claude-opus-5-5")
 	require.Contains(t, ids, "gpt-6-astra")
+	var entries listModelsResponse
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &entries))
+	for _, entry := range entries.Data {
+		if entry.Id == "gpt-6-astra" {
+			assert.Equal(t, []string{"/v1/responses"}, entry.SupportedEndpoints)
+			assert.Equal(t, []constant.EndpointType{constant.EndpointTypeOpenAIResponse}, entry.SupportedEndpointTypes)
+		}
+	}
 	require.NotContains(t, ids, "disabled-routing-acu")
 	require.NotContains(t, ids, "disabled-admin-acu")
 	require.Contains(t, ids, "zz-response-only-acu-model")
@@ -659,17 +667,31 @@ func TestListModelsKeepsACUAutoWithoutProfileOrBillingConfig(t *testing.T) {
 	require.Contains(t, decodeListModelsResponse(t, recorder), "acu-auto")
 }
 
-func TestListModelsTokenLimitIncludesTieredBillingModel(t *testing.T) {
+func TestListModelsTokenLimitRequiresEnabledSupplyEvenWithTieredPricing(t *testing.T) {
 	withSelfUseModeDisabled(t)
 	withTieredBillingConfig(t, map[string]string{
 		"zz-token-tiered-visible-model":      "tiered_expr",
 		"zz-token-tiered-empty-expr-model":   "tiered_expr",
 		"zz-token-tiered-missing-expr-model": "tiered_expr",
+		"zz-token-tiered-retired-model":      "tiered_expr",
+		"zz-token-tiered-not-allowed-model":  "tiered_expr",
+		"zz-token-tiered-other-group-model":  "tiered_expr",
 	}, map[string]string{
-		"zz-token-tiered-visible-model":    `tier("base", p * 1 + c * 2)`,
-		"zz-token-tiered-empty-expr-model": "",
+		"zz-token-tiered-visible-model":     `tier("base", p * 1 + c * 2)`,
+		"zz-token-tiered-empty-expr-model":  "",
+		"zz-token-tiered-retired-model":     `tier("base", p * 1 + c * 2)`,
+		"zz-token-tiered-not-allowed-model": `tier("base", p * 1 + c * 2)`,
+		"zz-token-tiered-other-group-model": `tier("base", p * 1 + c * 2)`,
 	})
-	setupModelListControllerTestDB(t)
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&[]model.Ability{
+		{Group: "default", Model: "zz-token-tiered-visible-model", ChannelId: 1, Enabled: true},
+		{Group: "default", Model: "zz-token-tiered-empty-expr-model", ChannelId: 1, Enabled: true},
+		{Group: "default", Model: "zz-token-tiered-missing-expr-model", ChannelId: 1, Enabled: true},
+		{Group: "default", Model: "zz-token-unpriced-model", ChannelId: 1, Enabled: true},
+		{Group: "default", Model: "zz-token-tiered-not-allowed-model", ChannelId: 1, Enabled: true},
+		{Group: "private", Model: "zz-token-tiered-other-group-model", ChannelId: 1, Enabled: true},
+	}).Error)
 
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
@@ -681,15 +703,38 @@ func TestListModelsTokenLimitIncludesTieredBillingModel(t *testing.T) {
 		"zz-token-tiered-empty-expr-model":   true,
 		"zz-token-tiered-missing-expr-model": true,
 		"zz-token-unpriced-model":            true,
+		"zz-token-tiered-retired-model":      true,
+		"zz-token-tiered-other-group-model":  true,
 	})
 
 	ListModels(ctx, constant.ChannelTypeOpenAI)
 
 	ids := decodeListModelsResponse(t, recorder)
-	require.Contains(t, ids, "zz-token-tiered-visible-model")
-	require.NotContains(t, ids, "zz-token-tiered-empty-expr-model")
-	require.NotContains(t, ids, "zz-token-tiered-missing-expr-model")
-	require.NotContains(t, ids, "zz-token-unpriced-model")
+	require.Equal(t, map[string]struct{}{"zz-token-tiered-visible-model": {}}, ids)
+	for _, tc := range []struct {
+		name string
+		want bool
+	}{
+		{"zz-token-tiered-visible-model", true},
+		{"zz-token-tiered-retired-model", false},
+		{"zz-token-tiered-not-allowed-model", false},
+	} {
+		recorder.Body.Reset()
+		ctx.Params = gin.Params{{Key: "model", Value: tc.name}}
+		RetrieveModel(ctx, constant.ChannelTypeOpenAI)
+		var result struct {
+			ID    string `json:"id"`
+			Error struct {
+				Code string `json:"code"`
+			} `json:"error"`
+		}
+		require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &result))
+		if tc.want {
+			assert.Equal(t, tc.name, result.ID)
+		} else {
+			assert.Equal(t, "model_not_found", result.Error.Code)
+		}
+	}
 }
 
 func TestCheckUpdatePasswordRequiresCurrentPassword(t *testing.T) {

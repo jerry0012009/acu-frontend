@@ -140,7 +140,7 @@ func loadACUPricingCatalog(ctx context.Context) (*acuPricingCatalog, error) {
 	if err := common.DecodeJson(response.Body, &catalog); err != nil {
 		return nil, err
 	}
-	if catalog.SchemaVersion != "acu-pricing-static-v1" || catalog.PricingVersion == "" || len(catalog.Responses) == 0 {
+	if catalog.SchemaVersion != "acu-pricing-static-v1" || catalog.PricingVersion == "" || catalog.Responses == nil {
 		return nil, errors.New("invalid published ACU price catalog")
 	}
 	if err := applyACUPricingDisplayMode(&catalog); err != nil {

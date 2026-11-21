@@ -7,10 +7,50 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
+
+func TestPricingViewsHideRetiredRowsAndStaleMediaAbilities(t *testing.T) {
+	db := setupModelListControllerTestDB(t)
+	model.InvalidatePricingCache()
+	t.Cleanup(model.InvalidatePricingCache)
+	previousOptions := common.OptionMap
+	t.Cleanup(func() { common.OptionMap = previousOptions })
+	common.OptionMap = map[string]string{
+		"ACUGlobalRoutingPolicy": `{"modelPolicy":"all_routing_eligible","modelAccess":{"disabled-fixture":"disabled"}}`,
+	}
+	require.NoError(t, db.Create(&model.Channel{Id: 41, Type: constant.ChannelTypeOpenAI,
+		Name: "media", Status: common.ChannelStatusEnabled, Group: "default", Models: "gpt-image-1,gpt-image-2"}).Error)
+	require.NoError(t, db.Create(&[]model.Ability{
+		{Group: "default", Model: "gpt-image-1", ChannelId: 41, Enabled: true},
+		{Group: "default", Model: "gpt-image-2", ChannelId: 41, Enabled: true},
+	}).Error)
+	require.NotEmpty(t, model.GetPricing())
+	// Simulate a worker that still has the old price row in memory.
+	require.NoError(t, db.Where("model = ?", "gpt-image-1").Delete(&model.Ability{}).Error)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"schemaVersion":"acu-pricing-static-v1","pricingVersion":"v1",
+			"auto":{"modelId":"acu-auto"},"responses":[{"modelId":"active-fixture"},{"modelId":"disabled-fixture"}],
+			"curveModelStatuses":[{"modelId":"disabled-fixture","statuses":["published_price"]}]}`)
+	}))
+	t.Cleanup(upstream.Close)
+	t.Setenv("ACU_ROUTER_INTERNAL_URL", upstream.URL)
+	t.Setenv("ACU_ADMIN_TRACE_TOKEN", "test-token")
+	for _, path := range []string{"/api/pricing", "/api/pricing?view=runtime"} {
+		response := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(response)
+		c.Request = httptest.NewRequest(http.MethodGet, path, nil)
+		GetPricing(c)
+		require.Equal(t, http.StatusOK, response.Code)
+		require.Contains(t, response.Body.String(), "active-fixture")
+		require.Contains(t, response.Body.String(), "gpt-image-2")
+		require.NotContains(t, response.Body.String(), "disabled-fixture")
+		require.NotContains(t, response.Body.String(), "gpt-image-1")
+	}
+}
 
 func TestPublicPricingOmitsCarbonWithoutRemovingInternalCatalog(t *testing.T) {
 	setupModelListControllerTestDB(t)
