@@ -510,9 +510,7 @@ chmod 755 "$prefix/bin/claude"
   )
   assert.match(
     claudeCalls,
-    new RegExp(
-      `https://acu\\.best\\|--settings ${settingsPath} -p test task`
-    )
+    new RegExp(`https://acu\\.best\\|--settings ${settingsPath} -p test task`)
   )
   assert.match(
     claudeCalls,

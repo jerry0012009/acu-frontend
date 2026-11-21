@@ -66,10 +66,11 @@ try {
     await page.route('**/api/**', async (route) => {
       const path = new URL(route.request().url()).pathname
       let data = {}
-      if (path === '/api/pricing')
-        {return route.fulfill({ json: { ...catalog, data: [model] } })}
-      if (path.includes('acu-selection-corridor'))
-        {return route.fulfill({
+      if (path === '/api/pricing') {
+        return route.fulfill({ json: { ...catalog, data: [model] } })
+      }
+      if (path.includes('acu-selection-corridor')) {
+        return route.fulfill({
           json: {
             success: true,
             data: {
@@ -79,7 +80,8 @@ try {
               executionPresetSeries: [],
             },
           },
-        })}
+        })
+      }
       if (path === '/api/user/auth/refresh') {
         const now = Math.floor(Date.now() / 1000)
         data = {
@@ -98,18 +100,18 @@ try {
             expires_at: now + 3600,
           },
         }
-      } else if (path === '/api/status')
-        {data = {
+      } else if (path === '/api/status') {
+        data = {
           setup: true,
           system_name: 'ACU',
           quota_per_unit: 500000,
           usd_exchange_rate: 6.74,
           quota_display_type: 'CNY',
-        }}
-      else if (path === '/api/setup') data = { status: true }
+        }
+      } else if (path === '/api/setup') data = { status: true }
       else if (path === '/api/notice') data = ''
-      else if (path === '/api/log/acu-channel-monitor')
-        {data = {
+      else if (path === '/api/log/acu-channel-monitor') {
+        data = {
           profiles: [profile],
           history: [],
           probeHistory: [],
@@ -117,16 +119,17 @@ try {
           supplyInventory: [],
           modelPool: [],
           generatedAt: new Date().toISOString(),
-        }}
-      else if (path === '/api/token/') data = { items: [], total: 0 }
-      else if (path.includes('acu-routing-policy'))
-        {data = {
+        }
+      } else if (path === '/api/token/') data = { items: [], total: 0 }
+      else if (path.includes('acu-routing-policy')) {
+        data = {
           modelPolicy: 'all_routing_eligible',
           modelAccess: {},
           allowedModelIds: [],
-        }}
-      else if (path.includes('execution-profiles'))
-        {data = { profiles: [], providerEconomics: [] }}
+        }
+      } else if (path.includes('execution-profiles')) {
+        data = { profiles: [], providerEconomics: [] }
+      }
       await route.fulfill({ json: { success: true, message: '', data } })
     })
     await page.goto(`${base}/pricing?search=gpt-6-astra-fast`)

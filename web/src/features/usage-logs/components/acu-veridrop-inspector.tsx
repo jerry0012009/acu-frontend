@@ -128,10 +128,7 @@ export function ACUVeridropInspector(props: {
                         : t('Unknown time')}
                     </span>
                     <span className='shrink-0 font-medium'>
-                      {item.ownerLabel === 'me'
-                        ? t('Me')
-                        : t('Other user')}{' '}
-                      ·{' '}
+                      {item.ownerLabel === 'me' ? t('Me') : t('Other user')} ·{' '}
                       {item.verdict ?? t('Unknown')} · {item.score ?? t('n/a')}{' '}
                       · {t('Task duration')}: {formatDuration(item.durationMs)}
                     </span>
