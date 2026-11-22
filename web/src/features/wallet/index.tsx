@@ -128,6 +128,14 @@ export function Wallet(props: WalletProps) {
       setTopupAmount(minTopup)
 
       // Calculate initial payment amount with default payment type
+      if (
+        !topupInfo.enable_online_topup &&
+        !topupInfo.enable_stripe_topup &&
+        !topupInfo.enable_waffo_topup &&
+        !topupInfo.enable_waffo_pancake_topup
+      ) {
+        return
+      }
       const defaultPaymentType = getDefaultPaymentType(topupInfo)
       calculatePaymentAmount(minTopup, defaultPaymentType)
     }

@@ -118,7 +118,8 @@ export function RechargeFormCard({
     topupInfo?.enable_stripe_topup ||
     enableWaffoTopup ||
     enableWaffoPancakeTopup
-  const hasAnyTopup = hasConfigurableTopup || enableCreemTopup
+  const showCreem =
+    enableCreemTopup && !!creemProducts?.length && !!onCreemProductSelect
   const hasStandardPaymentMethods =
     Array.isArray(topupInfo?.pay_methods) && topupInfo.pay_methods.length > 0
   const hasWaffoPaymentMethods =
@@ -135,37 +136,11 @@ export function RechargeFormCard({
         </CardHeader>
         <CardContent className='space-y-4 p-3 sm:space-y-6 sm:p-5'>
           <div className='space-y-4 sm:space-y-6'>
-            {/* Preset Amounts Skeleton */}
-            <div className='space-y-3'>
-              <Skeleton className='h-3 w-16' />
-              <div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
-                {Array.from({ length: 8 }, (_, index) => `preset-${index}`).map(
-                  (key) => (
-                    <Skeleton key={key} className='h-[72px] rounded-lg' />
-                  )
-                )}
-              </div>
-            </div>
-
-            {/* Custom Amount Input Skeleton */}
-            <div className='space-y-3'>
-              <Skeleton className='h-3 w-28' />
-              <Skeleton className='h-[42px] w-full' />
-            </div>
-
-            {/* Payment Methods Skeleton */}
-            <div className='space-y-3'>
-              <Skeleton className='h-3 w-32' />
-              <div className='flex flex-wrap gap-3'>
-                {['primary', 'secondary', 'tertiary'].map((key) => (
-                  <Skeleton key={key} className='h-10 w-24 rounded-lg' />
-                ))}
-              </div>
-            </div>
+            <Skeleton className='h-16 w-full' />
           </div>
 
           {/* Redemption Code Section Skeleton */}
-          <div className='space-y-3 border-t pt-8'>
+          <div className='space-y-3'>
             <Skeleton className='h-3 w-24' />
             <div className='flex gap-2'>
               <Skeleton className='h-10 flex-1' />
@@ -179,8 +154,16 @@ export function RechargeFormCard({
 
   return (
     <TitledCard
-      title={t('Add Funds')}
-      description={t('Choose an amount and payment method')}
+      title={
+        hasConfigurableTopup || showCreem
+          ? t('Add Funds')
+          : t('Redemption Code Top-up')
+      }
+      description={
+        hasConfigurableTopup
+          ? t('Choose an amount and payment method')
+          : undefined
+      }
       icon={<WalletCards className='h-4 w-4' />}
       iconTone='success'
       disableHoverEffect
@@ -200,7 +183,7 @@ export function RechargeFormCard({
       contentClassName='space-y-4 sm:space-y-6'
     >
       {/* Online Topup Section */}
-      {hasAnyTopup ? (
+      {hasConfigurableTopup ? (
         <div className='space-y-4 sm:space-y-6'>
           {hasConfigurableTopup && (
             <>
@@ -460,66 +443,72 @@ export function RechargeFormCard({
             </>
           )}
         </div>
-      ) : (
-        <Alert>
-          <AlertDescription>
-            {t(
-              'Online topup is not enabled. Please use redemption code or contact administrator.'
-            )}
-          </AlertDescription>
-        </Alert>
-      )}
+      ) : null}
 
       {/* Creem Products Section */}
-      {enableCreemTopup &&
-        Array.isArray(creemProducts) &&
-        creemProducts.length > 0 &&
-        onCreemProductSelect && (
-          <div className='space-y-2.5 border-t pt-4 sm:space-y-3 sm:pt-6'>
-            <Label className='text-muted-foreground text-xs font-medium tracking-wider uppercase'>
-              {t('Creem Payment')}
-            </Label>
-            <CreemProductsSection
-              products={creemProducts}
-              onProductSelect={onCreemProductSelect}
-            />
-          </div>
-        )}
+      {showCreem && creemProducts && onCreemProductSelect && (
+        <div className='space-y-2.5 border-t pt-4 sm:space-y-3 sm:pt-6'>
+          <Label className='text-muted-foreground text-xs font-medium tracking-wider uppercase'>
+            {t('Creem Payment')}
+          </Label>
+          <CreemProductsSection
+            products={creemProducts}
+            onProductSelect={onCreemProductSelect}
+          />
+        </div>
+      )}
 
       {/* Redemption Code Section */}
       {redemptionEnabled ? (
-        <div className='space-y-2.5 border-t pt-4 sm:space-y-3 sm:pt-6'>
-          <div className='flex items-center gap-2'>
-            <IconBadge tone='warning' size='xs'>
-              <Gift />
-            </IconBadge>
-            <Label
-              htmlFor='redemption-code'
-              className='text-muted-foreground text-xs font-medium tracking-wider uppercase'
-            >
-              {t('Have a Code?')}
-            </Label>
-          </div>
-          <div className='grid grid-cols-[minmax(0,1fr)_auto] gap-2'>
-            <Input
-              id='redemption-code'
-              value={redemptionCode}
-              onChange={(e) => onRedemptionCodeChange(e.target.value)}
-              placeholder={t('Enter your redemption code')}
-              className='h-9 min-w-0'
-            />
-            <Button
-              onClick={onRedeem}
-              disabled={redeeming}
-              variant='outline'
-              className='h-9 px-4'
-            >
-              {redeeming && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
-              {t('Redeem')}
-            </Button>
-          </div>
+        <section className='space-y-4'>
           {topupLink && <RedemptionStoreCallout purchaseUrl={topupLink} />}
-        </div>
+          <form
+            className='space-y-3'
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (redemptionCode.trim() && !redeeming) onRedeem()
+            }}
+          >
+            <div className='flex items-center gap-2'>
+              <IconBadge tone='warning' size='xs'>
+                <Gift />
+              </IconBadge>
+              <Label
+                htmlFor='redemption-code'
+                className='text-sm font-semibold'
+              >
+                {t('Enter your redemption code')}
+              </Label>
+            </div>
+            <div className='grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]'>
+              <Input
+                id='redemption-code'
+                value={redemptionCode}
+                onChange={(e) => onRedemptionCodeChange(e.target.value)}
+                placeholder={t('Paste redemption code')}
+                autoComplete='off'
+                autoCapitalize='off'
+                spellCheck={false}
+                maxLength={128}
+                disabled={redeeming}
+                className='h-10 min-w-0'
+              />
+              <Button
+                type='submit'
+                disabled={redeeming || !redemptionCode.trim()}
+                className='h-10 px-4'
+              >
+                {redeeming && (
+                  <Loader2
+                    aria-hidden='true'
+                    className='h-4 w-4 animate-spin'
+                  />
+                )}
+                {redeeming ? t('Redeeming…') : t('Redeem')}
+              </Button>
+            </div>
+          </form>
+        </section>
       ) : (
         <Alert className='border-t'>
           <AlertDescription>
